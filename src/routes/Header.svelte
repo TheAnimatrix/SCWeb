@@ -1,21 +1,43 @@
 <script>
 	import { page } from '$app/stores';
 	import logo from '$lib/images/ScLogo_Text.svg';
+	import './stylesheets/nav.css';
 	import github from '$lib/images/github.svg';
 </script>
 
-<header>
-	<div class="sc_logo_corner">
-		<a href="#home">
-			<img src={logo} alt="SelfCrafted" />
-		</a>
-	</div>
+<section id="sidebar">
+	
 
-	<ul>
-		<li>Crafts</li>
-		<li>About</li>
-		<li>Publish your craft</li>
-	</ul>
+	<table id="main_nav_table">
+		<tr class="main_nav_row">
+			<img id="main_logo" src={logo} alt="SelfCrafted" />
+		</tr>
+		<tr class="main_nav_row">
+			<table id="nav_table">
+				<tr class="nav_row">
+					<div class="nav_button_container">
+						<p class="nav_button">
+							Crafts
+						</p>
+					</div>
+				</tr>
+				<tr class="nav_row">
+					<div class="nav_button_container">
+						<p class="nav_button">
+							About
+						</p>
+					</div>
+				</tr>
+				<tr class="nav_row">
+					<div class="nav_button_container">
+						<p class="nav_button">
+							Sell your craft
+						</p>
+					</div>
+				</tr>
+			</table>
+		</tr>
+	</table>
 
 	<!-- <nav>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
@@ -42,9 +64,9 @@
 			<img src={github} alt="GitHub" />
 		</a>
 	</div> -->
-</header>
+</section>
 
-<style>
+<!-- <style>
 	header {
 		display: flex;
 		flex-direction: column;
@@ -135,4 +157,4 @@
 	a:hover {
 		color: var(--color-theme-1);
 	}
-</style>
+</style> -->

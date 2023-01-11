@@ -16,7 +16,13 @@
 	color: var(--color-text);
 }
 
-body {
+:global(body){
+	min-height: 100vh;
+	min-width: 100vw;
+	background-color: blue;
+}
+
+/* body {
 	min-height: 100vh;
 	margin: 0;
 	background-attachment: fixed;
@@ -92,4 +98,4 @@ button:focus:not(:focus-visible) {
 	h1 {
 		font-size: 2.4rem;
 	}
-}
+} */

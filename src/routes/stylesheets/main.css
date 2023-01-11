@@ -1,0 +1,15 @@
+#app_main_table{
+    width: 100%;
+    height: 100%;
+    /* background-color: yellow; */
+}
+#app_main_row{
+    width: 100%;
+    height: 100%;
+}
+#sidebar_col{
+    width: 30%;
+    height: 100%;
+    border-right: 10px;
+    border-color: rgb(170, 235, 170);
+}

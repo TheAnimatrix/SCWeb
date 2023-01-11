@@ -1,9 +1,23 @@
 <script>
 	import Header from './Header.svelte';
 	import './styles.css';
+	import './stylesheets/main.css';
 </script>
 
-<div class="app">
+<main>
+	<table id="app_main_table">
+		<tr id="app_main_row">
+			<td id="sidebar_col">
+				<Header />
+			</td>
+			<td>
+				<div><p>Hello World!</p></div>
+			</td>
+		</tr>
+	</table>
+</main>
+
+<!-- <div class="app">
 	<Header />
 
 	<main>
@@ -47,4 +61,4 @@
 			padding: 12px 0;
 		}
 	}
-</style>
+</style> -->
