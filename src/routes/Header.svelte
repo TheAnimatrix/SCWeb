@@ -1,17 +1,23 @@
 <script>
 	import { page } from '$app/stores';
-	import logo from '$lib/images/svelte-logo.svg';
+	import logo from '$lib/images/ScLogo_Text.svg';
 	import github from '$lib/images/github.svg';
 </script>
 
 <header>
-	<div class="corner">
-		<a href="https://kit.svelte.dev">
-			<img src={logo} alt="SvelteKit" />
+	<div class="sc_logo_corner">
+		<a href="#home">
+			<img src={logo} alt="SelfCrafted" />
 		</a>
 	</div>
 
-	<nav>
+	<ul>
+		<li>Crafts</li>
+		<li>About</li>
+		<li>Publish your craft</li>
+	</ul>
+
+	<!-- <nav>
 		<svg viewBox="0 0 2 3" aria-hidden="true">
 			<path d="M0,0 L1,2 C1.5,3 1.5,3 2,3 L2,0 Z" />
 		</svg>
@@ -35,21 +41,22 @@
 		<a href="https://github.com/sveltejs/kit">
 			<img src={github} alt="GitHub" />
 		</a>
-	</div>
+	</div> -->
 </header>
 
 <style>
 	header {
 		display: flex;
-		justify-content: space-between;
+		flex-direction: column;
+		align-items: flex-start;
 	}
 
-	.corner {
-		width: 3em;
+	.sc_logo_corner {
+		width: 9em;
 		height: 3em;
 	}
 
-	.corner a {
+	.sc_logo_corner a {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -57,10 +64,12 @@
 		height: 100%;
 	}
 
-	.corner img {
-		width: 2em;
-		height: 2em;
+	.sc_logo_corner img {
+		width: 9em;
+		height: 4em;
 		object-fit: contain;
+		padding-left: 1.2em;
+		padding-top: 1.5em;
 	}
 
 	nav {
