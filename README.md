@@ -1,4 +1,4 @@
-![Selfcrafted](src/libs/svg/logo_main.svg)
+![Selfcrafted](src/libs/svg/logo_main.svg | width=75)
 # Setup
 
 ```bash
