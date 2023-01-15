@@ -1,21 +1,33 @@
 <script>
-	import Header from './Header.svelte';
+	import Navbar from './navbar.svelte';
 	import './styles.css';
-	import './stylesheets/main.css';
 </script>
 
-<main>
+<div id="app_container">
+	<div id="sidebar_container">
+		<Navbar />
+	</div>
+	<div id="page_container">
+		<main>
+			<slot />
+		</main>
+	</div>
+</div>
+
+<!-- <div>
 	<table id="app_main_table">
 		<tr id="app_main_row">
 			<td id="sidebar_col">
 				<Header />
 			</td>
 			<td>
-				<div><p>Hello World!</p></div>
+				<main>
+					<slot />
+				</main>
 			</td>
 		</tr>
 	</table>
-</main>
+</div> -->
 
 <!-- <div class="app">
 	<Header />
