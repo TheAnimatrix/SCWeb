@@ -1,83 +1,94 @@
 <script>
 	import './styles.css';
+
+	let currentMenu = 0;
 </script>
 
-<div class="app">
-	<div class="menuTop">
-		<div class="menu">
-            <div id="logoContainer">
-				<img src="src/libs/svg/logo_main.svg" alt="Selfcrafted Logo"/>
+<div class="app" style="height:100%;">
+	<div class="menu">
+			<div style="height:75%;background-color : #2c2c2c; border-right : 6px solid #93CFC0;align-self:flex-start;">
+				<img style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;" src="src/libs/svg/logo_main.svg" alt="Selfcrafted Logo" />
 			</div>
-            <ul style="list-style: none;">
-                <li><p>Crafts</p></li>
-                <li><p>About</p></li>
-                <li><p>Sell your craft</p></li>
-            </ul>
-		</div>
-
-		<div class="rest">
-			<slot />
-		</div>
+				<!-- svelte-ignore a11y-click-events-have-key-events -->
+				<p
+					class:menu-active={currentMenu === 0}
+					on:click={() => {
+						currentMenu = 0;
+					}}
+				>
+					Crafts
+				</p>
+				<!-- svelte-ignore a11y-click-events-have-key-events -->
+				<p
+					class:menu-active={currentMenu === 1}
+					on:click={() => {
+						currentMenu = 1;
+					}}
+				>
+					About
+				</p>
+				<!-- svelte-ignore a11y-click-events-have-key-events -->
+				<p
+					class:menu-active={currentMenu === 2}
+					on:click={() => {
+						currentMenu = 2;
+					}}
+				>
+					Sell your craft
+				</p>
+	</div>
+	<div class="rest">
+		<slot />
 	</div>
 </div>
 
 <style>
-
-    p {
-        margin : 6%;
-        padding : 3%;
-        color: white;
-        font-size: 1.7em;
-        font-family: figtree;
-    }
-
-    p:hover, p:active {
-        margin : 6%;
-        padding : 3%;
-        background-color: white;
-        color: black;
-        font-size: 1.7em;
-        font-family: figtree;
-    }
-
-    #logoContainer {
-        width : 100%;
-        height: auto;
-        display: flex;
-        justify-content: center;
-    }
-
-    img {
-        width: 70%;
-        height: auto;
-        margin-top: 5%;
-        object-fit: scale-down;
-    }
-
-	.app {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		background-color: #2c2c2c;
+	p {
+		word-wrap: break-word;
+		width: fit-content;
+		padding : 0.3%;
+		color: #b4b4b4;
+		font-size: 140%;
+		font-family: figtree;
+		font-weight: 520;
+		justify-content: center;
+		transition: 0.2s ease-in all;
 	}
 
-    .menuTop{
-        display: flex;
-        height: 100%;
-    }
+	p:hover,
+	p:active,
+	.menu-active {
+		word-wrap: break-word;
+		width: fit-content;
+		background-color: white;
+		color: black;
+		font-size: 150%;
+		font-weight: 700;
+		font-family: figtree;
+		transition: 0.2s ease-in all;
+	}
 
-    .menu {
-        min-width: 0;
-        flex : 2;
-        display: flex;
-        flex-direction: column;
-        border : 0px;
-        border-right: 3px solid #92cec0;
-    }
+	p:hover {
+		transition: 0.2s ease-in all;
+		background-color: #c6fff1;
+	}
 
-    .rest {
-        flex : 8;
-    }
+	.menu {
+		display: flex;
+		border: 0px;
+		justify-content: center;
+		align-items: center;
+		position: sticky;
+		top : 0;
+		backdrop-filter: blur(90px);
+	}
 
+	.menu > * {
+		margin-right: 30px;
+	}
+
+	.rest {
+		margin-top : 24px;
+	}
 	
 </style>
