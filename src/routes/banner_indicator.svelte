@@ -1,11 +1,5 @@
 <script>
 	import { each } from "svelte/internal";
-    import { crossfade, scale } from 'svelte/transition';
-    const [send, receive] = crossfade({
-		duration: 2000,
-		fallback: scale
-	});
-
     export let curActive;
     export let max;
     let i = 0;
@@ -25,7 +19,7 @@
     </button>
     {#each Array(max) as _, i(i)}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <div class:sq-indicator-active="{curActive === i}" class="sq-indicator" in:receive="{{key:i}}" out:send="{{key:i}}" on:click="{()=>{curActive=i}}"/>
+        <div class:sq-indicator-active="{curActive === i}" class="sq-indicator"  on:click="{()=>{curActive=i}}"/>
     {/each}
     <button on:click={nextIndicator} class="btn-clear">
 	    <img src="src/libs/svg/arrow_left.svg" style="transform: rotate(180deg);" alt=">" />

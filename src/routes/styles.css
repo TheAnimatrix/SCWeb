@@ -2,7 +2,7 @@
 
 @font-face {
     font-family: figtree;
-    src: Url(src/libs/fonts/Figtree-VariableFont_wght.ttf);
+    src: Url($libs/fonts/Figtree-VariableFont_wght.ttf);
 }
 
 :root {

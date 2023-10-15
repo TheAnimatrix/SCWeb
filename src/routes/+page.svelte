@@ -1,9 +1,55 @@
 <script>
 	import BannerIndicator from "./banner_indicator.svelte";
 	import ProductList from "./product_list.svelte";
+	import lornode_wide from "$libs/images/lornode_wide.png";
+	import {goto} from "$app/navigation"
 
 	let indicator_cur = 0;
 	let indicator_max = 5;
+
+	let products = [];
+	let productA = {
+		name: 'Lornode V2',
+		author: 'Animatrix',
+		description: `LoRA + ESP8266 Done right.
+        Low quiescent current <10uA.
+        73x43 mm.
+        TP4056 based charging & power path.`,
+		price:
+			"<s style='font-weight: 500;font-size: 140%;line-height: 110%;text-decoration-line: line-through;color: #959595;'>₹899</s><br/><span style='font-weight: 700;font-size: 200%;line-height: 110%;color: #fdfbff;'>₹999</span>",
+		info: '<strong>8</strong> in stock',
+		infoColor: ['#ffffff', '#000000'],
+		rating: 4.5,
+		ratingCount: 20,
+		pic: lornode_wide,
+		accent1: '#8539FF',
+		accent2: '#2039FF',
+		accent3: '#9038FF'
+	};
+
+	let productB = {
+		name: 'Lorem',
+		author: 'Ipsum',
+		price:
+			"<s style='font-weight: 500;font-size: 140%;line-height: 110%;text-decoration-line: line-through;color: #959595;'>₹2699</s><br/><span style='font-weight: 700;font-size: 200%;line-height: 110%;color: #fdfbff;'><span style='font-size:50%;color:var(--accent-color-1)'>from </span>₹1499</span>",
+		description:
+			'Lorem ipsum dolor sit amet consectetur adipisicing elit. Perspiciatis, iste labore corruptiillo deserunt tempora expedita velit rem, totam omnis, quia ipsa. Nostrum quos asperiores, optio aliquam deserunt molestiae dignissimos.',
+		info: 'Out of stock',
+		infoColor: ['#FF5C38', '#ffffff'],
+		rating: 4.1,
+		ratingCount: 3,
+		accent1: '#FF7A00',
+		accent2: '#FFCE85',
+		accent3: '#FF5C38'
+	};
+
+	for (let i=0;i<25;i++)
+	{
+		if (i%2 == 0)
+			products.push(productA)
+		else
+			products.push(productB)
+	}
 </script>
 
 <div id="top">
@@ -17,7 +63,7 @@
 		</div>
 		<!-- <img id="feat-mb-img" src="src/libs/images/lornode_wide.png" alt="Featured Banner" /> -->
         <BannerIndicator curActive="{indicator_cur}" max="{indicator_max}" />
-		<ProductList />
+		<ProductList products={products} onClick={(i,product)=>{goto(`/${product.name.replaceAll(" ","_")}/craft/item=${i}`)}}/>
 	</div>
 </div>
 
@@ -38,7 +84,7 @@
 	:global(body)::-webkit-scrollbar-thumb {
 		background-color: rgb(94, 94, 94);
 		border-radius: 12px;
-		transition: 0.4s linear all;
+		transition: 0.4s linear ease-in;
 	}
 
 	/* Handle on hover */
@@ -56,20 +102,21 @@
 	}
 
     #subtop {
-		width: 60%;
+		width: 65%;
         display:flex;
         flex-direction: column;
 		align-items: center;
     }
-	@media only screen and (max-width: 900px) {
+	@media only screen and (max-width: 1260px) {
 		#subtop {
-			width : 100%;
+			width : 95%;
 		}
 	}
 
 	#feat-mb-text {
 		width: 100%;
-		background-image : url("src/libs/images/lornode_wide.png");
+		background-image : url("$libs/images/lornode_wide.png");
+		background-position: center; 
 		background-repeat: no-repeat;
 		background-size: cover;
   		border-radius: 18px;
@@ -108,12 +155,4 @@
         font-size: 100%;
         color: #B983FF;
     }
-
-	#feat-mb-img {
-		z-index: 1;
-		width: 100%;
-		min-height: 300px;
-		height: 100%;
-		object-fit: cover;
-	}
 </style>

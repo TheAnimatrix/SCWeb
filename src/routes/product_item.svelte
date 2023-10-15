@@ -1,4 +1,5 @@
 <script>
+	import no_img from '$libs/svg/no_img.svg';
 	export let name,
 		author,
 		description,
@@ -13,14 +14,18 @@
 		accent3;
 	accent2 = accent2 ?? accent1;
 	accent3 = accent3 ?? accent1;
-	pic = pic ?? 'src/libs/svg/no_img.svg';
+	pic = pic ?? no_img;
+
+	export let onClick;
 </script>
 
+<!-- svelte-ignore a11y-click-events-have-key-events -->
 <div
 	class="product-top"
 	style:--accent-color-1={accent1}
 	style:--accent-color-2={accent2}
 	style:--accent-color-3={accent3}
+	on:click={onClick}
 >
 	<img class="product-img" src={pic} alt="product" />
 	<div class="content">
@@ -57,19 +62,44 @@
         margin-left : 0px;
     }
 
+	.product-top:hover{
+  		transform: translateY(-5px);
+  		transition: 0.2s ease-out;
+  		box-shadow: 10px 10px 50px 10px;
+	}
+
 	.product-top {
 		display: flex;
 		flex-direction: column;
-        flex: 2 0 21%;
+        flex: 1 0 21%;
         min-width: 0;
+        max-width: 600px;
 		margin-top: 20px;
 		border-width: 4px 0px 4px 0px;
 		border-style: solid;
 		border-top-color: var(--accent-color-2);
 		border-bottom-color: var(--accent-color-3);
 		background-color: #333333;
-        height:fit-content
+        height:fit-content;
+ 		transition: 0.1s ease-out;
 	}
+    
+    @media only screen and (max-width: 1250px) {
+        .product-top{
+            flex: 1 0 31%;
+        }
+    }
+    @media only screen and (max-width: 1160px) {
+        .product-top{
+            flex: 1 0 41%;
+        }
+    }
+    @media only screen and (max-width: 700px) {
+        .product-top{
+            flex: 1 0 61%;
+        }
+    }
+
 
 	.content {
 		padding: 16px;
