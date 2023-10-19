@@ -9,4 +9,4 @@ npm run dev #will init a local server hosting this site
 
 ## Target
 
-![Site Mockup](src/libs/svg/target.png)
+![Site Mockup](src/libs/images/target.png)
