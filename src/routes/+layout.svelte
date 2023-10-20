@@ -20,7 +20,7 @@
 			/>
 		</div>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<p
+		<p class="menu_button"
 			class:menu-active={currentMenu === 0}
 			on:click={() => {
 				currentMenu = 0;
@@ -29,7 +29,7 @@
 			Crafts
 		</p>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<p
+		<p class="menu_button"
 			class:menu-active={currentMenu === 1}
 			on:click={() => {
 				currentMenu = 1;
@@ -38,7 +38,7 @@
 			About
 		</p>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<p
+		<p class="menu_button"
 			class:menu-active={currentMenu === 2}
 			on:click={() => {
 				currentMenu = 2;
@@ -54,6 +54,9 @@
 
 <style>
 
+p.menu_button, .logo {
+	cursor: pointer;
+}
 
 /* The pseudo-element that will act as the bottom border */
 .logo::after {
@@ -118,6 +121,7 @@
 		position: sticky;
 		top: 0;
 		backdrop-filter: blur(30px);
+        z-index: 2;
 	}
 
 	.menu > * {
@@ -126,5 +130,6 @@
 
 	.rest {
 		margin-top: 24px;
+        z-index: 1;
 	}
 </style>

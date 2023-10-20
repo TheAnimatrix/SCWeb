@@ -138,6 +138,11 @@
 		padding: 15px 30px 15px 30px;
 	}
 
+	#feat-mb-rect:hover {
+		cursor: pointer;
+		border-color: #9fcdc0;
+	}
+
     .superTitle { 
         font-size: 350%;
         font-weight: 700;

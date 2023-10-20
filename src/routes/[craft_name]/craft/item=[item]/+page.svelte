@@ -19,4 +19,31 @@
     productB.name=data.craft_name;
 </script>
 
-<ProductItem {...productB} onClick={()=>console.log("clicked")}/>
+<!-- <ProductItem {...productB} onClick={()=>console.log("clicked")}/> -->
+
+<div class="pp_body">
+    <div class="pp_store">
+        
+    </div>
+    <br>
+    <div class="pp_details">
+
+    </div>
+</div>
+
+<style>
+    .pp_store {
+        width: 75%;
+        height: 30em;
+        background-color: red;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .pp_details {
+        width: 75%;
+        height: 30em;
+        background-color: yellow;
+        margin-left: auto;
+        margin-right: auto;
+    }
+</style>

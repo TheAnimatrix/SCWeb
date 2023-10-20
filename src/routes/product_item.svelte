@@ -66,6 +66,7 @@
   		transform: translateY(-5px);
   		transition: 0.2s ease-out;
   		box-shadow: 10px 10px 50px 10px;
+		cursor: pointer;
 	}
 
 	.product-top {
