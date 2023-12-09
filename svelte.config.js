@@ -6,7 +6,8 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		alias : {
-			'$libs' : path.resolve("./src/libs")
+			'$libs' : path.resolve("./src/libs"),
+			'$pages' : path.resolve("./src/routes")
 		}
 	}
 };

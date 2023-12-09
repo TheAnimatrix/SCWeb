@@ -1,5 +1,6 @@
 <script>
 	import { each } from "svelte/internal";
+    import arrowLeft from "$libs/svg/arrow_left.svg";
     export let curActive;
     export let max;
     let i = 0;
@@ -15,14 +16,14 @@
 
 <div id="feat-mb-indicator">
     <button on:click={prevIndicator} class="btn-clear">
-	    <img src="src/libs/svg/arrow_left.svg" alt="<" style="margin-right: 8px;"/>
+	    <img src="{arrowLeft}" alt="<" style="margin-right: 8px;"/>
     </button>
     {#each Array(max) as _, i(i)}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <div class:sq-indicator-active="{curActive === i}" class="sq-indicator"  on:click="{()=>{curActive=i}}"/>
     {/each}
     <button on:click={nextIndicator} class="btn-clear">
-	    <img src="src/libs/svg/arrow_left.svg" style="transform: rotate(180deg);" alt=">" />
+	    <img src="{arrowLeft}" style="transform: rotate(180deg);" alt=">" />
     </button>
 </div>
 
