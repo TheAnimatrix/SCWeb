@@ -1,9 +1,6 @@
 <script>
-	import ProductItem from './product_item.svelte';
+	import ProductItem from '$libs/components/product/product_item.svelte';
 	import { goto } from '$app/navigation';
-
-
-
     export let products;
     export let onClick;
 </script>

@@ -1,6 +1,6 @@
 <script>
 	
-    import BannerIndicator from "$pages/banner_indicator.svelte";
+    import BannerIndicator from "$libs/components/banner_indicator.svelte";
     import ProductImage from "$libs/images/lornode_pp.png";
     import CartIcon from "$libs/svg/add_to_cart_icon.svg";
 
@@ -24,7 +24,7 @@
     };
 
     export let data;
-    console.log(data)
+    console.log(data);
     productB.name=data.craft_name;
 </script>
 

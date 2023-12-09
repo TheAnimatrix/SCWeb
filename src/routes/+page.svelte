@@ -1,5 +1,5 @@
 <script>
-	import BannerIndicator from "./banner_indicator.svelte";
+	import BannerIndicator from "$libs/components/banner_indicator.svelte";
 	import ProductList from "./product_list.svelte";
 	import lornode_wide from "$libs/images/lornode_wide.png";
 	import {goto} from "$app/navigation"
@@ -63,7 +63,7 @@
 		</div>
 		<!-- <img id="feat-mb-img" src="src/libs/images/lornode_wide.png" alt="Featured Banner" /> -->
         <BannerIndicator curActive="{indicator_cur}" max="{indicator_max}" />
-		<ProductList products={products} onClick={(i,product)=>{goto(`/${product.name.replaceAll(" ","_")}/craft/item=${i}`)}}/>
+		<ProductList products={products} onClick={(i,product)=>{goto(`/${product.name.replaceAll(" ","_")}/craft/item=${i}`, {product})}}/>
 	</div>
 </div>
 
