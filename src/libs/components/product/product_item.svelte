@@ -10,6 +10,7 @@
 		rating,
 		ratingCount,
 		pic,
+		stock,
 		accent1,
 		accent2,
 		accent3;
@@ -51,9 +52,13 @@
 				<span class="text-white text-3xl font-bold">₹{newPrice}</span>
 			</div>
 
-			<div class="info-top">
-				<div class="info" style:--info-color={infoColor[0]} style:--info-tc={infoColor[1]}>
-					<span>{@html info}</span>
+			<div class="w-full ml-2 mt-2">
+				<div class="{infoColor} p-1 w-fit  float-right">
+					{#if stock>0}
+						<span><strong>{stock}</strong> in stock</span>
+					{:else}
+						<span>{info}</span>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -165,20 +170,5 @@
 		flex: 5;
 		margin-top: 16px;
 		margin-right: 20px;
-	}
-
-	.info-top {
-		flex: 3;
-		width: 100%;
-		display: flex;
-		justify-content: flex-end;
-	}
-
-	.info {
-		background-color: var(--info-color);
-		padding: 2%;
-		width: fit-content;
-		font-size: 125%;
-		color: var(--info-tc);
 	}
 </style>
