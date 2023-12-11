@@ -1,6 +1,5 @@
 <script>
 	import BannerIndicator from '$libs/components/fundamental/banner_indicator.svelte';
-	import ProductImage from '$libs/images/lornode_pp.png';
     import no_img from '$libs/svg/no_img.svg';
 	import CartIcon from '$libs/svg/add_to_cart_icon.svg';
     import { getProduct, products } from '$libs/stores/products.js';
