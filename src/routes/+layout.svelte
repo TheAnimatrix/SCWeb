@@ -11,7 +11,6 @@
 
   	let isHomePage = false;
   	$: $page.url.pathname === '/' ? isHomePage = true : isHomePage = false;
-	$: currentMenu = isHomePage ? 0 : currentMenu;
 </script>
 
 <div class="app h-screen bg-scbg">
@@ -20,7 +19,7 @@
 	>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		{#if !isHomePage}
-			<button on:click={() => window.history.back()}><PhArrowLeftBold class="text-2xl text-white mr-3" /></button>
+			<button on:click={() => {window.history.back(); currentMenu=0;}}><PhArrowLeftBold class="text-2xl text-white mr-3" /></button>
 		{/if}
 		<a
 			href="/"
