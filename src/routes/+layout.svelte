@@ -11,6 +11,7 @@
 
   	let isHomePage = false;
   	$: $page.url.pathname === '/' ? isHomePage = true : isHomePage = false;
+	$: currentMenu = isHomePage ? 0 : currentMenu;
 </script>
 
 <div class="app h-screen bg-scbg">
