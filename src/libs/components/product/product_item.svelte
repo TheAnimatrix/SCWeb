@@ -16,11 +16,13 @@
 	accent3 = accent3 ?? accent1;
 	pic = pic ?? no_img;
 
+	export let href;
 	export let onClick;
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
-<div
+<a
+	href={href}
 	class="product-top"
 	style:--accent-color-1={accent1}
 	style:--accent-color-2={accent2}
@@ -54,7 +56,7 @@
 			</div>
 		</div>
 	</div>
-</div>
+</a>
 
 <style>
 
@@ -65,7 +67,7 @@
 	.product-top:hover{
   		transform: translateY(-5px);
   		transition: 0.2s ease-out;
-  		box-shadow: 10px 10px 50px 10px;
+  		box-shadow: 10px 10px 50px 10px rgba(0,0,0,.35);
 		cursor: pointer;
 	}
 

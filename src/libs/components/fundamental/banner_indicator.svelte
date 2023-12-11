@@ -27,7 +27,7 @@
     </button>
 </div>
 
-<style>
+<style lang="postcss">
     .btn-clear {
         background: none;
         color: inherit;
@@ -48,23 +48,23 @@
 
     .sq-indicator{
         box-sizing: border-box;
-        width: 2%;
+        width: 6%;
         height: 12px;
-        background: #B950FF;
         margin-right: 8px;
         transition: 0.2s linear all;
+        @apply bg-scpurple;
     }
 
     .sq-indicator:not(.sq-indicator-active):hover{
         box-sizing: border-box;
-        width: 2%;
+        width: 12%;
         height: 12px;
         background: #e2b6ff;
         margin-right: 8px;
         transition: 0.2s linear all;
     }
     .sq-indicator-active{
-        width: 7%;
+        width: 24%;
         height: 12px;
         background: #ffffff;
         margin-right: 8px;

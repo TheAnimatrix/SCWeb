@@ -1,101 +1,106 @@
 <script>
 	import './styles.css';
-	import {goto} from "$app/navigation"
-	import Logo from "$libs/svg/logo_main.svg"
+	import { goto } from '$app/navigation';
+	import Logo from '$libs/svg/logo_main.svg';
+	import Hamburger from '$libs/svg/hamburger.svg';
+	import '../app.pcss';
 	let currentMenu = 0;
 </script>
 
-<div class="app" style="height:100%;">
-	<div class="menu">
+<div class="app h-screen bg-scbg">
+	<div
+		class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden"
+	>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<div
-			class="logo"
-			style="height:75%;background-color : #2c2c2c; border-bottom:0px solid #92FFFF; border-right : 6px solid #93CFC0;align-self:flex-start;transition:0.4s ease-out;"
-			on:click={()=>goto("/")}
-		>
+		<a
+			href="/"
+			class="block logo h-3/4 border-b-0 bg-[#2c2c2c] border-[#93CFC0] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8">
 			<img
 				style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
-				src="{Logo}"
+				src={Logo}
 				alt="Selfcrafted Logo"
 			/>
-		</div>
+		</a>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<p class="menu_button"
+		<a
+			href="/"
+			class="menu_button ml-8  p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree transition-all ease-in duration-200 hover:bg-[#c6fff1] hover:text-[150%] hover:text-black hover:font-bold"
 			class:menu-active={currentMenu === 0}
 			on:click={() => {
 				currentMenu = 0;
 			}}
 		>
 			Crafts
-		</p>
+		</a>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<p class="menu_button"
+		<a
+			href="/about"
+			class="menu_button ml-8  p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree transition-all ease-in duration-200 hover:bg-[#c6fff1] hover:text-[150%] hover:text-black hover:font-bold"
 			class:menu-active={currentMenu === 1}
 			on:click={() => {
 				currentMenu = 1;
 			}}
 		>
 			About
-		</p>
+		</a>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<p class="menu_button"
+		<a
+			href="/crafting"
+			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree transition-all ease-in duration-200 hover:bg-[#c6fff1] hover:text-[150%] hover:text-black hover:font-bold"
 			class:menu-active={currentMenu === 2}
 			on:click={() => {
 				currentMenu = 2;
 			}}
 		>
-			Sell your craft
-		</p>
+			Start Crafting
+		</a>
+	</div>
+	<div class="menu_mobile sm:hidden flex flex-col items-center justify-center w-full sticky top-0 backdrop-blur-[30px] z-10 ">
+		<div class="flex space-x-12">
+			<a
+				href="/"
+				class="flex-1 block logo h-3/4 border-b-0 bg-[#2c2c2c] border-[#93CFC0] border-r-4 transition-all ease-out duration-400 hover:border-r-8">
+				<img
+					style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
+					src={Logo}
+					alt="Selfcrafted Logo"
+				/>
+			</a>
+			<img
+				src={Hamburger}
+				alt="Hamburger Menu"
+			/>
+		</div>
 	</div>
 	<div class="rest">
 		<slot />
 	</div>
 </div>
 
-<style>
+<style lang="postcss">
 
-p.menu_button, .logo {
-	cursor: pointer;
-}
-
-/* The pseudo-element that will act as the bottom border */
-.logo::after {
-  content: "";
-  height: 5px;
-  background-color: red;
-
-  /* Initially, scale down the pseudo-element to zero width */
-  transform: scaleX(0);
-
-   /* Set the transition duration and easing function */
-   transition: transform .3s ease-in-out;
-
-   /* Set the origin point of the animation to right */
-   transform-origin: right;
-}
-
-/* On hover, scale up the pseudo-element to full width */
-.logo:hover::after {
-   transform: scaleX(1);
-
-   /* Optionally, change the origin point of the animation to left */
-   transform-origin: left;
-}
-
-	p {
-		word-wrap: break-word;
-		width: fit-content;
-		padding: 0.3%;
-		color: #b4b4b4;
-		font-size: 140%;
-		font-family: figtree;
-		font-weight: 520;
-		justify-content: center;
-		transition: 0.2s ease-in all;
+	:global(body)::-webkit-scrollbar {
+		width: 6px;
 	}
 
-	p:hover,
-	p:active,
+	/* Track */
+	:global(body)::-webkit-scrollbar-track {
+		background: #333333;
+		border-radius: 12px;
+	}
+
+	/* Handle */
+	:global(body)::-webkit-scrollbar-thumb {
+		background-color: rgb(94, 94, 94);
+		border-radius: 12px;
+		transition: 0.4s linear ease-in;
+	}
+
+	/* Handle on hover */
+	:global(body)::-webkit-scrollbar-thumb:hover {
+		background-color: #9fcdc0;
+		transition: 0.4s linear all;
+	}
 	.menu-active {
 		word-wrap: break-word;
 		width: fit-content;
@@ -107,29 +112,11 @@ p.menu_button, .logo {
 		transition: 0.2s ease-in all;
 	}
 
-	p:hover {
-		transition: 0.2s ease-in all;
-		background-color: #c6fff1;
-	}
 
-	.menu {
-		display: flex;
-		flex-wrap: wrap;
-		border: 0px;
-		justify-content: center;
-		align-items: center;
-		position: sticky;
-		top: 0;
-		backdrop-filter: blur(30px);
-        z-index: 2;
-	}
-
-	.menu > * {
-		margin-right: 30px;
-	}
 
 	.rest {
 		margin-top: 24px;
-        z-index: 1;
+		z-index: 1;
+		height: 100%;
 	}
 </style>

@@ -1,274 +1,135 @@
 <script>
-	
-    import BannerIndicator from "$libs/components/banner_indicator.svelte";
-    import ProductImage from "$libs/images/lornode_pp.png";
-    import CartIcon from "$libs/svg/add_to_cart_icon.svg";
-
-    let indicator_cur = 0;
-	let indicator_max = 5;
-
-    let ItemQty = 0;
-
-    let productB = {
-        name : "Lorem",
-        author : "Ipsum",
-        price : "<s style='font-weight: 500;font-size: 140%;line-height: 110%;text-decoration-line: line-through;color: #959595;'>₹2699</s><br/><span style='font-weight: 700;font-size: 200%;line-height: 110%;color: #fdfbff;'><span style='font-size:50%;color:var(--accent-color-1)'>from </span>₹1499</span>",
-        description : "Lorem ipsum dolor sit amet consectetur adipisicing elit. Perspiciatis, iste labore corruptiillo deserunt tempora expedita velit rem, totam omnis, quia ipsa. Nostrum quos asperiores, optio aliquam deserunt molestiae dignissimos.",
-        info : "Out of stock",
-        infoColor : ["#FF5C38", "#ffffff"],
-        rating : 4.1,
-        ratingCount : 3,
-        accent1 : "#FF7A00",
-        accent2 : "#FFCE85",
-        accent3 : "#FF5C38"
-    };
-
-    export let data;
+	import BannerIndicator from '$libs/components/fundamental/banner_indicator.svelte';
+	import ProductImage from '$libs/images/lornode_pp.png';
+    import no_img from '$libs/svg/no_img.svg';
+	import CartIcon from '$libs/svg/add_to_cart_icon.svg';
+    import { getProduct, products } from '$libs/stores/products.js';
+	import { TabGroup, Tab } from '@skeletonlabs/skeleton';
+	import { Accordion, AccordionItem } from '@skeletonlabs/skeleton';
+	import Test from '$libs/components/fundamental/test.svelte';
+	let indicator_cur = 0;
+	let ItemQty = 0;
+	let tabSet = 0;
+	export let data;
     console.log(data);
-    productB.name=data.craft_name;
+    let i = data.item;
+	let indicator_max = getProduct(i).pic.length;
+    let picIndex = 0;
 </script>
 
 <!-- <ProductItem {...productB} onClick={()=>console.log("clicked")}/> -->
 
-<div class="pp_body">
-    <div class="pp_store">
-        <div id="path_bar" class="store_tip">
-            <p>Crafts/<b>{data.craft_name}</b></p>
-        </div>
-        <div class="product_hero">
-            <div id="image_zone">
-                <img id="product_image" src="{ProductImage}" alt="lornode">
-                <span id="mob_nav">
-                    <BannerIndicator curActive="{indicator_cur}" max="{indicator_max}" />
-                </span>
-            </div>
-            <div id="info_zone">
-                <div id="info_header">
-                    <div id="feat-mb-rect">
-                        <div class="title">Lornode V2</div>
-                        <div class="subtitle">By Animatrix</div>
+<div class="self-center w-[70%] h-full flex flex-col mx-auto items-center max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%]">
+	<div class="w-full flex flex-col items-center mb-4">
+		<div class="text-[#b8b8b8] mr-auto pb-2">
+			<p>Crafts/<b class="text-white">{getProduct(i).name}</b></p>
+		</div>
+		<div class="product_hero flex w-full min-h-[25%] max-sm:flex-col justify-start">
+			<div class="flex-1 mr-2">
+				<img
+					class="w-full min-h-full object-cover rounded-lg"
+					id="product_image"
+					src={getProduct(i).pic[indicator_cur]??no_img}
+					alt="lornode"
+				/>
+			</div>
+			<div class="flex-[1.2] h-full flex flex-col ml-2">
+				<div class="flex mb-2">
+					<div
+						class="flex-1 bg-black border-t-2 border-r-2 border-b-[12px] border-l-2 border-red-100 p-4 pl-12 flex flex-col justify-center"
+					>
+						<div class="justify-center text-3xl text-white font-bold">{getProduct(i).name}</div>
+						<div class="justify-center text-2xl text-scpurple font-bold">By {getProduct(i).author}</div>
+					</div>
+				</div>
+				<div class=" text-white pl-4 py-2 text-base text-start bg-scbgl1 mt-2">
+					<div>
+						<p> {getProduct(i).description}
+						</p>
+					</div>
+					<div class="flex justify-between">
+						<div class="py-2 pr-5">
+							<span id="oldPrice" class="text-gray-500 line-through text-lg font-medium">₹{getProduct(i).oldPrice}</span
+							><br />
+							<span id="newPrice" class="text-white text-3xl font-bold">₹{getProduct(i).newPrice}</span><br />
+							<span id="rating" class="text-orange-400 text-lg font-semibold">{getProduct(i).rating}({getProduct(i).ratingCount})</span>
+						</div>
+						<div
+							id="sale_info"
+							class="max-h-[55%] flex text-white text-3xl font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 text-end self-center p-1 pr-5"
+						>
+							Launch OFFER!
+						</div>
+					</div>
+					<div class="flex justify-around items-center w-fit bg-scbgl2 text-xl my-2">
+						<div class="p-2 px-4 hover:scale-150">-</div>
+						<div class="p-2 px-4 border-x-4 border-scbg" id="qty_show">{ItemQty}</div>
+						<div class="p-2 px-4 hover:scale-150">+</div>
+						<div class="p-2 bg-scpurple hover:scale-110 hover:rounded-md" id="add_to_cart">
+							<img src={CartIcon} alt="add to cart" class="h-[85%] " />
+						</div>
+					</div>
+                    
+                    <div class="flex justify-left items-stretch max-w-[70%]">
+                        <div class="p-4 bg-scbgl3 text-lg">Next production run in 15 days</div>
+                        <div class="p-4 bg-scbgl2 text-xl font-bold">14 in stock</div>
                     </div>
-                </div>
-                <div id="info_details">
-                    <div id="quick_specs">
-                        <p>LoRA + ESP8266 Done right.<br>Low quiescent current &lt;10uA<br>73x74 mm<br>TP4056 based charging w/ power path ...</p>
-                    </div>
-                    <div id="pricing">
-                        <div id="sale_price">
-                            <span id="before_sale">₹999</span><br>
-                            <span id="after_sale">₹899</span><br>
-                            <span id="ratings">4.2(28)</span>
-                        </div>
-                        <div id="sale_info">
-                            Launch OFFER!
-                        </div>
-                    </div>
-                    <div id="purchase">
-                        <div class="p_button qty_chg">-</div>
-                        <div class="p_button" id="qty_show">{ItemQty}</div>
-                        <div class="p_button qty_chg">+</div>
-                        <div class="p_button" id="add_to_cart"><img src="{CartIcon}" alt="add to cart" id="add_to_cart_icon"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="image_nav" class="store_tip">
-            <BannerIndicator curActive="{indicator_cur}" max="{indicator_max}" />
-        </div>
-    </div>
-    <br>
-    <div class="pp_details">
-
-    </div>
+				</div>
+			</div>
+		</div>
+		<div class="w-[50%] self-start">
+            {#if indicator_max > 1}
+			    <BannerIndicator bind:curActive={indicator_cur} max={indicator_max} />
+            {/if}
+		</div>
+	</div>
+	<div class="w-full flex-1 ml-auto mr-auto my-4">
+		<TabGroup
+			justify="justify-start items-end"
+			border="border-scpurple border-b-4"
+			active="transition-all ease-in duration-200 bg-[#8D39FF] text-white text-xl font-bold font-figtree"
+			hover="ml-1 bg-[#2c2c2c] text-white !transition-all !ease-in !duration-200 hover:!text-xl !hoverbg-[#383838] "
+			rounded=""
+			flex="flex-wrap"
+			spacing=""
+			class="!space-y-0 text-lg"
+			regionPanel="mt-0"
+            regionList="px-4"
+		>
+			<Tab bind:group={tabSet} name="tab1" value={0}>FAQ</Tab>
+			<Tab bind:group={tabSet} name="tab2" value={1}>Documentation</Tab>
+			<Tab bind:group={tabSet} name="tab3" value={2}>Shipping</Tab>
+			<Tab bind:group={tabSet} name="tab4" value={3}>Cost Breakup</Tab>
+			<svelte:fragment slot="panel">
+				{#if tabSet === 0}
+					<Accordion
+						regionControl="text-[#ffffff] bg-[#2c2c2c]"
+						regionPanel="text-white bg-[#383838]"
+						regionCaret="hidden"
+					>
+						<AccordionItem open>
+							<svelte:fragment slot="summary"
+								><div class="flex">Q: Lorem Ipsum is the Question?</div></svelte:fragment
+							>
+							<svelte:fragment slot="content">A: This is the answer.</svelte:fragment>
+						</AccordionItem>
+						<AccordionItem open>
+							<svelte:fragment slot="summary"
+								><div class="flex">Q: Lorem Ipsum is the Question?</div></svelte:fragment
+							>
+							<svelte:fragment slot="content">A: This is the answer.</svelte:fragment>
+						</AccordionItem>
+						<!-- ... -->
+					</Accordion>
+				{:else if tabSet === 1}
+					(tab panel 2 contents)
+				{:else if tabSet === 2}
+					(tab panel 3 contents)
+				{/if}
+			</svelte:fragment>
+		</TabGroup>
+	</div>
 </div>
 
-<style>
-
-    #add_to_cart_icon{
-        height: 85%;
-        widows: auto;
-    }
-
-    .p_button{
-        display: flex;
-        height: 2.0em;
-        width: 2.0em;
-        padding: 0.2em;
-        align-items: center;
-        justify-content: center;
-        color: #FFFFFF;
-        font-size: large;
-    }
-
-    .qty_chg{
-        background-color: #343434;
-        font-weight: bold;
-        cursor: pointer;
-    }
-
-    .qty_chg:hover{
-        background-color: #626262;
-    }
-
-    #qty_show{
-        background-color: #343434;
-        border-left: 2px solid #2A2A2A;
-        border-right: 2px solid #2A2A2A;
-    }
-
-    #add_to_cart{
-        background-color: #7D17FF;
-    }
-
-    #purchase{
-        margin-top: 1em;
-        display: flex;
-        flex-direction: row;
-        padding-left: 15px;
-    }
-
-    #before_sale{
-        color: #959595;
-        text-decoration: line-through;
-        font-size: 90%;
-        font-weight: 500;
-    }
-
-    #after_sale{
-        color: #FDFBFF;
-        font-size: 130%;
-        font-weight: bold;
-    }
-
-    #ratings{
-        color: #CC7A00;
-        font-size: 85%;
-        font-weight: 700;
-    }
-
-    #sale_price{
-        flex: 1;
-    }
-
-    #sale_info{
-        flex: 1;
-        height: 55%;
-        display: flex;
-        color: #FFFFFF;
-        font-size: 180%;
-        font-weight: bolder;
-        background: rgb(255,122,0);
-        background: linear-gradient(93deg, rgba(255,122,0,1) 62%, rgba(217,65,119,1) 100%);
-        text-align: center;
-        justify-content: center;
-        padding-top: 2%;
-        padding-bottom: 2%;
-    }
-
-    #pricing{
-        display: flex;
-        padding-left: 15px;
-        flex-direction: row;
-        height: fit-content;
-    }
-
-    #quick_specs{
-        padding-left: 15px;
-        color: #FFFFFF;
-        font-family: figtree;
-        font-weight: 100;
-        font-size: 90%;
-    }
-
-    #mob_nav{
-        display: none;
-    }
-
-    #info_header{
-        flex: 1;
-        margin-bottom: 0.3em;
-    }
-
-    #info_details{
-        flex: 4;
-        border-style: solid;
-        border-left: 5px;
-        border-right: 5px;
-        border-color: #9039FF;
-        margin-top: 0.3em;
-        background-color: #2C2C2C;
-        display: flex;
-        flex-direction: column;
-    }
-
-    #info_zone{
-        flex: 1;
-        height: 100%  ;
-        display: flex;
-        flex-direction: column;
-        margin-left: 0.3em;
-    }
-
-    #image_zone{
-        flex: 1;
-        margin-right: 0.3em;
-    }
-
-    #product_image{
-        width: 100%;
-        min-height: 100%;
-    }
-
-    .product_hero{
-        height: fit-content;
-        width: 100%;
-        display: flex;
-        flex-direction: row;
-    }
-    
-    #path_bar{
-        color: #B8B8B8;
-    }
-
-    #path_bar b{
-        color: #FFFFFF;
-    }
-
-    .pp_store {
-        width: 75%;
-        height: fit-content;
-        margin-left: auto;
-        margin-right: auto;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .pp_details {
-        width: 75%;
-        height: 30em;
-        background-color: yellow;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-	#feat-mb-rect {
-		background: #000000;
-		border-width: 2px 2px 13px 2px;
-		border-style: solid;
-		border-color: #ffeeee;
-		padding: 15px 30px 15px 50px;
-	}
-
-    .title{
-		justify-content: center;
-		font-size: 175%;
-		font-weight: bold;
-		color: white;
-    }
-
-    .subtitle{
-        font-size: 150%;
-        color: #9039FF;
-        font-weight: bold;
-    }
+<style lang="postcss">
 </style>
