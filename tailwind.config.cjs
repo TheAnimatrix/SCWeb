@@ -36,6 +36,9 @@ const config = {
 			scbgl2: "#343434",
 			scbgl3: "#383838",
 			scpurple: '#9039FF',
+			scpurplel1: "#e2b6ff",
+			sccyan: '#93CFC0',
+			sccyanl1: '#B3FFE0'
 		}
 	},
 	plugins: [

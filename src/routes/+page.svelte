@@ -18,13 +18,11 @@
 			</div>
 		</div>
 		<!-- <img id="feat-mb-img" src="src/libs/images/lornode_wide.png" alt="Featured Banner" /> -->
-		<BannerIndicator curActive={indicator_cur} max={indicator_max} />
+		<BannerIndicator curActive={indicator_cur} max={indicator_max} colorSecondary="bg-sccyan" colorAccent="hover:bg-sccyanl1" />
 		<ProductList
 			products={$products}
 			getLink={(i, product) => {;
 				return `/${product.name.replaceAll(' ', '_')}/craft/item=${i}`;
-			}}
-			onClick={(i, product)=> {
 			}}
 		/>
 	</div>

@@ -22,3 +22,12 @@ Main types
 
 => +server.ts for custom route+(HTTP Verb)/response handling, can be used for creating API's
     see <https://kit.svelte.dev/docs/routing#server-content-negotiation>
+
+
+
+
+Reactive statements:
+--------------------
+don't try and make reactive functions to use in html...
+do this :
+https://svelte.dev/docs/svelte-components#script-3-$-marks-a-statement-as-reactive

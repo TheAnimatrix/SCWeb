@@ -1,10 +1,16 @@
 <script>
 	import './styles.css';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Logo from '$libs/svg/logo_main.svg';
-	import Hamburger from '$libs/svg/hamburger.svg';
+	import MdiMenu from 'virtual:icons/mdi/menu';
+	import PhArrowLeftBold from 'virtual:icons/ph/arrow-left-bold';
 	import '../app.pcss';
 	let currentMenu = 0;
+
+
+  	let isHomePage = false;
+  	$: $page.url.pathname === '/' ? isHomePage = true : isHomePage = false;
 </script>
 
 <div class="app h-screen bg-scbg">
@@ -12,9 +18,12 @@
 		class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden"
 	>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
+		{#if !isHomePage}
+			<button on:click={() => window.history.back()}><PhArrowLeftBold class="text-2xl text-white mr-3" /></button>
+		{/if}
 		<a
 			href="/"
-			class="block logo h-3/4 border-b-0 bg-[#2c2c2c] border-[#93CFC0] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8">
+			class="block logo h-3/4 border-b-0 bg-[#2c2c2c] border-sccyan border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8">
 			<img
 				style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
 				src={Logo}
@@ -66,10 +75,7 @@
 					alt="Selfcrafted Logo"
 				/>
 			</a>
-			<img
-				src={Hamburger}
-				alt="Hamburger Menu"
-			/>
+			<MdiMenu class="text-sccyan text-4xl self-center"/>
 		</div>
 	</div>
 	<div class="rest">

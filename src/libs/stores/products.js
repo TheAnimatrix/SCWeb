@@ -49,8 +49,6 @@ for (let i=0;i<25;i++)
 }
 
 products.set(productList);
-products.update((p) => {console.log("updated"); return p;});
-
 
 
 
