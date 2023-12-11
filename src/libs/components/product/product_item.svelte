@@ -3,7 +3,8 @@
 	export let name,
 		author,
 		description,
-		price,
+		oldPrice,
+		newPrice,
 		info,
 		infoColor,
 		rating,
@@ -14,8 +15,6 @@
 		accent3;
 	accent2 = accent2 ?? accent1;
 	accent3 = accent3 ?? accent1;
-	pic = pic ?? no_img;
-
 	export let href;
 	export let onClick;
 </script>
@@ -29,10 +28,10 @@
 	style:--accent-color-3={accent3}
 	on:click={onClick}
 >
-	<img class="product-img" src={pic} alt="product" />
+	<img class="product-img" src={pic[0]??no_img} alt="product" />
 	<div class="content">
 		<div style="display:flex;justify-content:space-between; align-items:flex-end;">
-			<div class="title">{name}</div>
+			<div class="title text-white font-bold text-3xl">{name}</div>
 			{#if ratingCount > 0}
 				<div class="rating">{rating}({ratingCount})</div>
 			{/if}
@@ -45,8 +44,11 @@
 			{description}
 		</div>
 		<div style="display:flex;overflow-y:hidden; justify-content:space-between; align-items:flex-end;">
-			<div class="price">
-				{@html price}
+			<div class="flex flex-col justify-end">
+				{#if oldPrice != 0}
+					<span class="text-gray-500 line-through text-lg font-medium mb-0">₹{oldPrice}</span>
+				{/if}
+				<span class="text-white text-3xl font-bold">₹{newPrice}</span>
 			</div>
 
 			<div class="info-top">
@@ -116,13 +118,6 @@
 		object-fit: cover;
 	}
 
-	.title {
-		justify-content: center;
-		font-size: 200%;
-		font-weight: bold;
-		color: white;
-	}
-
 	.rating {
 		font-style: normal;
 		font-weight: 700;
@@ -164,21 +159,6 @@
 	.description::-webkit-scrollbar-thumb:hover {
 		background-color: #cacaca;
 		transition: 0.4s linear all;
-	}
-
-	.old_price {
-		font-weight: 500;
-		font-size: 140%;
-		line-height: 110%;
-		text-decoration-line: line-through;
-		color: #959595;
-	}
-
-	.new_price {
-		font-weight: 700;
-		font-size: 200%;
-		line-height: 110%;
-		color: #fdfbff;
 	}
 
 	.price {
