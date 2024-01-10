@@ -33,7 +33,6 @@
 		height: 100%;
 		width: 100%;
 		justify-content: center;
-		background-color: #232323;
 		display: flex;
 	}
 

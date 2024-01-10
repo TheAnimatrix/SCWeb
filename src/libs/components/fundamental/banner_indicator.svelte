@@ -11,8 +11,8 @@
 	export let styleNormal;
 	let i = 0;
 
-	styleActive = `box-border w-[24%] h-[12px] mr-[8px] ${colorPrimary}` + boilerPlate;
-	styleNormal =`box-border w-[6%] h-[12px] mr-[8px] ${colorSecondary} ${colorAccent} hover:w-[12%] ${boilerPlate}`;
+	styleActive = `rounded-lg box-border w-[24%] h-[12px] mr-[8px] ${colorPrimary}` + boilerPlate;
+	styleNormal =`rounded-lg box-border w-[6%] h-[12px] mr-[8px] ${colorSecondary} ${colorAccent} hover:w-[12%] ${boilerPlate}`;
 
 	const prevIndicator = function () {
 		console.log('clicked prev ' + i++);

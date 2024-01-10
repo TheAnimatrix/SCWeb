@@ -12,12 +12,16 @@
 		"format": "prettier --plugin-search-dir . --write ."
 	},
 	"devDependencies": {
+		"@iconify-json/solar": "^1.1.9",
+		"@iconify-json/iconamoon": "^1.1.4",
 		"@iconify-json/mdi": "^1.1.60",
 		"@iconify-json/ph": "^1.1.8",
+		"@iconify-json/tabler": "^1.1.102",
 		"@playwright/test": "^1.28.1",
 		"@skeletonlabs/skeleton": "^2.6.0",
 		"@skeletonlabs/tw-plugin": "^0.3.0",
 		"@sveltejs/adapter-auto": "^1.0.0",
+		"@sveltejs/adapter-vercel": "^1.0.0",
 		"@sveltejs/kit": "^1.0.0",
 		"autoprefixer": "^10.4.14",
 		"eslint": "^8.28.0",

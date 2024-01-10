@@ -1,5 +1,6 @@
 <script>
 	import no_img from '$libs/svg/no_img.svg';
+	import AddCartIcon from 'virtual:icons/solar/cart-plus-line-duotone';
 	export let name,
 		author,
 		description,
@@ -18,58 +19,62 @@
 	accent3 = accent3 ?? accent1;
 	export let href;
 	export let onClick;
-</script>
 
+
+	const overlayStyle="";
+</script>
 <!-- svelte-ignore a11y-click-events-have-key-events -->
+
 <a
-	href={href}
-	class="product-top"
-	style:--accent-color-1={accent1}
-	style:--accent-color-2={accent2}
-	style:--accent-color-3={accent3}
-	on:click={onClick}
->
-	<img class="product-img" src={pic[0]??no_img} alt="product" />
-	<div class="content">
-		<div style="display:flex;justify-content:space-between; align-items:flex-end;">
-			<div class="title text-white font-bold text-3xl">{name}</div>
-			{#if ratingCount > 0}
-				<div class="rating">{rating}({ratingCount})</div>
-			{/if}
+	href={stock>0?href:"#"}
+	class="relative product-top flex flex-col max-md:flex-[1_0_61%] max-lg:flex-[1_0_41%] max-xl:flex-[1_0_31%] flex-[1_0_21%] min-w-0 max-w-[600px] mt-[20px] rounded-lg bg-[#1a112e] transition-all duration-100 ease-out h-fit {stock>0 ? "" : overlayStyle}"
+	on:click={stock>0?onClick:null}>
+	{#if stock<=0}
+		<div class="absolute inset-0 bg-gray-950 opacity-50 h-full w-full rounded-lg"></div>
+	{/if}
+	<img class="product-img h-[220px] object-cover rounded-t-lg" src={pic[0]??no_img} alt="product" />
+	<div class="p-4 pb-1 min-h-0 flex flex-col">
+		<div style="flex justify-between items-end">
+			<div class="text-white font-bold text-3xl">{name}</div>
 		</div>
-		<div class="subtitle">by {author}</div>
+		<div class="text-[#ffffffaa]">by {author}</div>
 		<div
-			class="description"
-			style="text-overflow: ellipsis; word-wrap: break-word; white-space: pre-line;padding-top:8px;"
+			class="description font-normal text-[110%] text-white text-ellipsis whitespace-pre-line pt-[8px]"
+			style="word-wrap:break-word;"
 		>
 			{description}
 		</div>
-		<div style="display:flex;overflow-y:hidden; justify-content:space-between; align-items:flex-end;">
+		<div class="flex overflow-y-hidden justify-between items-end mt-4">
 			<div class="flex flex-col justify-end">
 				{#if oldPrice != 0}
-					<span class="text-gray-500 line-through text-lg font-medium mb-0">₹{oldPrice}</span>
+					<span class="text-gray-500 line-through text-lg font-medium -mb-2">₹{oldPrice}</span>
 				{/if}
-				<span class="text-white text-3xl font-bold">₹{newPrice}</span>
-			</div>
-
-			<div class="w-full ml-2 mt-2">
-				<div class="{infoColor} p-1 w-fit  float-right">
-					{#if stock>0}
-						<span><strong>{stock}</strong> in stock</span>
-					{:else}
-						<span>{info}</span>
+				<div class="flex items-end">
+					<span class="text-white text-3xl font-bold">₹{newPrice}</span>
+					{#if ratingCount > 0}
+						<div class="font-[700] text-[#ff9b3d] pl-1">
+							{rating}({ratingCount})
+						</div>
 					{/if}
 				</div>
 			</div>
+			{#if stock>0}
+				<AddCartIcon class="text-white text-3xl"/>
+			{/if}
+		</div>
+	</div>
+	<div class="w-full mt-2 h-[10px] justify-end flex-1">
+		<div class="{infoColor} p-1 pl-4 pr-4 rounded-b-lg">
+			{#if stock>0}
+				<span><strong>{stock}</strong> in stock</span>
+			{:else}
+				<span>{info}</span>
+			{/if}
 		</div>
 	</div>
 </a>
 
 <style>
-
-    .rmm {
-        margin-left : 0px;
-    }
 
 	.product-top:hover{
   		transform: translateY(-5px);
@@ -78,70 +83,6 @@
 		cursor: pointer;
 	}
 
-	.product-top {
-		display: flex;
-		flex-direction: column;
-        flex: 1 0 21%;
-        min-width: 0;
-        max-width: 600px;
-		margin-top: 20px;
-		border-width: 4px 0px 4px 0px;
-		border-style: solid;
-		border-top-color: var(--accent-color-2);
-		border-bottom-color: var(--accent-color-3);
-		background-color: #333333;
-        height:fit-content;
- 		transition: 0.1s ease-out;
-	}
-    
-    @media only screen and (max-width: 1250px) {
-        .product-top{
-            flex: 1 0 31%;
-        }
-    }
-    @media only screen and (max-width: 1160px) {
-        .product-top{
-            flex: 1 0 41%;
-        }
-    }
-    @media only screen and (max-width: 700px) {
-        .product-top{
-            flex: 1 0 61%;
-        }
-    }
-
-
-	.content {
-		padding: 16px;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.product-img {
-		height: 220px;
-		object-fit: cover;
-	}
-
-	.rating {
-		font-style: normal;
-		font-weight: 700;
-		font-size: 120%;
-		line-height: 17px;
-		color: #ffb800;
-	}
-
-	.subtitle {
-		font-size: 130%;
-		color: var(--accent-color-1);
-	}
-
-	.description {
-		font-style: normal;
-		font-weight: 400;
-		font-size: 110%;
-		color: #ffffff;
-	}
 
 	.description::-webkit-scrollbar {
 		width: 6px;
@@ -166,9 +107,4 @@
 		transition: 0.4s linear all;
 	}
 
-	.price {
-		flex: 5;
-		margin-top: 16px;
-		margin-right: 20px;
-	}
 </style>
