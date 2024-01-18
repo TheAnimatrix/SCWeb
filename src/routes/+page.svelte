@@ -11,14 +11,14 @@
 <div id="top">
 	<div id="subtop">
 		<div id="feat-mb-text">
-			<div class="font-figtree font-bold text-5xl text-[#CAFFC7] pb-4">Editor's<br /> choice</div>
-			<div id="feat-mb-rect">
-				<div class="title">Lornode V2</div>
-				<div class="subtitle">By Animatrix</div>
+			<div class="font-figtree font-bold text-5xl text-scpurplel2 pb-4">Editor's<br /> choice</div>
+			<div id="feat-mb-rect" class="w-max h-auto bg-black border-2 border-t-8 border-solid border-[#ffeeee] p-4 pr-8 hover:border-scpurplel1">
+				<div class="title justify-center text-4xl text-white font-bold">Lornode V2</div>
+				<div class="subtitle font-bold text-xl text-[#b983ff]">By Animatrix</div>
 			</div>
 		</div>
 		<!-- <img id="feat-mb-img" src="src/libs/images/lornode_wide.png" alt="Featured Banner" /> -->
-		<BannerIndicator curActive={indicator_cur} max={indicator_max} colorSecondary="bg-sccyan" colorAccent="hover:bg-sccyanl1" />
+		<BannerIndicator curActive={indicator_cur} max={indicator_max} wActive="w-[6%]" wNormal="w-[2%]" hoverNormal="hover:w-[3%]" interval=5000/>
 		<ProductList
 			products={$products}
 			getLink={(i, product) => {;
@@ -61,32 +61,5 @@
 
 	#feat-mb-text > * {
 		margin-left: 40px;
-	}
-
-	#feat-mb-rect {
-		width: max-content;
-		height: auto;
-		background: #000000;
-		border-width: 2px 2px 13px 2px;
-		border-style: solid;
-		border-color: #ffeeee;
-		padding: 15px 30px 15px 30px;
-	}
-
-	#feat-mb-rect:hover {
-		cursor: pointer;
-		border-color: #9fcdc0;
-	}
-
-	.title {
-		justify-content: center;
-		font-size: 175%;
-		font-weight: bold;
-		color: white;
-	}
-
-	.subtitle {
-		font-size: 100%;
-		color: #b983ff;
 	}
 </style>

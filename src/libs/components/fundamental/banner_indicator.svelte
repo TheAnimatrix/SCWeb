@@ -1,4 +1,5 @@
 <script>
+	import { onMount } from 'svelte';
 	import { each } from 'svelte/internal';
 	import arrowLeft from '$libs/svg/arrow_left.svg';
 	export let curActive;
@@ -6,13 +7,17 @@
 	let boilerPlate = ' transition-all duration-200 linear ';
 	export let colorPrimary = 'bg-white';
 	export let colorSecondary = 'bg-scpurple';
-	export let colorAccent = 'hover:bg-scpurplel1';
+	export let hoverAccent = 'hover:bg-scpurplel1';
 	export let styleActive;
 	export let styleNormal;
+	export let wActive = 'w-[24%]';
+	export let wNormal = 'w-[6%]';
+	export let hoverNormal = 'w-[8%]';
+	export let interval = 0;
 	let i = 0;
 
-	styleActive = `rounded-lg box-border w-[24%] h-[12px] mr-[8px] ${colorPrimary}` + boilerPlate;
-	styleNormal =`rounded-lg box-border w-[6%] h-[12px] mr-[8px] ${colorSecondary} ${colorAccent} hover:w-[12%] ${boilerPlate}`;
+	styleActive = `rounded-lg box-border ${wActive} h-[12px] mr-[8px] ${colorPrimary} ` + boilerPlate;
+	styleNormal = `rounded-lg box-border ${wNormal} h-[12px] mr-[8px] ${colorSecondary} ${hoverAccent} ${hoverNormal} ${boilerPlate}`;
 
 	const prevIndicator = function () {
 		console.log('clicked prev ' + i++);
@@ -20,25 +25,26 @@
 	};
 
 	const nextIndicator = function () {
-		curActive = curActive < max - 1 ? curActive + 1 : curActive;
+		curActive = curActive < max - 1 ? curActive + 1 : 0;
 	};
+
+	onMount(async () => {
+		if (interval) {
+			setInterval(nextIndicator, interval);
+			return () => clearInterval(interval);
+		}
+	});
 </script>
 
 <div id="feat-mb-indicator">
-	<button on:click={prevIndicator} class="btn-clear">
-		<img src={arrowLeft} alt="<" style="margin-right: 8px;" />
-	</button>
 	{#each Array(max) as _, i (i)}
 		<button
-            class={i === curActive ? styleActive : styleNormal}
+			class={i === curActive ? styleActive : styleNormal}
 			on:click={() => {
 				curActive = i;
 			}}
 		/>
 	{/each}
-	<button on:click={nextIndicator} class="btn-clear">
-		<img src={arrowLeft} style="transform: rotate(180deg);" alt=">" />
-	</button>
 </div>
 
 <style lang="postcss">

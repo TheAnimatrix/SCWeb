@@ -41,7 +41,13 @@ const config = {
 			scbgl2: "#343434",
 			scbgl3: "#383838",
 			scpurple: '#9039FF',
+			scpurpled1: '#1C102F',
+			scpurpled2: '#2A2137',
+			scpurpled3: '#3B2F4A',
+			scpurpled0:'#8955e3',
+			scpurplel0:'#ab7dfa',
 			scpurplel1: "#e2b6ff",
+			scpurplel2: "#F4ECFF",
 			sccyan: '#93CFC0',
 			sccyanl1: '#B3FFE0'
 		}
