@@ -1,11 +1,9 @@
-<script>
+<script lang="ts">
 	import './styles.css';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Logo from '$libs/svg/logo_main.svg';
-	import MdiMenu from 'virtual:icons/mdi/menu';
-	import TablerHome from 'virtual:icons/iconamoon/home-duotone';
-	import PhUser from 'virtual:icons/ph/user-focus-duotone';
+    import Icon from '@iconify/svelte';
 	import '../app.pcss';
 	let currentMenu = 0;
 
@@ -25,7 +23,7 @@
 				on:click={() => {
 					goto('/');
 					currentMenu = 0;
-				}}><TablerHome class="text-2xl text-scpurplel1 mr-3" /></button
+				}}><Icon class="text-2xl text-scpurplel1 mr-3" icon="iconamoon:home-duotone"/></button
 			>
 		{/if}
 		<a
@@ -82,7 +80,7 @@
 				currentMenu = 3;
 			}}
 		>
-			<PhUser class={currentMenu == 3 ? "text-[220%] font-figtree transition-all ease-in duration-200 bg-white text-black hover:font-bold ml-8 rounded-lg" : "text-[#b4b4b4] text-[220%] font-figtree transition-all ease-in duration-200 hover:bg-scpurplel1 hover:text-[250%] hover:text-black hover:font-bold ml-8 rounded-lg"}/>
+			<Icon icon="ph:user-focus-duotone" class={currentMenu == 3 ? "text-[220%] font-figtree transition-all ease-in duration-200 bg-white text-black hover:font-bold ml-8 rounded-lg" : "text-[#b4b4b4] text-[220%] font-figtree transition-all ease-in duration-200 hover:bg-scpurplel1 hover:text-[250%] hover:text-black hover:font-bold ml-8 rounded-lg"}/>
 		</a>
 	</div>
 	<div
@@ -99,7 +97,7 @@
 					alt="Selfcrafted Logo"
 				/>
 			</a>
-			<MdiMenu class="text-scpurplel1 text-4xl self-center" />
+			<Icon class="text-scpurplel1 text-4xl self-center" icon="mdi:menu"/>
 		</div>
 	</div>
 	<div class="rest">

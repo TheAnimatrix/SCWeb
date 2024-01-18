@@ -1,55 +1,38 @@
-<img src="src/libs/svg/logo_main.svg" width="60%" alt="Selfcrafted" style="background-color: #0d1117;">
+# create-svelte
 
-## TODO:
-- [ ] Account creation view design (My orders, Cart)
-- [ ] Sell your Craft page design
-- [ ] Contact page design
-- [ ] Main page add automatic carousel view for image
-- [ ] Main page carousel indicator arrow loop instead of end to end
-- [ ] Product page UI implementation
-- [x] ~~Main page basic UI implementation~~
-- [x] ~~Product page design~~
-- [x] ~~Main page design~~
+Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
 
-## Setup
+## Creating a project
+
+If you're seeing this, you've probably already done this step. Congrats!
 
 ```bash
-npm install #install both dependencies and devDependencies
-npm run dev #will init a local server hosting this site
+# create a new project in the current directory
+npm create svelte@latest
+
+# create a new project in my-app
+npm create svelte@latest my-app
 ```
 
-## Target
+## Developing
 
-![Site Mockup](src/libs/images/target.png)
-Routing
--------
+Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
-Main types
--> app.html, app.d.ts
--> +page.svelte, +page.ts, +page.server.ts
--> +error.svelte, +error.ts
--> +layout.svelte, +layout.ts, +layout.server.ts
--> +server.ts
+```bash
+npm run dev
 
-=> /app.html is the main body of the entire app and /app.d.ts contains any scripting related to this global element. It is generally not necessary to make changes here.
-=> when any route (/X/Y) is rendered a request goes to (/X/Y/+page.svelte) which runs (/X/Y/+page.ts) alongside as the elements are loaded into /app.html.
-=> page.ts can export values that also consider the pages behavior like
-    => export const prerender,ssr,csr = true;
-    => <https://kit.svelte.dev/docs/page-options>
+# or start the server and open the app in a new browser tab
+npm run dev -- --open
+```
 
-=> +page.server.ts is the same as +page.ts except it runs in the server and has access to server variables like API keys.
-=> +error.svelte that handles route specific error page navigation
-=> +layout.svelte, unlike pages that are fully replaced on navigation, layout files if defined are rendered as a global element and will persist through navigations (like appbars)
-    => \<slot></slot> elements are used within layout svelte files to define the "page area"
-    => data from +layout.ts load functions is also available to all child pages.
+## Building
 
-=> +server.ts for custom route+(HTTP Verb)/response handling, can be used for creating API's
-    see <https://kit.svelte.dev/docs/routing#server-content-negotiation>
+To create a production version of your app:
 
+```bash
+npm run build
+```
 
+You can preview the production build with `npm run preview`.
 
-Requires (Tailwind, skeleton)
------------------------------
-npm i -D @skeletonlabs/skeleton @skeletonlabs/tw-plugin
-npx svelte-add@latest tailwindcss
-npm install
+> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.

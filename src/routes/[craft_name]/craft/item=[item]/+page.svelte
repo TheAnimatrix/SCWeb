@@ -1,11 +1,11 @@
 <script>
 	import BannerIndicator from '$libs/components/fundamental/banner_indicator.svelte';
 	import VariantSelector from '$libs/components/fundamental/variant_selector.svelte';
+	import * as Accordion from '$libs/components/ui/accordion';
 	import no_img from '$libs/svg/no_img.svg';
 	import CartIcon from '$libs/svg/add_to_cart_icon.svg';
 	import { getProduct, products } from '$libs/stores/products.js';
-	import { TabGroup, Tab } from '@skeletonlabs/skeleton';
-	import { Accordion, AccordionItem } from '@skeletonlabs/skeleton';
+	import * as Tabs from '$libs/components/ui/tabs';
 	let indicator_cur = 0;
 	let ItemQty = 0;
 	let tabSet = 0;
@@ -35,6 +35,10 @@
 			cart_qty = 0;
 		}
 	}
+
+	// styles
+	const triggerTabStyle =
+		'data-[state=active]:bg-scpurple data-[state=active]:text-white px-4 py-2 text-md text-gray-100 rounded-xl hover:bg-scpurpled2';
 </script>
 
 <!-- <ProductItem {...productB} onClick={()=>console.log("clicked")}/> -->
@@ -57,9 +61,7 @@
 			</div>
 			<div class="flex-[1.2] h-full flex flex-col ml-2 max-sm:ml-0">
 				<div class="flex mb-2">
-					<div
-						class="rounded-lg flex-1 bg-scpurpled1 p-4 flex flex-col justify-center max-sm:mt-2"
-					>
+					<div class="rounded-lg flex-1 bg-scpurpled1 p-4 flex flex-col justify-center max-sm:mt-2">
 						<div class="justify-center text-3xl text-white font-bold">{getProduct(i).name}</div>
 						<div class="justify-center text-2xl text-scpurple font-bold">
 							By {getProduct(i).author}
@@ -85,7 +87,9 @@
 									>{getProduct(i).rating}({getProduct(i).ratingCount})</span
 								>
 							</div>
-							<div class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled2 text-xl my-2">
+							<div
+								class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled2 text-xl my-2"
+							>
 								<button class="p-0 px-4 hover:scale-150" on:click={dec_cart}>-</button>
 								<div class="p-1 px-4 border-x-4 border-scpurpled3" id="qty_show">{cart_qty}</div>
 								<button class="p-0 px-4 hover:scale-150" on:click={inc_cart}>+</button>
@@ -104,7 +108,7 @@
 						</div>
 						<div class="flex flex-col my-2 self-end items-end">
 							{#if getProduct(i).stock > 0}
-								<div class="p-2 pl-4 pr-4 bg-scpurpled2 text-xl font-bold ">
+								<div class="p-2 pl-4 pr-4 bg-scpurpled2 text-xl font-bold">
 									{getProduct(i).stock} In Stock
 								</div>
 							{/if}
@@ -124,73 +128,90 @@
 		<div class="flex-1 text-white justify-start mr-4">
 			<div>
 				{#if indicator_max > 1}
-					<BannerIndicator bind:curActive={indicator_cur} max={indicator_max} wActive="w-[12%]" wNormal="w-[6%]" hoverNormal="hover:w-[10%]"/>
+					<BannerIndicator
+						bind:curActive={indicator_cur}
+						max={indicator_max}
+						wActive="w-[12%]"
+						wNormal="w-[6%]"
+						hoverNormal="hover:w-[10%]"
+					/>
 				{/if}
 			</div>
-			<div class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled2 rounded-r-xl rounded-b-xl mt-4">
-				<svg xmlns="http://www.w3.org/2000/svg" width="30" height="27D" viewBox="0 0 53 47" fill="none">
-					<path d="M50.5 46.0427L0 43.1375L53 0.0427246L50.5 46.0427Z" fill="#321E51"/>
-					<path d="M53 0.0427246L0 44.0427V0.0427246H53Z" fill="#12081b"/>
-					</svg>
-			<div class="p-4 pt-2">
-				{getProduct(i).description}
-			</div>
+			<div
+				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled2 rounded-r-xl rounded-b-xl mt-4"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="30"
+					height="27D"
+					viewBox="0 0 53 47"
+					fill="none"
+				>
+					<path d="M50.5 46.0427L0 43.1375L53 0.0427246L50.5 46.0427Z" fill="#321E51" />
+					<path d="M53 0.0427246L0 44.0427V0.0427246H53Z" fill="#12081b" />
+				</svg>
+				<div class="p-4 pt-2 opacity-85">
+					{getProduct(i).description}
+					<br/>
+					<br/>
+					What is Lorem Ipsum?
+Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+
+<br/>
+<br/>
+Why do we use it?
+It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
+				</div>
 			</div>
 		</div>
-		<div class="flex-1 my-4">
-			<!-- 
-		
-				class applies to the entire block
-				regionList applies only to the tab list
-				spacing applies to the block
-			 -->
-			<TabGroup
-				justify="justify-start items-end"
-				border="pb-4"
-				active="mx-2 transition-all ease-in duration-200 bg-[#8D39FF] text-white text-xl font-bold font-figtree"
-				hover="mx-2 ml-1 bg-scpurpled1 text-white !transition-all !ease-in !duration-200 hover:!bg-scpurpled3"
-				rounded="rounded-xl"
-				flex="flex-wrap"
-				spacing=""
-				class="!space-y-0 text-lg"
-				regionPanel="mt-0 mx-1 rounded-xl bg-scpurpled1"
-				regionList=""
-			>
-				<Tab bind:group={tabSet} name="tab1" value={0}>FAQ</Tab>
-				<Tab bind:group={tabSet} name="tab2" value={1}>Documentation</Tab>
-				<Tab bind:group={tabSet} name="tab3" value={2}>Shipping</Tab>
-				<Tab bind:group={tabSet} name="tab4" value={3}>Costing</Tab>
-				<svelte:fragment slot="panel">
-					{#if tabSet === 0}
-						<Accordion
-							regionControl="text-[#ffffff]"
-							regionPanel="text-white bg-scpurpled2"
-							regionCaret="hidden"
-						>
-							<AccordionItem open>
-								<svelte:fragment slot="summary"
-									><div class="flex">Q: Lorem Ipsum is the Question?</div></svelte:fragment
+		<div class="flex-1 my-4 w-full">
+			<Tabs.Root value="faq" class="w-full" id="crazy">
+				<Tabs.List class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl">
+					<Tabs.Trigger class={triggerTabStyle} value="faq">FAQ</Tabs.Trigger>
+					<Tabs.Trigger class={triggerTabStyle} value="documentation">Documentation</Tabs.Trigger>
+					<Tabs.Trigger class={triggerTabStyle} value="shipping">Shipping</Tabs.Trigger>
+					<Tabs.Trigger class={triggerTabStyle} value="costing">Costing</Tabs.Trigger>
+				</Tabs.List>
+				<Tabs.Content value="faq" class="text-white bg-scpurpled1 pb-4 rounded-xl">
+					<div>
+						<Accordion.Root class="w-full" multiple>
+							<Accordion.Item value="item-1" class="border-0 px-4">
+								<Accordion.Trigger>Is it accessible?</Accordion.Trigger>
+								<Accordion.Content
+									>Yes.</Accordion.Content
 								>
-								<svelte:fragment slot="content">A: This is the answer.</svelte:fragment>
-							</AccordionItem>
-							<AccordionItem open>
-								<svelte:fragment slot="summary"
-									><div class="flex">Q: Lorem Ipsum is the Question?</div></svelte:fragment
-								>
-								<svelte:fragment slot="content">A: This is the answer.</svelte:fragment>
-							</AccordionItem>
-							<!-- ... -->
-						</Accordion>
-					{:else if tabSet === 1}
-						(tab panel 2 contents)
-					{:else if tabSet === 2}
-						(tab panel 3 contents)
-					{/if}
-				</svelte:fragment>
-			</TabGroup>
+							</Accordion.Item>
+							<Accordion.Item value="item-2" class="border-0 px-4 bg-scpurpled2">
+								<Accordion.Trigger>Is it good?</Accordion.Trigger>
+								<Accordion.Content>
+									Yes.
+								</Accordion.Content>
+							</Accordion.Item>
+							<Accordion.Item value="item-3" class="border-0 px-4">
+								<Accordion.Trigger>What else?</Accordion.Trigger>
+								<Accordion.Content>
+									Yes.
+								</Accordion.Content>
+							</Accordion.Item>
+							<Accordion.Item value="item-4" class="border-0 px-4 bg-scpurpled2">
+								<Accordion.Trigger>Nothing else?</Accordion.Trigger>
+								<Accordion.Content>
+									No.
+								</Accordion.Content>
+							</Accordion.Item>
+						</Accordion.Root>
+					</div>
+				</Tabs.Content>
+				<Tabs.Content value="documentation" class="text-white bg-scpurpled2 p-4 rounded-xl"
+					>Documentation here</Tabs.Content
+				>
+				<Tabs.Content value="costing" class="text-white bg-scpurpled2 p-4 rounded-xl"
+					>Costing details here</Tabs.Content
+				>
+				<Tabs.Content value="shipping" class="text-white bg-scpurpled2 p-4 rounded-xl"
+					>Shipping details here</Tabs.Content
+				>
+			</Tabs.Root>
 		</div>
 	</div>
 </div>
-
-<style lang="postcss">
-</style>

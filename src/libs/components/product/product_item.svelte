@@ -1,6 +1,6 @@
 <script>
 	import no_img from '$libs/svg/no_img.svg';
-	import AddCartIcon from 'virtual:icons/solar/cart-plus-line-duotone';
+	import Icon from '@iconify/svelte';
 	export let name,
 		author,
 		description,
@@ -59,7 +59,7 @@
 				</div>
 			</div>
 			{#if stock>0}
-				<AddCartIcon class="text-white text-3xl"/>
+				<Icon icon="solar:cart-plus-line-duotone" class="text-white text-3xl"/>
 			{/if}
 		</div>
 	</div>

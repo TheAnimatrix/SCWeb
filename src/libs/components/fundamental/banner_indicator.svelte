@@ -1,15 +1,15 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
-	import { each } from 'svelte/internal';
+	// import { each } from 'svelte/internal';
 	import arrowLeft from '$libs/svg/arrow_left.svg';
-	export let curActive;
-	export let max;
+	export let curActive : number;
+	export let max : number;
 	let boilerPlate = ' transition-all duration-200 linear ';
 	export let colorPrimary = 'bg-white';
 	export let colorSecondary = 'bg-scpurple';
 	export let hoverAccent = 'hover:bg-scpurplel1';
-	export let styleActive;
-	export let styleNormal;
+	export let styleActive : string;
+	export let styleNormal : string;
 	export let wActive = 'w-[24%]';
 	export let wNormal = 'w-[6%]';
 	export let hoverNormal = 'w-[8%]';
