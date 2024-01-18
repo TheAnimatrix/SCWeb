@@ -13,7 +13,7 @@
 	export let wActive = 'w-[24%]';
 	export let wNormal = 'w-[6%]';
 	export let hoverNormal = 'w-[8%]';
-	export let interval = 0;
+	export let interval : number | undefined = 0;
 	let i = 0;
 
 	styleActive = `rounded-lg box-border ${wActive} h-[12px] mr-[8px] ${colorPrimary} ` + boilerPlate;

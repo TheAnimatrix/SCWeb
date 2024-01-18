@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import BannerIndicator from '$libs/components/fundamental/banner_indicator.svelte';
 	import ProductList from './product_list.svelte';
 	import { goto } from '$app/navigation';
@@ -6,6 +6,7 @@
 
 	let indicator_cur = 0;
 	let indicator_max = 5;
+	let cinterval : number = 5000;
 </script>
 
 <div id="top">
@@ -18,7 +19,7 @@
 			</div>
 		</div>
 		<!-- <img id="feat-mb-img" src="src/libs/images/lornode_wide.png" alt="Featured Banner" /> -->
-		<BannerIndicator curActive={indicator_cur} max={indicator_max} wActive="w-[6%]" wNormal="w-[2%]" hoverNormal="hover:w-[3%]" interval=5000/>
+		<BannerIndicator curActive={indicator_cur} max={indicator_max} wActive="w-[6%] max-sm:w-[15%]" wNormal="w-[2%] max-sm:w-[6%]" hoverNormal="hover:w-[3%]" interval={cinterval} />
 		<ProductList
 			products={$products}
 			getLink={(i, product) => {;

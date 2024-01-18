@@ -124,8 +124,8 @@
 			</div>
 		</div>
 	</div>
-	<div class="flex justify-start w-full">
-		<div class="flex-1 text-white justify-start mr-4">
+	<div class="flex justify-start w-full  max-sm:flex-col">
+		<div class="flex-1 text-white justify-start mr-4 max-sm:mr-1">
 			<div>
 				{#if indicator_max > 1}
 					<BannerIndicator
