@@ -166,7 +166,7 @@ It is a long established fact that a reader will be distracted by the readable c
 		</div>
 		<div class="flex-1 my-4 w-full">
 			<Tabs.Root value="faq" class="w-full" id="crazy">
-				<Tabs.List class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl">
+				<Tabs.List class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl  overflow-x-auto">
 					<Tabs.Trigger class={triggerTabStyle} value="faq">FAQ</Tabs.Trigger>
 					<Tabs.Trigger class={triggerTabStyle} value="documentation">Documentation</Tabs.Trigger>
 					<Tabs.Trigger class={triggerTabStyle} value="shipping">Shipping</Tabs.Trigger>
