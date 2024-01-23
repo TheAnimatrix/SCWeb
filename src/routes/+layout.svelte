@@ -5,6 +5,8 @@
 	import { goto } from '$app/navigation';
 	import Logo from '$libs/svg/logo_main.svg';
 	import Icon from '@iconify/svelte';
+	import * as Drawer from '$libs/components/ui/drawer';
+	import { Button } from '$libs/components/ui/button';
 	import '../app.pcss';
 
 	let bgColor: string,
@@ -96,7 +98,54 @@
 					alt="Selfcrafted Logo"
 				/>
 			</a>
-			<Icon class="text-{accentColor} text-4xl self-center" icon="mdi:menu" />
+			<Drawer.Root shouldScaleBackground>
+				<Drawer.Trigger>
+					<Icon class="text-{accentColor} text-4xl self-center" icon="mdi:menu" /></Drawer.Trigger
+				>
+				<Drawer.Content class="bg-scpurpled1 border-none text-white animate_base">
+					<Drawer.Header>
+						<Drawer.Title>Menu options</Drawer.Title>
+						<Drawer.Close
+							><div class="p-6 font-bold text-2xl">
+								<ul class="flex flex-col justify-center items-center">
+									<li
+										class="mt-4 opacity-70 font-normal"
+										class:menu-active-mobile={data.id === '/'}
+									>
+										<a href="/">Crafts</a>
+									</li>
+									<li
+										class="mt-4 opacity-70 font-normal"
+										class:menu-active-mobile={data.id?.startsWith('/about')}
+									>
+										<a href="/about">About</a>
+									</li>
+									<li
+										class="mt-4 opacity-70 font-normal"
+										class:menu-active-mobile={data.id?.startsWith('/crafting')}
+									>
+										<a href="/crafting">Start Crafting</a>
+									</li>
+									<li
+										class="mt-4 opacity-70 font-normal text-center"
+										class:menu-active-mobile={data.id?.startsWith('/user')}
+									>
+										<a href="/user">
+											<Icon
+												icon="ph:user-focus-duotone"
+												class={data.id?.startsWith('/user')
+													? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
+													: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold rounded-lg'}
+											/>
+										</a>
+									</li>
+								</ul>
+							</div></Drawer.Close
+						>
+					</Drawer.Header>
+					<Drawer.Footer></Drawer.Footer>
+				</Drawer.Content>
+			</Drawer.Root>
 		</div>
 	</div>
 	<div class="rest">
@@ -144,6 +193,16 @@
 		font-weight: 700;
 		font-family: figtree;
 		transition: 0.2s ease-in all;
+	}
+	.menu-active-mobile {
+		word-wrap: break-word;
+		width: fit-content;
+		background-color: white;
+		color: black;
+		font-weight: 700;
+		font-family: figtree;
+		transition: 0.2s ease-in all;
+		@apply text-3xl p-1  opacity-100;
 	}
 
 	.rest {
