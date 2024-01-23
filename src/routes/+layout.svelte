@@ -102,7 +102,7 @@
 				<Drawer.Trigger>
 					<Icon class="text-{accentColor} text-4xl self-center" icon="mdi:menu" /></Drawer.Trigger
 				>
-				<Drawer.Content class="bg-scpurpled1 border-none text-white animate_base">
+				<Drawer.Content class="bg-{primaryColor} border-none text-white animate_base">
 					<Drawer.Header>
 						<Drawer.Title>Menu options</Drawer.Title>
 						<Drawer.Close
