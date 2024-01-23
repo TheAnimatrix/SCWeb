@@ -8,8 +8,8 @@
 	export let colorPrimary = 'bg-white';
 	export let colorSecondary = 'bg-scpurple';
 	export let hoverAccent = 'hover:bg-scpurplel1';
-	export let styleActive : string;
-	export let styleNormal : string;
+	export let styleActive : string = '';
+	export let styleNormal : string = '';
 	export let wActive = 'w-[24%]';
 	export let wNormal = 'w-[6%]';
 	export let hoverNormal = 'w-[8%]';

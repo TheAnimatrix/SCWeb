@@ -1,40 +1,47 @@
 <script lang="ts">
 	import './styles.css';
+	export let data;
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Logo from '$libs/svg/logo_main.svg';
-    import Icon from '@iconify/svelte';
+	import Icon from '@iconify/svelte';
 	import '../app.pcss';
-	let currentMenu = 0;
 
-	let isHomePage = false;
-	//TODO - only for /crafts/item
-	//TODO - intellisense not working
-	$: $page.url.pathname === '/' ? (isHomePage = true) : (isHomePage = false);
+	let bgColor: string,
+		accentColor: string,
+		accentHoverColor: string,
+		filter: string,
+		primaryColor: string;
+	$: {
+		if ($page.route.id?.startsWith('/user')) {
+			console.log('hello');
+			primaryColor = 'scoranged1';
+			accentColor = 'scorange';
+			bgColor = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
+			filter = 'filter-orange';
+		} else {
+			primaryColor = 'scpurpled1';
+			accentColor = 'scpurplel1';
+			filter = 'filter-purple';
+			bgColor = 'bg-gradient-to-tr from-[#0d0815] to-[#180c2c]';
+			accentHoverColor = 'scpurpled3';
+		}
+	}
+	//tailwind cache
+	let _tw_cache =
+		'bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange';
 </script>
 
-<div class="app h-screen bg-sc">
+<div class="app min-h-screen {bgColor}">
 	<div
 		class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden"
 	>
-		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<!-- {#if !isHomePage}
-			<button
-				on:click={() => {
-					goto('/');
-					currentMenu = 0;
-				}}><Icon class="text-2xl text-scpurplel1 mr-3" icon="iconamoon:home-duotone"/></button
-			>
-		{/if} -->
 		<a
 			href="/"
-			on:click={() => {
-				currentMenu = 0;
-			}}
 			class="block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8"
 		>
 			<img
-				class="filter-purple"
+				class={filter}
 				style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
 				src={Logo}
 				alt="Selfcrafted Logo"
@@ -43,62 +50,53 @@
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		<a
 			href="/"
-			class="menu_button ml-8  p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree transition-all ease-in duration-200 hover:bg-scpurpled3 hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-			class:menu-active={currentMenu === 0}
-			on:click={() => {
-				currentMenu = 0;
-			}}
+			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
+			class:menu-active={data.id === '/'}
 		>
 			Crafts
 		</a>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		<a
 			href="/about"
-			class="menu_button ml-8  p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree transition-all ease-in duration-200 hover:bg-scpurpled3 hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-			class:menu-active={currentMenu === 1}
-			on:click={() => {
-				currentMenu = 1;
-			}}
+			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
+			class:menu-active={data.id?.startsWith('/about')}
 		>
 			About
 		</a>
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		<a
 			href="/crafting"
-			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree transition-all ease-in duration-200 hover:bg-scpurpled3 hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-			class:menu-active={currentMenu === 2}
-			on:click={() => {
-				currentMenu = 2;
-			}}
+			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
+			class:menu-active={data.id?.startsWith('/crafting')}
 		>
 			Start Crafting
 		</a>
 
-		<a
-			href="/user"
-			on:click={() => {
-				currentMenu = 3;
-			}}
-		>
-			<Icon icon="ph:user-focus-duotone" class={currentMenu == 3 ? "text-[220%] font-figtree transition-all ease-in duration-200 bg-white text-black hover:font-bold ml-8 rounded-lg" : "text-[#b4b4b4] text-[220%] font-figtree transition-all ease-in duration-200 hover:bg-scpurpled3 hover:text-[250%] hover:text-scpurplel2 hover:font-bold ml-8 rounded-lg"}/>
+		<a href="/user">
+			<Icon
+				icon="ph:user-focus-duotone"
+				class={data.id?.startsWith('/user')
+					? `text-[220%] font-figtree animate_base hover:font-bold ml-8 rounded-lg bg-white text-${primaryColor}`
+					: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold ml-8 rounded-lg'}
+			/>
 		</a>
 	</div>
 	<div
-		class="menu_mobile sm:hidden flex flex-col items-center justify-center w-full sticky top-0 backdrop-blur-[30px] z-10 "
+		class="menu_mobile sm:hidden flex flex-col items-center justify-center w-full sticky top-0 backdrop-blur-[30px] z-10"
 	>
 		<div class="flex space-x-12">
 			<a
 				href="/"
-				class="flex-1 block logo h-3/4 border-b-0 bg-[#3f3f3f36]  border-r-4 transition-all ease-out duration-400 hover:border-r-8"
+				class="flex-1 block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 transition-all ease-out duration-400 hover:border-r-8"
 			>
 				<img
-					class="filter-purple"
+					class={filter}
 					style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
 					src={Logo}
 					alt="Selfcrafted Logo"
 				/>
 			</a>
-			<Icon class="text-scpurplel1 text-4xl self-center" icon="mdi:menu"/>
+			<Icon class="text-{accentColor} text-4xl self-center" icon="mdi:menu" />
 		</div>
 	</div>
 	<div class="rest">
@@ -107,9 +105,12 @@
 </div>
 
 <style lang="postcss">
-	
-	.filter-purple{
-    filter: hue-rotate(87deg);
+	.filter-purple {
+		filter: hue-rotate(87deg);
+	}
+
+	.filter-orange {
+		filter: hue-rotate(225deg);
 	}
 
 	:global(body)::-webkit-scrollbar {

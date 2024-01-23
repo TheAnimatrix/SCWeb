@@ -1,74 +1,63 @@
-<script>
+<script lang="ts">
 	import no_img from '$libs/svg/no_img.svg';
 	import Icon from '@iconify/svelte';
-	export let name,
-		author,
-		description,
-		oldPrice,
-		newPrice,
-		info,
-		infoColor,
-		rating,
-		ratingCount,
-		pic,
-		stock,
-		accent1,
-		accent2,
-		accent3;
-	accent2 = accent2 ?? accent1;
-	accent3 = accent3 ?? accent1;
-	export let href;
-	export let onClick;
-
-
+	import { Badge } from '$libs/components/ui/badge';
+	import type {Product} from '$libs/stores/types/product';
+	export let product: Product;
+	product.accent2 = product.accent2 ?? product.accent1;
+	product.accent3 = product.accent3 ?? product.accent1;
+	export let href : string;
+	export let onClick : any;
 	const overlayStyle="";
 </script>
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 
 <a
-	href={stock>0?href:"#"}
-	class="relative product-top flex flex-col max-md:flex-[1_0_61%] max-lg:flex-[1_0_41%] max-xl:flex-[1_0_31%] flex-[1_0_21%] min-w-0 max-w-[600px] mt-[20px] rounded-lg bg-[#1a112e] transition-all duration-100 ease-out h-fit {stock>0 ? "" : overlayStyle}"
-	on:click={stock>0?onClick:null}>
-	{#if stock<=0}
+	href={product.stock>0?href:"#"}
+	class="relative product-top flex flex-col max-md:flex-[1_0_61%] max-lg:flex-[1_0_41%] max-xl:flex-[1_0_31%] flex-[1_0_21%] min-w-0 max-w-[600px] mt-[20px] rounded-lg bg-scpurpled1 transition-all duration-100 ease-out h-fit {product.stock>0 ? "" : overlayStyle}"
+	on:click={product.stock>0?onClick:null}>
+	{#if product.stock<=0}
 		<div class="absolute inset-0 bg-gray-950 opacity-50 h-full w-full rounded-lg"></div>
 	{/if}
-	<img class="product-img h-[220px] object-cover rounded-t-lg" src={pic[0]??no_img} alt="product" />
+	<img class="product-img h-[220px] object-cover rounded-t-lg" src={product.pic[0]??no_img} alt="product" />
 	<div class="p-4 pb-1 min-h-0 flex flex-col">
 		<div style="flex justify-between items-end">
-			<div class="text-white font-bold text-3xl">{name}</div>
+			<div class="text-white font-bold text-2xl">{product.name}</div>
 		</div>
-		<div class="text-[#ffffffaa]">by {author}</div>
+		<div class="text-scpurplel0 mt-[-8px]">by {product.author}</div>
 		<div
-			class="description font-normal text-[110%] text-white text-ellipsis whitespace-pre-line pt-[8px]"
+			class="description font-normal text-[110%] text-white text-ellipsis whitespace-pre-line pt-2"
 			style="word-wrap:break-word;"
 		>
-			{description}
+			{#each product.tags as t}
+				<Badge class="text-white mr-2 mt-2 bg-scpurpled3 hover:bg-scpurpled2">{t}</Badge>
+			{/each}
 		</div>
-		<div class="flex overflow-y-hidden justify-between items-end mt-4">
+		<div class="flex overflow-y-hidden overflow-x-hidden justify-between items-end mt-4">
 			<div class="flex flex-col justify-end">
-				{#if oldPrice != 0}
-					<span class="text-gray-500 line-through text-lg font-medium -mb-2">₹{oldPrice}</span>
+				{#if product.oldPrice != 0}
+					<span class="text-gray-500 line-through text-lg font-medium -mb-2">₹{product.oldPrice}</span>
 				{/if}
 				<div class="flex items-end">
-					<span class="text-white text-3xl font-bold">₹{newPrice}</span>
-					{#if ratingCount > 0}
-						<div class="font-[700] text-[#ff9b3d] pl-1">
-							{rating}({ratingCount})
+					<span class="text-white text-2xl font-bold">₹{product.newPrice}</span>
+					{#if product.ratingCount > 0}
+						<div class="text-[#ff9b3d] pl-1">
+							{product.rating}({product.ratingCount})
 						</div>
 					{/if}
 				</div>
 			</div>
-			{#if stock>0}
-				<Icon icon="solar:cart-plus-line-duotone" class="text-white text-3xl"/>
+			{#if product.stock>0}
+				<Icon icon="solar:cart-plus-line-duotone" class="text-scpurplel1 text-4xl rounded-xl hover:bg-scpurplel2 hover:text-scpurple p-0.5 ease-linear transition-all duration-200"/>
 			{/if}
 		</div>
 	</div>
 	<div class="w-full mt-2 h-[10px] justify-end flex-1">
-		<div class="{infoColor} p-1 pl-4 pr-4 rounded-b-lg">
-			{#if stock>0}
-				<span><strong>{stock}</strong> in stock</span>
+		<div class="{product.infoColor} p-1 pl-4 pr-4 rounded-b-lg">
+			{#if product.stock>0}
+				<span><strong>{product.stock}</strong> in stock</span>
 			{:else}
-				<span>{info}</span>
+				<span>{product.info}</span>
 			{/if}
 		</div>
 	</div>
