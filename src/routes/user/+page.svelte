@@ -35,7 +35,7 @@
 				</Tabs.Content>
 				<Tabs.Content value="Register" class="text-white pb-4 rounded-xl min-h-[500px]">
 					<GlowleftInput placeholder="E-Mail" class="mt-4 md:w-96 max-sm:w-full" />
-					<GlowleftInput placeholder="Username" class="mt-8 md:w-96 max-sm:w-full" />
+					<GlowleftInput placeholder="Username" class="mt-8 md:w-96 max-sm:w-full max-sm:mt-4" />
 					<GlowleftInput
 						placeholder="Password"
 						class="mt-8 md:w-96 max-sm:w-full max-sm:mt-4"
