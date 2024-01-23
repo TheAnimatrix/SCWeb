@@ -21,6 +21,12 @@
 			accentColor = 'scorange';
 			bgColor = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
 			filter = 'filter-orange';
+		} else if ($page.route.id?.startsWith('/about')) {
+			console.log('hello');
+			primaryColor = 'scoranged1';
+			accentColor = 'scorange';
+			bgColor = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
+			filter = 'filter-about';
 		} else {
 			primaryColor = 'scpurpled1';
 			accentColor = 'scpurplel1';
@@ -160,6 +166,10 @@
 
 	.filter-orange {
 		filter: hue-rotate(225deg);
+	}
+
+	.filter-about {
+		filter: hue-rotate(50deg);
 	}
 
 	:global(body)::-webkit-scrollbar {
