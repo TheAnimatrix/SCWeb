@@ -25,7 +25,7 @@
 <style lang="postcss">
     
     .category{
-        @apply mt-6 text-xl text-[#9D9D9D] font-semibold animate_base
+        @apply mt-6 text-xl text-[#9D9D9D] font-semibold ease-linear transition-all duration-200;
     }
 
     .selected-category{
