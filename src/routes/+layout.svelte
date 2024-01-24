@@ -30,8 +30,8 @@
 			pageName = 'user';
 		} else if ($page.route.id?.startsWith('/about')) {
 			console.log('hello');
-			primaryColor = 'scoranged1';
-			accentColor = 'scorange';
+			primaryColor = 'sccyand1';
+			accentColor = 'sccyan';
 			bgColor = bgAbout;
 			filter = 'filter-about';
 			pageName = 'about';
@@ -46,7 +46,7 @@
 	}
 	//tailwind cache
 	let _tw_cache =
-		'bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange';
+		'bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan';
 </script>
 
 <div class="relative">
@@ -184,7 +184,7 @@
 	}
 
 	.filter-about {
-		filter: hue-rotate(50deg);
+		filter: hue-rotate(0deg);
 	}
 
 	:global(body)::-webkit-scrollbar {

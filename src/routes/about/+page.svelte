@@ -8,15 +8,15 @@
 	import * as Card from '$libs/components/ui/card';
 </script>
 
-<div class="text-white flex flex-col text-center mt-8">
-	<span class="font-bold text-2xl">Alright, We need to talk.</span>
-	<span class="text-xl"
+<div class="text-white flex flex-col text-center mt-8 ">
+	<span class="font-bold text-2xl mx-4">Alright, We need to talk.</span>
+	<span class="text-xl mx-4"
 		>We know you have a lot of questions on how this works.<br />
 		So we curated some of them below.</span
 	>
 	<div class="mt-8 w-full flex justify-center">
-		<div class="flex flex-col justify-center items-center w-[65%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-8">
+		<div class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
+			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3">
 				<Card.Header>
 					<Card.Title class="text-2xl">Origin</Card.Title>
 					<!-- <Card.Description>Card Description</Card.Description> -->
@@ -29,8 +29,8 @@
 					<p>Card Footer</p>
 				</Card.Footer> -->
 			</Card.Root>
-			<div class="flex w-full">
-				<Card.Root class="bg-[#131819] border-none flex-[4] text-white text-left mb-48">
+			<div class="flex w-full max-lg:flex-col">
+				<Card.Root class="bg-[#131819] border-none flex-[4] text-white text-left mb-48 max-lg:mb-3">
 					<Card.Header>
 						<Card.Title class="text-2xl">Vision & Roadmap</Card.Title>
 						<!-- <Card.Description>Card Description</Card.Description> -->
@@ -40,7 +40,7 @@
 						<!-- <p class="text-lg">{ABOUT_STRINGS.vision}</p> -->
 					</Card.Content></Card.Root
 				>
-				<Card.Root class="noise bg-[#0b0f0f] border-none flex-[2] text-white text-left mb-48 ml-8">
+				<Card.Root class="bg-[#131819] border-none flex-[2] text-white text-left mb-48 ml-4 max-lg:ml-0">
 					<Card.Header>
 						<Card.Title class="text-2xl">Risk of purchase</Card.Title>
 						<!-- <Card.Description>Card Description</Card.Description> -->
