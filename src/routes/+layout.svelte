@@ -14,25 +14,34 @@
 		accentHoverColor: string,
 		filter: string,
 		primaryColor: string;
+
+	let bgUser : string, bgAbout : string, bgMain : string;
+	bgUser = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
+	bgAbout = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
+	bgMain = 'bg-gradient-to-tr from-[#0d0815] to-[#180c2c]';
+	let pageName : string;
 	$: {
 		if ($page.route.id?.startsWith('/user')) {
 			console.log('hello');
 			primaryColor = 'scoranged1';
 			accentColor = 'scorange';
-			bgColor = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
+			bgColor = bgUser;
 			filter = 'filter-orange';
+			pageName = 'user';
 		} else if ($page.route.id?.startsWith('/about')) {
 			console.log('hello');
 			primaryColor = 'scoranged1';
 			accentColor = 'scorange';
-			bgColor = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
+			bgColor = bgAbout;
 			filter = 'filter-about';
+			pageName = 'about';
 		} else {
 			primaryColor = 'scpurpled1';
 			accentColor = 'scpurplel1';
 			filter = 'filter-purple';
-			bgColor = 'bg-gradient-to-tr from-[#0d0815] to-[#180c2c]';
+			bgColor = bgMain;
 			accentHoverColor = 'scpurpled3';
+			pageName = 'main';
 		}
 	}
 	//tailwind cache
@@ -40,62 +49,18 @@
 		'bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange';
 </script>
 
-<div class="app min-h-screen {bgColor}">
-	<div
-		class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden"
-	>
-		<a
-			href="/"
-			class="block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8"
+<div class="relative">
+	<div class="min-h-screen bg-black z-[-1] inset-0 absolute opacity-100 animate_base"></div>
+	<div class="min-h-screen {bgUser} z-[-1] inset-0 absolute {pageName=='user'?'opacity-100':'opacity-0'} animate_base"></div>
+	<div class="min-h-screen {bgAbout} z-[-1] inset-0 absolute {pageName=='about'?'opacity-100':'opacity-0'} animate_base"></div>
+	<div class="min-h-screen {bgMain} z-[-1] inset-0 absolute {pageName=='main'?'opacity-100':'opacity-0'} animate_base"></div>
+	<div class="app min-h-screen animate_base">
+		<div
+			class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden"
 		>
-			<img
-				class={filter}
-				style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
-				src={Logo}
-				alt="Selfcrafted Logo"
-			/>
-		</a>
-		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<a
-			href="/"
-			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-			class:menu-active={data.id === '/'}
-		>
-			Crafts
-		</a>
-		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<a
-			href="/about"
-			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-			class:menu-active={data.id?.startsWith('/about')}
-		>
-			About
-		</a>
-		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<a
-			href="/crafting"
-			class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-			class:menu-active={data.id?.startsWith('/crafting')}
-		>
-			Start Crafting
-		</a>
-
-		<a href="/user">
-			<Icon
-				icon="ph:user-focus-duotone"
-				class={data.id?.startsWith('/user')
-					? `text-[220%] font-figtree animate_base hover:font-bold ml-8 rounded-lg bg-white text-${primaryColor}`
-					: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold ml-8 rounded-lg'}
-			/>
-		</a>
-	</div>
-	<div
-		class="menu_mobile sm:hidden flex flex-col items-center justify-center w-full sticky top-0 backdrop-blur-[30px] z-10"
-	>
-		<div class="flex space-x-12">
 			<a
 				href="/"
-				class="flex-1 block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 transition-all ease-out duration-400 hover:border-r-8"
+				class="block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8"
 			>
 				<img
 					class={filter}
@@ -104,58 +69,108 @@
 					alt="Selfcrafted Logo"
 				/>
 			</a>
-			<Drawer.Root shouldScaleBackground>
-				<Drawer.Trigger>
-					<Icon class="text-{accentColor} text-4xl self-center" icon="mdi:menu" /></Drawer.Trigger
-				>
-				<Drawer.Content class="bg-{primaryColor} border-none text-white animate_base">
-					<Drawer.Header>
-						<Drawer.Title>Menu options</Drawer.Title>
-						<Drawer.Close
-							><div class="p-6 font-bold text-2xl">
-								<ul class="flex flex-col justify-center items-center">
-									<li
-										class="mt-4 opacity-70 font-normal"
-										class:menu-active-mobile={data.id === '/'}
-									>
-										<a href="/">Crafts</a>
-									</li>
-									<li
-										class="mt-4 opacity-70 font-normal"
-										class:menu-active-mobile={data.id?.startsWith('/about')}
-									>
-										<a href="/about">About</a>
-									</li>
-									<li
-										class="mt-4 opacity-70 font-normal"
-										class:menu-active-mobile={data.id?.startsWith('/crafting')}
-									>
-										<a href="/crafting">Start Crafting</a>
-									</li>
-									<li
-										class="mt-4 opacity-70 font-normal text-center"
-										class:menu-active-mobile={data.id?.startsWith('/user')}
-									>
-										<a href="/user">
-											<Icon
-												icon="ph:user-focus-duotone"
-												class={data.id?.startsWith('/user')
-													? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
-													: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold rounded-lg'}
-											/>
-										</a>
-									</li>
-								</ul>
-							</div></Drawer.Close
-						>
-					</Drawer.Header>
-					<Drawer.Footer></Drawer.Footer>
-				</Drawer.Content>
-			</Drawer.Root>
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<a
+				href="/"
+				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
+				class:menu-active={data.id === '/'}
+			>
+				Crafts
+			</a>
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<a
+				href="/about"
+				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
+				class:menu-active={data.id?.startsWith('/about')}
+			>
+				About
+			</a>
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<a
+				href="/crafting"
+				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
+				class:menu-active={data.id?.startsWith('/crafting')}
+			>
+				Start Crafting
+			</a>
+
+			<a href="/user">
+				<Icon
+					icon="ph:user-focus-duotone"
+					class={data.id?.startsWith('/user')
+						? `text-[220%] font-figtree animate_base hover:font-bold ml-8 rounded-lg bg-white text-${primaryColor}`
+						: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold ml-8 rounded-lg'}
+				/>
+			</a>
 		</div>
-	</div>
-	<div class="rest">
-		<slot />
+		<div
+			class="menu_mobile sm:hidden flex flex-col items-center justify-center w-full sticky top-0 backdrop-blur-[30px] z-10"
+		>
+			<div class="flex space-x-12">
+				<a
+					href="/"
+					class="flex-1 block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 transition-all ease-out duration-400 hover:border-r-8"
+				>
+					<img
+						class={filter}
+						style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
+						src={Logo}
+						alt="Selfcrafted Logo"
+					/>
+				</a>
+				<Drawer.Root shouldScaleBackground>
+					<Drawer.Trigger>
+						<Icon class="text-{accentColor} text-4xl self-center" icon="mdi:menu" /></Drawer.Trigger
+					>
+					<Drawer.Content class="bg-{primaryColor} border-none text-white animate_base">
+						<Drawer.Header>
+							<Drawer.Title>Menu options</Drawer.Title>
+							<Drawer.Close
+								><div class="p-6 font-bold text-2xl">
+									<ul class="flex flex-col justify-center items-center">
+										<li
+											class="mt-4 opacity-70 font-normal"
+											class:menu-active-mobile={data.id === '/'}
+										>
+											<a href="/">Crafts</a>
+										</li>
+										<li
+											class="mt-4 opacity-70 font-normal"
+											class:menu-active-mobile={data.id?.startsWith('/about')}
+										>
+											<a href="/about">About</a>
+										</li>
+										<li
+											class="mt-4 opacity-70 font-normal"
+											class:menu-active-mobile={data.id?.startsWith('/crafting')}
+										>
+											<a href="/crafting">Start Crafting</a>
+										</li>
+										<li
+											class="mt-4 opacity-70 font-normal text-center"
+											class:menu-active-mobile={data.id?.startsWith('/user')}
+										>
+											<a href="/user">
+												<Icon
+													icon="ph:user-focus-duotone"
+													class={data.id?.startsWith('/user')
+														? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
+														: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold rounded-lg'}
+												/>
+											</a>
+										</li>
+									</ul>
+								</div></Drawer.Close
+							>
+						</Drawer.Header>
+						<Drawer.Footer></Drawer.Footer>
+					</Drawer.Content>
+				</Drawer.Root>
+			</div>
+		</div>
+		<div class="rest">
+			<slot />
+		</div>
 	</div>
 </div>
 

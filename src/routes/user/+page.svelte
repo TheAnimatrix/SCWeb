@@ -6,7 +6,7 @@
 		'data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-4xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-4xl font-bold max-w-[200px]';
 </script>
 
-<div class="h-screen w-full">
+<div class="min-h-screen w-full relative">
 	<div class="h-full w-full z-[2] absolute">
 		<div class="flex justify-center items-center h-full">
 			<Tabs.Root
