@@ -54,11 +54,12 @@
 	<div class="min-h-screen {bgUser} z-[-1] inset-0 absolute {pageName=='user'?'opacity-100':'opacity-0'} animate_base"></div>
 	<div class="min-h-screen {bgAbout} z-[-1] inset-0 absolute {pageName=='about'?'opacity-100':'opacity-0'} animate_base"></div>
 	<div class="min-h-screen {bgMain} z-[-1] inset-0 absolute {pageName=='main'?'opacity-100':'opacity-0'} animate_base"></div>
+	<div class="h-[10px] w-[25%] bg-{accentColor} mx-auto inset-0 absolute opacity-30"></div>
 	<div class="app min-h-screen animate_base">
 		<div
 			class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden"
 		>
-			<a
+		 	<a
 				href="/"
 				class="block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8"
 			>

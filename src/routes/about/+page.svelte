@@ -12,7 +12,7 @@
 	<span class="font-bold text-2xl mx-4">Alright, We need to talk.</span>
 	<span class="text-xl mx-4"
 		>We know you have a lot of questions on how this works.<br />
-		So we curated some of them below.</span
+		So we curated some of them below. This is <b>worth</b> your time.</span
 	>
 	<div class="mt-8 w-full flex justify-center">
 		<div class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
@@ -30,7 +30,7 @@
 				</Card.Footer> -->
 			</Card.Root>
 			<div class="flex w-full max-lg:flex-col">
-				<Card.Root class="bg-[#131819] border-none flex-[4] text-white text-left mb-48 max-lg:mb-3">
+				<Card.Root class="bg-[#131819] border-none flex-[4] text-white text-left mb-48 max-lg:mb-3 h-fit">
 					<Card.Header>
 						<Card.Title class="text-2xl">Vision & Roadmap</Card.Title>
 						<!-- <Card.Description>Card Description</Card.Description> -->

@@ -13,9 +13,22 @@ const origin: string = `* **Frustration with the Maker Ecosystem**: <br/>  Born 
 
 * **Inclusive Community Building**: <br/>  Welcoming individuals who share the vision to join the cause, with a presence on Discord for collaboration and discussion.  
 
-* **Check Out "Start Crafting**" Page: <br/> Encouraging interested individuals to explore the "Start Crafting" page for more details and engagement opportunities.
+* **Encouraging interested individuals to explore the "Start Crafting" page for more details and engagement opportunities.**
 `;
 
+const risks: string = 
+`At the core of our platform, sellers come in two distinct types: **_Selfcrafted Approved_** and **_Selfcrafted Fulfilled_**.  
+  
+**Selfcrafted Fulfiled**  
+Simply put, Selfcrafted Fulfilled is our sophisticated way of assuring you that we take care of every aspect related to the product, even after it lands in your hands.
+This includes handling warranties and guarantees applicable to your purchase.
+If you've already placed your trust in us, rest assured that this won't require any additional effort on your part.  
+   
+**Selfcrafted Approved**  
+Now, let's delve into Selfcrafted Approved. 
+While it's true that these products may not be production level, we've got your back on a case-by-case basis if the seller falls short. We guarantee that you will receive the product no matter what,
+and it's only the performance that's ever at stake if at all. Should any issues arise, we're here to assist you. Moreover, sellers bear consequences if the product doesn't function as intended.
+Your satisfaction and peace of mind are our top priorities throughout your entire experience.`;
 
 interface ABOUTSTR {
     origin : string;
@@ -25,5 +38,5 @@ interface ABOUTSTR {
 
 export const ABOUT_STRINGS : ABOUTSTR = {};
 ABOUT_STRINGS.origin = origin;
-ABOUT_STRINGS.risks = "";
+ABOUT_STRINGS.risks = risks;
 ABOUT_STRINGS.vision = "";
