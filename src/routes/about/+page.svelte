@@ -1,14 +1,15 @@
 <script lang="ts">
+	import Roadmap from '$libs/components/page/roadmap.svelte';
 	import snarkdown from 'snarkdown';
 	import { ABOUT_STRINGS } from '$libs/stores/strings';
 	let origin = ABOUT_STRINGS.origin;
-    let vision = ABOUT_STRINGS.vision;
-    let risks = ABOUT_STRINGS.risks;
+	// let roadmap = ABOUT_STRINGS.roadmap;
+	let risks = ABOUT_STRINGS.risks;
 	let currentSelection: number = 0;
 	import * as Card from '$libs/components/ui/card';
 </script>
 
-<div class="text-white flex flex-col text-center mt-8 ">
+<div class="text-white flex flex-col text-center mt-8">
 	<span class="font-bold text-2xl mx-4">Alright, We need to talk.</span>
 	<span class="text-xl mx-4"
 		>We know you have a lot of questions on how this works.<br />
@@ -30,17 +31,23 @@
 				</Card.Footer> -->
 			</Card.Root>
 			<div class="flex w-full max-lg:flex-col">
-				<Card.Root class="bg-[#131819] border-none flex-[4] text-white text-left mb-48 max-lg:mb-3 h-fit">
+				<Card.Root
+					class="bg-[#131819] border-none flex-[3] text-white text-left mb-48 max-lg:mb-3 h-fit"
+				>
 					<Card.Header>
 						<Card.Title class="text-2xl">Vision & Roadmap</Card.Title>
 						<!-- <Card.Description>Card Description</Card.Description> -->
 					</Card.Header>
 					<Card.Content>
-						{@html snarkdown(vision)}
+						<!-- {@html snarkdown(roadmap)} -->
+						<!-- <Markdown md={roadmap} {plugins} /> -->
+						<Roadmap />
 						<!-- <p class="text-lg">{ABOUT_STRINGS.vision}</p> -->
 					</Card.Content></Card.Root
 				>
-				<Card.Root class="bg-[#131819] border-none flex-[2] text-white text-left mb-48 ml-4 max-lg:ml-0">
+				<Card.Root
+					class="bg-[#131819] border-none h-fit flex-[5] text-white text-left mb-48 ml-4 max-lg:ml-0"
+				>
 					<Card.Header>
 						<Card.Title class="text-2xl">Risk of purchase</Card.Title>
 						<!-- <Card.Description>Card Description</Card.Description> -->

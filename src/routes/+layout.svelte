@@ -46,7 +46,7 @@
 	}
 	//tailwind cache
 	let _tw_cache =
-		'bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan';
+		'bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scpurplel1 bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan';
 </script>
 
 <div class="relative">
@@ -171,6 +171,18 @@
 		</div>
 		<div class="rest">
 			<slot />
+		</div>
+		<div class="footer opacity-40 text-lg text-{accentColor} flex items-center w-full justify-center text-center pb-4">
+			Selfcrafted © 2023&nbsp;&nbsp;&nbsp;|
+			<a
+				target="_blank"
+				href="https://discord.gg/UQ74TQfMqM"
+				rel="noopener noreferrer"
+				class="mr-4 ml-4"
+				><Icon icon="ph:discord-logo-duotone" class="text-2xl inline-block" /></a
+			><a rel="noopener noreferrer" target="_blank" href="https://github.com/TheAnimatrix/SCWeb"
+				><Icon icon="ph:github-logo-duotone" class="text-2xl inline-block" /></a
+			>
 		</div>
 	</div>
 </div>

@@ -30,13 +30,19 @@ While it's true that these products may not be production level, we've got your 
 and it's only the performance that's ever at stake if at all. Should any issues arise, we're here to assist you. Moreover, sellers bear consequences if the product doesn't function as intended.
 Your satisfaction and peace of mind are our top priorities throughout your entire experience.`;
 
+const roadmap : string =
+`
+1. [ ] <span class="text-sccyan">Website Launch</span> _TBD_  
+Shipped preliminary e-commerce front-end to kickstart the Selfcrafted Project  
+
+2. [x] gtas
+-----
+`;
+
 interface ABOUTSTR {
     origin : string;
-    vision : string;
+    roadmap : string;
     risks : string;
 };
 
-export const ABOUT_STRINGS : ABOUTSTR = {};
-ABOUT_STRINGS.origin = origin;
-ABOUT_STRINGS.risks = risks;
-ABOUT_STRINGS.vision = "";
+export const ABOUT_STRINGS : ABOUTSTR = {origin,risks,roadmap};
