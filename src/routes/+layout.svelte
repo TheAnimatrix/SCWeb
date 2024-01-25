@@ -19,7 +19,7 @@
 	bgUser = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
 	bgAbout = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
 	bgMain = 'bg-gradient-to-tr from-[#0d0815] to-[#180c2c]';
-	bgCrafting = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
+	bgCrafting = 'bg-gradient-to-tr from-[#050000] to-[#1c0808]';
 	let pageName: string;
 	$: {
 		if ($page.route.id?.startsWith('/user')) {
