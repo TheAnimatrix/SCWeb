@@ -76,7 +76,7 @@
 			? 'opacity-100'
 			: 'opacity-0'} animate_base"
 	></div>
-	<div class="min-h-screen bg-[url('/images/noise.png')] z-20 inset-0 absolute opacity-30 animate_base pointer-events-none"></div>
+	<div class="min-h-screen bg-[url('/images/noise.png')] z-20 inset-0 absolute opacity-20 animate_base pointer-events-none"></div>
 	<div class="h-[10px] w-[25%] bg-{accentColor} mx-auto inset-0 absolute opacity-30"></div>
 	<div class="app min-h-screen animate_base">
 		<div
