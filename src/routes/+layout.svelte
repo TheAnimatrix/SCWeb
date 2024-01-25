@@ -15,26 +15,31 @@
 		filter: string,
 		primaryColor: string;
 
-	let bgUser : string, bgAbout : string, bgMain : string;
+	let bgUser: string, bgAbout: string, bgMain: string, bgCrafting: string;
 	bgUser = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
 	bgAbout = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
 	bgMain = 'bg-gradient-to-tr from-[#0d0815] to-[#180c2c]';
-	let pageName : string;
+	bgCrafting = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
+	let pageName: string;
 	$: {
 		if ($page.route.id?.startsWith('/user')) {
-			console.log('hello');
 			primaryColor = 'scoranged1';
 			accentColor = 'scorange';
 			bgColor = bgUser;
 			filter = 'filter-orange';
 			pageName = 'user';
 		} else if ($page.route.id?.startsWith('/about')) {
-			console.log('hello');
 			primaryColor = 'sccyand1';
 			accentColor = 'sccyan';
 			bgColor = bgAbout;
 			filter = 'filter-about';
 			pageName = 'about';
+		} else if ($page.route.id?.startsWith('/crafting')) {
+			primaryColor = 'scredd1';
+			accentColor = 'scred';
+			bgColor = bgAbout;
+			filter = 'filter-crafting';
+			pageName = 'crafting';
 		} else {
 			primaryColor = 'scpurpled1';
 			accentColor = 'scpurplel1';
@@ -46,20 +51,38 @@
 	}
 	//tailwind cache
 	let _tw_cache =
-		'bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scpurplel1 bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan';
+		'bg-scred text-scred bg-scredd1 text-scrredd1 bg-scredl1 text-scredl1 bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scpurplel1 bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan';
 </script>
 
 <div class="relative">
 	<div class="min-h-screen bg-black z-[-1] inset-0 absolute opacity-100 animate_base"></div>
-	<div class="min-h-screen {bgUser} z-[-1] inset-0 absolute {pageName=='user'?'opacity-100':'opacity-0'} animate_base"></div>
-	<div class="min-h-screen {bgAbout} z-[-1] inset-0 absolute {pageName=='about'?'opacity-100':'opacity-0'} animate_base"></div>
-	<div class="min-h-screen {bgMain} z-[-1] inset-0 absolute {pageName=='main'?'opacity-100':'opacity-0'} animate_base"></div>
+	<div
+		class="min-h-screen {bgCrafting} z-[-1] inset-0 absolute {pageName == 'crafting'
+			? 'opacity-100'
+			: 'opacity-0'} animate_base"
+	></div>
+	<div
+		class="min-h-screen {bgUser} z-[-1] inset-0 absolute {pageName == 'user'
+			? 'opacity-100'
+			: 'opacity-0'} animate_base"
+	></div>
+	<div
+		class="min-h-screen {bgAbout} z-[-1] inset-0 absolute {pageName == 'about'
+			? 'opacity-100'
+			: 'opacity-0'} animate_base"
+	></div>
+	<div
+		class="min-h-screen {bgMain} z-[-1] inset-0 absolute {pageName == 'main'
+			? 'opacity-100'
+			: 'opacity-0'} animate_base"
+	></div>
+	<div class="min-h-screen bg-[url('/images/noise.png')] z-20 inset-0 absolute opacity-30 animate_base pointer-events-none"></div>
 	<div class="h-[10px] w-[25%] bg-{accentColor} mx-auto inset-0 absolute opacity-30"></div>
 	<div class="app min-h-screen animate_base">
 		<div
 			class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden"
 		>
-		 	<a
+			<a
 				href="/"
 				class="block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8"
 			>
@@ -125,7 +148,6 @@
 					>
 					<Drawer.Content class="bg-{primaryColor} border-none text-white animate_base">
 						<Drawer.Header>
-							<Drawer.Title>Menu options</Drawer.Title>
 							<Drawer.Close
 								><div class="p-6 font-bold text-2xl">
 									<ul class="flex flex-col justify-center items-center">
@@ -172,14 +194,15 @@
 		<div class="rest">
 			<slot />
 		</div>
-		<div class="footer opacity-40 text-lg text-{accentColor} flex items-center w-full justify-center text-center pb-4">
+		<div
+			class="footer opacity-60 text-lg text-{accentColor} flex items-center w-full justify-center text-center pb-4"
+		>
 			Selfcrafted © 2023&nbsp;&nbsp;&nbsp;|
 			<a
 				target="_blank"
 				href="https://discord.gg/UQ74TQfMqM"
 				rel="noopener noreferrer"
-				class="mr-4 ml-4"
-				><Icon icon="ph:discord-logo-duotone" class="text-2xl inline-block" /></a
+				class="mr-4 ml-4"><Icon icon="ph:discord-logo-duotone" class="text-2xl inline-block" /></a
 			><a rel="noopener noreferrer" target="_blank" href="https://github.com/TheAnimatrix/SCWeb"
 				><Icon icon="ph:github-logo-duotone" class="text-2xl inline-block" /></a
 			>
@@ -189,15 +212,19 @@
 
 <style lang="postcss">
 	.filter-purple {
-		filter: hue-rotate(87deg);
+		filter: hue-rotate(98deg);
 	}
 
 	.filter-orange {
-		filter: hue-rotate(225deg);
+		filter: hue-rotate(221deg);
 	}
 
 	.filter-about {
 		filter: hue-rotate(0deg);
+	}
+
+	.filter-crafting {
+		filter: hue-rotate(-168deg);
 	}
 
 	:global(body)::-webkit-scrollbar {

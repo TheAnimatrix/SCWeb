@@ -87,7 +87,10 @@ const config = {
 				scorangel2: '#F4ECFF',
 				sccyan: '#93CFC0',
 				sccyanl1: '#B3FFE0',
-				sccyand1: '#182322'
+				sccyand1: '#182322',
+				scred: '#C53333',
+				scredd1: '#171313',
+				scredl1: 'hsl(5, 60%, 88%)'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
