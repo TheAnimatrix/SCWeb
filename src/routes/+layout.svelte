@@ -3,10 +3,10 @@
 	export let data;
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import Logo from '$libs/svg/logo_main.svg';
+	import Logo from '$lib/svg/logo_main.svg';
 	import Icon from '@iconify/svelte';
-	import * as Drawer from '$libs/components/ui/drawer';
-	import { Button } from '$libs/components/ui/button';
+	import * as Drawer from '$lib/components/ui/drawer';
+	import { Button } from '$lib/components/ui/button';
 	import '../app.pcss';
 
 	let bgColor: string,

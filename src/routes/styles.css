@@ -1,12 +1,12 @@
 /* @import '@fontsource/fira-mono'; */
 @font-face {
     font-family: figtree;
-    src: url($libs/fonts/Figtree-VariableFont_wght.ttf);
+    src: url($lib/fonts/Figtree-VariableFont_wght.ttf);
 }
 
 @font-face {
 	font-family: orkney-reg;
-	src: url($libs/fonts/orkney-regular.otf);
+	src: url($lib/fonts/orkney-regular.otf);
 }
 
 :root {

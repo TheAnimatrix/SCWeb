@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type {Product} from '$libs/stores/types/product.js';
-	import Badge from '$libs/components/ui/badge/badge.svelte';
-	import BannerIndicator from '$libs/components/fundamental/banner_indicator.svelte';
-	import VariantSelector from '$libs/components/fundamental/variant_selector.svelte';
-	import * as Accordion from '$libs/components/ui/accordion';
-	import no_img from '$libs/svg/no_img.svg';
-	import CartIcon from '$libs/svg/add_to_cart_icon.svg';
-	import { getProduct, products } from '$libs/stores/products.js';
-	import * as Tabs from '$libs/components/ui/tabs';
+	import type {Product} from '$lib/stores/types/product.js';
+	import Badge from '$lib/components/ui/badge/badge.svelte';
+	import BannerIndicator from '$lib/components/fundamental/banner_indicator.svelte';
+	import VariantSelector from '$lib/components/fundamental/variant_selector.svelte';
+	import * as Accordion from '$lib/components/ui/accordion';
+	import no_img from '$lib/svg/no_img.svg';
+	import CartIcon from '$lib/svg/add_to_cart_icon.svg';
+	import { getProduct, products } from '$lib/stores/products.js';
+	import * as Tabs from '$lib/components/ui/tabs';
 	let indicator_cur = 0;
 	let ItemQty = 0;
 	let tabSet = 0;
@@ -149,7 +149,7 @@
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="30"
-					height="27D"
+					height="27"
 					viewBox="0 0 53 47"
 					fill="none"
 				>

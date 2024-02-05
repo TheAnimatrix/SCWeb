@@ -1,15 +1,15 @@
 <script lang="ts">
-	import GlowleftInput from '$libs/components/fundamental/glowleft_input.svelte';
+	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
 	import Icon from '@iconify/svelte';
 </script>
 
 <div class="text-3xl text-white flex-1 text-center flex flex-col justify-center items-center">
 	<span class="font-bold text-2xl mx-4 mt-8">Crafting something cool?</span>
 	<pre class="text-xl mx-4 font-figtree text-wrap mb-8">
-Don't settle for just being a hobbyist or casual maker,
+Try selling it! Don't settle for just being a hobbyist or casual maker,
 Recognize that whatever you're crafting likely addresses a genuine need,
-potentially revolutionizing someone else's crafting journey
-While at it, turn it into a living!</pre>
+potentially revolutionizing someone else's crafting journey.
+We're all in this together so let's make the ecosystem better one craft at at time.</pre>
 </div>
 <br />
 <div class="text-white bg-scredd1 p-8 w-full">

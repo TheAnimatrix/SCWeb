@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type{ Product } from '$libs/stores/types/product';
-	import ProductItem from '$libs/components/product/product_item.svelte';
+	import type{ Product } from '$lib/stores/types/product';
+	import ProductItem from '$lib/components/product/product_item.svelte';
 	import { goto } from '$app/navigation';
     export let products : Product[];
 	export let getLink : any;

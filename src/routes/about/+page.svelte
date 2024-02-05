@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Roadmap from '$libs/components/page/roadmap.svelte';
+	import Roadmap from '$lib/components/page/roadmap.svelte';
 	import snarkdown from 'snarkdown';
-	import { ABOUT_STRINGS } from '$libs/stores/strings';
+	import { ABOUT_STRINGS } from '$lib/stores/strings';
 	let origin = ABOUT_STRINGS.origin;
 	// let roadmap = ABOUT_STRINGS.roadmap;
 	let risks = ABOUT_STRINGS.risks;
 	let currentSelection: number = 0;
-	import * as Card from '$libs/components/ui/card';
+	import * as Card from '$lib/components/ui/card';
 </script>
 
 <div class="text-white flex flex-col text-center mt-8">
@@ -17,7 +17,7 @@
 	>
 	<div class="mt-8 w-full flex justify-center">
 		<div class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3">
+			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3 w-full">
 				<Card.Header>
 					<Card.Title class="text-2xl">Origin</Card.Title>
 					<!-- <Card.Description>Card Description</Card.Description> -->

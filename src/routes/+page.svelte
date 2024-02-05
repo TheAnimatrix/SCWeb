@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { writable } from 'svelte/store';
-	import type { Product } from '$libs/stores/types/product';
-	import { type Banner, getBannerCount, getBanner } from '$libs/stores/banner';
-	import BannerIndicator from '$libs/components/fundamental/banner_indicator.svelte';
+	import type { Product } from '$lib/stores/types/product';
+	import { type Banner, getBannerCount, getBanner } from '$lib/stores/banner';
+	import BannerIndicator from '$lib/components/fundamental/banner_indicator.svelte';
 	import ProductList from './product_list.svelte';
 	import { goto } from '$app/navigation';
-	import { products } from '$libs/stores/products';
+	import { products } from '$lib/stores/products';
 
 	let indicator_cur = 0;
 	let cinterval: number = 5000;

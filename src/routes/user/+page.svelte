@@ -1,7 +1,7 @@
 <script lang="ts">
-	import GlowleftInput from '$libs/components/fundamental/glowleft_input.svelte';
-	import Button from '$libs/components/ui/button/button.svelte';
-	import * as Tabs from '$libs/components/ui/tabs';
+	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import * as Tabs from '$lib/components/ui/tabs';
 	const triggerTabStyle =
 		'data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-4xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-4xl font-bold max-w-[200px]';
 </script>
