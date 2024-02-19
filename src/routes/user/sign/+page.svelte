@@ -1,4 +1,5 @@
 <script lang="ts">
+	import {PUBLIC_SITE_URL, PUBLIC_VERCEL_URL} from '$env/static/public';
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import { goto, invalidate, replaceState } from '$app/navigation';
@@ -13,6 +14,16 @@
 	export let data;
 	let { supabase_lt } = data;
 
+	const getURL = () => {
+		let url =
+			PUBLIC_SITE_URL ??
+			PUBLIC_VERCEL_URL ??
+			'http://localhost:5173/auth/callback';
+		// Make sure to include `https://` when not localhost.
+		url = url.includes('http') ? url : `https://${url}`;
+		return url;
+	};
+
 	async function signWithGoogle(register: boolean) {
 		if (register) {
 		} else {
@@ -22,7 +33,7 @@
 			provider: 'google',
 			options: {
 				queryParams: {},
-				redirectTo: 'https://pfeewicqoxkuwnbuxnoz.supabase.co/auth/v1/callback'
+				redirectTo: getURL()+'?next=/user/profile/account/'
 			}
 		});
 		loading.set(false);
@@ -47,12 +58,11 @@
 
 	//TODO: change emailRedirectTo
 	async function signUpNewUser() {
-		let k = validatePassword(passwordRegister??'',passwordRegister??'');
+		let k = validatePassword(passwordRegister ?? '', passwordRegister ?? '');
 		console.log(k);
-		if(k.error)
-		{
+		if (k.error) {
 			errorShow = 2;
-			errorText = k.msg??'yoyo';
+			errorText = k.msg ?? 'yoyo';
 			return;
 		}
 		loading.set(true);
@@ -160,10 +170,10 @@
 						>
 							{errorText}
 						</div>
-							<Button
-								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 self-center"
-								on:click={signUpNewUser}>Create Account</Button
-							>
+						<Button
+							class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 self-center"
+							on:click={signUpNewUser}>Create Account</Button
+						>
 						<div class="w-full flex justify-center">
 							<Button
 								class="p-6 mt-4 bg-scoranged2 hover:bg-scoranged1 "
