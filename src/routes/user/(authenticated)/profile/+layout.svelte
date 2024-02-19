@@ -28,33 +28,33 @@
 
 <div class="flex flex-col justify-center">
 	<div class="w-full flex flex-col justify-center items-center mb-20">
-		<div class="p-2 h-fit w-fit rounded-xl overflow-x-auto bg-transparent flex flex-wrap">
+		<div class="p-2 h-fit w-fit rounded-xl overflow-x-auto bg-transparent flex flex-wrap ">
 			<div
 				class={triggerTabStyle}
 				data-state={getLastRoute($page.route.id) == 'orders' ? 'active' : ''}
 			>
-				<a href="orders"><span class="">Orders</span></a>
+				<a href="orders"><span class="max-sm:text-md">Orders</span></a>
 			</div>
 			<div
 				class={triggerTabStyle}
 				data-state={getLastRoute($page.route.id) == 'addresses' ? 'active' : ''}
 			>
-				<a href="addresses"><span class="">Address</span></a>
+				<a href="addresses"><span class="max-sm:text-md">Address</span></a>
 			</div>
 			<div
 				class={triggerTabStyle}
 				data-state={getLastRoute($page.route.id) == 'account' ? 'active' : ''}
 			>
-				<a href="account"><span class="">Account</span></a>
+				<a href="account"><span class="max-sm:text-md">Account</span></a>
 			</div>
 			<div
 				class={triggerTabStyle}
 				data-state={getLastRoute($page.route.id) == 'crafts' ? 'active' : ''}
 			>
-				<a href="crafts"><span class="">Crafts</span></a>
+				<a href="crafts"><span class="max-sm:text-md">Crafts</span></a>
 			</div>
 		</div>
-		<div class="w-[75%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%] flex self-center justify-center items-center">
+		<div class="w-[55%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%] flex self-center justify-center items-center">
 			<slot />
 		</div>
 	</div>

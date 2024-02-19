@@ -26,7 +26,7 @@
 	getOrders();
 </script>
 
-<div class="flex flex-col w-[65%]">
+<div class="flex flex-col w-full">
 	<div class="flex flex-col lhead">
 		<div class="litem">
 			<div>Order #</div>
@@ -64,7 +64,7 @@
 	}
 
 	.litem {
-		@apply bg-scoranged2 p-2 text-orange-200 text-opacity-75 grid grid-flow-col auto-cols-fr break-words text-center;
+		@apply bg-scoranged2 p-2 text-orange-200 text-opacity-75 grid grid-flow-col grid-cols-4 gap-x-4 max-sm:text-sm text-center;
 	}
 
 	.litem:nth-child(even) {

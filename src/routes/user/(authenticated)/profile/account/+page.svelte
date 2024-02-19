@@ -55,8 +55,8 @@
 </script>
 
 <div class="mt-4 flex flex-col w-full h-fit justify-center items-center">
-	<div class="flex justify-between space-x-10">
-		<div class="flex flex-col flex-1 text-orange-200 text-xl font-bold mr-8">
+	<div class="flex max-sm:flex-col justify-between gap-x-10">
+		<div class="flex flex-col flex-1 text-orange-200 text-xl font-bold mr-8 max-sm:order-2">
 			<div>Username</div>
 			<div class="highlight"><span class="font-light">/crafts/</span>{username}</div>
 			<div>E-mail</div>
@@ -64,7 +64,7 @@
 			<div>Tier</div>
 			<div class="highlight">{tier}</div>
 		</div>
-		<div class="flex flex-col flex-1 text-orange-200 text-xl font-bold items-stretch">
+		<div class="flex flex-col flex-1 text-orange-200 text-xl font-bold items-stretch max-sm:order-1">
 			<div>Picture</div>
 			<img
 				src="/images/crane.png"
