@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import Icon from '@iconify/svelte';
 	import { goto, invalidate, replaceState } from '$app/navigation';
 	import { loading } from '$lib/stores/loading';
 	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import { validatePassword } from '$lib/stores/types/helper';
 	const triggerTabStyle =
 		'data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-4xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-4xl font-bold max-w-[200px]';
 
@@ -45,6 +47,14 @@
 
 	//TODO: change emailRedirectTo
 	async function signUpNewUser() {
+		let k = validatePassword(passwordRegister??'',passwordRegister??'');
+		console.log(k);
+		if(k.error)
+		{
+			errorShow = 2;
+			errorText = k.msg??'yoyo';
+			return;
+		}
 		loading.set(true);
 		const { data, error } = await supabase_lt.auth.signUp({
 			email: emailRegister,
@@ -92,37 +102,39 @@
 					>
 				</Tabs.List>
 				<Tabs.Content value="Login" class="text-white pb-4 rounded-xl min-h-[500px]">
-					<div class="flex flex-col justify-center items-center">
-						<GlowleftInput
-							placeholder="E-Mail/Username"
-							class="mt-4 md:w-96 max-sm:w-full"
-							bind:value={emailLogin}
-						/>
-						<GlowleftInput
-							placeholder="Password"
-							class="mt-8 md:w-96 max-sm:w-full max-sm:mt-4"
-							type="password"
-							bind:value={passwordLogin}
-						/>
-						<div
-							class="errorText text-center text-red-500 pt-4 font-bold"
-							class:hidden={errorShow != 1}
-						>
-							{errorText}
-						</div>
-						<div class="w-full flex justify-center">
+					<form on:submit|preventDefault>
+						<div class="flex flex-col justify-center items-center">
+							<GlowleftInput
+								placeholder="E-Mail/Username"
+								class="mt-4 md:w-96 max-sm:w-full"
+								bind:value={emailLogin}
+							/>
+							<GlowleftInput
+								placeholder="Password"
+								class="mt-8 md:w-96 max-sm:w-full max-sm:mt-4"
+								type="password"
+								bind:value={passwordLogin}
+							/>
+							<div
+								class="errorText text-center text-red-500 pt-4 font-bold"
+								class:hidden={errorShow != 1}
+							>
+								{errorText}
+							</div>
 							<Button
-								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8"
+								type="submit"
+								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 self-center"
 								on:click={signInWithEmail}>Go</Button
 							>
+							<div class="w-full flex justify-center">
+								<Button
+									class="p-6 mt-4 bg-scoranged2 hover:bg-scoranged1 "
+									on:click={() => signWithGoogle(true)}
+									><Icon icon="logos:google-icon" class="text-3xl" /></Button
+								>
+							</div>
 						</div>
-						<div class="w-full flex justify-center">
-							<Button
-								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 on"
-								on:click={() => signWithGoogle(true)}>Google</Button
-							>
-						</div>
-					</div>
+					</form>
 				</Tabs.Content>
 				<Tabs.Content value="Register" class="text-white pb-4 rounded-xl min-h-[500px]">
 					<div class="flex flex-col justify-center items-center">
@@ -148,16 +160,15 @@
 						>
 							{errorText}
 						</div>
-						<div class="w-full flex justify-center">
 							<Button
-								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 on"
+								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 self-center"
 								on:click={signUpNewUser}>Create Account</Button
 							>
-						</div>
 						<div class="w-full flex justify-center">
 							<Button
-								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 on"
-								on:click={() => signWithGoogle(true)}>Google</Button
+								class="p-6 mt-4 bg-scoranged2 hover:bg-scoranged1 "
+								on:click={() => signWithGoogle(true)}
+								><Icon icon="logos:google-icon" class="text-3xl" /></Button
 							>
 						</div>
 					</div></Tabs.Content

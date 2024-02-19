@@ -115,7 +115,7 @@
 	setup();
 </script>
 
-<div class="flex flex-col w-[65%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%]">
+<div class="flex flex-col">
 	<button
 		class="{addresses.length <= 0
 			? 'self-center'

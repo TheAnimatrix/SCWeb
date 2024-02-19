@@ -1,5 +1,6 @@
 <script lang="ts">
-    import {goto} from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { validatePassword } from '$lib/stores/types/helper';
 	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
 	import { loading } from '$lib/stores/loading';
 	import type { SupabaseClient } from '@supabase/supabase-js';
@@ -10,13 +11,12 @@
 	let username: string | undefined = '',
 		email: string | undefined = '',
 		picture: string | undefined = '',
-		tier: string | undefined = ''
-        
+		tier: string | undefined = '';
 
-    let oldPass:string, newPass: string, confirmPass : string;
+	let oldPass: string, newPass: string, confirmPass: string;
 
 	async function setup() {
-        loading.set(true);
+		loading.set(true);
 		let userResponse = await supabase_lt.auth.getUser();
 		if (userResponse?.data.user) {
 			let user = userResponse.data.user;
@@ -28,22 +28,30 @@
 				tier = usermore.data[0].tier ? usermore.data[0].tier : 'Bee';
 			}
 		}
-        loading.set(false);
+		loading.set(false);
 	}
 
-    async function changePassword()
-    {
-        if(newPass != confirmPass){ alert('Error, new password & confirm password dont match'); return;}
-        if(newPass.length < 8){alert('Password cannot be shorter than 8 characters'); return;}
-        supabase_lt.auth.updateUser({password:newPass});
-    }
+	let p1: HTMLInputElement, p2: HTMLInputElement;
+	let error_msg: string | undefined;
+	async function changePassword() {
+		let k = validatePassword(newPass, confirmPass);
+		if (k.error) {
+			error_msg = k.msg;
+			return;
+		} else error_msg = undefined;
+		loading.set(true);
+		supabase_lt.auth.updateUser({password:newPass});
+		p1.value = '';
+		p2.value = '';
+		loading.set(false);
+		alert('Password changed successfully');
+	}
 
-	async function logout(){
+	async function logout() {
 		const d = await supabase_lt.auth.signOut({ scope: 'global' });
-	};
+	}
 
 	setup();
-
 </script>
 
 <div class="mt-4 flex flex-col w-full h-fit justify-center items-center">
@@ -65,16 +73,27 @@
 			/>
 		</div>
 	</div>
-	<div class="mt-4 flex flex-col w-full">
+	<div class="mt-4 flex flex-col w-full items-center">
 		<div class="text-2xl text-orange-200 font-bold text-center">Security</div>
-		<GlowleftInput gradient="bg-orange-300" class="mt-3 mx-auto" bind:value={newPass} placeholder="New Password" />
-		<GlowleftInput gradient="bg-orange-300" class="mt-3 mx-auto" bind:value={confirmPass} placeholder="Confirm Password" />
-		<button
-			class="button animate_base"
-            on:click={changePassword}
-			>Change password</button
-		>
-        <button class="button mt-16" on:click={logout}>Logout</button>
+		<div class="w-[50%] text-xl text-red-500 text-center text-wrap {error_msg == undefined ? 'hidden' : 'visible'}">
+			{error_msg}
+		</div>
+		<GlowleftInput
+			gradient="bg-orange-300"
+			class="mt-3 mx-auto"
+			bind:value={newPass}
+			placeholder="New Password"
+			bind:inputElement={p1}
+		/>
+		<GlowleftInput
+			gradient="bg-orange-300"
+			class="mt-3 mx-auto"
+			bind:value={confirmPass}
+			placeholder="Confirm Password"
+			bind:inputElement={p2}
+		/>
+		<button class="button animate_base" on:click={changePassword}>Change password</button>
+		<button class="button mt-16" on:click={logout}>Logout</button>
 	</div>
 </div>
 
@@ -82,7 +101,7 @@
 	.highlight {
 		@apply font-normal mt-2 mb-4 p-4 border-solid border-orange-200 border-[1px] rounded-xl bg-[#362515] w-fit;
 	}
-    .button {
-        @apply mx-auto mt-4 bg-scoranged2 rounded-xl w-fit p-4 text-orange-200 font-bold hover:bg-orange-300 hover:text-scoranged1;
-    }
+	.button {
+		@apply mx-auto mt-4 bg-scoranged2 rounded-xl w-fit p-4 text-orange-200 font-bold hover:bg-orange-300 hover:text-scoranged1;
+	}
 </style>

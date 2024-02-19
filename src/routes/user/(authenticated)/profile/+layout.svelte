@@ -54,7 +54,7 @@
 				<a href="crafts"><span class="">Crafts</span></a>
 			</div>
 		</div>
-		<div class="w-full flex self-center justify-center items-center">
+		<div class="w-[75%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%] flex self-center justify-center items-center">
 			<slot />
 		</div>
 	</div>

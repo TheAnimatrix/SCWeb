@@ -24,7 +24,7 @@
 	setup();
 </script>
 
-<div class="mt-4 flex flex-col h-fit justify-center items-center text-white w-[60%]">
+<div class="mt-4 flex flex-col h-fit justify-center items-center text-white">
 	{#if (products && products.length > 0)}
 		<ProductList
 			{products}

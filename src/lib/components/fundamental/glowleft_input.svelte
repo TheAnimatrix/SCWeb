@@ -29,6 +29,7 @@
 	}
 
 	let className: string = '';
+	export let inputElement:HTMLInputElement|undefined = undefined;
 	export let placeholder: string;
 	export let type: string = '';
 	export let value: string;
@@ -48,6 +49,7 @@
 		{placeholder}
 		{type}
 		on:input={onInput}
+		bind:this={inputElement}
 	/>
 </div>
 
