@@ -211,7 +211,7 @@
 											class="mt-4 opacity-70 font-normal text-center"
 											class:menu-active-mobile={$page.route.id?.startsWith('/user')}
 										>
-											<a href="/user">
+											<a href="{userRoute}">
 												<Icon
 													icon="ph:user-focus-duotone"
 													class={$page.route.id?.startsWith('/user')

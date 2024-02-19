@@ -1,5 +1,7 @@
 <script lang="ts">
-	import {PUBLIC_SITE_URL, PUBLIC_VERCEL_URL} from '$env/static/public';
+	import {env} from '$env/dynamic/public';
+	const PUBLIC_SITE_URL = (env.PUBLIC_SITE_URL == undefined)? null : env.PUBLIC_SITE_URL;
+	const PUBLIC_VERCEL_URL = (env.PUBLIC_VERCEL_URL == undefined)? null : env.PUBLIC_VERCEL_URL;
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import { goto, invalidate, replaceState } from '$app/navigation';
@@ -19,7 +21,6 @@
 			PUBLIC_SITE_URL ??
 			PUBLIC_VERCEL_URL ??
 			'http://localhost:5173/auth/callback';
-		// Make sure to include `https://` when not localhost.
 		url = url.includes('http') ? url : `https://${url}`;
 		return url;
 	};
