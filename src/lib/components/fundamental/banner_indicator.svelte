@@ -20,7 +20,6 @@
 	styleNormal = `rounded-lg box-border ${wNormal} h-[12px] mr-[8px] ${colorSecondary} ${hoverAccent} ${hoverNormal} ${boilerPlate}`;
 
 	const prevIndicator = function () {
-		console.log('clicked prev ' + i++);
 		curActive = curActive > 0 ? curActive - 1 : curActive;
 	};
 

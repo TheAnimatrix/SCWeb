@@ -1,0 +1,62 @@
+<script lang="ts">
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { replaceState, goto } from '$app/navigation';
+	import { loading } from '$lib/stores/loading';
+	import { page } from '$app/stores';
+
+	export let data;
+	async function debug() {
+		loading.set(true);
+		let session = await data.supabase_lt.auth.getSession();
+		let k = await data.supabase_lt
+			.from('users')
+			.update({ username: 'Animatrix' })
+			.eq('id', session.data.session?.user.id)
+			.select();
+		loading.set(false);
+	}
+
+	const triggerTabStyle =
+		'animate_base data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-2xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-2xl font-bold max-w-[200px]';
+
+	function getLastRoute(v: string | null) {
+		if (!v) return 'Address';
+		let x = v.split('/');
+		return x[x.length - 1];
+	}
+</script>
+
+<div class="flex flex-col justify-center">
+	<div class="w-full flex flex-col justify-center items-center mb-20">
+		<div class="p-2 h-fit w-fit rounded-xl overflow-x-auto bg-transparent flex flex-wrap">
+			<div
+				class={triggerTabStyle}
+				data-state={getLastRoute($page.route.id) == 'orders' ? 'active' : ''}
+			>
+				<a href="orders"><span class="">Orders</span></a>
+			</div>
+			<div
+				class={triggerTabStyle}
+				data-state={getLastRoute($page.route.id) == 'addresses' ? 'active' : ''}
+			>
+				<a href="addresses"><span class="">Address</span></a>
+			</div>
+			<div
+				class={triggerTabStyle}
+				data-state={getLastRoute($page.route.id) == 'account' ? 'active' : ''}
+			>
+				<a href="account"><span class="">Account</span></a>
+			</div>
+			<div
+				class={triggerTabStyle}
+				data-state={getLastRoute($page.route.id) == 'crafts' ? 'active' : ''}
+			>
+				<a href="crafts"><span class="">Crafts</span></a>
+			</div>
+		</div>
+		<div class="w-full flex self-center justify-center items-center">
+			<slot />
+		</div>
+	</div>
+	<button class="pt-4 text-white self-center" on:click={debug}>Debug</button>
+</div>

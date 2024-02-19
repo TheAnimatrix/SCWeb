@@ -1,20 +1,19 @@
 <script lang="ts">
-	import type {Product} from '$lib/stores/types/product.js';
+	import type { Product } from '$lib/stores/types/product';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import BannerIndicator from '$lib/components/fundamental/banner_indicator.svelte';
 	import VariantSelector from '$lib/components/fundamental/variant_selector.svelte';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import no_img from '$lib/svg/no_img.svg';
-	import CartIcon from '$lib/svg/add_to_cart_icon.svg';
-	import { getProduct, products } from '$lib/stores/products.js';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import Icon from '@iconify/svelte';
 	let indicator_cur = 0;
 	let ItemQty = 0;
 	let tabSet = 0;
 	export let data;
-	let productItem : Product = getProduct(+data.item);
-	let indicator_max = productItem.pic.length;
-	let cart_qty_max = productItem.stock;
+	let productItem: Product = data.product;
+	let indicator_max = productItem.images.length;
+	let cart_qty_max = productItem.stock.count;
 	let picIndex = 0;
 	let cart_qty = 0;
 
@@ -39,10 +38,8 @@
 
 	// styles
 	const triggerTabStyle =
-		'data-[state=active]:bg-scpurple data-[state=active]:text-white px-4 py-2 text-md text-gray-100 rounded-xl hover:bg-scpurpled2';
+		'data-[state=active]:bg-scpurple data-[state=active]:text-white px-4 py-2 text-md text-gray-100 rounded-xl hover:bg-scpurpled3';
 </script>
-
-<!-- <ProductItem {...productB} onClick={()=>console.log("clicked")}/> -->
 
 <div
 	class="self-center w-[50%] h-full flex flex-col mx-auto items-center max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%]"
@@ -56,7 +53,7 @@
 				<img
 					class="w-full min-h-full object-cover rounded-lg"
 					id="product_image"
-					src={productItem.pic[indicator_cur] ?? no_img}
+					src={productItem.images[indicator_cur].url ?? no_img}
 					alt="lornode"
 				/>
 			</div>
@@ -69,60 +66,68 @@
 						</div>
 						<div>
 							{#each productItem.tags as t}
-								<Badge class="text-white mr-2 mt-2 bg-scpurpled3 hover:bg-scpurpled2">{t}</Badge>
+								<Badge class="text-white mr-2 mt-2 bg-scpurpled3 hover:bg-scpurpled4">{t.tag}</Badge
+								>
 							{/each}
 						</div>
 					</div>
 				</div>
 				<div class="rounded-lg text-white pl-4 py-2 text-base text-start bg-scpurpled1 mt-1 pb-4">
+					<!-- 
+					bring back once variant support is there in database	
 					<div class="mt-2">
 						<VariantSelector />
-					</div>
+					</div> -->
 					<div class="flex justify-between">
 						<div class="flex flex-col self-end">
 							<div class="py-2 pr-5">
-								{#if productItem.oldPrice > 0}
+								{#if productItem.price.old > 0}
 									<span id="oldPrice" class="text-gray-500 line-through text-lg font-medium"
-										>₹{productItem.oldPrice}</span
+										>₹{productItem.price.old}</span
 									>
 								{/if}<br />
 								<span id="newPrice" class="text-white text-3xl font-bold"
-									>₹{productItem.newPrice}</span
+									>₹{productItem.price.new}</span
 								><br />
-								<span id="rating" class="text-orange-400 text-lg font-semibold"
-									>{productItem.rating}({productItem.ratingCount})</span
+								<span
+									id="rating"
+									class="text-orange-400 text-lg font-semibold inline-flex items-center text-center h-fit"
+									>{productItem.rating?.rating}<Icon
+										class="inline"
+										icon="iconamoon:star-duotone"
+									/>&nbsp;({productItem.rating?.count})</span
 								>
 							</div>
 							<div
-								class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled2 text-xl my-2"
+								class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled3 text-xl my-2"
 							>
 								<button class="p-0 px-4 hover:scale-150" on:click={dec_cart}>-</button>
-								<div class="p-1 px-4 border-x-4 border-scpurpled3" id="qty_show">{cart_qty}</div>
+								<div class="p-1 px-4 border-x-2 border-scpurplel0" id="qty_show">{cart_qty}</div>
 								<button class="p-0 px-4 hover:scale-150" on:click={inc_cart}>+</button>
 								<button
 									class="p-2 bg-black hover:scale-110 hover:rounded-md rounded-r-xl flex items-center"
-									class:bg-scpurple={productItem.stock > 0}
+									class:bg-scpurple={productItem.stock.count > 0}
 									id="add_to_cart"
 									on:click={cart_submit}
 								>
-									<img src={CartIcon} alt="add to cart" class="w-auto h-full" />
-									{#if productItem.stock <= 0}
+									<Icon icon="iconamoon:shopping-bag-duotone" class="w-auto h-full text-3xl" />
+									{#if productItem.stock.count <= 0}
 										<span class="px-2">Out of stock</span>
 									{/if}
 								</button>
 							</div>
 						</div>
 						<div class="flex flex-col my-2 self-end items-end">
-							{#if productItem.stock > 0}
-								<div class="p-2 pl-4 pr-4 bg-scpurpled2 text-xl font-bold">
-									{productItem.stock} In Stock
+							{#if productItem.stock.count > 0}
+								<div class="p-2 pl-4 pr-4 bg-scpurpled3 text-xl font-bold">
+									{productItem.stock.count} In Stock
 								</div>
 							{/if}
 							<div
 								id="sale_info"
-								class="max-h-[55%] flex text-white text-center text-2xl font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2 pr-4 pl-4"
+								class="max-h-[55%] flex text-white text-center text-md font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2 pr-4 pl-4"
 							>
-								{productItem.info}
+								{productItem.stock.status}
 							</div>
 						</div>
 					</div>
@@ -130,7 +135,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="flex justify-start w-full  max-sm:flex-col">
+	<div class="flex justify-start w-full max-sm:flex-col">
 		<div class="flex-1 text-white justify-start mr-4 max-sm:mr-1">
 			<div>
 				{#if indicator_max > 1}
@@ -144,7 +149,7 @@
 				{/if}
 			</div>
 			<div
-				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled2 rounded-r-xl rounded-b-xl mt-4"
+				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled3 rounded-r-xl rounded-b-xl mt-4"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -157,67 +162,52 @@
 					<path d="M53 0.0427246L0 44.0427V0.0427246H53Z" fill="#12081b" />
 				</svg>
 				<div class="p-4 pt-2 opacity-85">
-					{productItem.description}
-					<br/>
-					<br/>
-					What is Lorem Ipsum?
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
-
-<br/>
-<br/>
-Why do we use it?
-It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
+					{productItem.documentation?.at(0)?.data ?? 'No description available'}
 				</div>
 			</div>
 		</div>
 		<div class="flex-1 my-4 w-full">
 			<Tabs.Root value="faq" class="w-full" id="crazy">
-				<Tabs.List class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl  overflow-x-auto">
+				<Tabs.List
+					class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl  overflow-x-auto"
+				>
 					<Tabs.Trigger class={triggerTabStyle} value="faq">FAQ</Tabs.Trigger>
 					<Tabs.Trigger class={triggerTabStyle} value="documentation">Documentation</Tabs.Trigger>
 					<Tabs.Trigger class={triggerTabStyle} value="shipping">Shipping</Tabs.Trigger>
 					<Tabs.Trigger class={triggerTabStyle} value="costing">Costing</Tabs.Trigger>
 				</Tabs.List>
-				<Tabs.Content value="faq" class="text-white bg-scpurpled1 pb-4 rounded-xl">
+				<Tabs.Content value="faq" class="text-white bg-scpurpled3 pb-4 rounded-xl">
 					<div>
-						<Accordion.Root class="w-full" multiple>
-							<Accordion.Item value="item-1" class="border-0 px-4">
-								<Accordion.Trigger>Is it accessible?</Accordion.Trigger>
-								<Accordion.Content
-									>Yes.</Accordion.Content
-								>
-							</Accordion.Item>
-							<Accordion.Item value="item-2" class="border-0 px-4 bg-scpurpled2">
-								<Accordion.Trigger>Is it good?</Accordion.Trigger>
-								<Accordion.Content>
-									Yes.
-								</Accordion.Content>
-							</Accordion.Item>
-							<Accordion.Item value="item-3" class="border-0 px-4">
-								<Accordion.Trigger>What else?</Accordion.Trigger>
-								<Accordion.Content>
-									Yes.
-								</Accordion.Content>
-							</Accordion.Item>
-							<Accordion.Item value="item-4" class="border-0 px-4 bg-scpurpled2">
-								<Accordion.Trigger>Nothing else?</Accordion.Trigger>
-								<Accordion.Content>
-									No.
-								</Accordion.Content>
-							</Accordion.Item>
-						</Accordion.Root>
+						{#if productItem.faq && productItem.faq.length > 0}
+							<Accordion.Root class="w-full litem" multiple>
+								{#each productItem.faq as faq, i}
+									<Accordion.Item value="item-{i}" class="border-0 px-4 {i%2!=0 ? 'bg-scpurpled1' : 'bg-scpurpled2'} {i==0?'rounded-t-xl':''}">
+										<Accordion.Trigger>{faq.question}</Accordion.Trigger>
+										<Accordion.Content>{faq.answer}</Accordion.Content>
+									</Accordion.Item>
+								{/each}
+							</Accordion.Root>
+						{:else}
+							<div class="px-4 pt-4 text-md">No FAQ Available</div>
+						{/if}
 					</div>
 				</Tabs.Content>
-				<Tabs.Content value="documentation" class="text-white bg-scpurpled2 p-4 rounded-xl"
-					>Documentation here</Tabs.Content
+				<Tabs.Content value="documentation" class="text-white bg-scpurpled3 p-4 rounded-xl"
+					>{productItem.documentation?.at(1)?.data ?? 'No documentation available'}</Tabs.Content
 				>
-				<Tabs.Content value="costing" class="text-white bg-scpurpled2 p-4 rounded-xl"
-					>Costing details here</Tabs.Content
+				<Tabs.Content value="costing" class="text-white bg-scpurpled3 p-4 rounded-xl"
+					>{productItem.documentation?.at(2)?.data ?? 'No costing details available'}</Tabs.Content
 				>
-				<Tabs.Content value="shipping" class="text-white bg-scpurpled2 p-4 rounded-xl"
-					>Shipping details here</Tabs.Content
+				<Tabs.Content value="shipping" class="text-white bg-scpurpled3 p-4 rounded-xl"
+					>{productItem.documentation?.at(3)?.data ?? 'No shipping details available'}</Tabs.Content
 				>
 			</Tabs.Root>
 		</div>
 	</div>
 </div>
+
+<style lang="postcss">
+	* {
+		@apply transition-all duration-200 ease-linear;
+	}
+</style>

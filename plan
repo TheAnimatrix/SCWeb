@@ -1,0 +1,19 @@
+
+
+
+-> /products (can anon query ? yes)
+-> /pincode (can anon query ? yes but no.)
+    -> implement as form submit query (form processes when finalizing data, uses api to generate state and city before submitting to db)
+        -> user wont see the correction
+        -> db will be correct
+        -> good trade-off
+        -> no sole pincode api exposure
+        -> works for anon
+-> /user
+    -> /user/sign
+    -> /user/(authenticated)
+        -> account
+        -> address
+        -> orders
+        -> crafts
+        -> can directly user browser client w/ RLS.

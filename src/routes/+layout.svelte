@@ -1,13 +1,16 @@
 <script lang="ts">
 	import './styles.css';
-	export let data;
+	import { loading } from '$lib/stores/loading';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import Logo from '$lib/svg/logo_main.svg';
 	import Icon from '@iconify/svelte';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import { Button } from '$lib/components/ui/button';
 	import '../app.pcss';
+	import { get } from 'svelte/store';
+	import { onMount } from 'svelte';
+	import Loader from '$lib/components/fundamental/Loader.svelte';
 
 	let bgColor: string,
 		accentColor: string,
@@ -49,12 +52,45 @@
 			pageName = 'main';
 		}
 	}
+
+	let userRoute: string = '/user/sign';
+
+	export let data;
+	data.supabase_lt.auth.onAuthStateChange((event, session) => {
+		if (event === 'SIGNED_OUT') {
+			// delete cookies on sign out
+			const expires = new Date(0).toUTCString();
+			if (document) {
+				// document.cookie = `my-access-token=; path=/; expires=${expires}; SameSite=Lax; secure`;
+				// document.cookie = `my-refresh-token=; path=/; expires=${expires}; SameSite=Lax; secure`;
+			}
+			goto('/user/sign', { replaceState: true });
+			userRoute = '/user/sign';
+		} else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+			const maxAge = 100 * 365 * 24 * 60 * 60; // 100 years, never expires
+			if (document) {
+				// document.cookie = `my-access-token=${session.access_token}; path=/; max-age=${maxAge}; SameSite=Lax; secure`;
+				// document.cookie = `my-refresh-token=${session.refresh_token}; path=/; max-age=${maxAge}; SameSite=Lax; secure`;
+			}
+			if (event === 'SIGNED_IN' && $page.route.id == '/user/sign')
+				goto('/user/profile/account', { replaceState: true });
+			userRoute = '/user/profile/account';
+		}
+	});
+	
 	//tailwind cache
 	let _tw_cache =
 		'bg-scred text-scred bg-scredd1 text-scrredd1 bg-scredl1 text-scredl1 bg-scpurpled1 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scpurplel1 bg-scoranged1 text-scoranged1 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan';
 </script>
 
 <div class="relative">
+	<div
+		class="h-screen bg-[rgba(0,0,0,0.4)] z-20 inset-0 absolute justify-center flex flex-col items-center pb-40"
+		class:hidden={!$loading}
+	>
+		<Loader />
+		<div class="text-white text-center text-xl mt-4 mx-auto opacity-50">Loading</div>
+	</div>
 	<div class="min-h-screen bg-black z-[-1] inset-0 absolute opacity-100 animate_base"></div>
 	<div
 		class="min-h-screen {bgCrafting} z-[-1] inset-0 absolute {pageName == 'crafting'
@@ -76,7 +112,9 @@
 			? 'opacity-100'
 			: 'opacity-0'} animate_base"
 	></div>
-	<div class="min-h-screen bg-[url('/images/noise.png')] z-20 inset-0 absolute opacity-20 animate_base pointer-events-none"></div>
+	<div
+		class="min-h-screen bg-[url('/images/noise.png')] z-20 inset-0 absolute opacity-20 animate_base pointer-events-none"
+	></div>
 	<div class="h-[10px] w-[25%] bg-{accentColor} mx-auto inset-0 absolute opacity-30"></div>
 	<div class="app min-h-screen animate_base">
 		<div
@@ -97,7 +135,7 @@
 			<a
 				href="/"
 				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-				class:menu-active={data.id === '/'}
+				class:menu-active={$page.route.id === '/'}
 			>
 				Crafts
 			</a>
@@ -105,7 +143,7 @@
 			<a
 				href="/about"
 				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-				class:menu-active={data.id?.startsWith('/about')}
+				class:menu-active={$page.route.id?.startsWith('/about')}
 			>
 				About
 			</a>
@@ -113,15 +151,15 @@
 			<a
 				href="/crafting"
 				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] hover:text-scpurplel2 hover:font-bold rounded-lg"
-				class:menu-active={data.id?.startsWith('/crafting')}
+				class:menu-active={$page.route.id?.startsWith('/crafting')}
 			>
 				Start Crafting
 			</a>
 
-			<a href="/user">
+			<a href={userRoute}>
 				<Icon
 					icon="ph:user-focus-duotone"
-					class={data.id?.startsWith('/user')
+					class={$page.route.id?.startsWith('/user')
 						? `text-[220%] font-figtree animate_base hover:font-bold ml-8 rounded-lg bg-white text-${primaryColor}`
 						: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold ml-8 rounded-lg'}
 				/>
@@ -153,30 +191,30 @@
 									<ul class="flex flex-col justify-center items-center">
 										<li
 											class="mt-4 opacity-70 font-normal"
-											class:menu-active-mobile={data.id === '/'}
+											class:menu-active-mobile={$page.route.id === '/'}
 										>
 											<a href="/">Crafts</a>
 										</li>
 										<li
 											class="mt-4 opacity-70 font-normal"
-											class:menu-active-mobile={data.id?.startsWith('/about')}
+											class:menu-active-mobile={$page.route.id?.startsWith('/about')}
 										>
 											<a href="/about">About</a>
 										</li>
 										<li
 											class="mt-4 opacity-70 font-normal"
-											class:menu-active-mobile={data.id?.startsWith('/crafting')}
+											class:menu-active-mobile={$page.route.id?.startsWith('/crafting')}
 										>
 											<a href="/crafting">Start Crafting</a>
 										</li>
 										<li
 											class="mt-4 opacity-70 font-normal text-center"
-											class:menu-active-mobile={data.id?.startsWith('/user')}
+											class:menu-active-mobile={$page.route.id?.startsWith('/user')}
 										>
 											<a href="/user">
 												<Icon
 													icon="ph:user-focus-duotone"
-													class={data.id?.startsWith('/user')
+													class={$page.route.id?.startsWith('/user')
 														? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
 														: 'text-[#b4b4b4] text-[220%] font-figtree animate_base hover:text-[250%] hover:text-scpurplel2 hover:font-bold rounded-lg'}
 												/>
