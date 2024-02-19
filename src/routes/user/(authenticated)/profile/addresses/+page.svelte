@@ -56,7 +56,10 @@
 		let addr = addresses[i];
 		loading.set(true);
 		if (addr.id) {
-			if (result.error || !(result.count && result.count > 0)) {
+			console.log(addr.id);
+			let result = await data.supabase_lt.from('addresses').delete().eq('id', addr.id).select();
+			if (result.error || !(result.data && result.data.length > 0)) {
+				console.log(result);
 				errorMsg = 'Error, could not delete address';
 				errorShow = true;
 			} else {
@@ -86,11 +89,15 @@
 					result = await data.supabase_lt
 						.from('addresses')
 						.update({ ...addr })
-						.eq('id', addr.id);
-					if (!result.data || !((result.data as []).length <= 0)) {
+						.eq('id', addr.id)
+						.select();
+					console.log(result);
+					if (result.data && (result.data as []).length > 0) {
+						await setup();
+					} else {
 						errorMsg = 'Error, could not update address';
 						errorShow = true;
-					} else await setup();
+					}
 				} else {
 					errorMsg = 'No change in address to update';
 					errorShow = true;
