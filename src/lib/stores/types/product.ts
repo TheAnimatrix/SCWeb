@@ -88,7 +88,7 @@ export function validateAddress(address: Address): string | null {
 		return 'City should be a valid Indian city.';
 	}
 
-	if (!address.phone || !/^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$/.test(address.phone)) {
+	if (!address.phone || !/^(\+91[\-\s]?)?[0]?(91)?[6789]\d{9}$/.test(address.phone)) {
 		return 'Phone should be a valid Indian number.';
 	}
 
