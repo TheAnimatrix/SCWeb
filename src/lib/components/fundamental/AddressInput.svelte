@@ -2,6 +2,11 @@
 	import { getValidState, type Address, compareAddress } from '$lib/stores/types/product';
 	import Icon from '@iconify/svelte';
 	import GlowleftInput from './glowleft_input.svelte';
+	function getWithoutCountryCode(phone: string) {
+		if (phone?.startsWith('+91')) return phone.substring(3);
+		else return phone;
+	}
+	
 	export let type = 'text';
 	export let address: Address,
 		address_old: Address = {};
@@ -114,7 +119,7 @@
 					gradient="bg-orange-300 bg-opacity-80"
 					inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
 					bind:value={address.phone}
-					placeholder={address.phone ?? 'Phone'}
+					placeholder={getWithoutCountryCode(address.phone) ?? 'Phone'}
 				/>
 			</div>
 		{/if}

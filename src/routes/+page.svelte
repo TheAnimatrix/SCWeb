@@ -26,6 +26,7 @@
 	let products: Product[];
 	async function setup() {
 		loading.set(true);
+		console.log("setup:mainpage");
 		let resp = await data.supabase_lt.from('products').select('*');
 		if (resp.error || !resp.data) {
 			console.log('error ' + resp.error);

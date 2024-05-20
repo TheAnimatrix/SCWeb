@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { CartItem } from '$lib/stores/cart';
+	import { changeCart } from '$lib/stores/cart';
 	import type { Product } from '$lib/stores/types/product';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import BannerIndicator from '$lib/components/fundamental/banner_indicator.svelte';
@@ -29,9 +31,11 @@
 		}
 	}
 
-	function cart_submit() {
+	async function cart_submit() {
 		if (cart_qty > 0) {
-			alert(`${cart_qty} * ${productItem.name} added to cart`);
+			let p:CartItem = {product_id:productItem.id,price:productItem.price.new,qty:cart_qty};
+			await changeCart(data.supabase_lt,p);
+			alert("Added to cart");
 			cart_qty = 0;
 		}
 	}

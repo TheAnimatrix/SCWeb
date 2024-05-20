@@ -66,12 +66,10 @@
 	export let data;
 	data.supabase_lt.auth.onAuthStateChange(async (event, session) => {
 		console.log(event);
-		if (event == 'INITIAL_SESSION' || event == 'SIGNED_IN') {
-			await pullCart(data.supabase_lt);
+		if (event == 'SIGNED_IN') { 
 		}
 		if (event === 'SIGNED_OUT') {
 			//
-			cartg.set({ id: undefined, list: [], price: 0 });
 			// delete cookies on sign out
 			const expires = new Date(0).toUTCString();
 			if (document) {
@@ -92,6 +90,14 @@
 		}
 	});
 
+	async function setup() {
+		loading.set(true);
+		await pullCart(data.supabase_lt);
+		loading.set(false);
+	}
+	onMount(() => {
+		setup();
+	});
 	//tailwind cache
 	let _tw_cache = `bg-scblue text-scblue bg-scblued1 text-scblued1 bg-scbluel1 text-scbluel1
 	 bg-scred text-scred bg-scredd1 text-scrredd1 bg-scredl1 text-scredl1 bg-scpurpled1

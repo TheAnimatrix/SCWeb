@@ -39,6 +39,7 @@
 	let addresses: Address[] = [];
 	async function setup() {
 		loading.set(true);
+		console.log("setup:address");
 		let result = await data.supabase_lt.from('addresses').select('*');
 		addresses = [];
 		if (result && result.data) {
@@ -153,12 +154,14 @@
 				if (address.state && address.state.length > 0) {
 					address.state = getValidState(address.state)[0];
 				}
+				if(address.phone?.startsWith("+91")) address.phone = address.phone.substring(3);
 				let error = validateAddress(address);
 				if (error) {
 					errorShow = true;
 					errorMsg = error;
 					return false;
 				}
+				address.phone = "+91"+address.phone;
 				//save address here
 				saveAddress(i, isChanged);
 				editing[i] = false;

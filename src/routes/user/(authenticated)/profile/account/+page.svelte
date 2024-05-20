@@ -17,6 +17,7 @@
 
 	async function setup() {
 		loading.set(true);
+		console.log("setup:account");
 		let userResponse = await supabase_lt.auth.getUser();
 		if (userResponse?.data.user) {
 			let user = userResponse.data.user;

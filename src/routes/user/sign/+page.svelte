@@ -10,6 +10,7 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { validatePassword } from '$lib/stores/types/helper';
+	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
 	const triggerTabStyle =
 		'data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-4xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-4xl font-bold max-w-[200px]';
 
@@ -94,6 +95,7 @@
 		passwordLogin: string,
 		errorText: string,
 		errorShow: number = 0;
+
 </script>
 
 <div class="min-h-screen w-full relative">
@@ -132,11 +134,16 @@
 							>
 								{errorText}
 							</div>
-							<Button
+							<GlowButton
+								borderColor="border-scorange"
+								buttonBgColor="bg-[#9c531e]"
+								hoverCheckout="[box-shadow:0px_9px_34px_6px_hsla(25,_100%,_73.14%,_0.81)]"
+								glowCheckout="[box-shadow:0px_9px_34px_6px_hsla(25,_100%,_73.14%,_0.3)]"
+								class="mt-4"
 								type="submit"
-								class="p-4 mt-8 bg-scorange hover:bg-scorangel1 md:px-8 self-center"
-								on:click={signInWithEmail}>Go</Button
-							>
+								on:click={signInWithEmail}>
+									<div class="px-6 py-2">Go</div>
+							</GlowButton>
 							<div class="w-full flex justify-center">
 								<Button
 									class="p-6 mt-4 bg-scoranged2 hover:bg-scoranged1 "

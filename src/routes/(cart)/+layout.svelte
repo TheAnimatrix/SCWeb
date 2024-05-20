@@ -22,7 +22,7 @@
 </script>
 
 <div class="flex flex-col text-white justify-center mx-auto">
-	<div class="flex flex-wrap text-2xl justify-center items-center">
+	<div class="flex flex-wrap text-xl justify-center items-center">
 		<div class="flex items-center">
 			<Icon
 				icon="solar:cart-large-2-bold-duotone"

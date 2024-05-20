@@ -7,6 +7,7 @@
 	export let data;
 	async function debug() {
 		loading.set(true);
+		console.log("debug:profile");
 		let session = await data.supabase_lt.auth.getSession();
 		let k = await data.supabase_lt
 			.from('users')
