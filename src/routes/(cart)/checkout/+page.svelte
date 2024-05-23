@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { validateAddress } from '$libd/types/product';
+	import { validateAddress } from '$lib/types/product';
 	import AddressInputSelector from './../../../lib/components/fundamental/AddressInputSelector.svelte';
 	import { goto } from '$app/navigation';
 	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
