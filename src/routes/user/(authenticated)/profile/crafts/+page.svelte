@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ProductList from '$pages/product_list.svelte';
-	import type { Product } from '$lib/stores/types/product';
+	import type { Product } from '$lib/types/product.js';
 
 	let getLink = (i: number, product: Product) => {
 		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;

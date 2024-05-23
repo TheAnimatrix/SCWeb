@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Roadmap from '$lib/components/page/roadmap.svelte';
 	import snarkdown from 'snarkdown';
-	import { ABOUT_STRINGS } from '$lib/stores/strings';
+	import { ABOUT_STRINGS } from '$lib/constants/strings';
 	let origin = ABOUT_STRINGS.origin;
 	// let roadmap = ABOUT_STRINGS.roadmap;
 	let risks = ABOUT_STRINGS.risks;

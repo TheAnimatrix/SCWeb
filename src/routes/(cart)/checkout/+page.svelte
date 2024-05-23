@@ -1,17 +1,24 @@
 <script lang="ts">
+	import { validateAddress } from '$libd/types/product';
 	import AddressInputSelector from './../../../lib/components/fundamental/AddressInputSelector.svelte';
 	import { goto } from '$app/navigation';
 	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
-	import type { Address } from '$lib/stores/types/product';
+	import type { Address } from '$lib/types/product';
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
-	import { cartg } from '$lib/stores/cart';
+	import { cartg } from '$lib/client/cart';
 	export let data;
+
 	let subtotal = 0;
 	let checkoutHover = false;
 	let activePinCode = '000000';
 
 	let addressSetting = { editing: false, address: {} };
 	let addressValid : boolean = false;
+	if(data.userExists && data.addresses && data.addresses.length > 0) {
+		if(validateAddress(data.addresses[0])) {
+			addressValid = true;
+		}
+	}
 	
 </script>
 

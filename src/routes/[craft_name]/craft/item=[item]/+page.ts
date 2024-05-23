@@ -1,4 +1,4 @@
-import type { Product } from '$lib/stores/types/product.js';
+import type { Product } from '$lib/types/product.js';
 import { error } from '@sveltejs/kit';
 
 

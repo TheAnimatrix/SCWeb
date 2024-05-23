@@ -1,12 +1,16 @@
 <script lang="ts">
+	import { setLoading } from '$lib/client/loading.js';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { replaceState, goto } from '$app/navigation';
-	import { loading } from '$lib/stores/loading';
+	import { } from '$lib/client/loading.js';
 	import { page } from '$app/stores';
+	import { getContext } from 'svelte';
+	import type { Writable } from 'svelte/store';
 
 	export let data;
+	let load_store = getContext<Writable<boolean>>('loading');
 	async function debug() {
-		loading.set(true);
+		setLoading(load_store,true);
 		console.log("debug:profile");
 		let session = await data.supabase_lt.auth.getSession();
 		let k = await data.supabase_lt
@@ -14,7 +18,7 @@
 			.update({ username: 'Animatrix' })
 			.eq('id', session.data.session?.user.id)
 			.select();
-		loading.set(false);
+		setLoading(load_store,false);
 	}
 
 	const triggerTabStyle =

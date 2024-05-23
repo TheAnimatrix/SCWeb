@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { CartItem } from '$lib/stores/cart';
-	import { changeCart } from '$lib/stores/cart';
-	import type { Product } from '$lib/stores/types/product';
+	import { changeCart, type CartItem } from '$lib/client/cart';
+	import type { Product } from '$lib/types/product.js';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 	import BannerIndicator from '$lib/components/fundamental/banner_indicator.svelte';
 	import VariantSelector from '$lib/components/fundamental/variant_selector.svelte';

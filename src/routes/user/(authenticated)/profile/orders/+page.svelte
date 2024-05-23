@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Order,Orders } from '$lib/stores/types/product';
-	import { loading } from '$lib/stores/loading';
+	import type { Order,Orders } from '$lib/types/product.js';
+	import { } from '$lib/client/loading.js';
 
 	export let data;
 	let supabase_lt = data.supabase_lt;

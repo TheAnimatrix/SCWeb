@@ -1,15 +1,16 @@
 <script lang="ts">
+	import { writable, type Writable } from 'svelte/store';
 	import {env} from '$env/dynamic/public';
 	const PUBLIC_SITE_URL = (env.PUBLIC_SITE_URL == undefined)? null : env.PUBLIC_SITE_URL;
 	const PUBLIC_VERCEL_URL = (env.PUBLIC_VERCEL_URL == undefined)? null : env.PUBLIC_VERCEL_URL;
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import { goto, invalidate, replaceState } from '$app/navigation';
-	import { loading } from '$lib/stores/loading';
+	import {setLoading } from '$lib/client/loading.js';
 	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import { validatePassword } from '$lib/stores/types/helper';
+	import { validatePassword } from '$lib/types/helper.js';
 	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
 	const triggerTabStyle =
 		'data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-4xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-4xl font-bold max-w-[200px]';
@@ -26,11 +27,12 @@
 		return url;
 	};
 
+	let load_store = getContext<Writable<boolean>>('loading');
 	async function signWithGoogle(register: boolean) {
 		if (register) {
 		} else {
 		}
-		loading.set(true);
+		setLoading(load_store,true);
 		const { user, error } = supabase_lt.auth.signInWithOAuth({
 			provider: 'google',
 			options: {
@@ -38,7 +40,7 @@
 				redirectTo: getURL()+'?next=/user/profile/account/'
 			}
 		});
-		loading.set(false);
+		setLoading(load_store,false);
 		if (error) {
 			errorShow = register ? 2 : 1;
 			errorText = error.message;
@@ -46,12 +48,12 @@
 	}
 
 	async function signInWithEmail() {
-		loading.set(true);
+		setLoading(load_store,true);
 		const { data, error } = await supabase_lt.auth.signInWithPassword({
 			email: emailLogin,
 			password: passwordLogin
 		});
-		loading.set(false);
+		setLoading(load_store,false);
 		if (error) {
 			errorShow = 1;
 			errorText = error.message;
@@ -67,7 +69,7 @@
 			errorText = k.msg ?? 'yoyo';
 			return;
 		}
-		loading.set(true);
+		setLoading(load_store,true);
 		const { data, error } = await supabase_lt.auth.signUp({
 			email: emailRegister,
 			password: passwordRegister,
@@ -80,7 +82,7 @@
 			.update({ username: usernameRegister })
 			.eq('id', data.user?.id)
 			.select();
-		loading.set(false);
+		setLoading(load_store,false);
 		if (error) {
 			errorShow = 2;
 			errorText = error.message;

@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { loading } from '$lib/stores/loading';
+	import {setLoading } from '$lib/client/loading.js';
 	import { goto } from '$app/navigation';
 	import Icon from '@iconify/svelte';
 	import IconCheckout from '$lib/svg/icon-checkout.svelte';
 	import IconOrderSummary from '$lib/svg/icon-order-summary.svelte';
-	import { cartg, pullCart, pushCart, changeCart } from '$lib/stores/cart.js';
-	import { onMount } from 'svelte';
+	import { cartg, pullCart, pushCart, changeCart } from '$lib/client/cart.js';
+	import { getContext, onMount } from 'svelte';
 	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
+	import type { Writable } from 'svelte/store';
 	export let data;
 	let checkoutHover = false;
 
@@ -35,11 +36,12 @@
 		});
 	});
 
+	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
-		$loading = true;
+		setLoading(load_store,true);
 		console.log('setup:cart');
 		await pullCart(data.supabase_lt);
-		$loading = false;
+		setLoading(load_store,false);
 	}
 </script>
 

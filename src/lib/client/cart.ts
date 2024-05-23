@@ -3,9 +3,9 @@
 //check shipping cost of pincode on the fly
 //quantity input should stick unless it can be finalized (qty exists in stock)
 
+import { checkUser } from '$lib/client/user';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { get, writable } from 'svelte/store';
-import { loading } from './loading';
 
 //create cart type { cart_id((if signed in)/(if signed out store in localstorage)), cart_list:{product_id, quantity}[], cart_purchased }
 interface Cart {
@@ -78,6 +78,7 @@ export async function changeCart(
  * @param supabase - Supabase client
  * @returns - True if the cart was successfully pulled, false if not
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function pullCart(supabase: SupabaseClient<any, 'public', any>): Promise<boolean> {
 	if (!supabase) return Promise.resolve(false);
 	console.log("pullcart:start")
@@ -135,6 +136,7 @@ export async function pullCart(supabase: SupabaseClient<any, 'public', any>): Pr
  * @param supabase - Supabase client object.
  * @returns - True if the update was successful, false otherwise.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function pushCart(supabase: SupabaseClient<any, 'public', any>): Promise<boolean> {
 	/**
 	 * Get the current cart data from the store.
@@ -142,7 +144,6 @@ export async function pushCart(supabase: SupabaseClient<any, 'public', any>): Pr
 	const cart = get(cartg);
 	console.log("pushCart:sp",cart,(!supabase||!cart.id));
 	if (!supabase) return Promise.resolve(false);
-	// loading.set(true);
 	/**
 	 * If the user is logged in, update the cart in the online database.
 	 */
@@ -154,7 +155,6 @@ export async function pushCart(supabase: SupabaseClient<any, 'public', any>): Pr
 		 */
 		const result = await supabase.from('cart').update(cart).eq('id', cart.id);
 		console.log("pushcart:result",result);
-		loading.set(false);
 		if (!result.error) return true;
 		else return false;
 	}
@@ -172,48 +172,12 @@ export async function pushCart(supabase: SupabaseClient<any, 'public', any>): Pr
 		try {
 			if (localStorage) {
 				localStorage.setItem('cart', JSON.stringify(cart));
-				loading.set(false);
 				return true;
 			} else {
-				loading.set(false);
 				return false;
 			}
 		} catch (e) {
-			loading.set(false);
 			return false;
 		}
 	}
-}
-
-/**
- * Checks if the user is currently logged in using Supabase.
- * 
- * @param supabase - Supabase client object.
- * @returns - True if the user is logged in, false otherwise.
- */
-export async function checkUser(supabase: SupabaseClient<any, 'public', any>): Promise<boolean> {
-	/**
-	 * If the Supabase client is invalid, return false.
-	 */
-	if (!supabase) return Promise.resolve(false);
-
-	/**
-	 * Get the current session from Supabase using `getSession()`.
-	 */
-	console.log("checkUser:checking_user");
-	const {
-		data: { session }
-	} = await supabase.auth.getSession();
-
-	console.log(session);
-
-	/**
-	 * If the session is not null and truthy, the user is logged in.
-	 */
-	if (session != null && session) return true;
-
-	/**
-	 * Otherwise, the user is not logged in.
-	 */
-	else return false;
 }

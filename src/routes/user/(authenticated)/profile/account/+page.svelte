@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { validatePassword } from '$lib/stores/types/helper';
+	import { validatePassword } from '$lib/types/helper.js';
 	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
-	import { loading } from '$lib/stores/loading';
+	import {setLoading } from '$lib/client/loading.js';
 	import type { SupabaseClient } from '@supabase/supabase-js';
+	import { getContext } from 'svelte';
+	import type { Writable } from 'svelte/store';
 
 	export let data;
 	let supabase_lt = data.supabase_lt;
@@ -15,8 +17,9 @@
 
 	let oldPass: string, newPass: string, confirmPass: string;
 
+	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
-		loading.set(true);
+		setLoading(load_store,true);
 		console.log("setup:account");
 		let userResponse = await supabase_lt.auth.getUser();
 		if (userResponse?.data.user) {
@@ -29,7 +32,7 @@
 				tier = usermore.data[0].tier ? usermore.data[0].tier : 'Bee';
 			}
 		}
-		loading.set(false);
+		setLoading(load_store,false);
 	}
 
 	let p1: HTMLInputElement, p2: HTMLInputElement;
@@ -40,11 +43,11 @@
 			error_msg = k.msg;
 			return;
 		} else error_msg = undefined;
-		loading.set(true);
+		setLoading(load_store,true);
 		supabase_lt.auth.updateUser({password:newPass});
 		p1.value = '';
 		p2.value = '';
-		loading.set(false);
+		setLoading(load_store,false);
 		alert('Password changed successfully');
 	}
 

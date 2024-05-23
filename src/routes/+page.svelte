@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { loading } from '$lib/stores/loading';
-	import { onMount } from 'svelte';
-	import { writable } from 'svelte/store';
-	import type { Product } from '$lib/stores/types/product';
-	import { type Banner, getBannerCount, getBanner } from '$lib/stores/banner';
+	import { page } from '$app/stores';
+	import { setLoading } from '$lib/client/loading';
+	import { getContext, onMount } from 'svelte';
+	import { writable, type Writable } from 'svelte/store';
+	import type { Product } from '$lib/types/product';
+	import { type Banner, getBannerCount, getBanner } from '$lib/client/banner';
 	import BannerIndicator from '$lib/components/fundamental/banner_indicator.svelte';
 	import ProductList from './product_list.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 
 	let indicator_cur = 0;
 	let cinterval: number = 5000;
@@ -24,16 +25,18 @@
 	export let data;
 
 	let products: Product[];
+
+	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
-		loading.set(true);
-		console.log("setup:mainpage");
+		setLoading(load_store,true);
+		console.log('setup:mainpage');
 		let resp = await data.supabase_lt.from('products').select('*');
 		if (resp.error || !resp.data) {
 			console.log('error ' + resp.error);
 		} else {
 			products = resp.data as Product[];
 		}
-		loading.set(false);
+		setLoading(load_store,false);
 	}
 
 	setup();
@@ -45,8 +48,7 @@
 			<div class="font-figtree font-bold text-5xl text-scpurplel2 pb-4">Editor's<br /> choice</div>
 			<div
 				id="feat-mb-rect"
-				class="w-max h-auto bg-black border-2 border-t-8 border-solid border-[#ffeeee] p-4 pr-8 hover:border-scpurplel1"
-			>
+				class="w-max h-auto bg-black border-2 border-t-8 border-solid border-[#ffeeee] p-4 pr-8 hover:border-scpurplel1">
 				<div class="title justify-center text-4xl text-white font-bold">Lornode V2</div>
 				<div class="subtitle font-bold text-xl text-[#b983ff]">By Animatrix</div>
 			</div>
@@ -58,8 +60,7 @@
 			wActive="w-[6%] max-sm:w-[15%]"
 			wNormal="w-[2%] max-sm:w-[6%]"
 			hoverNormal="hover:w-[3%]"
-			interval={cinterval}
-		/>
+			interval={cinterval} />
 		<ProductList {products} {getLink} accent1="#1C102F" accent2="#342052" accent3="#8955e3" />
 	</div>
 </div>

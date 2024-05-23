@@ -18,16 +18,37 @@ export interface Product {
 	author?: string;
 }
 
-export interface Address {
-	name: string;
-	line1: string;
-	line2: string;
-	city: string;
-	pincode: string;
-	state: string;
-	phone: string;
-	id?: string;
-	created_at: string;
+export class Address {
+    public name: string;
+    public line1: string;
+    public line2: string;
+    public city: string;
+    public pincode: string;
+    public state: string;
+    public phone: string;
+    public id?: string;
+    public created_at: string;
+
+    constructor(init?: Partial<Address>) {
+        Object.assign(this, init);
+    }
+
+    public static copy(a: Address): Address {
+        return new Address(Object.assign({}, a));
+    }
+}
+
+export const newAddress = (): Address => {
+	return {
+		name: "",
+		line1: "",
+		line2: "",
+		city: "",
+		pincode: "",
+		state: "",
+		phone: "",
+		created_at: ""
+	};
 }
 
 export interface Order {

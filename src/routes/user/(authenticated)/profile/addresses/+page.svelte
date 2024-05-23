@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { compareAddress } from '$lib/stores/types/product';
-	import { loading } from '$lib/stores/loading';
+	import { setLoading } from '../../../../../lib/client/loading.js';
+	import { compareAddress } from '$lib/types/product.js';
+	import { } from '$lib/client/loading.js';
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
-	import { validateAddress, type Address, getValidState } from '$lib/stores/types/product';
+	import { validateAddress, type Address, getValidState } from '$lib/types/product.js';
 	import Icon from '@iconify/svelte';
+	import { getContext } from 'svelte';
+	import type { Writable } from 'svelte/store';
 	export let data;
 
 	let errorMsg = '';
@@ -37,8 +40,9 @@
 	}
 
 	let addresses: Address[] = [];
+	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
-		loading.set(true);
+		setLoading(load_store,true);
 		console.log("setup:address");
 		let result = await data.supabase_lt.from('addresses').select('*');
 		addresses = [];
@@ -50,12 +54,12 @@
 			addresses = [...addresses];
 			editing = [...editing];
 		}
-		loading.set(false);
+		setLoading(load_store,false);
 	}
 
 	async function deleteAddress(i: number) {
 		let addr = addresses[i];
-		loading.set(true);
+		setLoading(load_store,true);
 		if (addr.id) {
 			console.log(addr.id);
 			let result = await data.supabase_lt.from('addresses').delete().eq('id', addr.id).select();
@@ -70,8 +74,7 @@
 			errorMsg = 'Error, unable to find address to delete in database';
 			errorShow = true;
 		}
-
-		loading.set(false);
+		setLoading(load_store,false);
 	}
 	async function saveAddress(i: number, isChanged: boolean) {
 		let addr = addresses[i];
@@ -83,7 +86,7 @@
 				errorShow = true;
 				return;
 			}
-			loading.set(true);
+			setLoading(load_store,true);
 			result = await data.supabase_lt.from('addresses').select('*').eq('id', addr.id);
 			if (result.data && result.data[0] && !result.error) {
 				if (!compareAddress(result.data[0] as Address, addr)) {
@@ -113,11 +116,11 @@
 			}
 		} else {
 			//create address
-			loading.set(true);
+			setLoading(load_store,true);
 			result = await data.supabase_lt.from('addresses').insert([{ ...addr }]);
 			await setup();
 		}
-		loading.set(false);
+		setLoading(load_store,false);
 	}
 
 	setup();

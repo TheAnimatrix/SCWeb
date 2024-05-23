@@ -1,8 +1,8 @@
 <script lang="ts">
 	import no_img from '$lib/svg/no_img.svg';
 	import Icon from '@iconify/svelte';
-	import type { Product } from '$lib/stores/types/product';
-	import { HSLToHex, HexToHSL } from '$lib/stores/types/helper';
+	import type { Product } from '$lib/types/product';
+	import { HSLToHex, HexToHSL } from '$lib/types/helper';
 	export let product: Product;
 	export let accent1 = '#aaaaaa';
 	export let accent2 = '#aaaaaa';

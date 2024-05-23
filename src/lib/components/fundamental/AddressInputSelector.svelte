@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { loading } from '$lib/stores/loading';
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import GlowleftInput from './glowleft_input.svelte';
 	import Icon from '@iconify/svelte';
@@ -7,8 +6,11 @@
 		getValidState,
 		type Address,
 		compareAddress,
-		validateAddress
-	} from '$lib/stores/types/product';
+		validateAddress,
+
+		newAddress
+
+	} from '$lib/types/product';
 
 	function getWithoutCountryCode(phone: string) {
 		if (phone?.startsWith('+91')) return phone.substring(3);
@@ -21,12 +23,12 @@
 	export let type = 'text';
 	export let addressValid = false;
 
-	export let address: Address = {};
-	export let address_old: Address = {};
+	export let address: Address = newAddress();
+	export let address_old: Address = newAddress();
 	let addressError: string | undefined;
 
 	export let onDelete = (isCloseOnly: boolean) => {
-		address = {};
+		address = newAddress();
 		addressValid = false;
 		type="edit";
 	};
@@ -230,6 +232,7 @@
 						address = addritem;
 						listAddresses = false;
 						addressValid = true;
+						type="text";
 					}}>
 					<div class="text-scbluel2 font-semibold">{addritem.name}</div>
 					<div>{addritem.line1}</div>

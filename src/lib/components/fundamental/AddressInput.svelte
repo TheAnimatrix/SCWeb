@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getValidState, type Address, compareAddress } from '$lib/stores/types/product';
+	import { getValidState, type Address, compareAddress } from '$lib/types/product';
 	import Icon from '@iconify/svelte';
 	import GlowleftInput from './glowleft_input.svelte';
 	function getWithoutCountryCode(phone: string) {
