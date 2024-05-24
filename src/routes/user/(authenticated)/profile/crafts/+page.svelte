@@ -20,20 +20,19 @@
 		}
 		loading = false;
 	}
-
-	setup();
+	if (data.products) products = data.products;
+	// setup();
 </script>
 
 <div class="mt-4 flex flex-col h-fit justify-center items-center text-white">
-	{#if (products && products.length > 0)}
+	{#if products && products.length > 0}
 		<ProductList
 			{products}
 			{getLink}
 			accent1="#1c120a"
 			accent2="#2a1f1a"
 			accent3="#f4b679"
-			class="justify-center"
-		/>
+			class="justify-center" />
 	{:else}
 		<div class="flex justify-center text-2xl">
 			{#if !loading}

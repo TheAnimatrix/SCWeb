@@ -62,7 +62,7 @@
 	export { className as class };
 
 	function toggleType() {
-		console.log('toggle type', type);
+		
 		let k = true;
 		if (type == 'edit') k = onSave(!compareAddress(address_old, address), address);
 		if (type == 'text') {
@@ -120,7 +120,7 @@
 				{addressError}
 			</div>
 		</button>
-		<div class="flex">
+		<div class="flex items-start">
 			<button on:click={toggleType}>
 				<Icon
 					icon={type == 'text' ? 'iconamoon:edit-duotone' : 'iconamoon:check-square-duotone'}

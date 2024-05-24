@@ -15,12 +15,16 @@
 		picture: string | undefined = '',
 		tier: string | undefined = '';
 
+	username = data.username;
+	email = data.email;
+	tier = data.tier;
+
 	let oldPass: string, newPass: string, confirmPass: string;
 
 	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
 		setLoading(load_store,true);
-		console.log("setup:account");
+		
 		let userResponse = await supabase_lt.auth.getUser();
 		if (userResponse?.data.user) {
 			let user = userResponse.data.user;
@@ -55,7 +59,7 @@
 		const d = await supabase_lt.auth.signOut({ scope: 'global' });
 	}
 
-	setup();
+	// setup();
 </script>
 
 <div class="mt-4 flex flex-col w-full h-fit justify-center items-center">

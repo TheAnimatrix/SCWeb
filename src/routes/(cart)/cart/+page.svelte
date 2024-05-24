@@ -14,7 +14,7 @@
 	async function getItemDetails(itemId: string) {
 		const result = await data.supabase_lt.from('products').select('*').eq('id', itemId);
 		if (result.data && result.data[0]) {
-			console.log(result.data[0]);
+			
 			return result.data[0];
 		} else {
 			return null;
@@ -39,7 +39,7 @@
 	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
 		setLoading(load_store,true);
-		console.log('setup:cart');
+		
 		await pullCart(data.supabase_lt);
 		setLoading(load_store,false);
 	}
@@ -82,7 +82,7 @@
 										on:submit={(p) => {
 											let inputElement = document.getElementById('qtyInput' + i);
 											let iVal = +inputElement?.value ?? 0;
-											console.log('form:stock:', result.stock.count, iVal, typeof iVal);
+											
 											if (typeof iVal === 'number' && iVal <= result.stock.count) {
 												let p = $cartg.list[i];
 												p.qty = iVal;

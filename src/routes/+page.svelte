@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import Icon from '@iconify/svelte';
 	import { setLoading } from '$lib/client/loading';
 	import { getContext, onMount } from 'svelte';
 	import { writable, type Writable } from 'svelte/store';
@@ -19,7 +19,7 @@
 	let image = writable('');
 	$: {
 		image.set(getBanner(indicator_cur).bannerUrl);
-		console.log($image);
+		
 	}
 
 	export let data;
@@ -29,10 +29,10 @@
 	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
 		setLoading(load_store,true);
-		console.log('setup:mainpage');
+		
 		let resp = await data.supabase_lt.from('products').select('*');
 		if (resp.error || !resp.data) {
-			console.log('error ' + resp.error);
+			
 		} else {
 			products = resp.data as Product[];
 		}
@@ -45,12 +45,12 @@
 <div id="top">
 	<div id="subtop">
 		<div id="feat-mb-text" style="background-image: url({$image})">
-			<div class="font-figtree font-bold text-5xl text-scpurplel2 pb-4">Editor's<br /> choice</div>
+			<div class="h-16"></div>
 			<div
 				id="feat-mb-rect"
-				class="w-max h-auto bg-black border-2 border-t-8 border-solid border-[#ffeeee] p-4 pr-8 hover:border-scpurplel1">
-				<div class="title justify-center text-4xl text-white font-bold">Lornode V2</div>
-				<div class="subtitle font-bold text-xl text-[#b983ff]">By Animatrix</div>
+				class="ml-4 md:ml-8 w-max h-auto bg-black border-2 border-t-8 border-solid border-[#ffeeee] p-4 pr-8 hover:border-scpurplel1">
+				<div class="title justify-center text-3xl text-white font-bold">Lornode V2</div>
+				<div class="subtitle font-bold text-xl text-scpurplel0">By Animatrix</div>
 			</div>
 		</div>
 		<!-- <img id="feat-mb-img" src="src/libs/images/lornode_wide.png" alt="Featured Banner" /> -->
@@ -61,7 +61,7 @@
 			wNormal="w-[2%] max-sm:w-[6%]"
 			hoverNormal="hover:w-[3%]"
 			interval={cinterval} />
-		<ProductList {products} {getLink} accent1="#1C102F" accent2="#342052" accent3="#8955e3" />
+		<ProductList {products} {getLink} accent1="#10182f" accent2="#202c52" accent3="#5579e3" />
 	</div>
 </div>
 
@@ -96,6 +96,5 @@
 	}
 
 	#feat-mb-text > * {
-		margin-left: 40px;
 	}
 </style>

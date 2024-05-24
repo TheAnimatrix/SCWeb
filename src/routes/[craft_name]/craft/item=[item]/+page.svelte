@@ -152,18 +152,9 @@
 				{/if}
 			</div>
 			<div
-				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled3 rounded-r-xl rounded-b-xl mt-4"
+				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled3 rounded-r-xl rounded-b-xl mt-4 pageCut"
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="30"
-					height="27"
-					viewBox="0 0 53 47"
-					fill="none"
-				>
-					<path d="M50.5 46.0427L0 43.1375L53 0.0427246L50.5 46.0427Z" fill="#321E51" />
-					<path d="M53 0.0427246L0 44.0427V0.0427246H53Z" fill="#12081b" />
-				</svg>
+				<div class="h-[30px] w-[30px] pageTurn drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"></div>
 				<div class="p-4 pt-2 opacity-85">
 					{productItem.documentation?.at(0)?.data ?? 'No description available'}
 				</div>
@@ -212,5 +203,13 @@
 <style lang="postcss">
 	* {
 		@apply transition-all duration-200 ease-linear;
+	}
+
+	.pageTurn{
+		background: linear-gradient(135deg, transparent 0%, transparent 50%, theme('colors.scpurpled2') 50%, theme('colors.scpurpled4') 100%);
+	}
+
+	.pageCut {
+		clip-path: polygon(30px 0, 100% 0, 100% 100%, 0 100%, 0 30px);
 	}
 </style>

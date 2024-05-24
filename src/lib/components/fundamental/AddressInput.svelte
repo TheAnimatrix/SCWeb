@@ -54,7 +54,7 @@
 	>
 		{#if type == 'text'}
 			<div>
-				<div>{address.name ?? 'Name'}</div>
+				<div class="font-bold text-xl mb-2">{address.name ?? 'Name'}</div>
 				<div>{address.line1 ?? 'Line 1 Address'}</div>
 				<div>{address.line2 ?? 'Line 2 Address'}</div>
 				<div>

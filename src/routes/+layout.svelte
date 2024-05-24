@@ -23,7 +23,7 @@
 	bgUser = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
 	bgAbout = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
 	bgCart = 'bg-gradient-to-tr from-scbluek1 to-scbluek2';
-	bgMain = 'bg-gradient-to-tr from-[#0d0815] to-[#180c2c]';
+	bgMain = 'bg-gradient-to-tr from-scpurplek1 to-scpurplek2';
 	bgCrafting = 'bg-gradient-to-tr from-[#050000] to-[#1c0808]';
 	let pageName: string;
 	$: {
@@ -65,7 +65,7 @@
 
 	export let data;
 	data.supabase_lt.auth.onAuthStateChange(async (event, session) => {
-		console.log(event);
+		
 		if (event == 'SIGNED_IN') {
 		}
 		if (event === 'SIGNED_OUT') {
@@ -219,7 +219,7 @@
 										<li
 											class="mt-4 opacity-70 font-normal"
 											class:menu-active-mobile={$page.route.id === '/'}>
-											<a href="/">Crafts{$page.data.clicked}</a>
+											<a href="/">Crafts</a>
 										</li>
 										<li
 											class="mt-4 opacity-70 font-normal"
@@ -298,7 +298,7 @@
 
 <style lang="postcss">
 	.filter-purple {
-		filter: hue-rotate(98deg);
+		filter: hue-rotate(48deg);
 	}
 
 	.filter-orange {

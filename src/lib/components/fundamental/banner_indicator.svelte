@@ -27,7 +27,7 @@
 		curActive = curActive < max - 1 ? curActive + 1 : 0;
 	};
 
-	onMount(async () => {
+	onMount(() => {
 		if (interval) {
 			setInterval(nextIndicator, interval);
 			return () => clearInterval(interval);

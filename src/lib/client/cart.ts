@@ -38,29 +38,27 @@ export async function changeCart(
 ): Promise<boolean> {
 	// If the Supabase client is invalid, return false
 	if (!supabase) return Promise.resolve(false);
-	console.log("ccart:cartg",get(cartg));
-	console.log(changed);
 	// Update the cart in the store
 	cartg.update((cur) => {
 		// Find the index of the item to change in the cart list
 		const itemIndex = cur.list.findIndex((item) => item.product_id === changed.product_id);
-		console.log("ccart:existing_pid?:"+itemIndex);
+		
 
 		// If the quantity is 0, remove the item from the cart
 		if (changed.qty === 0) {
 			if (itemIndex !== -1) {
 				cur.list.splice(itemIndex, 1);
-				console.log("ccart:remove old item");
+				
 			}
 		} else {
 			// If the item is already in the cart, update its quantity
 			if (itemIndex !== -1) {
 				cur.list[itemIndex].qty = changed.qty;
-				console.log("ccart:changing qty",changed.qty);
+				
 			} else {
 				// Otherwise, add the item to the cart with the new quantity
 				cur.list.push(changed);
-				console.log("ccart:add new item",changed);
+				
 			}
 			cur.status = "active";
 		}
@@ -84,7 +82,7 @@ export async function pullCart(supabase: SupabaseClient<any, 'public', any>): Pr
 	console.log("pullcart:start")
 	// If the user is logged in, obtain the cart data from online
 	if (await checkUser(supabase)) {
-		console.log("pullCart:checkUser");
+		
 		// Get the cart from the online database
 		const result = await supabase.from('cart').select().eq('status', 'active');
 		if (result.data && result.data.length > 0) {
@@ -107,13 +105,9 @@ export async function pullCart(supabase: SupabaseClient<any, 'public', any>): Pr
 	} else {
 		// If the user is not logged in, get the cart from local storage
 		try {
-			if(localStorage)
-				console.log("pullcart_localstorage_a");
-			else
-				console.log("pullcart_localstorage_b")
 			if (localStorage) {
 				const lc = localStorage.getItem("cart");
-				console.log("pullcart_localstorage_c",lc);
+				
 				if (lc) {
 					// Set the cart data from local storage to the store
 					cartg.set(JSON.parse(lc) as Cart);
@@ -142,19 +136,19 @@ export async function pushCart(supabase: SupabaseClient<any, 'public', any>): Pr
 	 * Get the current cart data from the store.
 	 */
 	const cart = get(cartg);
-	console.log("pushCart:sp",cart,(!supabase||!cart.id));
+	
 	if (!supabase) return Promise.resolve(false);
 	/**
 	 * If the user is logged in, update the cart in the online database.
 	 */
-	console.log("rchd_1");
+	
 	if (cart.id && await checkUser(supabase)) {
-		console.log("rchd_2");
+		
 		/**
 		 * Update the cart in the online database.
 		 */
 		const result = await supabase.from('cart').update(cart).eq('id', cart.id);
-		console.log("pushcart:result",result);
+		
 		if (!result.error) return true;
 		else return false;
 	}
@@ -163,12 +157,12 @@ export async function pushCart(supabase: SupabaseClient<any, 'public', any>): Pr
 	 * If the user is not logged in, push the cart to local storage.
 	 */
 	else {
-		console.log("rchd_3");
+		
 		/**
 		 * Attempt to set the cart to local storage.
 		 * If this fails, return false.
 		 */
-		console.log("pushCart:loggedout",cart);
+		
 		try {
 			if (localStorage) {
 				localStorage.setItem('cart', JSON.stringify(cart));

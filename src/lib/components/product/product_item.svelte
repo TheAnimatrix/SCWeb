@@ -7,7 +7,8 @@
 	export let accent1 = '#aaaaaa';
 	export let accent2 = '#aaaaaa';
 	export let accent3 = '#aaaaaa';
-	let accent4: any = HexToHSL(accent2);
+	let accent4: any= HexToHSL(accent2);
+	let accent6 = `${accent4.h},${accent4.s}%,${accent4.l}%`;
 	accent4.l += 10;
 	accent4 = HSLToHex(accent4);
 	let accent5: any = HexToHSL(accent3);
@@ -23,7 +24,7 @@
 
 <a
 	href={product.stock.count > 0 ? href : '#'}
-	style="background-color: {accent1}; --accent1: {accent1}; --accent2: {accent2}; --accent3: {accent3}; --accent4: {accent4}; --accent5:{accent5};"
+	style="background-color: {accent1}; --accent1: {accent1}; --accent2: {accent2}; --accent3: {accent3}; --accent4: {accent4}; --accent5:{accent5}; --accent6:{accent6};"
 	class="relative product-top flex flex-col max-md:flex-[1_0_61%] max-lg:flex-[1_0_41%] max-xl:flex-[1_0_31%] flex-[1_0_21%] min-w-0 max-w-[400px] mt-[20px] rounded-lg transition-all duration-100 ease-out h-fit {product
 		.stock.count > 0
 		? ''
@@ -98,7 +99,7 @@
 	.product-top:hover {
 		transform: translateY(-5px);
 		transition: 0.2s ease-out;
-		box-shadow: 10px 10px 50px 10px rgba(0, 0, 0, 0.35);
+		box-shadow: 10px 10px 50px 10px hsla(var(--accent6),0.15);
 		cursor: pointer;
 	}
 

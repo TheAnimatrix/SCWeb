@@ -1,26 +1,7 @@
 <script lang="ts">
-	import { setLoading } from '$lib/client/loading.js';
-	import * as Tabs from '$lib/components/ui/tabs';
-	import { replaceState, goto } from '$app/navigation';
-	import { } from '$lib/client/loading.js';
+	import { fly } from 'svelte/transition';
 	import { page } from '$app/stores';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
-
-	export let data;
-	let load_store = getContext<Writable<boolean>>('loading');
-	async function debug() {
-		setLoading(load_store,true);
-		console.log("debug:profile");
-		let session = await data.supabase_lt.auth.getSession();
-		let k = await data.supabase_lt
-			.from('users')
-			.update({ username: 'Animatrix' })
-			.eq('id', session.data.session?.user.id)
-			.select();
-		setLoading(load_store,false);
-	}
-
+	
 	const triggerTabStyle =
 		'animate_base data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-2xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-2xl font-bold max-w-[200px]';
 
@@ -29,6 +10,8 @@
 		let x = v.split('/');
 		return x[x.length - 1];
 	}
+
+	export let data;
 </script>
 
 <div class="flex flex-col justify-center">
@@ -59,9 +42,10 @@
 				<a href="crafts"><span class="max-sm:text-md">Crafts</span></a>
 			</div>
 		</div>
-		<div class="w-[55%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%] flex self-center justify-center items-center">
-			<slot />
-		</div>
+		{#key data.url}
+			<div in:fly={{ y: 50 , duration:150,delay:150}} out:fly={{x:150,duration:150}} class="w-[55%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%] flex self-center justify-center items-center">
+				<slot />
+			</div>
+		{/key}
 	</div>
-	<button class="pt-4 text-white self-center" on:click={debug}>Debug</button>
 </div>

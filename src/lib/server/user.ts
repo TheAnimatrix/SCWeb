@@ -15,12 +15,12 @@ export async function checkUser(supabase: SupabaseClient<any, 'public', any>): P
 	/**
 	 * Get the current session from Supabase using `getSession()`.
 	 */
-	console.log("checkUser:checking_user");
+	
 	const {
 		data: { session }
 	} = await supabase.auth.getSession();
 
-	console.log(session);
+	
 
 	/**
 	 * If the session is not null and truthy, the user is logged in.

@@ -1,84 +1,67 @@
 export interface Product {
-    id: string;
-    name: string;
-    images: {url:string}[];
-    tags: {tag:string}[];
-    offer?: {offer_colorA:string, offer_colorB: string, offer_name: string};
-    rating?: {count:number, rating:number};
-    stock: {count:number,status:string};
-    created_at: string;
-    documentation?: {data:string, isMDUrl: boolean}[];
+	id: string;
+	name: string;
+	images: { url: string }[];
+	tags: { tag: string }[];
+	offer?: { offer_colorA: string; offer_colorB: string; offer_name: string };
+	rating?: { count: number; rating: number };
+	stock: { count: number; status: string };
+	created_at: string;
+	documentation?: { data: string; isMDUrl: boolean }[];
 	//[0]->description
 	//[1]->documentation
 	//[2]->shipping
 	//[3]->costing
-    faq?: {question:string,answer:string}[];
-    uid: string;
-    price: {old:number,new:number};
+	faq?: { question: string; answer: string }[];
+	uid: string;
+	price: { old: number; new: number };
 	author?: string;
 }
 
-export class Address {
-    public name: string;
-    public line1: string;
-    public line2: string;
-    public city: string;
-    public pincode: string;
-    public state: string;
-    public phone: string;
-    public id?: string;
-    public created_at: string;
-
-    constructor(init?: Partial<Address>) {
-        Object.assign(this, init);
-    }
-
-    public static copy(a: Address): Address {
-        return new Address(Object.assign({}, a));
-    }
+export interface Address {
+	name?: string;
+	line1?: string;
+	line2?: string;
+	city?: string;
+	pincode?: string;
+	state?: string;
+	phone?: string;
+	id?: string;
+	created_at?: string;
 }
 
 export const newAddress = (): Address => {
 	return {
-		name: "",
-		line1: "",
-		line2: "",
-		city: "",
-		pincode: "",
-		state: "",
-		phone: "",
-		created_at: ""
 	};
-}
+};
 
 export interface Order {
-    created_at: string;
-    purchase_time: string | null;
-    payment_status: number;
-    payment_method: string;
-    payment_id: string | null;
-    billing_address: string | null;
-    shipping_address: string | null;
-    trackingId: string | null;
-    trackingCourier: string | null;
-    trackingUrl: string | null;
-    uid: string;
-    id: number;
-    amount: number;
-    cart_id: string | null;
+	created_at: string;
+	purchase_time: string | null;
+	payment_status: number;
+	payment_method: string;
+	payment_id: string | null;
+	billing_address: string | null;
+	shipping_address: string | null;
+	trackingId: string | null;
+	trackingCourier: string | null;
+	trackingUrl: string | null;
+	uid: string;
+	id: number;
+	amount: number;
+	cart_id: string | null;
 }
-export const compareAddress = (a: Address, b:Address)=>{
-
-	if(a.id != b.id) return false;
-	if(a.line1 != b.line1) return false;
-	if(a.line2 != b.line2) return false;
-	if(a.city != b.city) return false;
-	if(a.name != b.name) return false;
-	if(a.phone != b.phone) return false;
-	if(a.state != b.state) return false;
-	if(a.pincode != b.pincode) return false;
+export const compareAddress = (a: Address, b: Address) => {
+	if (a.id != b.id) return false;
+	if (a.line1 != b.line1) return false;
+	if (a.line2 != b.line2) return false;
+	if (a.city != b.city) return false;
+	if (a.name != b.name) return false;
+	if (a.phone != b.phone) return false;
+	if (a.state != b.state) return false;
+	if (a.pincode != b.pincode) return false;
 	return true;
-}
+};
 
 export type Orders = Order[];
 
@@ -191,4 +174,3 @@ export const indianStates = [
 	'Lakshadweep',
 	'Puducherry'
 ];
-

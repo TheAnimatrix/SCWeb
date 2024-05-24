@@ -43,7 +43,7 @@
 	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
 		setLoading(load_store,true);
-		console.log("setup:address");
+		
 		let result = await data.supabase_lt.from('addresses').select('*');
 		addresses = [];
 		if (result && result.data) {
@@ -61,10 +61,10 @@
 		let addr = addresses[i];
 		setLoading(load_store,true);
 		if (addr.id) {
-			console.log(addr.id);
+			
 			let result = await data.supabase_lt.from('addresses').delete().eq('id', addr.id).select();
 			if (result.error || !(result.data && result.data.length > 0)) {
-				console.log(result);
+				
 				errorMsg = 'Error, could not delete address';
 				errorShow = true;
 			} else {
@@ -95,7 +95,7 @@
 						.update({ ...addr })
 						.eq('id', addr.id)
 						.select();
-					console.log(result);
+					
 					if (result.data && (result.data as []).length > 0) {
 						await setup();
 					} else {
@@ -123,10 +123,12 @@
 		setLoading(load_store,false);
 	}
 
-	setup();
+	// setup();
+	addresses = data.addresses;
+	editing = data.editing;
 </script>
 
-<div class="flex flex-col">
+<div class="flex flex-col w-full">
 	<button
 		class="{addresses.length <= 0
 			? 'self-center'

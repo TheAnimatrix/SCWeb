@@ -8,11 +8,7 @@
 	let subload = false;
 
 	let orders : Orders = [];
-	async function getOrders() {
-		subload = true;
-		orders = (await supabase_lt.from('purchases').select()).data as Orders;
-		subload = false;
-	}
+	orders = data.orders;
 
 	function getDate(timestamp: string) {
 		return new Date(timestamp).toLocaleString('en-IN').split(',')[0];
@@ -22,8 +18,6 @@
 		return new Date(timestamp).toLocaleString('en-IN').split(',')[1];
 	}
 
-	if(supabase_lt)
-	getOrders();
 </script>
 
 <div class="flex flex-col w-full">

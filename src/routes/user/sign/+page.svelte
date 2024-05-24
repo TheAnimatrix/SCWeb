@@ -63,7 +63,7 @@
 	//TODO: change emailRedirectTo
 	async function signUpNewUser() {
 		let k = validatePassword(passwordRegister ?? '', passwordRegister ?? '');
-		console.log(k);
+		
 		if (k.error) {
 			errorShow = 2;
 			errorText = k.msg ?? 'yoyo';
