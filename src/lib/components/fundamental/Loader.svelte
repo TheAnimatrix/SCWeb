@@ -2,7 +2,7 @@
 
 <style lang="postcss">
 	.loader {
-		@apply relative flex items-center justify-center w-full max-w-[6rem] mt-[3rem] mb-[3rem];
+		@apply relative flex items-center justify-center w-full max-w-[5rem] mt-[3rem] mb-[3rem];
 	}
 	.loader:before,
 	.loader:after {

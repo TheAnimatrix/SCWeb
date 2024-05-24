@@ -1,5 +1,4 @@
 <script lang="ts">
-	import NProgress from 'nprogress';
 	import './styles.css';
 	import { navigating } from '$app/stores';
 	import { cartg, pullCart } from '$lib/client/cart';
@@ -92,11 +91,12 @@
 	});
 
 	async function setup() {
-		// setLoading(load_store, true);
+		setLoading(load_store, true);
 		await pullCart(data.supabase_lt);
-		// setLoading(load_store, false);
+		setLoading(load_store, false);
 	}
-	setContext('loading', loading);
+	setContext('loading', writable(false));
+	const load_store = getContext<Writable<boolean>>('loading');
 	onMount(() => {
 		setup();
 	});
@@ -106,27 +106,14 @@
 	 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scpurplel1 bg-scoranged1 text-scoranged1
 	 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange
 	 text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan border-scpurplel1 border-scorangel1 border-scbluel1 border-sccyan border-scred`;
-	$: {
-		NProgress.configure({
-			minimum: 0.16,
-			template: `<div class="bar" role="bar"" ><div class="peg"></div></div><div class="spinner" role="spinner"><div class="spinner-icon"></div></div>`
-		});
-		try {
-			if ($navigating) {
-				NProgress.start();
-			} else NProgress.done();
-		} catch (e) {
-			/**ignore */
-		}
-	}
 </script>
 
 <div class="relative" style="--curent-color:{primaryColor};">
 	<div
 		class="h-screen bg-[rgba(0,0,0,0.4)] z-20 inset-0 absolute justify-center flex flex-col items-center pb-40"
-		class:hidden={!$navigating}>
-		<!-- <Loader /> -->
-		<!-- <div class="text-white text-center text-xl mt-4 mx-auto opacity-50">Loading</div> -->
+		class:hidden={!$navigating && !$load_store}>
+		<Loader />
+		<div class="text-white text-center text-xl mt-4 mx-auto opacity-50">Loading</div>
 	</div>
 	<div class="min-h-screen bg-black z-[-1] inset-0 absolute opacity-100 animate_base"></div>
 	<div

@@ -51,7 +51,6 @@
 		"clsx": "^2.1.0",
 		"embla-carousel-svelte": "^8.0.0-rc19",
 		"lucide-svelte": "^0.312.0",
-		"nprogress": "^0.2.0",
 		"rehype-raw": "^7.0.0",
 		"snarkdown": "^2.0.0",
 		"svelte-exmarkdown": "^3.0.3",

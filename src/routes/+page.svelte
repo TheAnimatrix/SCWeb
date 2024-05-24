@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
-	import { setLoading } from '$lib/client/loading';
 	import { getContext, onMount } from 'svelte';
 	import { writable, type Writable } from 'svelte/store';
 	import type { Product } from '$lib/types/product';
@@ -28,15 +27,12 @@
 
 	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
-		setLoading(load_store,true);
-		
 		let resp = await data.supabase_lt.from('products').select('*');
 		if (resp.error || !resp.data) {
 			
 		} else {
 			products = resp.data as Product[];
 		}
-		setLoading(load_store,false);
 	}
 
 	setup();
