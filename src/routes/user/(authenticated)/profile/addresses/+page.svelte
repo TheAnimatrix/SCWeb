@@ -123,7 +123,6 @@
 		setLoading(load_store,false);
 	}
 
-	// setup();
 	addresses = data.addresses;
 	editing = data.editing;
 </script>

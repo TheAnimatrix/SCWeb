@@ -20,25 +20,8 @@
 	tier = data.tier;
 
 	let oldPass: string, newPass: string, confirmPass: string;
-
 	let load_store = getContext<Writable<boolean>>('loading');
-	async function setup() {
-		setLoading(load_store,true);
 		
-		let userResponse = await supabase_lt.auth.getUser();
-		if (userResponse?.data.user) {
-			let user = userResponse.data.user;
-			email = user.email;
-			let id = user.id;
-			let usermore = await supabase_lt.from('users').select().eq('id', user.id);
-			if (usermore && usermore.data && usermore.data[0]) {
-				username = usermore.data[0].username;
-				tier = usermore.data[0].tier ? usermore.data[0].tier : 'Bee';
-			}
-		}
-		setLoading(load_store,false);
-	}
-
 	let p1: HTMLInputElement, p2: HTMLInputElement;
 	let error_msg: string | undefined;
 	async function changePassword() {
@@ -59,7 +42,6 @@
 		const d = await supabase_lt.auth.signOut({ scope: 'global' });
 	}
 
-	// setup();
 </script>
 
 <div class="mt-4 flex flex-col w-full h-fit justify-center items-center">

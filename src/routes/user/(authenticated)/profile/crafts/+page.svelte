@@ -9,19 +9,7 @@
 	export let data;
 	let products: Product[];
 	let loading = false;
-	async function setup() {
-		loading = true;
-		let uid = (await data.supabase_lt.auth.getUser()).data.user?.id;
-		if (!uid) return;
-		let resp = await data.supabase_lt.from('products').select('*').eq('uid', uid);
-		if (resp.error || !resp.data) {
-		} else {
-			products = resp.data as Product[];
-		}
-		loading = false;
-	}
 	if (data.products) products = data.products;
-	// setup();
 </script>
 
 <div class="mt-4 flex flex-col h-fit justify-center items-center text-white">
