@@ -64,6 +64,7 @@ export async function changeCart(
 			newQty = (sameCartItem?.qty ?? 0) + changed.qty;
 		else
 			newQty = changed.qty;
+		
 		if (newQty === 0) {
 			cart.list.splice(itemIndex, 1);
 		} else if(newQty> changedItemStock){

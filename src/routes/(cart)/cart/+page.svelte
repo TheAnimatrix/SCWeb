@@ -17,12 +17,16 @@
 	export let data;
 	let checkoutHover = false;
 	let cartData: Cart;
+	let subtotal = 0;
 
-	if (!data.cart.error) {
-		cartData = data.cart.data!;
+	$: {
+		if (!data.cart.error) {
+			cartData = data.cart.data!;
+			subtotal = calcSubTotal(data);
+		}
 	}
 
-	async function getItemDetails(itemId: string,x:any) {
+	async function getItemDetails(itemId: string) {
 		const result = await data.supabase_lt.from('products').select('*').eq('id', itemId);
 		if (result.data && result.data[0]) {
 			return result.data[0];
@@ -31,7 +35,7 @@
 		}
 	}
 
-	function calcSubTotal(data:any) {
+	function calcSubTotal(data: any) {
 		let total = 0;
 		cartData?.list?.forEach((item) => {
 			total += item.price * item.qty;
@@ -49,7 +53,14 @@
 			let p = cartData.list![i];
 			p.qty = iVal;
 			setLoading(load_store, true);
-			const changeResult = await changeCart(data.supabase_lt, cart_store, p, result.stock.count, data.clientId,true);
+			const changeResult = await changeCart(
+				data.supabase_lt,
+				cart_store,
+				p,
+				result.stock.count,
+				data.clientId,
+				true
+			);
 			await invalidate('cart:change');
 			setLoading(load_store, false);
 		} else {
@@ -58,14 +69,13 @@
 		}
 	}
 
-	$: subtotal = calcSubTotal(data);
 </script>
 
 <div class="flex flex-wrap mt-4 gap-x-3 mb-4">
 	<div class="cart flex flex-col flex-[3_0_66%] gap-y-4 mb-4">
 		{#if cartData && (cartData.list ?? [])?.length > 0}
 			{#each cartData.list ?? [] as productItem, i}
-				{#await getItemDetails(productItem.product_id,data.cart.data?.list?.[i])}
+				{#await getItemDetails(productItem.product_id)}
 					<div class="bg-scblued2 p-2 rounded-xl">
 						<div class="cart-item flex border-[1px] border-scblue rounded-lg p-6 font-semibold">
 							Loading
@@ -144,14 +154,13 @@
 					<div class="text-xl font-bold">₹{subtotal + 99}</div>
 				</div>
 				<div class="flex justify-center p-2">
-					<!-- <GlowButton
-						disabled={$cartg.list.length == 0}
+					<GlowButton
+						disabled={(cartData.list ?? []).length <= 0}
 						on:click={() => {
 							goto('/checkout');
-						}}
-					>
+						}}>
 						<div class="px-8 py-1">Checkout</div>
-					</GlowButton> -->
+					</GlowButton>
 				</div>
 			</div>
 		</div>

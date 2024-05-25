@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { initCartG } from '$lib/client/cart';
+	import { type CartG, initCartG, getActiveCart } from '$lib/client/cart';
 	import './styles.css';
 	import { navigating } from '$app/stores';
 	import { loading, setLoading } from '$lib/client/loading';
@@ -93,12 +93,25 @@
 	setContext('loading', writable(false));
 	setContext('userCartStatus', initCartG());
 	const load_store = getContext<Writable<boolean>>('loading');
+	const cart_store = getContext<Writable<CartG>>('userCartStatus');
+
+	onMount(() => {
+		getActiveCart(data.supabase_lt, data.clientId).then((cart) => {
+			if (!cart.error && cart.data) {
+				let itemCount = 0;
+				cart.data.list?.forEach((item) => {
+					itemCount += item.qty;
+				});
+				cart_store.set({ itemCount: itemCount, valid: true });
+			}
+		});
+	});
 	//tailwind cache
 	let _tw_cache = `bg-scblue text-scblue bg-scblued1 text-scblued1 bg-scbluel1 text-scbluel1
 	 bg-scred text-scred bg-scredd1 text-scrredd1 bg-scredl1 text-scredl1 bg-scpurpled1
 	 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scpurplel1 bg-scoranged1 text-scoranged1
 	 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange
-	 text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan border-scpurplel1 border-scorangel1 border-scbluel1 border-sccyan border-scred`;
+	 text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan border-scpurplel1 border-scorangel1 border-scbluel1 border-sccyan border-scred text-scoranged1 text-scyand1 text-scpurpled1 text-scblued1 text-scredd1`;
 </script>
 
 <div class="relative" style="--curent-color:{primaryColor};">
@@ -142,31 +155,30 @@
 			class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden">
 			<a
 				href="/"
-				class="block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8">
+				class="block h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8">
 				<img
-					class={filter}
-					style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
+					class="{filter} h-full object-scale-down mt-[7%] mb-[5%] ml-3 mr-4"
 					src={Logo}
 					alt="Selfcrafted Logo" />
 			</a>
 			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<a
 				href="/"
-				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] rounded-lg"
+				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#d8d8d8] font-figtree animate_base hover:text-[150%] rounded-lg"
 				class:menu-active={$page.route.id === '/'}>
 				Crafts
 			</a>
 			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<a
 				href="/about"
-				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] rounded-lg"
+				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#d8d8d8] font-figtree animate_base hover:text-[150%] rounded-lg"
 				class:menu-active={$page.route.id?.startsWith('/about')}>
 				About
 			</a>
 			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<a
 				href="/crafting"
-				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#b4b4b4] font-figtree animate_base hover:text-[150%] rounded-lg"
+				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#d8d8d8] font-figtree animate_base hover:text-[150%] rounded-lg"
 				class:menu-active={$page.route.id?.startsWith('/crafting')}>
 				Start Crafting
 			</a>
@@ -176,82 +188,92 @@
 					icon="ph:user-focus-duotone"
 					class={$page.route.id?.startsWith('/user')
 						? `text-[220%] font-figtree animate_base hover:font-bold ml-8 rounded-lg bg-white text-${primaryColor}`
-						: 'text-[#b4b4b4] text-[220%] font-figtree animate_base ml-8 rounded-lg'} />
+						: 'text-[#d8d8d8] text-[220%] font-figtree animate_base ml-8 rounded-lg'} />
 			</a>
 
 			<a href="/cart">
-				<Icon
-					icon="solar:cart-plus-line-duotone"
-					class={$page.route.id?.startsWith('/(cart)')
+				<div
+					class="{$page.route.id?.startsWith('/(cart)')
 						? `bg-white text-${primaryColor} text-[250%] rounded-xl ml-8 p-1`
-						: 'text-white text-[220%] ml-8 animate_base hover:text-[250%]'} />
+						: 'text-white text-[220%] ml-8 animate_base hover:text-[250%]'} flex justify-center items-center">
+					<Icon
+						icon={$cart_store.itemCount > 0
+							? 'solar:cart-large-minimalistic-bold-duotone'
+							: 'solar:cart-large-minimalistic-broken'} />
+					<div
+						class="rounded-full p-2 w-8 h-8 flex justify-center items-center !bg-white text-sm font-bold">
+						<span class="text-{primaryColor}">{$cart_store.itemCount}</span>
+					</div>
+				</div>
 			</a>
 		</div>
 		<div
 			class="menu_mobile sm:hidden flex flex-col items-center justify-center w-full sticky top-0 backdrop-blur-[30px] z-10">
-			<div class="flex space-x-12">
-				<a
-					href="/"
-					class="flex-1 block logo h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 transition-all ease-out duration-400 hover:border-r-8">
-					<img
-						class={filter}
-						style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;"
-						src={Logo}
-						alt="Selfcrafted Logo" />
+			<div class="relative flex w-full justify-center items-center h-fit">
+				<a href="/" class="h-[64px] py-3 transition-all ease-out duration-400">
+					<img class="{filter} h-full object-scale-down" src={Logo} alt="Selfcrafted Logo" />
 				</a>
-				<Drawer.Root shouldScaleBackground>
-					<Drawer.Trigger>
-						<Icon
-							class="text-{accentColor} text-4xl self-center"
-							icon="mdi:menu" /></Drawer.Trigger>
-					<Drawer.Content class="bg-{primaryColor} border-none text-white animate_base">
-						<Drawer.Header>
-							<Drawer.Close
-								><div class="p-6 font-bold text-2xl">
-									<ul class="flex flex-col justify-center items-center">
-										<li
-											class="mt-4 opacity-70 font-normal"
-											class:menu-active-mobile={$page.route.id === '/'}>
-											<a href="/">Crafts</a>
-										</li>
-										<li
-											class="mt-4 opacity-70 font-normal"
-											class:menu-active-mobile={$page.route.id?.startsWith('/about')}>
-											<a href="/about">About</a>
-										</li>
-										<li
-											class="mt-4 opacity-70 font-normal"
-											class:menu-active-mobile={$page.route.id?.startsWith('/crafting')}>
-											<a href="/crafting">Start Crafting</a>
-										</li>
-										<li
-											class="mt-4 opacity-70 font-normal text-center"
-											class:menu-active-mobile={$page.route.id?.startsWith('/user')}>
-											<a href={userRoute}>
-												<Icon
-													icon="ph:user-focus-duotone"
-													class={$page.route.id?.startsWith('/user')
-														? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
-														: 'text-[#b4b4b4] text-[220%] font-figtree animate_base rounded-lg'} />
-											</a>
-										</li>
-										<li
-											class="mt-4 opacity-70 font-normal text-center"
-											class:menu-active-mobile={$page.route.id?.startsWith('/(cart)')}>
-											<a href="/cart">
-												<Icon
-													icon="solar:cart-plus-line-duotone"
-													class={$page.route.id?.startsWith('/(cart)')
-														? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
-														: 'text-[#b4b4b4] text-[220%] font-figtree animate_base rounded-lg'} />
-											</a>
-										</li>
-									</ul>
-								</div></Drawer.Close>
-						</Drawer.Header>
-						<Drawer.Footer></Drawer.Footer>
-					</Drawer.Content>
-				</Drawer.Root>
+
+				<!-- style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;" -->
+				<div class="absolute right-8 my-auto mt-3">
+					<Drawer.Root shouldScaleBackground>
+						<Drawer.Trigger>
+							<Icon class="text-white text-3xl self-center" icon="mdi:menu" /></Drawer.Trigger>
+						<Drawer.Content class="bg-{primaryColor} border-none text-white animate_base">
+							<Drawer.Header>
+								<Drawer.Close
+									><div class="p-6 font-bold text-2xl">
+										<ul class="flex flex-col justify-center items-center">
+											<li
+												class="mt-4 opacity-70 font-normal"
+												class:menu-active-mobile={$page.route.id === '/'}>
+												<a href="/">Crafts</a>
+											</li>
+											<li
+												class="mt-4 opacity-70 font-normal"
+												class:menu-active-mobile={$page.route.id?.startsWith('/about')}>
+												<a href="/about">About</a>
+											</li>
+											<li
+												class="mt-4 opacity-70 font-normal"
+												class:menu-active-mobile={$page.route.id?.startsWith('/crafting')}>
+												<a href="/crafting">Start Crafting</a>
+											</li>
+											<li
+												class="mt-4 opacity-70 font-normal text-center"
+												class:menu-active-mobile={$page.route.id?.startsWith('/user')}>
+												<a href={userRoute}>
+													<Icon
+														icon="ph:user-focus-duotone"
+														class={$page.route.id?.startsWith('/user')
+															? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
+															: 'text-[#d8d8d8] text-[220%] font-figtree animate_base rounded-lg'} />
+												</a>
+											</li>
+											<li
+												class="mt-4 opacity-70 font-normal text-center"
+												class:menu-active-mobile={$page.route.id?.startsWith('/(cart)')}>
+												<a href="/cart" class="flex justify-center items-center gap-1">
+													<Icon
+														icon={$cart_store.itemCount > 0
+															? 'solar:cart-large-minimalistic-bold-duotone'
+															: 'solar:cart-large-minimalistic-broken'}
+														class={$page.route.id?.startsWith('/(cart)')
+															? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
+															: 'text-[#d8d8d8] text-[220%] font-figtree animate_base rounded-lg'} />
+													<div
+														class="rounded-full p-2 w-8 h-8 flex justify-center items-center !bg-white text-sm font-bold">
+														<span class="text-{primaryColor}">{$cart_store.itemCount}</span>
+													</div>
+												</a>
+											</li>
+										</ul>
+									</div></Drawer.Close>
+							</Drawer.Header>
+							<Drawer.Footer></Drawer.Footer>
+						</Drawer.Content>
+					</Drawer.Root>
+				</div>
 			</div>
 		</div>
 		<div class="rest">

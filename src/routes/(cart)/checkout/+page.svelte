@@ -1,24 +1,31 @@
 <script lang="ts">
 	import { validateAddress } from '$lib/types/product';
-	import AddressInputSelector from './../../../lib/components/fundamental/AddressInputSelector.svelte';
+	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { goto } from '$app/navigation';
 	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
-	import type { Address } from '$lib/types/product';
-	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
+	import type { Cart } from '$lib/client/cart';
 	export let data;
-
+	let cartData: Cart;
 	let subtotal = 0;
-	let checkoutHover = false;
-	let activePinCode = '000000';
-
-	let addressSetting = { editing: false, address: {} };
-	let addressValid : boolean = false;
-	if(data.userExists && data.addresses && data.addresses.length > 0) {
-		if(validateAddress(data.addresses[0])) {
+	function calcSubTotal() {
+		let total = 0;
+		cartData?.list?.forEach((item) => {
+			total += item.price * item.qty;
+		});
+		return total;
+	}
+	$: {
+		if (!data.cart.error) {
+			cartData = data.cart.data!;
+			subtotal = calcSubTotal();
+		}
+	}
+	let addressValid: boolean = false;
+	if (data.userExists && data.addresses && data.addresses.length > 0) {
+		if (validateAddress(data.addresses[0])) {
 			addressValid = true;
 		}
 	}
-	
 </script>
 
 <div class="flex flex-wrap mt-4 gap-x-3 mb-4">
@@ -30,17 +37,15 @@
 					<div class="px-6 py-1">Login</div>
 				</GlowButton>
 				<span class="text-scbluel1 font-medium text-sm"
-					>Detailed Order tracking, Save Address, Order History, Offers & More!</span
-				>
+					>Detailed Order tracking, Save Address, Order History, Offers & More!</span>
 			</div>
 			<hr class="h-[1px] border-scblued3 flex-1 mr-4" />
 		{/if}
-		<AddressInputSelector 
+		<AddressInputSelector
 			supabase={data.supabase_lt}
 			userExists={data.userExists}
 			addresses={data.addresses}
-			bind:addressValid={addressValid}
-		/>
+			bind:addressValid />
 		<div class="flex w-full px-16 items-center">
 			<div class="h-[6px] w-[6px] bg-scblue rotate-45" />
 			<hr class="h-[1px] border-scblue flex-1" />
@@ -69,14 +74,13 @@
 					<div class="text-xl font-bold">₹{subtotal + 99}</div>
 				</div>
 				<div class="flex justify-center p-2">
-					<!-- <GlowButton
-						disabled={$cartg.list.length == 0 || !addressValid}
+					<GlowButton
+						disabled={(cartData.list ?? []).length <= 0 || !addressValid}
 						on:click={() => {
 							goto('/checkout');
-						}}
-					>
+						}}>
 						<div class="px-8 py-1">Pay Now</div>
-					</GlowButton> -->
+					</GlowButton>
 				</div>
 			</div>
 		</div>

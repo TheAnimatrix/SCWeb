@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setLoading } from '../../../../../lib/client/loading.js';
+	import { setLoading } from '$lib/client/loading.js';
 	import { compareAddress } from '$lib/types/product.js';
 	import { } from '$lib/client/loading.js';
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
