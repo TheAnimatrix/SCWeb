@@ -6,6 +6,13 @@ const config = {
 	darkMode: ['class'],
 	content: ['./src/**/*.{html,js,svelte,ts}'],
 	safelist: ['dark'],
+	// plugins: [require('daisyui')],
+	// daisyui: {
+	// 	themes:false,
+	// 	base:false,
+	// 	prefix:"daisy-",
+	// 	styled:false,	
+	// },
 	theme: {
 		container: {
 			center: true,

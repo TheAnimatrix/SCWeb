@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { initCartG } from '$lib/client/cart';
 	import './styles.css';
 	import { navigating } from '$app/stores';
-	import { cartg, pullCart } from '$lib/client/cart';
 	import { loading, setLoading } from '$lib/client/loading';
 	import { page } from '$app/stores';
 	import { goto, invalidate } from '$app/navigation';
@@ -90,16 +90,9 @@
 		}
 	});
 
-	async function setup() {
-		setLoading(load_store, true);
-		await pullCart(data.supabase_lt);
-		setLoading(load_store, false);
-	}
 	setContext('loading', writable(false));
+	setContext('userCartStatus', initCartG());
 	const load_store = getContext<Writable<boolean>>('loading');
-	onMount(() => {
-		setup();
-	});
 	//tailwind cache
 	let _tw_cache = `bg-scblue text-scblue bg-scblued1 text-scblued1 bg-scbluel1 text-scbluel1
 	 bg-scred text-scred bg-scredd1 text-scrredd1 bg-scredl1 text-scredl1 bg-scpurpled1
@@ -266,7 +259,7 @@
 		</div>
 		<div
 			class="footer opacity-60 text-lg text-{accentColor} flex flex-col items-center w-full justify-center text-center pb-4">
-			<hr class="h-[1px] border-{accentColor} w-[60%] mt-16 mb-36" />
+			<hr class="h-[1px] border-{accentColor} w-[60%] mt-52 mb-16" />
 			<div class="flex flex-col sm:flex-row flex-wrap px-8 justify-evenly w-full gap-y-8">
 				<div class="flex mx-4">
 					<span>Selfcrafted © 2023&nbsp;&nbsp;&nbsp;|</span>

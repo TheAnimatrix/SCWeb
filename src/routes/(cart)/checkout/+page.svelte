@@ -5,7 +5,6 @@
 	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
 	import type { Address } from '$lib/types/product';
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
-	import { cartg } from '$lib/client/cart';
 	export let data;
 
 	let subtotal = 0;
@@ -70,14 +69,14 @@
 					<div class="text-xl font-bold">₹{subtotal + 99}</div>
 				</div>
 				<div class="flex justify-center p-2">
-					<GlowButton
+					<!-- <GlowButton
 						disabled={$cartg.list.length == 0 || !addressValid}
 						on:click={() => {
 							goto('/checkout');
 						}}
 					>
 						<div class="px-8 py-1">Pay Now</div>
-					</GlowButton>
+					</GlowButton> -->
 				</div>
 			</div>
 		</div>

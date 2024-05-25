@@ -1,5 +1,4 @@
 <script lang="ts">
-	import {cartg} from '$lib/client/cart';
 	import { page } from '$app/stores';
 	import Icon from '@iconify/svelte';
 	import IconCheckout from '$lib/svg/icon-checkout.svelte';
