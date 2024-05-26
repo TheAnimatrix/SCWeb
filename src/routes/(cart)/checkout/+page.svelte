@@ -93,6 +93,7 @@
 				goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
 			});
 		} catch (e) {
+			console.log(e);
 			return;
 		}
 	}
