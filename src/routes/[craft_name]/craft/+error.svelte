@@ -1,5 +1,0 @@
-
-
-<div>
-    STFU
-</div>

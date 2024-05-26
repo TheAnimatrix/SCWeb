@@ -37,8 +37,7 @@ export const newAddress = (): Address => {
 
 export interface Order {
 	created_at: string;
-	purchase_time: string | null;
-	payment_status: number;
+	payment_status: string;
 	payment_method: string;
 	payment_id: string | null;
 	billing_address: string | null;

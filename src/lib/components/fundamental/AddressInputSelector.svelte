@@ -7,9 +7,7 @@
 		type Address,
 		compareAddress,
 		validateAddress,
-
 		newAddress
-
 	} from '$lib/types/product';
 
 	function getWithoutCountryCode(phone: string) {

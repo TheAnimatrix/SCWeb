@@ -14,6 +14,7 @@ export const load: PageServerLoad = async (event) => {
     addresses = [...addresses];
     editing = [...editing];
     }
+
     return {
         addresses,
         editing

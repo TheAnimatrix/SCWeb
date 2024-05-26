@@ -32,6 +32,15 @@ export const handle: Handle = async ({ event, resolve }) => {
     },
   });
 
+  event.locals.supabaseServer = createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_KEY, {
+    cookies: {
+      get: () => '',
+      set: (_, __, ____) => undefined,
+      remove: (_, __) => undefined,
+    },
+  });
+
+
   event.locals.getSession = async () => {
     const { data: { session } } = await event.locals.supabase.auth.getSession();
     return session;

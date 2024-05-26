@@ -153,17 +153,19 @@
 								</button>
 							</div>
 						</div>
-						<div class="flex flex-col my-2 self-end items-end">
-							{#if productItem.stock.count > 0}
-								<div class="p-2 pl-4 pr-4 bg-scpurpled3 text-xl font-bold">
-									{productItem.stock.count} In Stock
-								</div>
-							{/if}
+						<div class="flex flex-col my-2 self-start items-end">
+							{#if productItem.stock.status}
 							<div
 								id="sale_info"
 								class="max-h-[55%] flex text-white text-center text-md font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2 pr-4 pl-4">
 								{productItem.stock.status}
 							</div>
+							{/if}
+							{#if productItem.stock.count > 0}
+								<div class="p-2 pl-4 pr-4 bg-scpurpled3 text-xl font-bold">
+									{productItem.stock.count} In Stock
+								</div>
+							{/if}
 						</div>
 					</div>
 				</div>

@@ -40,7 +40,7 @@
 			{#each orders as order, i}
 				<div class="litem">
 					<div>{order.id}</div>
-					<div>Delivered</div>
+					<div>{order.payment_status}</div>
 					<div>
 						<div>{getDate(order.created_at)}</div>
 						<div>{getTime(order.created_at)}</div>

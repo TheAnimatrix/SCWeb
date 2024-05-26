@@ -20,7 +20,7 @@
 	let subtotal = 0;
 
 	$: {
-		if (!data.cart.error) {
+		if (data.cart && !data.cart.error) {
 			cartData = data.cart.data!;
 			subtotal = calcSubTotal(data);
 		}

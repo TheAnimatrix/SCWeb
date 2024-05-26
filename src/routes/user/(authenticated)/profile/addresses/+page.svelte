@@ -8,7 +8,6 @@
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
 	export let data;
-
 	let errorMsg = '';
 	let errorShow = false;
 
