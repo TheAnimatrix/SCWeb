@@ -43,7 +43,6 @@
 		formData.append('address', JSON.stringify(validAddress));
 		const result = await fetch('/checkout/createOrder', { method: 'POST', body: formData });
 		try {
-			console.log(await result.text());
 			const dataResult = await result.json();
 			if (!dataResult || dataResult.error) {
 				//handle error
