@@ -1,7 +1,9 @@
-import type { PageServerLoad } from './$types';
+import type { PageLoad } from './$types';
+export const ssr = false;
 
-export const load: PageServerLoad = async (event) => {
-	const userResponse = await event.locals.supabase.auth.getUser();
+export const load: PageLoad = async ({parent}) => {
+	const data = await parent();
+	const userResponse = await data.supabase_lt.auth.getUser();
 	let user;
 	let email: string | undefined;
 	let user_data;
@@ -10,7 +12,7 @@ export const load: PageServerLoad = async (event) => {
 	if (userResponse?.data.user) {
 		user = userResponse.data.user;
 		email = user.email;
-		user_data = await event.locals.supabase.from('users').select().eq('id', user.id);
+		user_data = await data.supabase_lt.from('users').select().eq('id', user.id);
 		if (user_data && user_data.data && user_data.data[0]) {
 			username = user_data.data[0].username;
 			tier = user_data.data[0].tier ? user_data.data[0].tier : 'Bee';
