@@ -43,6 +43,7 @@
 		formData.append('address', JSON.stringify(validAddress));
 		const result = await fetch('/checkout/createOrder', { method: 'POST', body: formData });
 		try {
+			console.log(result);
 			const dataResult = await result.json();
 			if (!dataResult || dataResult.error) {
 				//handle error
@@ -94,6 +95,7 @@
 			});
 		} catch (e) {
 			console.log(e);
+			setLoading(load_store,false);
 			return;
 		}
 	}
