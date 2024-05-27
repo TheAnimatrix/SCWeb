@@ -70,7 +70,7 @@
 
 <div class="flex flex-col w-full">
 	<div class="flex flex-col lhead">
-		<div class="litem">
+		<div class="litem animate_base">
 			<div>Order #</div>
 			<div>Status</div>
 			<div>Date</div>
@@ -87,7 +87,7 @@
 		{:else}
 			{#each orders as order, i}
 				<button
-					class="litem rounded-b-xl"
+					class="litem animate_base rounded-b-xl"
 					on:click={() => {
 						visible[i] = !visible[i];
 					}}>
@@ -148,12 +148,12 @@
 		@apply border-[1px] border-solid border-orange-300 bg-scoranged2 rounded-xl text-orange-200 text-opacity-75;
 	}
 
-	.litem {
-		@apply animate_base bg-scoranged2 hover:bg-scorange hover:bg-opacity-10 p-4 text-orange-200 text-opacity-75 grid grid-flow-col grid-cols-4 gap-x-4 max-sm:text-sm text-center;
+	.litem animate_base {
+		@apply bg-scoranged2 hover:bg-scorange hover:bg-opacity-10 p-4 text-orange-200 text-opacity-75 grid grid-flow-col grid-cols-4 gap-x-4 max-sm:text-sm text-center;
 	}
 
-	.litem:first-child,
-	.litem:last-child {
+	.litem animate_base:first-child,
+	.litem animate_base:last-child {
 		@apply rounded-xl;
 	}
 	.noshow {
