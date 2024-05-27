@@ -10,6 +10,7 @@
 	import { setLoading } from '$lib/client/loading';
 	import { type Writable } from 'svelte/store';
 	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
+	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
 	export let data;
 	let cartData: Cart;
 	let subtotal = 0;
@@ -118,7 +119,7 @@
 			<hr class="h-[1px] border-scblued3 flex-1 mr-4" />
 		{/if}
 		<AddressInputSelector
-			supabase={data.supabase_lt}
+			email={data.email}
 			userExists={data.userExists}
 			addresses={data.addresses}
 			bind:address={validAddress}
@@ -139,7 +140,7 @@
 				<div class="flex flex-col justify-between py-2 px-3 bg-scblued3">
 					<div class="flex justify-between">
 						<div>Shipping</div>
-						<div>₹99</div>
+						<div>₹{DELIVERY_FLAT_FEE}</div>
 					</div>
 					<div class="text-start w-full">
 						<div>Flat Rate</div>
@@ -148,7 +149,7 @@
 				</div>
 				<div class="flex justify-between mt-2 py-2 px-3">
 					<div class="text-xl font-bold">Total</div>
-					<div class="text-xl font-bold">₹{subtotal + 99}</div>
+					<div class="text-xl font-bold">₹{subtotal + DELIVERY_FLAT_FEE}</div>
 				</div>
 				<div class="flex justify-center p-2">
 					<GlowButton

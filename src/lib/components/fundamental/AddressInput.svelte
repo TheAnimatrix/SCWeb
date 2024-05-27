@@ -19,6 +19,7 @@
 	let onDeleteLocal = () => {
 		if (type == 'text' || !address.id) onDelete(false);
 		else {
+			address = {...address_old};
 			type = 'text';
 			onDelete(true);
 		}

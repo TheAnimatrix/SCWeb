@@ -4,8 +4,8 @@ import { type CartItem } from '$lib/client/cart';
 import type { Product } from '$lib/types/product';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 import { RAZORPAY_KEY } from '$env/static/private';
+import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers';
 
-const DELIVERY_FIXED_FEE = 99;
 const instance = new Razorpay({
 	key_id: PUBLIC_RAZORPAY_ID,
 	key_secret: RAZORPAY_KEY
@@ -118,7 +118,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		}
 		if (totalPrice == 0)
 			return json({ error: true, message: 'Unexpected error: Order cart is 0' }, { status: 400 });
-		else totalPrice += DELIVERY_FIXED_FEE;
+		else totalPrice += DELIVERY_FLAT_FEE;
 
 		try {
 			const paymentOrderResult = await instance.orders.create({

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { SupabaseClient } from '@supabase/supabase-js';
 	import GlowleftInput from './glowleft_input.svelte';
 	import Icon from '@iconify/svelte';
 	import {
@@ -15,7 +14,7 @@
 		else return phone;
 	}
 
-	export let supabase: SupabaseClient<any, 'public', any>;
+	export let email: string | undefined;
 	export let userExists: boolean = false;
 	export let addresses: Address[] | undefined;
 	export let type = 'text';
@@ -26,9 +25,15 @@
 	let addressError: string | undefined;
 
 	export let onDelete = (isCloseOnly: boolean) => {
-		address = newAddress();
-		addressValid = false;
-		type="edit";
+		console.log("onDelete",isCloseOnly);
+		if (isCloseOnly) {
+			address = {...address_old};
+			type = 'text';
+		} else {
+			address = {...newAddress()};
+			addressValid = false;
+			type='edit';
+		}
 	};
 
 	let onDeleteLocal = () => {
@@ -40,12 +45,15 @@
 	};
 
 	export let onSave = (isChanged: boolean, addr: Address): boolean => {
+		console.log("onSave ",isChanged);
 		if (addr.phone?.startsWith('+91')) addr.phone = addr.phone.substring(3);
-		let result = validateAddress(addr);
+		let result = validateAddress(addr, !userExists);
+		console.log(result);
 		if (result) addressError = result;
 		else addressError = undefined;
 		if (!result) {
 			address.phone = '+91' + addr.phone;
+			address = {...address};
 			addressValid = true;
 			return true;
 		} else return false;
@@ -53,6 +61,7 @@
 
 	export let onEditStart = (): boolean => {
 		addressValid = false;
+		if (address.phone?.startsWith('+91')) address.phone = address.phone.substring(3);
 		return true;
 	};
 
@@ -60,7 +69,7 @@
 	export { className as class };
 
 	function toggleType() {
-		
+		console.log(address.phone+"cd");
 		let k = true;
 		if (type == 'edit') k = onSave(!compareAddress(address_old, address), address);
 		if (type == 'text') {
@@ -68,6 +77,7 @@
 			k = onEditStart();
 		}
 		if (k) type = type == 'text' ? 'edit' : 'text';
+		console.log(address.phone + "ce");
 	}
 
 	let hoverAddressTitle = false;
@@ -82,6 +92,9 @@
 			type = 'text';
 		} else type = 'edit';
 	}
+
+	$: console.log(address);
+
 </script>
 
 <div class="flex flex-col border-[1px] border-scblue bg-scblued1 rounded-xl">
@@ -151,12 +164,12 @@
 					</div>
 					{#if address.phone}
 						<div>
-							Ph: {`${address.phone.substring(0, 3)}-${address.phone.substring(3)}` ?? 'Phone'}
+							Ph: {`+91-${getWithoutCountryCode(address.phone)}` ?? 'Phone'}
 						</div>
 					{/if}
 				</div>
 			{:else}
-				<div class="flex flex-wrap flex-col space-y-2 px-8">
+				<div class="flex flex-wrap flex-col space-y-2 px-4">
 					<GlowleftInput
 						f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
 						f21="bg-scblued3"
@@ -210,27 +223,40 @@
 							bind:value={address.state}
 							placeholder={address.state ?? 'State'} />
 					</div>
-					<GlowleftInput
-						f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-						f21="bg-scblued3"
-						f22="bg-scblued2"
-						class="flex-1 min-w-32"
-						gradient="bg-blue-300 bg-opacity-80"
-						inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-						bind:value={address.phone}
-						placeholder={getWithoutCountryCode(address.phone) ?? 'Phone'} />
+					<div class="flex flex-wrap w-full gap-x-2 gap-y-2">
+						<GlowleftInput
+							f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
+							f21="bg-scblued3"
+							f22="bg-scblued2"
+							class="flex-1 min-w-32"
+							gradient="bg-blue-300 bg-opacity-80"
+							inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
+							bind:value={address.phone}
+							placeholder={getWithoutCountryCode(address.phone) ?? 'Phone'} />
+						{#if !email}
+							<GlowleftInput
+								f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
+								f21="bg-scblued3"
+								f22="bg-scblued2"
+								class="flex-1 min-w-32"
+								gradient="bg-blue-300 bg-opacity-80"
+								inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
+								bind:value={address.email}
+								placeholder={address.email ?? 'E-Mail'} />
+						{/if}
+					</div>
 				</div>
 			{/if}
 		{:else if addresses}
 			{#each addresses as addritem, i}
-				<hr class="w-full border-scblue border-opacity-30">
+				<hr class="w-full border-scblue border-opacity-30" />
 				<button
 					class="flex flex-col hover:bg-scblued2 px-8 py-1 text-start w-full"
 					on:click={() => {
 						address = addritem;
 						listAddresses = false;
 						addressValid = true;
-						type="text";
+						type = 'text';
 					}}>
 					<div class="text-scbluel2 font-semibold">{addritem.name}</div>
 					<div>{addritem.line1}</div>
@@ -238,8 +264,8 @@
 					<div>{addritem.city}-{addritem.pincode}, {addritem.state}</div>
 					<div>Ph: {addritem.phone.substring(0, 3)}-{addritem.phone.substring(3)}</div>
 				</button>
-				{#if i==addresses.length-1}
-					<hr class="w-[calc(100%)+20px] border-scblue border-opacity-30 -mr-1">
+				{#if i == addresses.length - 1}
+					<hr class="w-[calc(100%)+20px] border-scblue border-opacity-30 -mr-1" />
 				{/if}
 			{/each}
 		{:else}

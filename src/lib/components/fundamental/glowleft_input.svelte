@@ -32,12 +32,16 @@
 	export let inputElement:HTMLInputElement|undefined = undefined;
 	export let placeholder: string;
 	export let type: string = '';
-	export let value: string;
+	export let value: string | undefined;
 	export { className as class };
 
 	const onInput = (e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
-		if (e.target && e.currentTarget.value) value = e.currentTarget.value;
+		if (e.currentTarget) {value = e.currentTarget.value; if(e.currentTarget.value=='') value=undefined;}
 	};
+
+	$: {
+		if(inputElement) inputElement.value = value || '';
+	}
 </script>
 
 <div class="{focusedStyle2} backdrop-blur-[3px] rounded-xl flex py-2 animate_base {className}">

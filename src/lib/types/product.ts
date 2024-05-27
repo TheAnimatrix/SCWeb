@@ -28,6 +28,7 @@ export interface Address {
 	phone?: string;
 	id?: string;
 	created_at?: string;
+	email?: string;
 }
 
 export const newAddress = (): Address => {
@@ -64,7 +65,13 @@ export const compareAddress = (a: Address, b: Address) => {
 
 export type Orders = Order[];
 
-export function validateAddress(address: Address): string | null {
+export function validateAddress(address: Address,checkEmail?:boolean): string | null {
+
+	if(checkEmail === true)
+	if(!address.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email)) {
+		return 'Please enter a valid email address.';
+	}
+
 	if (!address.name || address.name.length < 4 || address.name.length > 35) {
 		return 'Name should be between 4 and 35 characters long.';
 	}

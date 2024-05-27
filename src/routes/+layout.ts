@@ -1,6 +1,7 @@
 
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { PUBLIC_SUPABASE_KEY } from '$env/static/public';
+import type { Banner } from '$lib/client/banner';
 import type { LayoutLoad } from './$types';
 import { createBrowserClient, isBrowser, parse } from '@supabase/ssr';
 
@@ -30,5 +31,5 @@ export const load: LayoutLoad = async ({ fetch, data, depends }) => {
 		data: { session }
 	} = await supabase_lt.auth.getSession();
 
-	return { supabase_lt, session, clientId : data.clientId};
+	return { supabase_lt, session, clientId : data.clientId };
 };

@@ -154,6 +154,7 @@
 				} else deleteAddress(i);
 			}}
 			onSave={(isChanged, saved_addr) => {
+				console.log("onSave ",isChanged);
 				if (address.state && address.state.length > 0) {
 					address.state = getValidState(address.state)[0];
 				}

@@ -1,0 +1,1 @@
+export const DELIVERY_FLAT_FEE = 99;
