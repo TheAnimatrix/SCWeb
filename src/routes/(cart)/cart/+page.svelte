@@ -115,7 +115,7 @@
 							<div class="flex">
 								<img
 									src={result.images[0].url}
-									class="aspect-square w-[180px] h-[180px] rounded-xl object-cover"
+									class="aspect-square w-[180px] h-[180px] rounded-xl object-scale-down"
 									alt="" />
 								<div class="p-4 flex flex-col">
 									<div class="text-2xl font-bold pr-2">{result.name}</div>

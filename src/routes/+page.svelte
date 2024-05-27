@@ -55,14 +55,14 @@
 <div id="top">
 	<div id="subtop">
 		{#if data.banners?.length}
-			<div class="w-full bg-center bg-no-repeat bg-cover rounded-lg pt-[20%] lg:pt-[10%] pb-2" style="background-image: url({$image})">
+			<a href="{url}" class="w-full bg-center bg-no-repeat bg-cover rounded-lg pt-[20%] lg:pt-[10%] pb-2 md:pb-4" style="background-image: url({$image})">
 				<div class="h-16"></div>
 				<div
-					class="ml-2 md:ml-4 mr-2 h-auto w-fit bg-scpurpled1 rounded-xl border-scpurple border-[1px] p-2 pr-4 md:p-4 md:pr-8 hover:border-scpurplel1">
+					class="ml-2 md:ml-4 mr-2 h-auto w-fit bg-scpurpled1 rounded-xl p-2 pr-4 md:p-4 md:pr-8 hover:border-scpurplel1">
 					<div class="title justify-center text-xl md:text-2xl lg:text-3xl text-white font-bold text-ellipsis">{name}</div>
 					<div class="subtitle font-bold text-sm md:text-lg lg:text-xl text-scpurplel0">By {author}</div>
 				</div>
-			</div>
+			</a>
 			<!-- <img id="feat-mb-img" src="src/libs/images/lornode_wide.png" alt="Featured Banner" /> -->
 			<BannerIndicator
 				bind:curActive={indicator_cur}

@@ -25,7 +25,7 @@
 <a
 	href={product.stock.count > 0 ? href : '#'}
 	style="background-color: {accent1}; --accent1: {accent1}; --accent2: {accent2}; --accent3: {accent3}; --accent4: {accent4}; --accent5:{accent5}; --accent6:{accent6};"
-	class="relative product-top flex flex-col max-md:flex-[1_0_61%] max-lg:flex-[1_0_41%] max-xl:flex-[1_0_31%] flex-[1_0_21%] min-w-0 max-w-[400px] mt-[20px] rounded-lg transition-all duration-100 ease-out h-fit {product
+	class="relative product-top flex flex-col rounded-lg transition-all duration-100 ease-out {product
 		.stock.count > 0
 		? ''
 		: overlayStyle}"
@@ -37,7 +37,7 @@
 		class="product-img h-[220px] object-cover rounded-t-lg"
 		src={product.images?.at(0)?.url ?? no_img}
 		alt="product" />
-	<div class="p-4 pb-1 min-h-0 flex flex-col">
+	<div class="p-4 pb-1 min-h-0 flex flex-col flex-1">
 		<div style="flex justify-between items-end">
 			<div class="text-white font-bold text-2xl">{product.name}</div>
 		</div>
@@ -50,6 +50,7 @@
 				</span>
 			{/each}
 		</div>
+		<div class="flex-1"></div>
 		<div class="flex overflow-y-hidden overflow-x-hidden justify-between items-end mt-4">
 			<div class="flex flex-col justify-end">
 				{#if product.price.old != 0}
@@ -73,12 +74,12 @@
 				<Icon
 					icon="solar:cart-plus-line-duotone"
 					class="text-4xl rounded-xl hover:bg-white hover:bg-opacity-10 p-0.5 ease-linear transition-all duration-200"
-					style="color: var(--accent3)" />
+					style="color: white" />
 			{/if}
 		</div>
 	</div>
-	<div class="w-full mt-2 h-[10px] justify-end flex-1">
-		<div class="p-1 pl-4 pr-4 rounded-b-lg text-white" style="background-color: var(--accent5)">
+	<div class="w-full mt-2 h-fit flex items-end">
+		<div class="p-1 pl-4 pr-4 rounded-b-lg text-white w-full" style="background-color: var(--accent5)">
 			{#if product.stock.count > 0}
 				<span><strong>{product.stock.count}</strong> in stock</span>
 			{:else if product.stock.status}
