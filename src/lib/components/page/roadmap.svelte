@@ -5,20 +5,20 @@
 
 <div class="">
 	<pre class="font-figtree text-wrap">
-<div class="inline-flex space-x-2 items-center"><Checbox disabled />   <span
+<div class="inline-flex space-x-2 items-center"><Checbox disabled checked={true} />   <span
 				class="font-bold text-sccyan text-xl">Website Launch</span
-			>    <i>TBD</i></div>
+			>    </div>
 Shipped preliminary e-commerce front-end to kickstart the Selfcrafted Project.
+
+<div class="inline-flex space-x-2 items-center"><Checbox disabled checked={true} />   <span
+    class="font-bold text-sccyan text-xl">Better payment gateway</span
+>    </div>
+Support the use of credit, debit cards and UPI on the site and remove all off-site payments. Possible crypto payments.
 
 <div class="inline-flex space-x-2 items-center"><Checbox disabled />   <span
     class="font-bold text-sccyan text-xl">3 SCF Product Launches</span
 >    <i>TBD</i></div>
 Atleast 3 SCOriginal products are designed, manufactured & made available for distribution
-
-<div class="inline-flex space-x-2 items-center"><Checbox disabled />   <span
-    class="font-bold text-sccyan text-xl">Better payment gateway</span
->    <i>TBD</i></div>
-Support the use of credit, debit cards and UPI on the site and remove all off-site payments. Possible crypto payments.
 
 <div class="inline-flex space-x-2 items-center"><Checbox disabled />   <span
     class="font-bold text-sccyan text-xl">Crafter Tier System</span

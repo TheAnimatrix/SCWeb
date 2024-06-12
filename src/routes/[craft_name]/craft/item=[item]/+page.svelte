@@ -66,22 +66,30 @@
 </script>
 
 <div
-	class="self-center w-[50%] h-full flex flex-col mx-auto items-center max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%]">
+	class="self-center h-full flex flex-col mx-auto items-center w-[95%] md:w-[90%] lg:w-[85%] 2xl:w-[75%] 3xl:w-[60%] 4xl:w-[50%]">
 	<div class="w-full flex flex-col items-center">
 		<div class="text-[#b8b8b8] mr-auto pb-2">
 			<p>Crafts/<b class="text-white">{productItem.name}</b></p>
 		</div>
-		<div class="product_hero flex w-full min-h-[25%] max-sm:flex-col justify-start">
+		<div class="product_hero flex w-full min-h-[350px] flex-col md:flex-row justify-start">
 			<div class="flex-1 mr-1">
 				<img
-					class="w-full min-h-full object-cover rounded-lg"
+					class="w-full h-full max-h-[400px] object-cover rounded-lg"
 					id="product_image"
 					src={productItem.images[indicator_cur].url ?? no_img}
 					alt="lornode" />
 			</div>
-			<div class="flex-[1.2] h-full flex flex-col ml-2 max-sm:ml-0">
+			<div class="image_mobile md:hidden -mt-1 mb-3">
+				<BannerIndicator
+					bind:curActive={indicator_cur}
+					max={indicator_max}
+					wActive="w-[12%]"
+					wNormal="w-[6%]"
+					hoverNormal="hover:w-[10%]" />
+			</div>
+			<div class="flex-[1.2] h-full flex flex-col ml-0 md:ml-2">
 				<div class="flex">
-					<div class="rounded-lg flex-1 bg-scpurpled1 p-4 flex flex-col justify-center max-sm:mt-2">
+					<div class="rounded-lg flex-1 bg-scpurpled1 p-4 flex flex-col justify-center">
 						<div class="justify-center text-3xl text-white font-bold">{productItem.name}</div>
 						<div class="justify-center text-2xl text-scpurple font-bold">
 							By {productItem.author}
@@ -136,45 +144,45 @@
 										class="inline"
 										icon="iconamoon:star-duotone" />&nbsp;({productItem.rating?.count})</span>
 							</div>
-							<div
-								class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled3 text-xl my-2">
-								<button class="p-0 px-4 hover:scale-150" on:click={dec_cart}>-</button>
-								<div class="p-1 px-4 border-x-2 border-scpurplel0" id="qty_show">{cart_qty}</div>
-								<button class="p-0 px-4 hover:scale-150" on:click={inc_cart}>+</button>
-								<button
-									class="p-2 bg-black hover:scale-110 hover:rounded-md rounded-r-xl flex items-center"
-									class:bg-scpurple={productItem.stock.count > 0}
-									id="add_to_cart"
-									on:click={cart_submit}>
-									<Icon icon="iconamoon:shopping-bag-duotone" class="w-auto h-full text-3xl" />
-									{#if productItem.stock.count <= 0}
-										<span class="px-2">Out of stock</span>
-									{/if}
-								</button>
-							</div>
+							
 						</div>
-						<div class="flex flex-col my-2 self-start items-end">
+						<div class="flex flex-col ml-8 my-2 self-start items-end">
 							{#if productItem.stock.status}
 							<div
 								id="sale_info"
-								class="max-h-[55%] flex text-white text-center text-md font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2 pr-4 pl-4">
+								class="w-[100%] flex text-white text-center text-sm md:text-md font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2">
 								{productItem.stock.status}
 							</div>
 							{/if}
 							{#if productItem.stock.count > 0}
-								<div class="p-2 pl-4 pr-4 bg-scpurpled3 text-xl font-bold">
+								<div class="p-2 pl-4 pr-4 bg-scpurpled3 text-md md:text-xl font-bold">
 									{productItem.stock.count} In Stock
 								</div>
 							{/if}
 						</div>
-					</div>
+					</div><div
+					class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled3 text-xl my-2">
+					<button class="p-0 px-4 hover:scale-150" on:click={dec_cart}>-</button>
+					<div class="p-1 px-4 border-x-2 border-scpurplel0" id="qty_show">{cart_qty}</div>
+					<button class="p-0 px-4 hover:scale-150" on:click={inc_cart}>+</button>
+					<button
+						class="p-2 bg-black hover:scale-110 hover:rounded-md rounded-r-xl flex items-center"
+						class:bg-scpurple={productItem.stock.count > 0}
+						id="add_to_cart"
+						on:click={cart_submit}>
+						<Icon icon="iconamoon:shopping-bag-duotone" class="w-auto h-full text-3xl" />
+						{#if productItem.stock.count <= 0}
+							<span class="px-2">Out of stock</span>
+						{/if}
+					</button>
+				</div>
 				</div>
 			</div>
 		</div>
 	</div>
-	<div class="flex justify-start w-full max-sm:flex-col">
-		<div class="flex-1 text-white justify-start mr-4 max-sm:mr-1">
-			<div>
+	<div class="flex justify-start w-full flex-col md:flex-row">
+		<div class="flex-1 text-white justify-start md:mr-4 mr-1">
+			<div class="hidden md:block">
 				{#if indicator_max > 1}
 					<BannerIndicator
 						bind:curActive={indicator_cur}
