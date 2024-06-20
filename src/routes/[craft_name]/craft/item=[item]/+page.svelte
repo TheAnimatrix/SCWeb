@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Loader from '$lib/components/fundamental/Loader.svelte';
 	import { writable, type Writable } from 'svelte/store';
 	import { getContext } from 'svelte';
 	import {
@@ -108,7 +109,7 @@
 						{#key addToCartSuccess}
 							<Icon icon="line-md:confirm-square-twotone" class="text-green-400 text-3xl" />
 						{/key}
-						<span class="text-green-400">"Lornode V2" x {addToCartMsg} - Added to cart</span>
+						<span class="text-green-400">"{productItem.name}" x {addToCartMsg} - Added to cart</span>
 					</div>
 				</div>
 				<div class="max-h-[90px]" class:noshow={addToCartSuccess ?? true}>
@@ -196,11 +197,23 @@
 				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled3 rounded-r-xl rounded-b-xl mt-4 pageCut">
 				<div class="h-[30px] w-[30px] pageTurn drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"></div>
 				<div class="p-4 pt-2 opacity-85">
-					{productItem.documentation?.at(0)?.data ?? 'No description available'}
+					{#if productItem.documentation?.at(0).isMDUrl}
+						{#await fetch(productItem.documentation?.at(0)?.data)}
+							<div class="w-full justify-center flex"><Loader/></div>
+						{:then data}
+							{#await data.text()}
+								<Loader/>
+							{:then text}
+								{@html text}
+							{/await}
+						{/await}
+					{:else}
+						{productItem.documentation?.at(0)?.data ?? 'No description available'}
+					{/if}
 				</div>
 			</div>
 		</div>
-		<div class="flex-1 my-4 w-full">
+		<div class="flex-1 max-w-[550px] my-4 w-full">
 			<Tabs.Root value="faq" class="w-full" id="crazy">
 				<Tabs.List
 					class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl  overflow-x-auto">
