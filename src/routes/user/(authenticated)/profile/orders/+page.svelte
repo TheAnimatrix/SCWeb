@@ -148,12 +148,12 @@
 		@apply border-[1px] border-solid border-orange-300 bg-scoranged2 rounded-xl text-orange-200 text-opacity-75;
 	}
 
-	.litem animate_base {
+	.litem {
 		@apply bg-scoranged2 hover:bg-scorange hover:bg-opacity-10 p-4 text-orange-200 text-opacity-75 grid grid-flow-col grid-cols-4 gap-x-4 max-sm:text-sm text-center;
 	}
 
-	.litem animate_base:first-child,
-	.litem animate_base:last-child {
+	.litem:first-child,
+	.litem:last-child {
 		@apply rounded-xl;
 	}
 	.noshow {
