@@ -222,6 +222,7 @@
 					<Tabs.Trigger class={triggerTabStyle} value="shipping">Shipping</Tabs.Trigger>
 					<Tabs.Trigger class={triggerTabStyle} value="costing">Costing</Tabs.Trigger>
 				</Tabs.List>
+				<!--  -->
 				<Tabs.Content value="faq" class="text-white bg-scpurpled3 pb-4 rounded-xl text-start">
 					<div>
 						{#if productItem.faq && productItem.faq.length > 0}
