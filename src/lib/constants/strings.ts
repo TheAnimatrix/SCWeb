@@ -144,7 +144,7 @@ In case of any Refunds approved by the Selfcrafted, it’ll take 9-15 days for t
 
 const contact: string = `
 * ### **Selfcrafted**
-* Ph : +91-7904491575 (sms, whatsapp)
+* Ph : +91-86374-52606 (sms, whatsapp)
 * E-Mail : support@selfcrafted.in
 * Address : 13, 1st floor, jayalakshmipuram 1st street, nungambakkam, chennai - 600034
 `;

@@ -222,7 +222,7 @@
 					<Tabs.Trigger class={triggerTabStyle} value="shipping">Shipping</Tabs.Trigger>
 					<Tabs.Trigger class={triggerTabStyle} value="costing">Costing</Tabs.Trigger>
 				</Tabs.List>
-				<Tabs.Content value="faq" class="text-white bg-scpurpled3 pb-4 rounded-xl">
+				<Tabs.Content value="faq" class="text-white bg-scpurpled3 pb-4 rounded-xl text-start">
 					<div>
 						{#if productItem.faq && productItem.faq.length > 0}
 							<Accordion.Root class="w-full litem" multiple>
@@ -232,8 +232,8 @@
 										class="border-0 px-4 {i % 2 != 0 ? 'bg-scpurpled1' : 'bg-scpurpled2'} {i == 0
 											? 'rounded-t-xl'
 											: ''}">
-										<Accordion.Trigger>{faq.question}</Accordion.Trigger>
-										<Accordion.Content>{faq.answer}</Accordion.Content>
+										<Accordion.Trigger><span class="text-start">{faq.question}</span></Accordion.Trigger>
+										<Accordion.Content><span class="text-start">{faq.answer}</span></Accordion.Content>
 									</Accordion.Item>
 								{/each}
 							</Accordion.Root>
