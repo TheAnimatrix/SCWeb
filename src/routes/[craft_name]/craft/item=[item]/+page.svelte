@@ -1,4 +1,5 @@
 <script lang="ts">
+	import HTMLWrapper from './../../../../lib/components/fundamental/HTMLWrapper.svelte';
 	import Loader from '$lib/components/fundamental/Loader.svelte';
 	import { writable, type Writable } from 'svelte/store';
 	import { getContext } from 'svelte';
@@ -17,6 +18,7 @@
 	import no_img from '$lib/svg/no_img.svg';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import Icon from '@iconify/svelte';
+	import SocialEmbed from '$lib/components/fundamental/SocialEmbed.svelte';
 	let indicator_cur = 0;
 	let ItemQty = 0;
 	let tabSet = 0;
@@ -47,7 +49,14 @@
 		if (cart_qty > 0) {
 			addToCartMsg = '' + cart_qty;
 			let p: CartItem = { product_id: productItem.id, price: productItem.price.new, qty: cart_qty };
-			const result = await changeCart(data.supabase_lt, cart_store, p, cart_qty_max, data.clientId,false);
+			const result = await changeCart(
+				data.supabase_lt,
+				cart_store,
+				p,
+				cart_qty_max,
+				data.clientId,
+				false
+			);
 			if (!result.error) {
 				addToCartSuccess = true;
 			} else {
@@ -109,7 +118,8 @@
 						{#key addToCartSuccess}
 							<Icon icon="line-md:confirm-square-twotone" class="text-green-400 text-3xl" />
 						{/key}
-						<span class="text-green-400">"{productItem.name}" x {addToCartMsg} - Added to cart</span>
+						<span class="text-green-400"
+							>"{productItem.name}" x {addToCartMsg} - Added to cart</span>
 					</div>
 				</div>
 				<div class="max-h-[90px]" class:noshow={addToCartSuccess ?? true}>
@@ -118,8 +128,7 @@
 						{#key addToCartSuccess}
 							<Icon icon="line-md:cancel-twotone" class="text-red-400 text-3xl" />
 						{/key}
-						<span class="text-red-400"
-							>Error - {addToCartMsg}</span>
+						<span class="text-red-400">Error - {addToCartMsg}</span>
 					</div>
 				</div>
 				<div class="rounded-lg text-white pl-4 py-2 text-base text-start bg-scpurpled1 mt-2 pb-4">
@@ -145,15 +154,14 @@
 										class="inline"
 										icon="iconamoon:star-duotone" />&nbsp;({productItem.rating?.count})</span>
 							</div>
-							
 						</div>
 						<div class="flex flex-col ml-8 my-2 self-start items-end">
 							{#if productItem.stock.status}
-							<div
-								id="sale_info"
-								class="w-[100%] flex text-white text-center text-sm md:text-md font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2">
-								{productItem.stock.status}
-							</div>
+								<div
+									id="sale_info"
+									class="w-[100%] flex text-white text-center text-sm md:text-md font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2">
+									{productItem.stock.status}
+								</div>
 							{/if}
 							{#if productItem.stock.count > 0}
 								<div class="p-2 pl-4 pr-4 bg-scpurpled3 text-md md:text-xl font-bold">
@@ -161,28 +169,29 @@
 								</div>
 							{/if}
 						</div>
-					</div><div
-					class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled3 text-xl my-2">
-					<button class="p-0 px-4 hover:scale-150" on:click={dec_cart}>-</button>
-					<div class="p-1 px-4 border-x-2 border-scpurplel0" id="qty_show">{cart_qty}</div>
-					<button class="p-0 px-4 hover:scale-150" on:click={inc_cart}>+</button>
-					<button
-						class="p-2 bg-black hover:scale-110 hover:rounded-md rounded-r-xl flex items-center"
-						class:bg-scpurple={productItem.stock.count > 0}
-						id="add_to_cart"
-						on:click={cart_submit}>
-						<Icon icon="iconamoon:shopping-bag-duotone" class="w-auto h-full text-3xl" />
-						{#if productItem.stock.count <= 0}
-							<span class="px-2">Out of stock</span>
-						{/if}
-					</button>
-				</div>
+					</div>
+					<div
+						class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled3 text-xl my-2">
+						<button class="p-0 px-4 hover:scale-150" on:click={dec_cart}>-</button>
+						<div class="p-1 px-4 border-x-2 border-scpurplel0" id="qty_show">{cart_qty}</div>
+						<button class="p-0 px-4 hover:scale-150" on:click={inc_cart}>+</button>
+						<button
+							class="p-2 bg-black hover:scale-110 hover:rounded-md rounded-r-xl flex items-center"
+							class:bg-scpurple={productItem.stock.count > 0}
+							id="add_to_cart"
+							on:click={cart_submit}>
+							<Icon icon="iconamoon:shopping-bag-duotone" class="w-auto h-full text-3xl" />
+							{#if productItem.stock.count <= 0}
+								<span class="px-2">Out of stock</span>
+							{/if}
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>
 	</div>
 	<div class="flex justify-start w-full flex-col md:flex-row">
-		<div class="flex-1 text-white justify-start md:mr-4 mr-1">
+		<div class="flex-[1.4] text-white justify-start md:mr-4 mr-1">
 			<div class="hidden md:block">
 				{#if indicator_max > 1}
 					<BannerIndicator
@@ -197,19 +206,27 @@
 				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled3 rounded-r-xl rounded-b-xl mt-4 pageCut">
 				<div class="h-[30px] w-[30px] pageTurn drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"></div>
 				<div class="p-4 pt-2 opacity-85">
-					{#if productItem.documentation?.at(0).isMDUrl}
+					{#if productItem.documentation?.at(0)?.isMDUrl}
 						{#await fetch(productItem.documentation?.at(0)?.data)}
-							<div class="w-full justify-center flex"><Loader/></div>
+							<div class="w-full justify-center flex"><Loader /></div>
 						{:then data}
-							{#await data.text()}
-								<Loader/>
-							{:then text}
-								{@html text}
-							{/await}
+							{#if data.ok}
+								{#await data.text()}
+									<Loader />
+								{:then text}
+									<HTMLWrapper html={text} />
+								{/await}
+							{:else}
+								Oops! There was an error in retrieving the description. Please try again later.
+							{/if}
 						{/await}
+					{:else if productItem.documentation?.at(0)?.data}
+						<HTMLWrapper html={productItem.documentation?.at(0)?.data ?? ''} />
 					{:else}
-						{productItem.documentation?.at(0)?.data ?? 'No description available'}
+						No description available yet!
 					{/if}
+					<br>
+					<SocialEmbed/>
 				</div>
 			</div>
 		</div>
@@ -233,8 +250,10 @@
 										class="border-0 px-4 {i % 2 != 0 ? 'bg-scpurpled1' : 'bg-scpurpled2'} {i == 0
 											? 'rounded-t-xl'
 											: ''}">
-										<Accordion.Trigger><span class="text-start">{faq.question}</span></Accordion.Trigger>
-										<Accordion.Content><span class="text-start">{faq.answer}</span></Accordion.Content>
+										<Accordion.Trigger
+											><span class="text-start">{faq.question}</span></Accordion.Trigger>
+										<Accordion.Content
+											><span class="text-start">{faq.answer}</span></Accordion.Content>
 									</Accordion.Item>
 								{/each}
 							</Accordion.Root>
@@ -245,11 +264,56 @@
 				</Tabs.Content>
 				<Tabs.Content value="documentation" class="text-white bg-scpurpled3 p-4 rounded-xl"
 					>{productItem.documentation?.at(1)?.data ?? 'No documentation available'}</Tabs.Content>
-				<Tabs.Content value="costing" class="text-white bg-scpurpled3 p-4 rounded-xl"
-					>{productItem.documentation?.at(2)?.data ?? 'No costing details available'}</Tabs.Content>
-				<Tabs.Content value="shipping" class="text-white bg-scpurpled3 p-4 rounded-xl"
-					>{productItem.documentation?.at(3)?.data ??
-						'No shipping details available'}</Tabs.Content>
+				<Tabs.Content value="costing" class="text-white bg-scpurpled3 p-4 rounded-xl">
+					{#if productItem.documentation?.at(2)?.data}
+						{#if productItem.documentation?.at(2)?.isMDUrl}
+							{#await fetch(productItem.documentation.at(2).data)}
+								<div class="w-full justify-center flex"><Loader /></div>
+							{:then data}
+								{#if data.ok}
+									{#await data.text()}
+										<Loader />
+									{:then text}
+										<HTMLWrapper html={text} />
+									{/await}
+								{:else}
+									No costing details available
+								{/if}
+							{:catch e}
+								No costing details available
+							{/await}
+						{:else}
+							<HTMLWrapper html={productItem.documentation?.at(2)?.data} />
+						{/if}
+					{:else}
+						No costing details available
+					{/if}
+				</Tabs.Content>
+				<Tabs.Content value="shipping" class="text-white bg-scpurpled3 p-4 rounded-xl">
+					{#if productItem.documentation?.at(3)?.data}
+						{#if productItem.documentation?.at(3)?.isMDUrl}
+							{#await fetch(productItem.documentation.at(3).data)}
+								<div class="w-full justify-center flex"><Loader /></div>
+							{:then data}
+								{#if data.ok}
+									{#await data.text()}
+										<Loader />
+									{:then text}
+										<HTMLWrapper html={text} />
+									{/await}
+								{:else}
+									No shipping details available
+								{/if}
+							{:catch e}
+								No shipping details available
+							{/await}
+						{:else}
+							<HTMLWrapper html={productItem.documentation?.at(3)?.data} />
+						{/if}
+					{:else}
+						No shipping details available
+					{/if}
+				</Tabs.Content>
 			</Tabs.Root>
 		</div>
 	</div>
