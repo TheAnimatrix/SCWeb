@@ -325,9 +325,9 @@
 							<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
 								<span class="text-white text-lg font-bold">Related</span>
 							</div>
-							<div class="flex w-full bg-scpurpled2 rounded-b-xl">
+							<div class="flex w-full bg-scpurpled2 rounded-b-xl overflow-x-scroll px-2 pt-2 gap-2">
 								{#each result.data as relProd}
-								<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 m-2 bg-scpurpled1 rounded-xl max-w-56">
+								<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 bg-scpurpled1 rounded-xl min-w-56 w-56">
 									<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
 									<span class="text-white text-lg font-bold text-start w-full">{relProd.name}</span>
 									<div class="flex items-center gap-1 mt-2 w-full">
@@ -351,9 +351,9 @@
 						<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
 							<span class="text-white text-lg font-bold">Related</span>
 						</div>
-						<div class="flex w-full bg-scpurpled2 rounded-b-xl">
+						<div class="flex w-full bg-scpurpled2 rounded-b-xl overflow-x-scroll p-2 gap-2">
 							{#each result.data as relProd}
-							<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 m-2 bg-scpurpled1 rounded-xl max-w-56">
+							<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center px-2 pt-2 bg-scpurpled1 rounded-xl min-w-56 w-56">
 								<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
 								<span class="text-white text-lg font-bold text-start w-full">{relProd.name}</span>
 								<div class="flex items-center gap-1 mt-2 w-full">
@@ -397,4 +397,29 @@
 	.noshow {
 		@apply !invisible !max-h-0 !border-0;
 	}
+
+
+
+	/* For WebKit browsers (Chrome, Safari) */
+	::-webkit-scrollbar {
+		width: 12px; /* Width of the scrollbar */
+		height: 8px; /* Height of the scrollbar */
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent; /* Track color */
+		border-radius: 10px; /* Rounded corners */
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: rgb(204, 204, 204); /* Thumb color */
+		border-radius: 10px; /* Rounded corners */
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: #ffffff; /* Thumb color on hover */
+	}
+
+	
+
 </style>
