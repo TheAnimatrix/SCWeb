@@ -25,7 +25,6 @@
 	let addressError: string | undefined;
 
 	export let onDelete = (isCloseOnly: boolean) => {
-		console.log("onDelete",isCloseOnly);
 		if (isCloseOnly) {
 			address = {...address_old};
 			type = 'text';
@@ -45,10 +44,8 @@
 	};
 
 	export let onSave = (isChanged: boolean, addr: Address): boolean => {
-		console.log("onSave ",isChanged);
 		if (addr.phone?.startsWith('+91')) addr.phone = addr.phone.substring(3);
 		let result = validateAddress(addr, !userExists);
-		console.log(result);
 		if (result) addressError = result;
 		else addressError = undefined;
 		if (!result) {
@@ -69,7 +66,6 @@
 	export { className as class };
 
 	function toggleType() {
-		console.log(address.phone+"cd");
 		let k = true;
 		if (type == 'edit') k = onSave(!compareAddress(address_old, address), address);
 		if (type == 'text') {
@@ -77,7 +73,6 @@
 			k = onEditStart();
 		}
 		if (k) type = type == 'text' ? 'edit' : 'text';
-		console.log(address.phone + "ce");
 	}
 
 	let hoverAddressTitle = false;
@@ -93,7 +88,6 @@
 		} else type = 'edit';
 	}
 
-	$: console.log(address);
 
 </script>
 

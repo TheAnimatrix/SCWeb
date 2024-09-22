@@ -19,6 +19,8 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import Icon from '@iconify/svelte';
 	import SocialEmbed from '$lib/components/fundamental/SocialEmbed.svelte';
+	import ProductItem from '$lib/components/product/product_item.svelte';
+	import ProductList from '$pages/product_list.svelte';
 	let indicator_cur = 0;
 	let ItemQty = 0;
 	let tabSet = 0;
@@ -225,12 +227,12 @@
 					{:else}
 						No description available yet!
 					{/if}
-					<br>
-					<SocialEmbed/>
+					<br />
+					<SocialEmbed />
 				</div>
 			</div>
 		</div>
-		<div class="flex-1 max-w-[550px] my-4 w-full">
+		<div class="flex-1 max-w-[550px] my-4 w-full flex flex-col">
 			<Tabs.Root value="faq" class="w-full" id="crazy">
 				<Tabs.List
 					class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl  overflow-x-auto">
@@ -315,6 +317,60 @@
 					{/if}
 				</Tabs.Content>
 			</Tabs.Root>
+
+			{#if productItem.type == 'product'}
+				{#await data.supabase_lt.from('products').select('*').eq('rel', productItem.id) then result}
+					{#if result.data && !result.error && result.data.length > 0}
+						<div class="text-white flex flex-col">
+							<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
+								<span class="text-white text-lg font-bold">Related</span>
+							</div>
+							<div class="flex w-full bg-scpurpled2 rounded-b-xl">
+								{#each result.data as relProd}
+								<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 m-2 bg-scpurpled1 rounded-xl max-w-56">
+									<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
+									<span class="text-white text-lg font-bold text-start w-full">{relProd.name}</span>
+									<div class="flex items-center gap-1 mt-2 w-full">
+										<span class="text-white text-sm mt-1">{relProd.stock.count} in stock</span>
+										<div class="flex-1"></div>
+										{#if relProd.price.old > 0}
+											<span class="text-gray-300 line-through text-sm">₹{relProd.price.old}</span>
+										{/if}
+										<span class="text-white text-lg font-bold">₹{relProd.price.new}</span>
+									</div>
+								</a>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				{/await}
+			{:else}
+			{#await data.supabase_lt.from('products').select('*').eq('id', productItem.rel) then result}
+				{#if result.data && !result.error && result.data.length > 0}
+					<div class="text-white flex flex-col">
+						<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
+							<span class="text-white text-lg font-bold">Related</span>
+						</div>
+						<div class="flex w-full bg-scpurpled2 rounded-b-xl">
+							{#each result.data as relProd}
+							<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 m-2 bg-scpurpled1 rounded-xl max-w-56">
+								<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
+								<span class="text-white text-lg font-bold text-start w-full">{relProd.name}</span>
+								<div class="flex items-center gap-1 mt-2 w-full">
+									<span class="text-white text-sm mt-1">{relProd.stock.count} in stock</span>
+									<div class="flex-1"></div>
+									{#if relProd.price.old > 0}
+										<span class="text-gray-300 line-through text-sm">₹{relProd.price.old}</span>
+									{/if}
+									<span class="text-white text-lg font-bold">₹{relProd.price.new}</span>
+								</div>
+							</a>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			{/await}
+			{/if}
 		</div>
 	</div>
 </div>

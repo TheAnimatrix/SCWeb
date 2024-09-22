@@ -16,6 +16,9 @@ export interface Product {
 	uid: string;
 	price: { old: number; new: number };
 	author?: string;
+	type:string;
+	guarantee:string;
+	rel : string;
 }
 
 export interface Address {

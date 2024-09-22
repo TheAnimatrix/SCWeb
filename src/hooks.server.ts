@@ -1,5 +1,5 @@
 import { SUPABASE_KEY } from '$env/static/private';
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { PUBLIC_IS_PRODUCTION, PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { createServerClient } from '@supabase/ssr'
 import type { Handle } from '@sveltejs/kit'
 
@@ -14,10 +14,15 @@ export const handle: Handle = async ({ event, resolve }) => {
   const clientIdCookie = event.cookies.get(CLIENT_ID_COOKIE_NAME);
   const clientId = clientIdCookie || generateUniqueId();
 
+  let options = {};
+  if(PUBLIC_IS_PRODUCTION === "false"){
+    options = {httpOnly : true, secure:false}
+  }
+
   event.locals.clientId = clientId;
   event.cookies.set(CLIENT_ID_COOKIE_NAME, clientId, {
     path: '/',
-    httpOnly: true,
+    ...options
   });
 
   event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_KEY, {

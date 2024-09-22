@@ -129,8 +129,8 @@
 										{/if}
 									</div>
 									<div class="text-lg text-scbluel2 font-bold">{result.stock.count} in stock</div>
-									<div class="text-xs font-bold text-scbluel0 opacity-60">
-										15 days SCOriginal Guarantee
+									<div class="text-xs font-bold text-scbluel0 opacity-60 {result.guarantee ? '' : 'hidden'}">
+										{result.guarantee}
 									</div>
 								</div>
 							</div>
@@ -174,8 +174,8 @@
 								<div class="max-sm:text-sm text-xl font-bold text-scblue">by {result.author}</div>
 								<div class="flex-1"></div>
 								<div class="text-lg text-scbluel2 font-bold">{result.stock.count} in stock</div>
-								<div class="max-sm:hidden text-xs font-bold text-scbluel0 opacity-60">
-									15 days SCOriginal Guarantee
+								<div class="max-sm:hidden text-xs font-bold text-scbluel0 opacity-60 {result.guarantee ? '' : 'hidden'}">
+									{result.guarantee}
 								</div>
 							</div>
 							<div
