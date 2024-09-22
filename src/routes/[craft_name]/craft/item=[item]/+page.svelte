@@ -321,11 +321,11 @@
 			{#if productItem.type == 'product'}
 				{#await data.supabase_lt.from('products').select('*').eq('rel', productItem.id) then result}
 					{#if result.data && !result.error && result.data.length > 0}
-						<div class="text-white flex flex-col">
+						<div class="text-white flex flex-col gap-2">
 							<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
 								<span class="text-white text-lg font-bold">Related</span>
 							</div>
-							<div class="flex w-full bg-scpurpled2 rounded-b-xl overflow-x-scroll px-2 pt-2 gap-2">
+							<div class="flex w-full bg-scpurpled2 rounded-xl overflow-x-scroll px-2 pt-2 pb-1 gap-2">
 								{#each result.data as relProd}
 								<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 bg-scpurpled1 rounded-xl min-w-56 w-56">
 									<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
@@ -347,13 +347,13 @@
 			{:else}
 			{#await data.supabase_lt.from('products').select('*').eq('id', productItem.rel) then result}
 				{#if result.data && !result.error && result.data.length > 0}
-					<div class="text-white flex flex-col">
+					<div class="text-white flex flex-col gap-2">
 						<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
 							<span class="text-white text-lg font-bold">Related</span>
 						</div>
-						<div class="flex w-full bg-scpurpled2 rounded-b-xl overflow-x-scroll p-2 gap-2">
+						<div class="flex w-full bg-scpurpled2 rounded-xl overflow-x-scroll px-2 pt-2 pb-1 gap-2">
 							{#each result.data as relProd}
-							<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center px-2 pt-2 bg-scpurpled1 rounded-xl min-w-56 w-56">
+							<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 bg-scpurpled1 rounded-xl min-w-56 w-56">
 								<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
 								<span class="text-white text-lg font-bold text-start w-full">{relProd.name}</span>
 								<div class="flex items-center gap-1 mt-2 w-full">
