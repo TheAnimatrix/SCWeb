@@ -45,6 +45,8 @@
 				filter = 'product';
 			} else if(filter == 'Spares') {
 				filter = 'spare';
+			} else if (filter == 'FleaMarket') {
+				filter = 'flea-market';
 			}
 			if(filter != 'All') {
 				query = query.eq('type', filter);
@@ -110,6 +112,7 @@
 				<button on:click={()=>{goto('?filter=All');setup("All")}} class="text-scpurplel0 {$page.url.searchParams.get('filter') == 'All' ? 'highlighted' : ''}">All</button>
 				<button on:click={()=>{goto('?filter=Products');setup("Products")}} class="text-scpurplel0 {$page.url.searchParams.get('filter') != null ? $page.url.searchParams.get('filter') == 'Products' ? 'highlighted' : '' : 'highlighted'}">Products</button>
 				<button on:click={()=>{goto('?filter=Spares',);setup("Spares")}} class="text-scpurplel0 {$page.url.searchParams.get('filter') == 'Spares' ? 'highlighted' : ''} capitalize">Spares</button>
+				<button on:click={()=>{goto('?filter=FleaMarket',);setup("FleaMarket")}} class="text-scpurplel0 {$page.url.searchParams.get('filter') == 'FleaMarket' ? 'highlighted' : ''} capitalize">Flea-Market</button>
 			</div>
 		</div>
 		{#if loading}
@@ -118,9 +121,15 @@
 			<div class="text-white text-center text-xl mt-4 mx-auto opacity-50">Loading</div>
 		</div>
 		{:else}
+		{#if products.length > 0}
 		{#key products}
 			<ProductList {products} {getLink} accent1="#10182f" accent2="#202c52" accent3="#5579e3" />
 		{/key}
+		{:else}
+		<div class="flex flex-col mt-20 justify-center items-center w-full">
+			<div class="text-scpurplel0 text-center text-xl mt-4 mx-auto">No products found in this category</div>
+		</div>
+		{/if}
 		{/if}
 	</div>
 </div>
