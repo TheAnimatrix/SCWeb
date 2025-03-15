@@ -1,38 +1,70 @@
-# create-svelte
+# Selfcrafted Web Application
 
-`create-svelte` is a tool that helps you quickly set up a new Svelte project, powered by [`SvelteKit`](https://github.com/sveltejs/kit). It provides a solid foundation to build modern web applications using Svelte.
+![Selfcrafted Logo](static/images/favicon.png)
 
-## Creating a project
+## Overview
 
-If you're seeing this, you've probably already done this step. Congrats!
+Selfcrafted is a web application designed to provide users with an engaging and interactive experience. The platform allows users to explore crafts, learn about the company, start crafting processes, manage their user profiles, and view their shopping carts.
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
+## API Routes
 
-# create a new project in my-app
-npm create svelte@latest my-app
-```
+- **GET /api/crafts**: Retrieve a list of available crafts.
+- **POST /api/orders**: Create a new order.
+- **GET /api/user/profile**: Get user profile information.
+- **PUT /api/user/profile**: Update user profile information.
 
-## Developing
+## Getting Started
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+### Prerequisites
 
-```bash
-npm run dev
+- Node.js (v16 or higher)
+- npm (v8 or higher)
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+### Installation
 
-## Building
+1. Clone the repository:
 
-To create a production version of your app:
+    ```bash
+    git clone https://github.com/TheAnimatrix/SCWeb.git
+    cd SCWeb
+    ```
 
-```bash
-npm run build
-```
+2. Install dependencies:
 
-You can preview the production build with `npm run preview`.
+    ```bash
+    npm install
+    ```
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+3. Set up environment variables:
+
+    - Create a `.env` file in the root directory.
+    - Add your Supabase URL and public API key:
+
+        ```
+        VITE_SUPABASE_URL=your-supabase-url
+        VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+        ```
+
+4. Start the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+5. Open your browser and navigate to `http://localhost:3000` to view the application.
+
+## Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Make your changes and commit them with descriptive messages.
+4. Push your changes to your forked repository.
+5. Submit a pull request to the main repository.
+
+## License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0). See the [LICENSE](LICENSE) file for details.
+
+---
