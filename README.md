@@ -1,6 +1,6 @@
 # create-svelte
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
+`create-svelte` is a tool that helps you quickly set up a new Svelte project, powered by [`SvelteKit`](https://github.com/sveltejs/kit). It provides a solid foundation to build modern web applications using Svelte.
 
 ## Creating a project
 
