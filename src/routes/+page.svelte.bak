@@ -2,8 +2,6 @@
 	import Icon from '@iconify/svelte';
 	import { getContext, onMount, onDestroy } from 'svelte';
 	import { writable, type Writable } from 'svelte/store';
-	import { fade, fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import type { Product } from '$lib/types/product';
 	import { type Banner } from '$lib/client/banner';
 	import BannerIndicator from '$lib/components/fundamental/banner_indicator.svelte';
@@ -20,7 +18,7 @@
 	let smokeCanvas: HTMLCanvasElement;
 
 	let getLink = (i: number, product: Product) => {
-		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
+		return `/${product.name.replaceAll(' ', '_')}/craft/item=${i}`;
 	};
 
 	let image = writable('');
@@ -219,7 +217,32 @@
 	// Carousel navigation functions
 	function nextBanner() {
 		if (data.banners && data.banners.length > 1) {
-			indicator_cur = (indicator_cur + 1) % data.banners.length;
+			// Get current card and prepare for animation
+			const currentCard = document.querySelector('.active-card');
+			
+			if (currentCard && currentCard instanceof HTMLElement) {
+				// Start exit animation
+				currentCard.classList.add('card-exit');
+				
+				// Wait for exit animation to complete before changing state
+				setTimeout(() => {
+					// Change to next card index
+					indicator_cur = (indicator_cur + 1) % data.banners!.length;
+					
+					// Reset exit animation class for new active card
+					setTimeout(() => {
+						const newActiveCard = document.querySelector('.active-card');
+						if (newActiveCard && newActiveCard instanceof HTMLElement) {
+							newActiveCard.classList.remove('card-exit');
+							// Force a repaint/reflow before adding the animation class
+							void newActiveCard.offsetWidth;
+							newActiveCard.classList.add('card-active');
+						}
+					}, 50);
+				}, 400);
+			} else {
+				indicator_cur = (indicator_cur + 1) % data.banners.length;
+			}
 		}
 	}
 	
@@ -310,54 +333,41 @@
 					<div class="card-stack-container">
 						{#if data.banners && data.banners.length > 0}
 							<!-- Current card (active) -->
-							{#key indicator_cur}
-							<a href={data.banners[indicator_cur].url || `/product/craft/item=${indicator_cur}`} 
-							   class="card active-card block w-full h-full cursor-pointer" 
-							   transition:fly={{ y: -120, duration: 800, opacity: 0, easing: cubicOut }}>
-								<div 
-									style="background-image: url({data.banners[indicator_cur].img});"
-									class="absolute inset-0 bg-cover bg-center"
-									on:mouseenter={pauseAutoplay}
-									on:mouseleave={resumeAutoplay}>
-									<div class="card-content">
-										<div class="flex flex-col items-start mb-4">
-											<div class="px-3 py-1 bg-[#c2ff00] text-black text-xs font-bold uppercase rounded-full mb-4 shadow-elevation-1 transform-gpu hover:shadow-elevation-2 hover:translate-z-[5px] transition-all">
-												Featured
+							<div class="card active-card card-active" 
+								style="background-image: url({data.banners[indicator_cur].img});"
+								on:mouseenter={pauseAutoplay}
+								on:mouseleave={resumeAutoplay}>
+								<div class="card-content">
+									<div class="flex flex-col items-start mb-4">
+										<div class="px-3 py-1 bg-[#c2ff00] text-black text-xs font-bold uppercase rounded-full mb-4 shadow-elevation-1 transform-gpu hover:shadow-elevation-2 hover:translate-z-[5px] transition-all">
+											Featured
+										</div>
+										<h3 class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:text-[#c2ff00] transition-colors transform-gpu group-hover:translate-z-[10px]">
+											{data.banners[indicator_cur].name}
+										</h3>
+										<div class="flex items-center mt-2 transform-gpu group-hover:translate-z-[8px]">
+											<div class="w-8 h-8 rounded-full bg-[#252525] flex items-center justify-center mr-3 shadow-elevation-1">
+												<Icon icon="ph:user-bold" class="text-[#c2ff00]" />
 											</div>
-											<h3 class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:text-[#c2ff00] transition-colors transform-gpu group-hover:translate-z-[10px]">
-												{data.banners[indicator_cur].name}
-											</h3>
-											<div class="flex items-center mt-2 transform-gpu group-hover:translate-z-[8px]">
-												<div class="w-8 h-8 rounded-full bg-[#252525] flex items-center justify-center mr-3 shadow-elevation-1">
-													<Icon icon="ph:user-bold" class="text-[#c2ff00]" />
-												</div>
-												<span class="text-gray-300">By <span class="text-white font-medium">{data.banners[indicator_cur].author}</span></span>
-											</div>
+											<span class="text-gray-300">By <span class="text-white font-medium">{data.banners[indicator_cur].author}</span></span>
 										</div>
 									</div>
 								</div>
-							</a>
-							{/key}
+							</div>
 
 							<!-- Previous Cards (visible in the stack) -->
 							{#if data.banners.length > 1}
-								{#key indicator_cur}
-								<div class="card back-card back-card-1 pointer-events-none" 
-									transition:fly={{ y: -80, duration: 800, opacity: 0, easing: cubicOut }}
+								<div class="card back-card back-card-1" 
 									style="background-image: url({data.banners[(indicator_cur - 1 + data.banners.length) % data.banners.length]?.img})">
 									<div class="absolute inset-0 bg-black/40"></div>
 								</div>
-								{/key}
 							{/if}
 							
 							{#if data.banners.length > 2}
-								{#key indicator_cur}
-								<div class="card back-card back-card-2 pointer-events-none" 
-									transition:fly={{ y: -120, duration: 800, opacity: 0, easing: cubicOut }}
+								<div class="card back-card back-card-2" 
 									style="background-image: url({data.banners[(indicator_cur - 2 + data.banners.length) % data.banners.length]?.img})">
 									<div class="absolute inset-0 bg-black/60"></div>
 								</div>
-								{/key}
 							{/if}
 						{/if}
 					</div>
@@ -367,9 +377,33 @@
 						<button 
 							on:click={() => {
 								pauseAutoplay();
-								if (data.banners && data.banners.length > 0) {
-									indicator_cur = (indicator_cur - 1 + data.banners.length) % data.banners.length;
+								
+								// Get current card
+								const currentCard = document.querySelector('.active-card');
+								
+								if (currentCard && currentCard instanceof HTMLElement) {
+									// Start exit animation
+									currentCard.classList.add('card-exit');
+									
+									// Wait half the animation time before changing card
+									setTimeout(() => {
+										indicator_cur = (indicator_cur - 1 + (data.banners?.length || 1)) % (data.banners?.length || 1);
+										
+										// Small delay to ensure DOM has updated
+										setTimeout(() => {
+											const newActiveCard = document.querySelector('.active-card');
+											if (newActiveCard && newActiveCard instanceof HTMLElement) {
+												newActiveCard.classList.remove('card-exit');
+												// Force a repaint/reflow before adding the animation class
+												void newActiveCard.offsetWidth;
+												newActiveCard.classList.add('card-active');
+											}
+										}, 50);
+									}, 400);
+								} else {
+									indicator_cur = (indicator_cur - 1 + (data.banners?.length || 1)) % (data.banners?.length || 1);
 								}
+								
 								setTimeout(resumeAutoplay, 10000);
 							}}
 							class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-[#c2ff00] hover:text-black transition-colors shadow-elevation-1 hover:shadow-elevation-2 transform-gpu hover:scale-110">
@@ -380,9 +414,33 @@
 						<button 
 							on:click={() => {
 								pauseAutoplay();
-								if (data.banners && data.banners.length > 0) {
-									indicator_cur = (indicator_cur + 1) % data.banners.length;
+								
+								// Get current card
+								const currentCard = document.querySelector('.active-card');
+								
+								if (currentCard && currentCard instanceof HTMLElement) {
+									// Start exit animation
+									currentCard.classList.add('card-exit');
+									
+									// Wait half the animation time before changing card
+									setTimeout(() => {
+										indicator_cur = (indicator_cur + 1) % (data.banners?.length || 1);
+										
+										// Small delay to ensure DOM has updated
+										setTimeout(() => {
+											const newActiveCard = document.querySelector('.active-card');
+											if (newActiveCard && newActiveCard instanceof HTMLElement) {
+												newActiveCard.classList.remove('card-exit');
+												// Force a repaint/reflow before adding the animation class
+												void newActiveCard.offsetWidth;
+												newActiveCard.classList.add('card-active');
+											}
+										}, 50);
+									}, 400);
+								} else {
+									indicator_cur = (indicator_cur + 1) % (data.banners?.length || 1);
 								}
+								
 								setTimeout(resumeAutoplay, 10000);
 							}}
 							class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-[#c2ff00] hover:text-black transition-colors shadow-elevation-1 hover:shadow-elevation-2 transform-gpu hover:scale-110">
@@ -401,7 +459,33 @@
 							on:click={() => {
 								if (indicator_cur !== i) {
 									pauseAutoplay();
-									indicator_cur = i;
+									
+									// Get current card
+									const currentCard = document.querySelector('.active-card');
+									
+									if (currentCard && currentCard instanceof HTMLElement) {
+										// Start exit animation
+										currentCard.classList.add('card-exit');
+										
+										// Wait half the animation time before changing card
+										setTimeout(() => {
+											indicator_cur = i;
+											
+											// Small delay to ensure DOM has updated
+											setTimeout(() => {
+												const newActiveCard = document.querySelector('.active-card');
+												if (newActiveCard && newActiveCard instanceof HTMLElement) {
+													newActiveCard.classList.remove('card-exit');
+													// Force a repaint/reflow before adding the animation class
+													void newActiveCard.offsetWidth;
+													newActiveCard.classList.add('card-active');
+												}
+											}, 50);
+										}, 400);
+									} else {
+										indicator_cur = i;
+									}
+									
 									setTimeout(resumeAutoplay, 10000);
 								}
 							}}

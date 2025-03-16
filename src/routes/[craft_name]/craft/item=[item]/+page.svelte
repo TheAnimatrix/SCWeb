@@ -2,7 +2,7 @@
 	import HTMLWrapper from './../../../../lib/components/fundamental/HTMLWrapper.svelte';
 	import Loader from '$lib/components/fundamental/Loader.svelte';
 	import { writable, type Writable } from 'svelte/store';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import {
 		getItemFromCart,
 		getActiveCart,
@@ -32,6 +32,61 @@
 	let cart_qty = 0;
 	let addToCartSuccess: boolean | null = null;
 	let addToCartMsg: string;
+
+	// Status tag glow effect variables
+	let statusTagElement: HTMLElement;
+	let mouseX = 0;
+	let mouseY = 0;
+	let glowX = 50;
+	let glowY = 50;
+	let isHovering = false;
+
+	// Track mouse position for glow effect
+	function handleMouseMove(event: MouseEvent) {
+		if (!statusTagElement) return;
+		
+		const rect = statusTagElement.getBoundingClientRect();
+		mouseX = event.clientX;
+		mouseY = event.clientY;
+		
+		// Calculate relative position within the element (0-100%)
+		const relativeX = ((mouseX - rect.left) / rect.width) * 100;
+		const relativeY = ((mouseY - rect.top) / rect.height) * 100;
+		
+		// Constrain values to create a smoother effect even when cursor is slightly outside
+		glowX = Math.max(0, Math.min(100, relativeX));
+		glowY = Math.max(0, Math.min(100, relativeY));
+	}
+	
+	function handleMouseEnter() {
+		isHovering = true;
+	}
+	
+	function handleMouseLeave() {
+		isHovering = false;
+		// Reset to center when not hovering
+		glowX = 50;
+		glowY = 50;
+	}
+
+	onMount(() => {
+		if (productItem.stock.status) {
+			statusTagElement = document.getElementById('sale_info') as HTMLElement;
+			if (statusTagElement) {
+				statusTagElement.addEventListener('mousemove', handleMouseMove);
+				statusTagElement.addEventListener('mouseenter', handleMouseEnter);
+				statusTagElement.addEventListener('mouseleave', handleMouseLeave);
+			}
+		}
+
+		return () => {
+			if (statusTagElement) {
+				statusTagElement.removeEventListener('mousemove', handleMouseMove);
+				statusTagElement.removeEventListener('mouseenter', handleMouseEnter);
+				statusTagElement.removeEventListener('mouseleave', handleMouseLeave);
+			}
+		};
+	});
 
 	function inc_cart() {
 		if (cart_qty < cart_qty_max) {
@@ -74,304 +129,360 @@
 	}
 	// styles
 	const triggerTabStyle =
-		'data-[state=active]:bg-scpurple data-[state=active]:text-white px-4 py-2 text-md text-gray-100 rounded-xl hover:bg-scpurpled3';
+		'data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-4 py-2 text-md text-gray-100 rounded-xl hover:bg-[#151515]';
 </script>
 
-<div
-	class="self-center h-full flex flex-col mx-auto items-center w-[95%] md:w-[90%] lg:w-[85%] 2xl:w-[75%] 3xl:w-[60%] 4xl:w-[50%]">
-	<div class="w-full flex flex-col items-center">
-		<div class="text-[#b8b8b8] mr-auto pb-2">
-			<p>Crafts/<b class="text-white">{productItem.name}</b></p>
-		</div>
-		<div class="product_hero flex w-full min-h-[350px] flex-col md:flex-row justify-start">
-			<div class="flex-1 mr-1">
-				<img
-					class="w-full h-full max-h-[400px] object-cover rounded-lg"
-					id="product_image"
-					src={productItem.images[indicator_cur].url ?? no_img}
-					alt="lornode" />
+<div class="min-h-screen bg-[#0c0c0c] text-white">
+	<div
+		class="self-center h-full flex flex-col mx-auto items-center w-[95%] md:w-[90%] lg:w-[85%] 2xl:w-[75%] 3xl:w-[60%] 4xl:w-[50%] relative pt-4 pb-8">
+		
+		<!-- Glowing accent -->
+		<div class="absolute top-20 right-20 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] rounded-full"></div>
+		
+		<div class="w-full flex flex-col items-center z-10">
+			<div class="text-[#b8b8b8] mr-auto pb-2 flex items-center">
+				<p>Crafts / <span class="text-white font-medium">{productItem.name}</span></p>
 			</div>
-			<div class="image_mobile md:hidden -mt-1 mb-3">
-				<BannerIndicator
-					bind:curActive={indicator_cur}
-					max={indicator_max}
-					wActive="w-[12%]"
-					wNormal="w-[6%]"
-					hoverNormal="hover:w-[10%]" />
-			</div>
-			<div class="flex-[1.2] h-full flex flex-col ml-0 md:ml-2">
-				<div class="flex">
-					<div class="rounded-lg flex-1 bg-scpurpled1 p-4 flex flex-col justify-center">
-						<div class="justify-center text-3xl text-white font-bold">{productItem.name}</div>
-						<div class="justify-center text-2xl text-scpurple font-bold">
-							By {productItem.author}
+			
+			<!-- Top Row: Product Image and Details Side by Side -->
+			<div class="grid grid-cols-1 md:grid-cols-4 gap-3 w-full mb-3">
+				<!-- Product Image Box (Larger) - Takes 2/3 on desktop -->
+				<div class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525]">
+					<div class="relative group">
+						<div class="aspect-[4/3] overflow-hidden rounded-xl">
+							<img
+								class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+								id="product_image"
+								src={productItem.images[indicator_cur]?.url ?? no_img}
+								alt={productItem.name} />
+							<div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent"></div>
 						</div>
-						<div>
-							{#each productItem.tags as t}
-								<Badge class="text-white mr-2 mt-2 bg-scpurpled3 hover:bg-scpurpled4"
-									>{t.tag}</Badge>
-							{/each}
+						
+						<!-- Image Selector -->
+						{#if indicator_max > 1}
+							<div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+								{#each Array(indicator_max) as _, i}
+									<button
+										class="h-1.5 rounded-full transition-all duration-300 {i === indicator_cur ? 'w-12 bg-[#c2ff00] shadow-[0_0_10px_#c2ff00]' : 'w-6 bg-white/60 hover:bg-white/80 hover:w-8'}"
+										on:click={() => (indicator_cur = i)}
+									/>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+				<!-- Product Info Box - Takes 1/3 on desktop -->
+				<div class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525] flex flex-col">
+					<!-- Product title and author -->
+					<div class="mb-3">
+						<div class="inline-flex items-center justify-start mb-1">
+							<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
+							<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Premium Craft</span>
+						</div>
+						<h1 class="text-2xl font-bold text-white">{productItem.name}</h1>
+						<div class="text-[#c2ff00] font-medium">By {productItem.author}</div>
+					</div>
+					
+					<!-- Tags - Horizontal Compact Layout -->
+					<div class="flex flex-wrap gap-1.5 mb-3">
+						{#each productItem.tags as t}
+							<Badge class="bg-[#252525] hover:bg-[#353535] text-white border-none text-xs py-0.5">{t.tag}</Badge>
+						{/each}
+					</div>
+					
+					<!-- Price, Rating and Stock - Side by Side -->
+					<div class="flex justify-between items-center mb-3">
+						<div class="flex flex-col">
+							{#if productItem.price.old > 0}
+								<span id="oldPrice" class="text-gray-400 line-through text-sm"
+									>₹{productItem.price.old}</span>
+							{/if}
+							<span id="newPrice" class="text-white text-2xl font-bold">₹{productItem.price.new}</span>
+							<span
+								id="rating"
+								class="text-[#ff9900] text-sm font-medium inline-flex items-center h-fit"
+								>{productItem.rating?.rating}<Icon
+									class="inline ml-1"
+									icon="iconamoon:star-duotone" /> <span class="text-gray-400 text-xs">({productItem.rating?.count})</span></span>
+						</div>
+						
+						{#if productItem.stock.count > 0}
+							<div class="px-3 py-1 bg-[#252525] text-sm font-medium rounded-lg">
+								{productItem.stock.count} In Stock
+							</div>
+						{/if}
+					</div>
+
+					<!-- Status Tags -->
+					<div class="flex flex-wrap gap-2 mb-3">
+						<!-- Verified Tag -->
+						<div class="inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1 rounded-lg text-sm relative before:absolute before:inset-0 before:rounded-lg before:border-2 before:border-dotted before:border-[#c2ff00]/50 before:animate-[border-dance_4s_linear_infinite]">
+							<Icon icon="material-symbols:verified" class="text-[#c2ff00]" />
+							<span>15 day SC Guarantee</span>
+						</div>
+
+						<!-- Sale Info Tag -->
+						 {#if productItem.stock.status}
+						<div
+							id="sale_info"
+							class="status-tag inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1 rounded-lg text-sm"
+							style="--glow-x: {glowX}%; --glow-y: {glowY}%; --glow-opacity: {isHovering ? 1 : 0.7};"
+						>
+							<Icon icon="material-symbols:local-offer" class="text-orange-400" />
+							<span>
+								{productItem.stock.status}</span>
+						</div>
+						{/if}
+					</div>
+					
+					<!-- Cart Controls -->
+					<div class="mt-auto">
+						<div class="flex items-center">
+							<div class="flex items-center bg-[#252525] rounded-l-lg overflow-hidden">
+								<button class="p-2 hover:bg-[#353535] transition-colors" on:click={dec_cart}>
+									<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M6 12H18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0 0"/>
+									</svg>
+								</button>
+								<div class="px-4 py-1 border-x border-[#353535] font-medium">{cart_qty}</div>
+								<button class="p-2 hover:bg-[#353535] transition-colors" on:click={inc_cart}>
+									<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+										<path d="M12 6V18M6 12H18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								</button>
+							</div>
+							<button
+								class="flex-1 py-2 px-4 bg-[#c2ff00] text-black font-bold rounded-r-lg hover:brightness-110 transition-all flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+								disabled={productItem.stock.count <= 0}
+								on:click={cart_submit}>
+									<Icon icon="iconamoon:plus" class="text-lg" />
+								<Icon icon="iconamoon:shopping-bag-duotone" class="text-lg" />
+								{productItem.stock.count > 0 ? 'Add to Cart' : 'Out of Stock'}
+							</button>
 						</div>
 					</div>
-				</div>
-				<div class="max-h-[60px]" class:noshow={!addToCartSuccess ?? true}>
-					<div
-						class="success rounded-lg text-white pl-4 py-2 text-base text-start bg-green-950 mt-2 flex items-center gap-2 border-green-500 border-[2px] animate_base">
-						{#key addToCartSuccess}
-							<Icon icon="line-md:confirm-square-twotone" class="text-green-400 text-3xl" />
-						{/key}
-						<span class="text-green-400"
-							>"{productItem.name}" x {addToCartMsg} - Added to cart</span>
-					</div>
-				</div>
-				<div class="max-h-[90px]" class:noshow={addToCartSuccess ?? true}>
-					<div
-						class="show success rounded-lg text-white pl-4 py-2 text-base text-start bg-red-950 mt-2 flex items-center gap-2 border-red-500 border-[2px] animate_base">
-						{#key addToCartSuccess}
-							<Icon icon="line-md:cancel-twotone" class="text-red-400 text-3xl" />
-						{/key}
-						<span class="text-red-400">Error - {addToCartMsg}</span>
-					</div>
-				</div>
-				<div class="rounded-lg text-white pl-4 py-2 text-base text-start bg-scpurpled1 mt-2 pb-4">
-					<!-- 
-					bring back once variant support is there in database	
-					<div class="mt-2">
-						<VariantSelector />
-					</div> -->
-					<div class="flex justify-between">
-						<div class="flex flex-col self-end">
-							<div class="py-2 pr-5">
-								{#if productItem.price.old > 0}
-									<span id="oldPrice" class="text-gray-500 line-through text-lg font-medium"
-										>₹{productItem.price.old}</span>
-								{/if}<br />
-								<span id="newPrice" class="text-white text-3xl font-bold"
-									>₹{productItem.price.new}</span
-								><br />
-								<span
-									id="rating"
-									class="text-orange-400 text-lg font-semibold inline-flex items-center text-center h-fit"
-									>{productItem.rating?.rating}<Icon
-										class="inline"
-										icon="iconamoon:star-duotone" />&nbsp;({productItem.rating?.count})</span>
+					
+					<!-- Cart Messages -->
+					<div class="relative mt-2 overflow-hidden transition-all duration-300" style="height: {addToCartSuccess === null ? '0' : '40px'}">
+						<!-- Success message -->
+						<div class="absolute inset-0 transition-all duration-300" class:opacity-0={addToCartSuccess !== true} class:invisible={addToCartSuccess !== true}>
+							<div
+								class="rounded-lg text-black pl-3 py-1 text-sm text-start bg-[#c2ff00]/20 h-full flex items-center gap-2 border-[#c2ff00] border animate-pulse">
+								<Icon icon="line-md:confirm-square-twotone" class="text-[#c2ff00] text-xl" />
+								<span class="text-[#c2ff00] line-clamp-2">"{productItem.name}" x {addToCartMsg} - Added to cart</span>
 							</div>
 						</div>
-						<div class="flex flex-col ml-8 my-2 self-start items-end">
-							{#if productItem.stock.status}
-								<div
-									id="sale_info"
-									class="w-[100%] flex text-white text-center text-sm md:text-md font-bold bg-gradient-to-r from-orange-500 via-orange-500 to-pink-500 p-2">
-									{productItem.stock.status}
-								</div>
-							{/if}
-							{#if productItem.stock.count > 0}
-								<div class="p-2 pl-4 pr-4 bg-scpurpled3 text-md md:text-xl font-bold">
-									{productItem.stock.count} In Stock
-								</div>
-							{/if}
+						
+						<!-- Error message -->
+						<div class="absolute inset-0 transition-all duration-300" class:opacity-0={addToCartSuccess !== false} class:invisible={addToCartSuccess !== false}>
+							<div
+								class="rounded-lg text-white pl-3 py-1 text-sm text-start bg-red-950 h-full flex items-center gap-2 border-red-500 border">
+								<Icon icon="line-md:cancel-twotone" class="text-red-400 text-xl" />
+								<span class="text-red-400 line-clamp-2">Error - {addToCartMsg}</span>
+							</div>
 						</div>
-					</div>
-					<div
-						class="flex justify-around items-center rounded-xl w-fit h-fit bg-scpurpled3 text-xl my-2">
-						<button class="p-0 px-4 hover:scale-150" on:click={dec_cart}>-</button>
-						<div class="p-1 px-4 border-x-2 border-scpurplel0" id="qty_show">{cart_qty}</div>
-						<button class="p-0 px-4 hover:scale-150" on:click={inc_cart}>+</button>
-						<button
-							class="p-2 bg-black hover:scale-110 hover:rounded-md rounded-r-xl flex items-center"
-							class:bg-scpurple={productItem.stock.count > 0}
-							id="add_to_cart"
-							on:click={cart_submit}>
-							<Icon icon="iconamoon:shopping-bag-duotone" class="w-auto h-full text-3xl" />
-							{#if productItem.stock.count <= 0}
-								<span class="px-2">Out of stock</span>
-							{/if}
-						</button>
 					</div>
 				</div>
 			</div>
-		</div>
-	</div>
-	<div class="flex justify-start w-full flex-col md:flex-row">
-		<div class="flex-[1.4] text-white justify-start md:mr-4 mr-1">
-			<div class="hidden md:block">
-				{#if indicator_max > 1}
-					<BannerIndicator
-						bind:curActive={indicator_cur}
-						max={indicator_max}
-						wActive="w-[12%]"
-						wNormal="w-[6%]"
-						hoverNormal="hover:w-[10%]" />
-				{/if}
-			</div>
-			<div
-				class="flex-1 w-full h-fit bg-gradient-to-br from-scpurpled1 to-scpurpled3 rounded-r-xl rounded-b-xl mt-4 pageCut">
-				<div class="h-[30px] w-[30px] pageTurn drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"></div>
-				<div class="p-4 pt-2 opacity-85">
-					{#if productItem.documentation?.at(0)?.isMDUrl}
-						{#await fetch(productItem.documentation?.at(0)?.data)}
-							<div class="w-full justify-center flex"><Loader /></div>
-						{:then data}
-							{#if data.ok}
-								{#await data.text()}
-									<Loader />
-								{:then text}
-									<HTMLWrapper html={text} />
-								{/await}
+			
+			<!-- Bottom Row: Description, FAQ, and Related Products -->
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+				<!-- Description Panel - Takes 2/3 width on desktop -->
+				<div class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525] max-h-[800px] overflow-y-auto">
+					<div class="inline-flex items-center mb-3">
+						<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
+						<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Description</span>
+					</div>
+					<div class="text-gray-300 text-sm">
+						{#if productItem.documentation?.at(0)?.isMDUrl && productItem.documentation?.at(0)?.data}
+							{#await fetch(productItem.documentation.at(0)?.data ?? '')}
+								<div class="w-full justify-center flex"><Loader /></div>
+							{:then data}
+								{#if data.ok}
+									{#await data.text()}
+										<Loader />
+									{:then text}
+										<HTMLWrapper html={text} />
+									{/await}
+								{:else}
+									<div class="p-2 text-center text-gray-400">
+										Oops! There was an error in retrieving the description.
+									</div>
+								{/if}
+							{/await}
+						{:else if productItem.documentation?.at(0)?.data}
+							<HTMLWrapper html={productItem.documentation.at(0)?.data ?? ''} />
+						{:else}
+							<div class="p-2 text-center text-gray-400">
+								No description available yet!
+							</div>
+						{/if}
+					</div>
+				</div>
+				
+				<!-- FAQ and Related Products Column - 1/3 width on desktop -->
+				<div class="md:col-span-1 flex flex-col gap-3">
+					<!-- Tabs Panel - FAQ -->
+					<div class="bg-[#151515] rounded-2xl overflow-hidden border border-[#252525]">
+						<Tabs.Root value="faq" class="w-full h-full">
+							<Tabs.List
+								class="bg-[#151515] w-full justify-between p-1 h-fit border-b border-[#252525] flex p-2">
+								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="faq">FAQ</Tabs.Trigger>
+								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="documentation">Docs</Tabs.Trigger>
+								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="shipping">Shipping</Tabs.Trigger>
+								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="costing">Cost</Tabs.Trigger>
+							</Tabs.List>
+							<div class="overflow-y-auto">
+								<Tabs.Content value="faq" class="text-white p-3 text-start h-full">
+									<div>
+										{#if productItem.faq && productItem.faq.length > 0}
+											<Accordion.Root class="w-full" multiple>
+												{#each productItem.faq as faq, i}
+													<Accordion.Item
+														value="item-{i}"
+														class="border-b border-[#252525] last:border-0 px-3 py-1">
+														<Accordion.Trigger class="font-medium hover:text-[#c2ff00] text-sm"
+															><span class="text-start">{faq.question}</span></Accordion.Trigger>
+														<Accordion.Content class="text-gray-400 text-xs"
+															><span class="text-start">{faq.answer}</span></Accordion.Content>
+													</Accordion.Item>
+												{/each}
+											</Accordion.Root>
+										{:else}
+											<div class="px-3 pt-3 text-sm text-gray-400 text-center">No FAQ Available</div>
+										{/if}
+									</div>
+								</Tabs.Content>
+								<Tabs.Content value="documentation" class="p-3 h-full text-sm text-gray-300"
+									>{productItem.documentation?.at(1)?.data ?? 'No documentation available'}</Tabs.Content>
+								<Tabs.Content value="costing" class="p-3 h-full text-sm text-gray-300">
+									{#if productItem.documentation?.at(2)?.data && productItem.documentation?.at(2)?.isMDUrl}
+										{#await fetch(productItem.documentation.at(2)?.data ?? '')}
+											<div class="w-full justify-center flex"><Loader /></div>
+										{:then data}
+											{#if data.ok}
+												{#await data.text()}
+													<Loader />
+												{:then text}
+													<HTMLWrapper html={text} />
+												{/await}
+											{:else}
+												<div class="p-2 text-center text-gray-400">No costing details available</div>
+											{/if}
+										{:catch e}
+											<div class="p-2 text-center text-gray-400">No costing details available</div>
+										{/await}
+									{:else if productItem.documentation?.at(2)?.data}
+										<HTMLWrapper html={productItem.documentation.at(2)?.data ?? ''} />
+									{:else}
+										<div class="p-2 text-center text-gray-400">No costing details available</div>
+									{/if}
+								</Tabs.Content>
+								<Tabs.Content value="shipping" class="p-3 h-full text-sm text-gray-300">
+									{#if productItem.documentation?.at(3)?.data && productItem.documentation?.at(3)?.isMDUrl}
+										{#await fetch(productItem.documentation.at(3)?.data ?? '')}
+											<div class="w-full justify-center flex"><Loader /></div>
+										{:then data}
+											{#if data.ok}
+												{#await data.text()}
+													<Loader />
+												{:then text}
+													<HTMLWrapper html={text} />
+												{/await}
+											{:else}
+												<div class="p-2 text-center text-gray-400">No shipping details available</div>
+											{/if}
+										{:catch e}
+											<div class="p-2 text-center text-gray-400">No shipping details available</div>
+										{/await}
+									{:else if productItem.documentation?.at(3)?.data}
+										<HTMLWrapper html={productItem.documentation.at(3)?.data ?? ''} />
+									{:else}
+										<div class="p-2 text-center text-gray-400">No shipping details available</div>
+									{/if}
+								</Tabs.Content>
+							</div>
+						</Tabs.Root>
+					</div>
+					
+					<!-- Related Products Panel - Same width as FAQ above -->
+					{#if productItem.type == 'product'}
+						{#await data.supabase_lt.from('products').select('*').eq('rel', productItem.id) then result}
+							{#if result.data && !result.error && result.data.length > 0}
+								<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525] h-full max-h-[170px]">
+									<div class="inline-flex items-center mb-2">
+										<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
+										<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+									</div>
+									<div class="flex flex-col gap-2 overflow-y-auto pr-1 max-h-[120px]">
+										{#each result.data as relProd}
+										<a href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} 
+										   class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-[#c2ff00] transition-all p-1.5">
+											<div class="w-10 h-10 overflow-hidden rounded-md flex-shrink-0">
+												<img src={relProd.images[0]?.url ?? no_img} alt={relProd.name} class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+											</div>
+											<div class="flex-1 min-w-0">
+												<div class="text-white text-xs font-bold line-clamp-1">{relProd.name}</div>
+												<div class="flex items-center justify-between">
+													<span class="text-gray-400 text-[10px]">{relProd.stock.count} in stock</span>
+													<span class="text-[#c2ff00] font-bold text-xs">₹{relProd.price.new}</span>
+												</div>
+											</div>
+										</a>
+										{/each}
+									</div>
+								</div>
 							{:else}
-								Oops! There was an error in retrieving the description. Please try again later.
+								<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525]">
+									<div class="inline-flex items-center mb-2">
+										<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
+										<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+									</div>
+									<div class="text-gray-400 text-sm p-2">No related products available</div>
+								</div>
 							{/if}
 						{/await}
-					{:else if productItem.documentation?.at(0)?.data}
-						<HTMLWrapper html={productItem.documentation?.at(0)?.data ?? ''} />
 					{:else}
-						No description available yet!
+					{#await data.supabase_lt.from('products').select('*').eq('id', productItem.rel) then result}
+						{#if result.data && !result.error && result.data.length > 0}
+							<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525] h-full max-h-[170px]">
+								<div class="inline-flex items-center mb-2">
+									<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
+									<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+								</div>
+								<div class="flex flex-col gap-2 overflow-y-auto pr-1 max-h-[120px]">
+									{#each result.data as relProd}
+									<a href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} 
+									   class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-[#c2ff00] transition-all p-1.5">
+										<div class="w-10 h-10 overflow-hidden rounded-md flex-shrink-0">
+											<img src={relProd.images[0]?.url ?? no_img} alt={relProd.name} class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+										</div>
+										<div class="flex-1 min-w-0">
+											<div class="text-white text-xs font-bold line-clamp-1">{relProd.name}</div>
+											<div class="flex items-center justify-between">
+												<span class="text-gray-400 text-[10px]">{relProd.stock.count} in stock</span>
+												<span class="text-[#c2ff00] font-bold text-xs">₹{relProd.price.new}</span>
+											</div>
+										</div>
+									</a>
+									{/each}
+								</div>
+							</div>
+						{:else}
+							<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525]">
+								<div class="inline-flex items-center mb-2">
+									<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
+									<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+								</div>
+								<div class="text-gray-400 text-sm p-2">No related products available</div>
+							</div>
+						{/if}
+					{/await}
 					{/if}
-					<br />
-					<SocialEmbed />
 				</div>
 			</div>
 		</div>
-		<div class="flex-1 max-w-[550px] my-4 w-full flex flex-col">
-			<Tabs.Root value="faq" class="w-full" id="crazy">
-				<Tabs.List
-					class="bg-scpurpled1 w-full justify-between p-2 h-fit rounded-xl  overflow-x-auto">
-					<Tabs.Trigger class={triggerTabStyle} value="faq">FAQ</Tabs.Trigger>
-					<Tabs.Trigger class={triggerTabStyle} value="documentation">Documentation</Tabs.Trigger>
-					<Tabs.Trigger class={triggerTabStyle} value="shipping">Shipping</Tabs.Trigger>
-					<Tabs.Trigger class={triggerTabStyle} value="costing">Costing</Tabs.Trigger>
-				</Tabs.List>
-				<!--  -->
-				<Tabs.Content value="faq" class="text-white bg-scpurpled3 pb-4 rounded-xl text-start">
-					<div>
-						{#if productItem.faq && productItem.faq.length > 0}
-							<Accordion.Root class="w-full litem" multiple>
-								{#each productItem.faq as faq, i}
-									<Accordion.Item
-										value="item-{i}"
-										class="border-0 px-4 {i % 2 != 0 ? 'bg-scpurpled1' : 'bg-scpurpled2'} {i == 0
-											? 'rounded-t-xl'
-											: ''}">
-										<Accordion.Trigger
-											><span class="text-start">{faq.question}</span></Accordion.Trigger>
-										<Accordion.Content
-											><span class="text-start">{faq.answer}</span></Accordion.Content>
-									</Accordion.Item>
-								{/each}
-							</Accordion.Root>
-						{:else}
-							<div class="px-4 pt-4 text-md">No FAQ Available</div>
-						{/if}
-					</div>
-				</Tabs.Content>
-				<Tabs.Content value="documentation" class="text-white bg-scpurpled3 p-4 rounded-xl"
-					>{productItem.documentation?.at(1)?.data ?? 'No documentation available'}</Tabs.Content>
-				<Tabs.Content value="costing" class="text-white bg-scpurpled3 p-4 rounded-xl">
-					{#if productItem.documentation?.at(2)?.data}
-						{#if productItem.documentation?.at(2)?.isMDUrl}
-							{#await fetch(productItem.documentation.at(2).data)}
-								<div class="w-full justify-center flex"><Loader /></div>
-							{:then data}
-								{#if data.ok}
-									{#await data.text()}
-										<Loader />
-									{:then text}
-										<HTMLWrapper html={text} />
-									{/await}
-								{:else}
-									No costing details available
-								{/if}
-							{:catch e}
-								No costing details available
-							{/await}
-						{:else}
-							<HTMLWrapper html={productItem.documentation?.at(2)?.data} />
-						{/if}
-					{:else}
-						No costing details available
-					{/if}
-				</Tabs.Content>
-				<Tabs.Content value="shipping" class="text-white bg-scpurpled3 p-4 rounded-xl">
-					{#if productItem.documentation?.at(3)?.data}
-						{#if productItem.documentation?.at(3)?.isMDUrl}
-							{#await fetch(productItem.documentation.at(3).data)}
-								<div class="w-full justify-center flex"><Loader /></div>
-							{:then data}
-								{#if data.ok}
-									{#await data.text()}
-										<Loader />
-									{:then text}
-										<HTMLWrapper html={text} />
-									{/await}
-								{:else}
-									No shipping details available
-								{/if}
-							{:catch e}
-								No shipping details available
-							{/await}
-						{:else}
-							<HTMLWrapper html={productItem.documentation?.at(3)?.data} />
-						{/if}
-					{:else}
-						No shipping details available
-					{/if}
-				</Tabs.Content>
-			</Tabs.Root>
-
-			{#if productItem.type == 'product'}
-				{#await data.supabase_lt.from('products').select('*').eq('rel', productItem.id) then result}
-					{#if result.data && !result.error && result.data.length > 0}
-						<div class="text-white flex flex-col gap-2">
-							<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
-								<span class="text-white text-lg font-bold">Related</span>
-							</div>
-							<div class="flex w-full bg-scpurpled2 rounded-xl overflow-x-scroll px-2 pt-2 pb-1 gap-2">
-								{#each result.data as relProd}
-								<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 bg-scpurpled1 rounded-xl min-w-56 w-56">
-									<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
-									<span class="text-white text-lg font-bold text-start w-full">{relProd.name}</span>
-									<div class="flex items-center gap-1 mt-2 w-full">
-										<span class="text-white text-sm mt-1">{relProd.stock.count} in stock</span>
-										<div class="flex-1"></div>
-										{#if relProd.price.old > 0}
-											<span class="text-gray-300 line-through text-sm">₹{relProd.price.old}</span>
-										{/if}
-										<span class="text-white text-lg font-bold">₹{relProd.price.new}</span>
-									</div>
-								</a>
-								{/each}
-							</div>
-						</div>
-					{/if}
-				{/await}
-			{:else}
-			{#await data.supabase_lt.from('products').select('*').eq('id', productItem.rel) then result}
-				{#if result.data && !result.error && result.data.length > 0}
-					<div class="text-white flex flex-col gap-2">
-						<div class="mt-4 p-3 rounded-xl bg-scpurpled1 flex">
-							<span class="text-white text-lg font-bold">Related</span>
-						</div>
-						<div class="flex w-full bg-scpurpled2 rounded-xl overflow-x-scroll px-2 pt-2 pb-1 gap-2">
-							{#each result.data as relProd}
-							<a target="_self" href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} class="flex flex-col items-center p-2 bg-scpurpled1 rounded-xl min-w-56 w-56">
-								<img src={relProd.images[0].url ?? no_img} alt={relProd.name} class="w-full h-36 object-cover mb-2 rounded-xl">
-								<span class="text-white text-lg font-bold text-start w-full">{relProd.name}</span>
-								<div class="flex items-center gap-1 mt-2 w-full">
-									<span class="text-white text-sm mt-1">{relProd.stock.count} in stock</span>
-									<div class="flex-1"></div>
-									{#if relProd.price.old > 0}
-										<span class="text-gray-300 line-through text-sm">₹{relProd.price.old}</span>
-									{/if}
-									<span class="text-white text-lg font-bold">₹{relProd.price.new}</span>
-								</div>
-							</a>
-							{/each}
-						</div>
-					</div>
-				{/if}
-			{/await}
-			{/if}
-		</div>
+		
 	</div>
 </div>
 
@@ -380,46 +491,72 @@
 		@apply transition-all duration-200 ease-linear;
 	}
 
-	.pageTurn {
-		background: linear-gradient(
-			135deg,
-			transparent 0%,
-			transparent 50%,
-			theme('colors.scpurpled2') 50%,
-			theme('colors.scpurpled4') 100%
-		);
-	}
-
-	.pageCut {
-		clip-path: polygon(30px 0, 100% 0, 100% 100%, 0 100%, 0 30px);
-	}
-
-	.noshow {
-		@apply !invisible !max-h-0 !border-0;
-	}
-
-
-
 	/* For WebKit browsers (Chrome, Safari) */
 	::-webkit-scrollbar {
-		width: 12px; /* Width of the scrollbar */
-		height: 8px; /* Height of the scrollbar */
+		width: 4px;
+		height: 4px;
 	}
 
 	::-webkit-scrollbar-track {
-		background: transparent; /* Track color */
-		border-radius: 10px; /* Rounded corners */
+		background: #151515;
+		border-radius: 10px;
 	}
 
 	::-webkit-scrollbar-thumb {
-		background: rgb(204, 204, 204); /* Thumb color */
-		border-radius: 10px; /* Rounded corners */
+		background: #252525;
+		border-radius: 10px;
 	}
 
 	::-webkit-scrollbar-thumb:hover {
-		background: #ffffff; /* Thumb color on hover */
+		background: #353535;
 	}
-
 	
-
+	.hidden {
+		@apply !invisible h-0 opacity-0 !m-0 !p-0;
+	}
+	
+	/* Status Tag with Gradient Border */
+	.status-tag {
+		position: relative;
+		isolation: isolate;
+		box-shadow: 0 0 20px rgba(255, 153, 0, 0.2);
+	}
+	
+	.status-tag::before {
+		content: '';
+		position: absolute;
+		inset: -1px;
+		background: linear-gradient(
+			to bottom right,
+			rgba(255, 153, 0, 0.8) 0%,
+			rgba(255, 95, 95, 0.8) 50%,
+			rgba(255, 0, 128, 0.8) 100%
+		);
+		border-radius: inherit;
+		z-index: -1;
+		transition: opacity 0.3s ease;
+		opacity: var(--glow-opacity, 0.7);
+	}
+	
+	.status-tag::after {
+		content: '';
+		position: absolute;
+		inset: -1px;
+		border-radius: inherit;
+		background: radial-gradient(
+			circle at var(--glow-x, 50%) var(--glow-y, 50%),
+			rgba(255, 153, 0, 1) 0%,
+			rgba(255, 95, 95, 0.9) 40%,
+			rgba(255, 0, 128, 0.8) 80%
+		);
+		z-index: -2;
+		filter: blur(6px);
+		opacity: var(--glow-opacity, 0.7);
+		transition: opacity 0.3s ease;
+	}
+	
+	.status-tag:hover::before,
+	.status-tag:hover::after {
+		opacity: 1;
+	}
 </style>

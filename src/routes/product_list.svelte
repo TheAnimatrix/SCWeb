@@ -5,16 +5,24 @@
     export let products : Product[] = [];
 	export let getLink : any;
 	export let onClick : any = ()=>{};
-	export let accent1 = "#aaaaaa";
-	export let accent2 = "#aaaaaa";
-	export let accent3 = "#aaaaaa";
+	export let accent1 = "#0c0c0c";
+	export let accent2 = "#151515";
+	export let accent3 = "#c2ff00";
 	let className = "";
 	export {className as class};
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-3 gap-y-3 mt-4 w-full h-full {className}">
-	{#each products as product, index (index)} <!-- whatever is in the brackets is the key -->
-        <ProductItem {accent1} {accent2} {accent3} {product} href="/{product.name.replaceAll(' ', '_')}/craft/item={product.id}" onClick={()=>onClick(index,product)}/>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full {className}">
+	{#each products as product, index (index)}
+        <ProductItem 
+			{accent1} 
+			{accent2} 
+			{accent3} 
+			{product} 
+			href={getLink(index, product)}
+			onClick={()=>onClick(index,product)}
+		/>
 	{/each}
-	<div style="width:100%;height:80px;"></div>
+	<!-- Spacer to prevent footer overlap -->
+	<div class="h-20 col-span-full"></div>
 </div>

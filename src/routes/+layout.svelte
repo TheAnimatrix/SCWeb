@@ -14,50 +14,36 @@
 	import { onMount, setContext, getContext } from 'svelte';
 	import Loader from '$lib/components/fundamental/Loader.svelte';
 
-	let bgColor: string,
-		accentColor: string,
-		accentHoverColor: string,
-		filter: string,
-		primaryColor: string;
+	// Maintain primary colors for different sections but simplify
+	let primaryColor: string;
+	let accentColor = "#c2ff00"; // Use the lime green accent as the primary accent
+	let filter: string;
 
-	let bgUser: string, bgAbout: string, bgMain: string, bgCrafting: string, bgCart: string;
-	bgUser = 'bg-gradient-to-tr from-[#040201] to-[#1d140b]';
-	bgAbout = 'bg-gradient-to-tr from-[#030606] to-[#0c1213]';
-	bgCart = 'bg-gradient-to-tr from-scbluek1 to-scbluek2';
-	bgMain = 'bg-gradient-to-tr from-scpurplek1 to-scpurplek2';
-	bgCrafting = 'bg-gradient-to-tr from-[#050000] to-[#1c0808]';
 	let pageName: string;
 	$: {
 		if ($page.route.id?.startsWith('/user')) {
 			primaryColor = 'scoranged1';
-			accentColor = 'scorange';
-			bgColor = bgUser;
 			filter = 'filter-orange';
 			pageName = 'user';
 		} else if ($page.route.id?.startsWith('/about') || $page.route.id?.startsWith('/policy')) {
 			primaryColor = 'sccyand1';
-			accentColor = 'sccyan';
-			bgColor = bgAbout;
 			filter = 'filter-about';
 			pageName = 'about';
 		} else if ($page.route.id?.startsWith('/crafting')) {
 			primaryColor = 'scredd1';
-			accentColor = 'scred';
-			bgColor = bgAbout;
 			filter = 'filter-crafting';
 			pageName = 'crafting';
+		} else if ($page.route.id?.startsWith('/pif-portal')) {
+			primaryColor = 'scblued1';
+			filter = 'filter-pif';
+			pageName = 'about';
 		} else if ($page.route.id?.startsWith('/(cart)')) {
 			primaryColor = 'scblued1';
-			accentColor = 'scblue';
-			bgColor = bgCart;
 			filter = 'filter-cart';
 			pageName = 'cart';
 		} else {
 			primaryColor = 'scpurpled1';
-			accentColor = 'scpurplel1';
 			filter = 'filter-purple';
-			bgColor = bgMain;
-			accentHoverColor = 'scpurpled3';
 			pageName = 'main';
 		}
 	}
@@ -106,209 +92,188 @@
 			}
 		});
 	});
-	//tailwind cache
-	let _tw_cache = `bg-scblue text-scblue bg-scblued1 text-scblued1 bg-scbluel1 text-scbluel1
-	 bg-scred text-scred bg-scredd1 text-scrredd1 bg-scredl1 text-scredl1 bg-scpurpled1
-	 bg-scpurpled2 bg-scpurpled3 bg-scpurple bg-scpurplel1 bg-scoranged1 text-scoranged1
-	 text-scoranged2 text-scpurpled2 text-scorangel1 text-scpurplel1 text-scorange bg-scorange
-	 text-sccyand1 bg-sccyand1 text-sccyan bg-sccyan border-scpurplel1 border-scorangel1 border-scbluel1 border-sccyan border-scred text-scoranged1 text-scyand1 text-scpurpled1 text-scblued1 text-scredd1`;
 </script>
 
-<div class="relative" style="--curent-color:{primaryColor};">
+<div class="min-h-screen bg-[#0c0c0c] text-white overflow-hidden">
+	<!-- Loading Overlay -->
 	<div
-		class="h-screen bg-[rgba(0,0,0,0.4)] z-20 inset-0 absolute justify-center flex flex-col items-center pb-40"
+		class="h-screen bg-[rgba(0,0,0,0.8)] z-50 inset-0 fixed justify-center flex flex-col items-center"
 		class:hidden={!$navigating && !$load_store}>
 		<Loader />
-		<div class="text-white text-center text-xl mt-4 mx-auto opacity-50">Loading</div>
+		<div class="text-white text-center text-xl mt-4 mx-auto">Loading</div>
 	</div>
-	<div class="min-h-screen bg-black z-[-1] inset-0 absolute opacity-100 animate_base"></div>
-	<div
-		class="min-h-screen {bgCart} z-[-1] inset-0 absolute {pageName == 'cart'
-			? 'opacity-100'
-			: 'opacity-0'} animate_base" />
-	<div
-		class="min-h-screen {bgCrafting} z-[-1] inset-0 absolute {pageName == 'crafting'
-			? 'opacity-100'
-			: 'opacity-0'} animate_base">
-	</div>
-	<div
-		class="min-h-screen {bgUser} z-[-1] inset-0 absolute {pageName == 'user'
-			? 'opacity-100'
-			: 'opacity-0'} animate_base">
-	</div>
-	<div
-		class="min-h-screen {bgAbout} z-[-1] inset-0 absolute {pageName == 'about'
-			? 'opacity-100'
-			: 'opacity-0'} animate_base">
-	</div>
-	<div
-		class="min-h-screen {bgMain} z-[-1] inset-0 absolute {pageName == 'main'
-			? 'opacity-100'
-			: 'opacity-0'} animate_base">
-	</div>
-	<div
-		class="min-h-screen bg-[url('/images/noise.png')] z-20 inset-0 absolute opacity-20 animate_base pointer-events-none">
-	</div>
-	<div class="h-[10px] w-[25%] bg-{accentColor} mx-auto inset-0 absolute opacity-30"></div>
-	<div class="app min-h-screen animate_base">
-		<div
-			class="menu flex flex-wrap border-b-0 justify-center items-center sticky top-0 backdrop-blur-[30px] z-10 max-sm:hidden">
-			<a
-				href="/"
-				class="block h-3/4 border-b-0 bg-[#3f3f3f36] border-r-4 self-start transition-all ease-out duration-400 hover:border-r-8">
-				<img
-					class="{filter} h-full object-scale-down mt-[7%] mb-[5%] ml-3 mr-4"
-					src={Logo}
-					alt="Selfcrafted Logo" />
-			</a>
-			<!-- svelte-ignore a11y-click-events-have-key-events -->
-			<a
-				href="/"
-				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#d8d8d8] font-figtree animate_base hover:text-[150%] rounded-lg"
-				class:menu-active={$page.route.id === '/'}>
-				Crafts
-			</a>
-			<!-- svelte-ignore a11y-click-events-have-key-events -->
-			<a
-				href="/about"
-				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#d8d8d8] font-figtree animate_base hover:text-[150%] rounded-lg"
-				class:menu-active={$page.route.id?.startsWith('/about')}>
-				About
-			</a>
-			<!-- svelte-ignore a11y-click-events-have-key-events -->
-			<a
-				href="/crafting"
-				class="menu_button ml-8 p-1 first-letter:break-words w-auto text-[140%] text-[#d8d8d8] font-figtree animate_base hover:text-[150%] rounded-lg"
-				class:menu-active={$page.route.id?.startsWith('/crafting')}>
-				Start Crafting
-			</a>
-
-			<a href={userRoute}>
-				<Icon
-					icon="ph:user-focus-duotone"
-					class={$page.route.id?.startsWith('/user')
-						? `text-[220%] font-figtree animate_base hover:font-bold ml-8 rounded-lg bg-white text-${primaryColor}`
-						: 'text-[#d8d8d8] text-[220%] font-figtree animate_base ml-8 rounded-lg'} />
-			</a>
-
-			<a href="/cart">
-				<div
-					class="{$page.route.id?.startsWith('/(cart)')
-						? `bg-white text-${primaryColor} text-[250%] rounded-xl ml-8 p-1`
-						: 'text-white text-[220%] ml-8 animate_base hover:text-[250%]'} flex justify-center items-center">
-					<Icon
-						icon={$cart_store.itemCount > 0
-							? 'solar:cart-large-minimalistic-bold-duotone'
-							: 'solar:cart-large-minimalistic-broken'} />
-					<div
-						class="rounded-full p-2 w-8 h-8 flex justify-center items-center !bg-white text-sm font-bold">
-						<span class="text-{primaryColor}">{$cart_store.itemCount}</span>
+	
+	<!-- Background Elements -->
+	<div class="absolute inset-0 z-0 opacity-10 pointer-events-none bg-[url('/images/noise.png')]"></div>
+	<div class="absolute top-20 left-1/2 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] -translate-x-1/2 rounded-full"></div>
+	
+	<!-- Desktop Navbar -->
+	<header class="sticky top-0 z-40 backdrop-blur-lg border-b border-[#252525]/50">
+		<div class="max-w-7xl mx-auto px-4">
+			<nav class="flex items-center justify-between h-16 md:h-20">
+				<!-- Logo -->
+				<a href="/" class="flex items-center">
+					<img class="{filter} h-8 md:h-10" src={Logo} alt="Selfcrafted Logo" />
+				</a>
+				
+				<!-- Desktop Navigation -->
+				<div class="hidden md:flex items-center space-x-1">
+					<a 
+						href="/" 
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id === '/' ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						Crafts
+					</a>
+					<a 
+						href="/about" 
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						About
+					</a>
+					<a 
+						href="/crafting" 
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						Start Crafting
+					</a>
+					<a 
+						href="/pif-portal" 
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						PIF Portal
+					</a>
+				</div>
+				
+				<!-- Action Buttons for both Desktop & Mobile -->
+				<div class="flex items-center space-x-3">
+					<a 
+						href={userRoute}
+						class="p-2 rounded-lg transition-all {$page.route.id?.startsWith('/user') ? 'bg-[#c2ff00] text-black' : 'text-gray-300 hover:bg-[#151515]'}"
+					>
+						<Icon icon="ph:user-focus-duotone" class="text-2xl" />
+					</a>
+					
+					<a 
+						href="/cart"
+						class="flex items-center space-x-1 p-2 rounded-lg transition-all {$page.route.id?.startsWith('/(cart)') ? 'bg-[#c2ff00] text-black' : 'text-gray-300 hover:bg-[#151515]'}"
+					>
+						<Icon
+							icon={$cart_store.itemCount > 0
+								? 'solar:cart-large-minimalistic-bold-duotone'
+								: 'solar:cart-large-minimalistic-broken'} 
+							class="text-2xl" 
+						/>
+						{#if $cart_store.itemCount > 0}
+							<span class="inline-flex items-center justify-center w-5 h-5 bg-white text-black text-xs font-bold rounded-full">
+								{$cart_store.itemCount}
+							</span>
+						{/if}
+					</a>
+					
+					<!-- Mobile Menu Button -->
+					<div class="md:hidden">
+						<Drawer.Root shouldScaleBackground>
+							<Drawer.Trigger>
+								<button class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg transition-all">
+									<Icon icon="mdi:menu" class="text-2xl" />
+								</button>
+							</Drawer.Trigger>
+							<Drawer.Content class="bg-[#0c0c0c] border-t border-[#252525]">
+								<div class="p-6">
+									<div class="flex justify-between items-center mb-8">
+										<h2 class="text-xl font-medium text-[#c2ff00]">Menu</h2>
+										<Drawer.Close>
+											<button class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg">
+												<Icon icon="mdi:close" class="text-xl" />
+											</button>
+										</Drawer.Close>
+									</div>
+									
+									<nav class="flex flex-col space-y-4">
+										<a 
+											href="/" 
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id === '/' ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											Crafts
+										</a>
+										<a 
+											href="/about" 
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											About
+										</a>
+										<a 
+											href="/crafting" 
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											Start Crafting
+										</a>
+										<a 
+											href="/pif-portal" 
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											PIF Portal
+										</a>
+									</nav>
+								</div>
+							</Drawer.Content>
+						</Drawer.Root>
 					</div>
 				</div>
-			</a>
+			</nav>
 		</div>
-		<div
-			class="menu_mobile sm:hidden flex flex-col items-center justify-center w-full sticky top-0 backdrop-blur-[30px] z-10">
-			<div class="relative flex w-full justify-center items-center h-fit">
-				<a href="/" class="h-[64px] py-3 transition-all ease-out duration-400">
-					<img class="{filter} h-full object-scale-down" src={Logo} alt="Selfcrafted Logo" />
-				</a>
+	</header>
 
-				<!-- style="height:100%;object-fit : scale-down;margin-top:7%;margin-bottom:5%;margin-left:12px;margin-right:16px;" -->
-				<div class="absolute right-8 my-auto mt-3">
-					<Drawer.Root shouldScaleBackground>
-						<Drawer.Trigger>
-							<Icon class="text-white text-3xl self-center" icon="mdi:menu" /></Drawer.Trigger>
-						<Drawer.Content class="bg-{primaryColor} border-none text-white animate_base">
-							<Drawer.Header>
-								<Drawer.Close
-									><div class="p-6 font-bold text-2xl">
-										<ul class="flex flex-col justify-center items-center">
-											<li
-												class="mt-4 opacity-70 font-normal"
-												class:menu-active-mobile={$page.route.id === '/'}>
-												<a href="/">Crafts</a>
-											</li>
-											<li
-												class="mt-4 opacity-70 font-normal"
-												class:menu-active-mobile={$page.route.id?.startsWith('/about')}>
-												<a href="/about">About</a>
-											</li>
-											<li
-												class="mt-4 opacity-70 font-normal"
-												class:menu-active-mobile={$page.route.id?.startsWith('/crafting')}>
-												<a href="/crafting">Start Crafting</a>
-											</li>
-											<li
-												class="mt-4 opacity-70 font-normal text-center"
-												class:menu-active-mobile={$page.route.id?.startsWith('/user')}>
-												<a href={userRoute}>
-													<Icon
-														icon="ph:user-focus-duotone"
-														class={$page.route.id?.startsWith('/user')
-															? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
-															: 'text-[#d8d8d8] text-[220%] font-figtree animate_base rounded-lg'} />
-												</a>
-											</li>
-											<li
-												class="mt-4 opacity-70 font-normal text-center"
-												class:menu-active-mobile={$page.route.id?.startsWith('/(cart)')}>
-												<a href="/cart" class="flex justify-center items-center gap-1">
-													<Icon
-														icon={$cart_store.itemCount > 0
-															? 'solar:cart-large-minimalistic-bold-duotone'
-															: 'solar:cart-large-minimalistic-broken'}
-														class={$page.route.id?.startsWith('/(cart)')
-															? `text-[150%] font-figtree animate_base hover:font-bold rounded-lg bg-white text-${primaryColor}`
-															: 'text-[#d8d8d8] text-[220%] font-figtree animate_base rounded-lg'} />
-													<div
-														class="rounded-full p-2 w-8 h-8 flex justify-center items-center !bg-white text-sm font-bold">
-														<span class="text-{primaryColor}">{$cart_store.itemCount}</span>
-													</div>
-												</a>
-											</li>
-										</ul>
-									</div></Drawer.Close>
-							</Drawer.Header>
-							<Drawer.Footer></Drawer.Footer>
-						</Drawer.Content>
-					</Drawer.Root>
+	<!-- Main Content -->
+	<main>
+		<slot />
+	</main>
+
+	<!-- Footer -->
+	<footer class="mt-32 border-t border-[#252525]/50 pt-16 pb-8 px-4">
+		<div class="max-w-7xl mx-auto">
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+				<!-- Logo & Socials -->
+				<div>
+					<img class="{filter} h-10 mb-6" src={Logo} alt="Selfcrafted Logo" />
+					<div class="flex space-x-4 text-gray-400">
+						<a 
+							href="https://discord.gg/UQ74TQfMqM" 
+							target="_blank" 
+							rel="noopener noreferrer"
+							class="hover:text-[#c2ff00] transition-colors"
+						>
+							<Icon icon="ph:discord-logo-duotone" class="text-2xl" />
+						</a>
+						<a 
+							href="https://github.com/TheAnimatrix/SCWeb" 
+							target="_blank" 
+							rel="noopener noreferrer"
+							class="hover:text-[#c2ff00] transition-colors"
+						>
+							<Icon icon="ph:github-logo-duotone" class="text-2xl" />
+						</a>
+					</div>
+				</div>
+				
+				<!-- Links Column 1 -->
+				<div>
+					<h3 class="text-lg font-medium mb-4">Policies</h3>
+					<ul class="space-y-2 text-gray-400">
+						<li><a href="/policy#privacy" class="hover:text-[#c2ff00] transition-colors">Privacy Policy</a></li>
+						<li><a href="/policy#terms" class="hover:text-[#c2ff00] transition-colors">Terms & Conditions</a></li>
+						<li><a href="/policy#shipping" class="hover:text-[#c2ff00] transition-colors">Shipping & Delivery</a></li>
+					</ul>
+				</div>
+				
+				<!-- Links Column 2 -->
+				<div>
+					<h3 class="text-lg font-medium mb-4">Support</h3>
+					<ul class="space-y-2 text-gray-400">
+						<li><a href="/policy#cancellation" class="hover:text-[#c2ff00] transition-colors">Cancellation & Refund</a></li>
+						<li><a href="/policy#contact" class="hover:text-[#c2ff00] transition-colors">Contact Us</a></li>
+					</ul>
 				</div>
 			</div>
-		</div>
-		<div class="rest">
-			<slot />
-		</div>
-		<div
-			class="footer opacity-60 text-lg text-{accentColor} flex flex-col items-center w-full justify-center text-center pb-4">
-			<hr class="h-[1px] border-{accentColor} w-[60%] mt-52 mb-16" />
-			<div class="flex flex-col sm:flex-row flex-wrap px-8 justify-evenly w-full gap-y-8">
-				<div class="flex mx-4">
-					<span>Selfcrafted © 2023&nbsp;&nbsp;&nbsp;|</span>
-					<a
-						target="_blank"
-						href="https://discord.gg/UQ74TQfMqM"
-						rel="noopener noreferrer"
-						class="mr-4 ml-4">
-						<Icon icon="ph:discord-logo-duotone" class="text-2xl inline-block" />
-					</a>
-					<a rel="noopener noreferrer" target="_blank" href="https://github.com/TheAnimatrix/SCWeb">
-						<Icon icon="ph:github-logo-duotone" class="text-2xl inline-block" />
-					</a>
-				</div>
-				<div class="flex flex-col text-start gap-y-2 mx-4">
-					<a href="/policy#privacy">Privacy Policy</a>
-					<a href="/policy#terms">Terms & Conditions</a>
-					<a href="/policy#shipping">Shipping & Delivery</a>
-				</div>
-				<div class="flex flex-col text-start gap-y-2 mx-4">
-					<a href="/policy#cancellation">Cancellation & Refund</a>
-					<a href="/policy#contact">Contact Us</a>
-				</div>
+			
+			<div class="text-center text-gray-500 text-sm">
+				<p>Selfcrafted © 2025</p>
+				<p class="mt-2">Made with ❤️ by The Animatrix</p>
 			</div>
-			<span class="mt-20 mb-36">Made with ❤️ by The Animatrix</span>
 		</div>
-	</div>
+	</footer>
 </div>
 
 <style lang="postcss">
@@ -332,6 +297,10 @@
 		filter: hue-rotate(52deg);
 	}
 
+	.filter-pif {
+		filter: hue-rotate(65deg) saturate(1.2);
+	}
+
 	:global(body)::-webkit-scrollbar {
 		width: 6px;
 	}
@@ -352,31 +321,5 @@
 	:global(body)::-webkit-scrollbar-thumb:hover {
 		background-color: rgb(34, 34, 34);
 		transition: 0.4s linear all;
-	}
-	.menu-active {
-		word-wrap: break-word;
-		width: fit-content;
-		background-color: white;
-		color: black;
-		font-size: 150%;
-		font-weight: 700;
-		font-family: figtree;
-		transition: 0.2s ease-in all;
-	}
-	.menu-active-mobile {
-		word-wrap: break-word;
-		width: fit-content;
-		background-color: white;
-		color: black;
-		font-weight: 700;
-		font-family: figtree;
-		transition: 0.2s ease-in all;
-		@apply text-3xl p-1  opacity-100 rounded-lg;
-	}
-
-	.rest {
-		margin-top: 24px;
-		z-index: 1;
-		height: 100%;
 	}
 </style>
