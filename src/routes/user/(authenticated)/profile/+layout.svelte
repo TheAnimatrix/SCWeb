@@ -4,9 +4,7 @@
 	import { navigating } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-
-	const triggerTabStyle =
-		'animate_base data-[state=active]:bg-transparent data-[state=active]:drop-shadow-[0_4px_9px_rgba(255,123,1,0.59)] data-[state=active]:text-white px-4 py-2 text-2xl text-gray-500 rounded-xl hover:bg-scoranged2 text-orange-200 text-opacity-50 text-2xl font-bold max-w-[200px]';
+	import Icon from '@iconify/svelte';
 
 	function getLastRoute(v: string | null) {
 		if (!v) return 'Address';
@@ -14,39 +12,52 @@
 		return x[x.length - 1];
 	}
 
-	export let data;
+	const navItems = [
+		{ href: 'orders', label: 'Orders', icon: 'ph:shopping-bag-bold' },
+		{ href: 'addresses', label: 'Address', icon: 'ph:map-pin-bold' },
+		{ href: 'account', label: 'Account', icon: 'ph:user-bold' },
+		{ href: 'crafts', label: 'Crafts', icon: 'ph:palette-bold' }
+	];
 
+	export let data;
 </script>
 
-<div class="flex flex-col justify-center">
-	<div class="w-full flex flex-col justify-center items-center mb-20">
-		<div class="p-2 h-fit w-fit rounded-xl overflow-x-auto bg-transparent flex flex-wrap">
-			<div
-				class={triggerTabStyle}
-				data-state={getLastRoute($page.route.id) == 'orders' ? 'active' : ''}>
-				<a href="orders"><span class="max-sm:text-md">Orders</span></a>
+<div class="min-h-screen bg-[#0c0c0c] text-white py-12">
+	<div class="container mx-auto px-4">
+		<!-- Header -->
+		<div class="text-center mb-12">
+			<div class="inline-flex items-center justify-center mb-4">
+				<span class="w-3 h-3 rounded-full bg-[#c2ff00] mr-2"></span>
+				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">Profile Settings</span>
 			</div>
-			<div
-				class={triggerTabStyle}
-				data-state={getLastRoute($page.route.id) == 'addresses' ? 'active' : ''}>
-				<a href="addresses"><span class="max-sm:text-md">Address</span></a>
-			</div>
-			<div
-				class={triggerTabStyle}
-				data-state={getLastRoute($page.route.id) == 'account' ? 'active' : ''}>
-				<a href="account"><span class="max-sm:text-md">Account</span></a>
-			</div>
-			<div
-				class={triggerTabStyle}
-				data-state={getLastRoute($page.route.id) == 'crafts' ? 'active' : ''}>
-				<a href="crafts"><span class="max-sm:text-md">Crafts</span></a>
-			</div>
+			<h1 class="text-4xl font-bold mb-3">Your Profile</h1>
+			<p class="text-gray-400 max-w-2xl mx-auto">Manage your account settings, addresses, orders and crafts.</p>
 		</div>
+
+		<!-- Navigation -->
+		<div class="flex flex-wrap justify-center gap-3 mb-12">
+			{#each navItems as { href, label, icon }, i}
+				<a
+					{href}
+					class="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2 {
+						getLastRoute($page.route.id) === href 
+							? 'bg-[#c2ff00] bg-opacity-10 text-[#c2ff00]' 
+							: 'bg-[#151515] bg-opacity-40 text-gray-400'
+					}"
+				>
+					<Icon {icon} class="text-lg" />
+					<span>{label}</span>
+				</a>
+			{/each}
+		</div>
+
+		<!-- Content -->
 		{#key data.url}
 			<div
-				in:fly={{ y: 50, duration: 150, delay: 150 }}
-				out:fly={{ x: 150, duration: 150 }}
-				class="w-[55%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%] flex self-center justify-center items-center">
+				in:fly={{ y: 20, duration: 300, delay: 150 }}
+				out:fly={{ y: -20, duration: 200 }}
+				class="max-w-4xl mx-auto"
+			>
 				<slot />
 			</div>
 		{/key}

@@ -96,7 +96,7 @@
 	// Material options
 	const materials = ['PLA', 'ABS', 'PETG', 'TPU', 'NYLON'] as const;
 	const qualities = ['Draft', 'Standard', 'High'];
-	const colors = ['#000000', '#FF4500', '#00FF00', '#0066FF', '#FFFF00', '#FF33FF'];
+	const colors = ['#090909', '#FF4500', '#00FF00', '#0066FF', '#FFFF00', '#FF33FF'];
 
 	// Strength levels with walls mapping
 	const strengthLevels = [
@@ -426,12 +426,14 @@
 		<div class="orb orb-3"></div>
 	</div>
 	<div class="w-full max-w-7xl px-4 relative z-10">
-		<!-- Info banner -->
-		<div class="flex items-start gap-3 bg-zinc-900/60 rounded-lg p-4 my-4 text-white/90 backdrop-blur-sm shadow-glow">
-			<Icon icon="material-symbols:info-rounded" class="text-indigo-400 text-xl mt-0.5 flex-shrink-0 icon-glow" />
-			<p class="text-sm">
-				Upload your 3D model file and customize your print parameters. We'll connect you with the
-				perfect maker from our community to bring your design to life.
+		<div class="text-center mb-8 mt-12 ">
+			<div class="inline-flex items-center justify-center mb-3">
+				<span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>
+				<span class="text-indigo-400 text-sm uppercase tracking-wider font-medium">Print It Forward</span>
+			</div>
+			<h1 class="text-3xl font-bold mb-2">Community 3D Printing</h1>
+			<p class="text-gray-400 max-w-2xl mx-auto text-sm">
+				Upload your 3D model and connect with skilled makers in our community who will bring your design to life.
 			</p>
 		</div>
 
@@ -473,7 +475,7 @@
 
 				<!-- Upload area / Drag & drop -->
 				<button
-					class="w-full bg-zinc-900/40 border-2 border-dashed rounded-lg mb-4 p-4 flex flex-col items-center justify-center text-center backdrop-blur-sm shadow-glow-subtle transition-all duration-300 {dragActive ? 'border-indigo-400 shadow-glow-active' : 'border-zinc-800/60'}"
+					class="w-full bg-black/40 border-2 border-dashed rounded-lg mb-4 p-4 flex flex-col items-center justify-center text-center backdrop-blur-sm shadow-glow-subtle transition-all duration-300 {dragActive ? 'border-indigo-400 shadow-glow-active' : 'border-zinc-800/60'}"
 					on:dragover={handleDragOver}
 					on:dragleave={handleDragLeave}
 					on:drop={handleDrop}>
@@ -501,7 +503,7 @@
 				</button>
 
 				<!-- Print Parameters -->
-				<div class="bg-zinc-900/40 rounded-lg p-5 backdrop-blur-sm shadow-glow-subtle">
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-sm shadow-glow-subtle">
 					<div class="flex items-center mb-4">
 						<Icon icon="material-symbols:build-outline" class="text-xl text-indigo-400 mr-2 icon-glow" />
 						<div class="text-lg font-medium text-white glow-text-subtle">Print Parameters</div>
@@ -516,7 +518,7 @@
 									class="py-2 text-center text-sm transition-colors rounded {selectedMaterial ===
 									material
 										? 'bg-blue-700 text-white shadow-glow-active'
-										: 'bg-zinc-800/70 text-white/80 hover:bg-zinc-700/80'}"
+										: 'bg-black-800/70 text-white/80 hover:bg-black-700/80'}"
 									on:click={() => (selectedMaterial = material)}>{material}</button>
 							{/each}
 						</div>
@@ -531,7 +533,7 @@
 									class="py-2 text-center text-sm transition-colors rounded {selectedQuality ===
 									quality
 										? 'bg-blue-700 text-white shadow-glow-active'
-										: 'bg-zinc-800/70 text-white/80 hover:bg-zinc-700/80'}"
+										: 'bg-black-800/70 text-white/80 hover:bg-black-700/80'}"
 									on:click={() => (selectedQuality = quality)}>{quality}</button>
 							{/each}
 						</div>
@@ -555,7 +557,7 @@
 								max="2"
 								step="0.05"
 								bind:value={scale}
-								class="w-full accent-indigo-400 bg-zinc-800 h-1 rounded appearance-none" />
+								class="w-full accent-indigo-400 bg-black-800 h-1 rounded appearance-none" />
 							<div
 								class="absolute top-0 left-0 right-0 flex justify-between px-1 -mt-1 pointer-events-none">
 								<div class="w-0.5 h-2 bg-white/20"></div>
@@ -585,7 +587,7 @@
 								step="1"
 								bind:value={sliderPosition}
 								on:input={updateInfillFromSlider}
-								class="w-full accent-indigo-400 bg-zinc-800 h-1 rounded appearance-none" />
+								class="w-full accent-indigo-400 bg-black-800 h-1 rounded appearance-none" />
 							<div
 								class="absolute top-3 left-0 right-0 flex justify-between text-[10px] text-white/50 pointer-events-none"
 								>
@@ -605,7 +607,7 @@
 						<div class="flex gap-3 mt-2">
 							{#each colors as color}
 								<button
-									class="w-10 h-10 rounded-full border-2 transition-colors"
+									class="w-10 h-10 rounded-full border-2 transition-colors {color=='#090909' ? 'outline-1 outline-dashed outline-white shadow-white shadow-sm' : 'outline-transparent'}"
 									class:border-white={selectedColor === color}
 									class:border-transparent={selectedColor !== color}
 									class:scale-110={selectedColor === color}
@@ -615,11 +617,12 @@
 						</div>
 					</div>
 				</div>
+
 			</div>
 
 			<!-- Right panel: Available Makers -->
 			<div class="lg:col-span-5">
-				<div class="bg-zinc-900/40 rounded-lg p-5 backdrop-blur-sm shadow-glow-subtle">
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-sm shadow-glow-subtle">
 					<div class="text-lg font-medium text-white mb-4 flex items-center">
 						<Icon icon="material-symbols:person-pin-circle" class="text-indigo-400 mr-2 icon-glow" />
 						<span class="glow-text-subtle">Available Makers ({makers.length})</span>
@@ -673,7 +676,7 @@
 
 										{#if maker.id === 1}
 											<!-- Printer model for first maker only -->
-											<div class="bg-zinc-900 rounded p-3 mt-2">
+											<div class="bg-black-900 rounded p-3 mt-2">
 												<div class="flex justify-between mb-1">
 													<div>
 														<div class="text-white font-medium text-sm">{maker.printerModels[0].name}</div>
@@ -698,7 +701,7 @@
 													<div class="flex items-center gap-1 mt-1">
 														<div class="text-white/50 text-xs">Materials:</div>
 														{#each ['PLA', 'PETG', 'TPU'] as mat}
-															<span class="bg-zinc-800 text-white/80 text-xs px-2 py-0.5 rounded"
+															<span class="bg-black-800 text-white/80 text-xs px-2 py-0.5 rounded"
 																>{mat}</span>
 														{/each}
 													</div>
@@ -725,6 +728,7 @@
 					</div>
 				</div>
 			</div>
+			<div class="h-[100px] w-[1px] bg-transparent"></div>
 		</div>
 	</div>
 </div>
@@ -781,7 +785,11 @@
 	
 	/* Gradient background effects */
 	.gradient-background {
-		background-color: #080810;
+		background: linear-gradient(to bottom right,
+			#06060a,
+			#0a0a14,
+			#06060a
+		);
 		position: relative;
 		overflow: hidden;
 		min-height: 100vh;
@@ -794,9 +802,14 @@
 		right: 0;
 		bottom: 0;
 		background: 
-			radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.04) 0%, transparent 45%),
-			radial-gradient(circle at 85% 70%, rgba(79, 70, 229, 0.05) 0%, transparent 45%),
-			radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 100%);
+			radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+			radial-gradient(circle at 85% 70%, rgba(79, 70, 229, 0.1) 0%, transparent 45%),
+			radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.7) 100%),
+			linear-gradient(45deg, 
+				rgba(99, 102, 241, 0.03) 0%,
+				rgba(0, 0, 0, 0) 40%,
+				rgba(79, 70, 229, 0.03) 100%
+			);
 		pointer-events: none;
 		z-index: 1;
 		animation: pulse-subtle 15s infinite alternate ease-in-out;
@@ -821,27 +834,27 @@
 	}
 	
 	.orb-1 {
-		width: 300px;
-		height: 300px;
-		background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
-		top: 10%;
-		left: 15%;
+		width: 400px;
+		height: 400px;
+		background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+		top: 5%;
+		left: 10%;
 		animation: float-orb 20s infinite alternate ease-in-out;
 	}
 	
 	.orb-2 {
-		width: 400px;
-		height: 400px;
-		background: radial-gradient(circle, rgba(79, 70, 229, 0.3) 0%, transparent 70%);
-		bottom: 10%;
-		right: 15%;
+		width: 500px;
+		height: 500px;
+		background: radial-gradient(circle, rgba(79, 70, 229, 0.15) 0%, transparent 70%);
+		bottom: 5%;
+		right: 10%;
 		animation: float-orb 25s infinite alternate-reverse ease-in-out;
 	}
 	
 	.orb-3 {
-		width: 250px;
-		height: 250px;
-		background: radial-gradient(circle, rgba(129, 140, 248, 0.3) 0%, transparent 70%);
+		width: 300px;
+		height: 300px;
+		background: radial-gradient(circle, rgba(129, 140, 248, 0.12) 0%, transparent 70%);
 		top: 40%;
 		right: 25%;
 		animation: float-orb 18s infinite alternate ease-in-out 5s;
@@ -849,16 +862,19 @@
 	
 	@keyframes float-orb {
 		0% {
-			transform: translate(0, 0);
+			transform: translate(0, 0) scale(1);
+		}
+		50% {
+			transform: translate(30px, 30px) scale(1.1);
 		}
 		100% {
-			transform: translate(40px, 40px);
+			transform: translate(-30px, -30px) scale(1);
 		}
 	}
 	
 	@keyframes pulse-subtle {
 		0% {
-			opacity: 0.6;
+			opacity: 0.8;
 		}
 		100% {
 			opacity: 1;

@@ -2,6 +2,7 @@
 	import Roadmap from '$lib/components/page/roadmap.svelte';
 	import snarkdown from 'snarkdown';
 	import { ABOUT_STRINGS } from '$lib/constants/strings';
+	import Icon from '@iconify/svelte';
 	let origin = ABOUT_STRINGS.origin;
 	let privacy = ABOUT_STRINGS.privacy;
 	let terms = ABOUT_STRINGS.terms;
@@ -14,102 +15,160 @@
 	import * as Card from '$lib/components/ui/card';
 </script>
 
-<div class="text-white flex flex-col text-center mt-8">
-	<span class="font-bold text-2xl mx-4">Policy</span>
-	<div class="mt-8 w-full flex flex-col justify-center items-center">
-		<div id="privacy" class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3 w-full">
-				<Card.Header>
-					<Card.Title class="text-2xl">Privacy Policy</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					{@html snarkdown(privacy)}
-				</Card.Content>
-			</Card.Root>
+<div class="min-h-screen bg-[#0c0c0c] text-white py-12">
+	<div class="container mx-auto px-4">
+		<!-- Header -->
+		<div class="text-center mb-12">
+			<div class="inline-flex items-center justify-center mb-4">
+				<span class="w-3 h-3 rounded-full bg-[#c2ff00] mr-2"></span>
+				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">Legal & Policies</span>
+			</div>
+			<h1 class="text-4xl font-bold mb-3">Our Policies</h1>
+			<p class="text-gray-400 max-w-2xl mx-auto">Everything you need to know about our terms, policies, and procedures.</p>
 		</div>
-		<div id="terms" class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3 w-full">
-				<Card.Header>
-					<Card.Title class="text-2xl">Terms & Conditions</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					{@html snarkdown(terms)}
-				</Card.Content>
-			</Card.Root>
+
+		<!-- Quick Navigation -->
+		<div class="flex flex-wrap justify-center gap-3 mb-12">
+			{#each ['Privacy Policy', 'Terms & Conditions', 'Cancellation & Refund', 'Shipping & Delivery', 'Contact Us', 'Risks'] as section, i}
+				<button
+					class="{`
+						px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105
+						${currentSelection === i ? 'bg-[#c2ff00]/10 text-[#c2ff00]' : 'bg-[#151515]/40 text-gray-400'}
+					`}"
+					on:click={() => {
+						currentSelection = i;
+						document.getElementById(['privacy', 'terms', 'cancellation', 'shipping', 'contact', 'risks'][i])?.scrollIntoView({ behavior: 'smooth' });
+					}}
+				>
+					{section}
+				</button>
+			{/each}
 		</div>
-		<div id="cancellation" class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3 w-full">
-				<Card.Header>
-					<Card.Title class="text-2xl">Cancellation & Refund</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					{@html snarkdown(cancellation)}
-				</Card.Content>
-			</Card.Root>
-		</div>
-		<div id="shipping" class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3 w-full">
-				<Card.Header>
-					<Card.Title class="text-2xl">Shipping & Delivery</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					{@html snarkdown(shipping)}
-				</Card.Content>
-			</Card.Root>
-		</div>
-		<div id="contact" class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3 w-full">
-				<Card.Header>
-					<Card.Title class="text-2xl">Contact Us</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					{@html snarkdown(contact)}
-				</Card.Content>
-			</Card.Root>
-		</div>
-		<div id="risks" class="flex flex-col justify-center items-center w-[65%] max-lg:w-[90%]">
-			<Card.Root class="bg-[#131819] border-none text-white text-left mb-4 max-lg:mb-3 w-full">
-				<Card.Header>
-					<Card.Title class="text-2xl">Risks</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					{@html snarkdown(risks)}
-				</Card.Content>
-			</Card.Root>
+
+		<!-- Policy Content -->
+		<div class="max-w-4xl mx-auto space-y-8">
+			<div id="privacy" class="policy-section">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+					<Card.Header class="border-b border-[#252525] p-6">
+						<Card.Title class="text-2xl flex items-center gap-3">
+							<Icon icon="ph:shield-check-bold" class="text-[#c2ff00] opacity-80" />
+							Privacy Policy
+						</Card.Title>
+					</Card.Header>
+					<Card.Content class="p-6 prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white">
+						{@html snarkdown(privacy)}
+					</Card.Content>
+				</Card.Root>
+			</div>
+
+			<div id="terms" class="policy-section">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+					<Card.Header class="border-b border-[#252525] p-6">
+						<Card.Title class="text-2xl flex items-center gap-3">
+							<Icon icon="ph:book-bold" class="text-[#c2ff00] opacity-80" />
+							Terms & Conditions
+						</Card.Title>
+					</Card.Header>
+					<Card.Content class="p-6 prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white">
+						{@html snarkdown(terms)}
+					</Card.Content>
+				</Card.Root>
+			</div>
+
+			<div id="cancellation" class="policy-section">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+					<Card.Header class="border-b border-[#252525] p-6">
+						<Card.Title class="text-2xl flex items-center gap-3">
+							<Icon icon="ph:arrow-counter-clockwise-bold" class="text-[#c2ff00] opacity-80" />
+							Cancellation & Refund
+						</Card.Title>
+					</Card.Header>
+					<Card.Content class="p-6 prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white">
+						{@html snarkdown(cancellation)}
+					</Card.Content>
+				</Card.Root>
+			</div>
+
+			<div id="shipping" class="policy-section">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+					<Card.Header class="border-b border-[#252525] p-6">
+						<Card.Title class="text-2xl flex items-center gap-3">
+							<Icon icon="ph:truck-bold" class="text-[#c2ff00] opacity-80" />
+							Shipping & Delivery
+						</Card.Title>
+					</Card.Header>
+					<Card.Content class="p-6 prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white">
+						{@html snarkdown(shipping)}
+					</Card.Content>
+				</Card.Root>
+			</div>
+
+			<div id="contact" class="policy-section">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+					<Card.Header class="border-b border-[#252525] p-6">
+						<Card.Title class="text-2xl flex items-center gap-3">
+							<Icon icon="ph:phone-bold" class="text-[#c2ff00] opacity-80" />
+							Contact Us
+						</Card.Title>
+					</Card.Header>
+					<Card.Content class="p-6 prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white">
+						{@html snarkdown(contact)}
+					</Card.Content>
+				</Card.Root>
+			</div>
+
+			<div id="risks" class="policy-section">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+					<Card.Header class="border-b border-[#252525] p-6">
+						<Card.Title class="text-2xl flex items-center gap-3">
+							<Icon icon="ph:warning-circle-bold" class="text-[#c2ff00] opacity-80" />
+							Risks
+						</Card.Title>
+					</Card.Header>
+					<Card.Content class="p-6 prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white">
+						{@html snarkdown(risks)}
+					</Card.Content>
+				</Card.Root>
+			</div>
 		</div>
 	</div>
 </div>
 
 <style lang="postcss">
-	.category {
-		@apply mt-6 text-xl text-[#9D9D9D] font-semibold ease-linear transition-all duration-200;
+	.shadow-glow {
+		box-shadow: 0 4px 20px -5px rgba(194, 255, 0, 0.1);
 	}
 
-	.selected-category {
-		@apply font-bold text-2xl bg-opacity-20 rounded-[38px] bg-black p-4 text-white;
+	.policy-section {
+		scroll-margin: 8rem;
 	}
 
-	#privacy {
-		scroll-margin: 16rem;
+	:global(.prose) {
+		max-width: none;
 	}
 
-	#terms {
-		scroll-margin: 16rem;
+	:global(.prose h1, .prose h2, .prose h3, .prose h4) {
+		color: white;
+		margin-top: 2em;
+		margin-bottom: 1em;
 	}
 
-	#cancellation {
-		scroll-margin: 16rem;
+	:global(.prose p) {
+		color: #9ca3af;
+		margin-bottom: 1.5em;
 	}
 
-	#shipping {
-		scroll-margin: 16rem;
+	:global(.prose ul, .prose ol) {
+		color: #9ca3af;
+		margin-bottom: 1.5em;
 	}
 
-	#contact {
-		scroll-margin: 16rem;
+	:global(.prose a) {
+		color: #c2ff00;
+		text-decoration: none;
 	}
 
-	#risks {
-		scroll-margin: 16rem;
+	:global(.prose a:hover) {
+		text-decoration: underline;
 	}
 </style>

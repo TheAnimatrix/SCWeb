@@ -7,11 +7,14 @@
 	import Icon from '@iconify/svelte';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
+	
 	export let data;
 	let errorMsg = '';
 	let errorShow = false;
-
 	let editing: boolean[] = [];
+	let addresses: Address[] = [];
+	let load_store = getContext<Writable<boolean>>('loading');
+
 	async function newAddress() {
 		if (editError()) return;
 		addresses = [{}, ...addresses];
@@ -38,11 +41,8 @@
 		timeout(errorShow);
 	}
 
-	let addresses: Address[] = [];
-	let load_store = getContext<Writable<boolean>>('loading');
 	async function setup() {
-		setLoading(load_store,true);
-		
+		setLoading(load_store, true);
 		let result = await data.supabase_lt.from('addresses').select('*');
 		addresses = [];
 		if (result && result.data) {
@@ -53,17 +53,15 @@
 			addresses = [...addresses];
 			editing = [...editing];
 		}
-		setLoading(load_store,false);
+		setLoading(load_store, false);
 	}
 
 	async function deleteAddress(i: number) {
 		let addr = addresses[i];
-		setLoading(load_store,true);
+		setLoading(load_store, true);
 		if (addr.id) {
-			
 			let result = await data.supabase_lt.from('addresses').delete().eq('id', addr.id).select();
 			if (result.error || !(result.data && result.data.length > 0)) {
-				
 				errorMsg = 'Error, could not delete address';
 				errorShow = true;
 			} else {
@@ -73,8 +71,9 @@
 			errorMsg = 'Error, unable to find address to delete in database';
 			errorShow = true;
 		}
-		setLoading(load_store,false);
+		setLoading(load_store, false);
 	}
+
 	async function saveAddress(i: number, isChanged: boolean) {
 		let addr = addresses[i];
 		let result;
@@ -85,7 +84,7 @@
 				errorShow = true;
 				return;
 			}
-			setLoading(load_store,true);
+			setLoading(load_store, true);
 			result = await data.supabase_lt.from('addresses').select('*').eq('id', addr.id);
 			if (result.data && result.data[0] && !result.error) {
 				if (!compareAddress(result.data[0] as Address, addr)) {
@@ -109,75 +108,105 @@
 				}
 				errorShow = true;
 			} else {
-				//show error
 				errorMsg = 'Error, could not update address';
 				errorShow = true;
 			}
 		} else {
 			//create address
-			setLoading(load_store,true);
+			setLoading(load_store, true);
 			result = await data.supabase_lt.from('addresses').insert([{ ...addr }]);
 			await setup();
 		}
-		setLoading(load_store,false);
+		setLoading(load_store, false);
 	}
 
 	addresses = data.addresses;
 	editing = data.editing;
 </script>
 
-<div class="flex flex-col w-full">
-	<button
-		class="{addresses.length <= 0
-			? 'self-center'
-			: 'self-start'} flex p-3 border-[1px] border-orange-300 rounded-xl bg-scoranged2 hover:bg-scoranged1 animate_base"
-		on:click={newAddress}
-	>
-		<span class="text-xl font-medium text-orange-300 pr-2">Add Address</span>
-		<Icon icon="iconamoon:sign-plus-circle-duotone" class="text-orange-300 text-3xl" />
-	</button>
-	<div class:hidden={!errorShow} class="mt-4 text-red-500">{errorMsg}</div>
-	{#each addresses as address, i (address)}
-		<AddressInput
-			type={editing[i] ? 'edit' : 'text'}
-			class="animate_base mt-4"
-			{address}
-			onDelete={(isCloseOnly) => {
-				if (isCloseOnly) {
-					editing[i] = false;
-					return;
-				}
-				if (!address.id) {
-					addresses.splice(i, 1);
-					editing.splice(i, 1);
-					addresses = addresses;
-				} else deleteAddress(i);
-			}}
-			onSave={(isChanged, saved_addr) => {
-				if (address.state && address.state.length > 0) {
-					address.state = getValidState(address.state)[0];
-				}
-				if(address.phone?.startsWith("+91")) address.phone = address.phone.substring(3);
-				let error = validateAddress(address);
-				if (error) {
-					errorShow = true;
-					errorMsg = error;
-					return false;
-				}
-				address.phone = "+91"+address.phone;
-				//save address here
-				saveAddress(i, isChanged);
-				editing[i] = false;
-				return true;
-			}}
-			onEditStart={() => {
-				if (editError()) return false;
-				editing[i] = true;
-				return true;
-			}}
-		/>
-	{/each}
+<div class="space-y-6">
+	<!-- Add Address Button -->
+	<div class="flex justify-between items-center">
+		<button
+			class="flex items-center gap-2 px-6 py-3 bg-[#151515] hover:bg-opacity-80 rounded-xl transition-all text-[#c2ff00]"
+			on:click={newAddress}
+		>
+			<Icon icon="ph:plus-circle-bold" class="text-xl" />
+			<span class="font-medium">Add New Address</span>
+		</button>
+	</div>
+
+	<!-- Error Message -->
+	{#if errorShow}
+		<div class="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-20 rounded-xl p-4 text-red-400">
+			<div class="flex items-center gap-2">
+				<Icon icon="ph:warning-circle-bold" class="text-xl" />
+				<span>{errorMsg}</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Address List -->
+	<div class="grid gap-6">
+		{#if addresses.length === 0}
+			<div class="bg-[#151515] rounded-xl p-8 text-center">
+				<Icon icon="ph:map-pin-bold" class="text-4xl text-gray-400 mx-auto mb-4" />
+				<p class="text-gray-400">No addresses added yet</p>
+				<button
+					class="inline-block mt-4 px-6 py-2 bg-[#c2ff00] bg-opacity-10 text-[#c2ff00] rounded-lg hover:bg-opacity-20 transition-all"
+					on:click={newAddress}
+				>
+					Add Your First Address
+				</button>
+			</div>
+		{:else}
+			{#each addresses as address, i}
+				<div class="bg-[#151515] rounded-xl overflow-hidden backdrop-blur-md">
+					<AddressInput
+						type={editing[i] ? 'edit' : 'text'}
+						class="p-4"
+						{address}
+						onDelete={(isCloseOnly) => {
+							if (isCloseOnly) {
+								editing[i] = false;
+								return;
+							}
+							if (!address.id) {
+								addresses.splice(i, 1);
+								editing.splice(i, 1);
+								addresses = addresses;
+							} else deleteAddress(i);
+						}}
+						onSave={(isChanged, saved_addr) => {
+							if (address.state && address.state.length > 0) {
+								address.state = getValidState(address.state)[0];
+							}
+							if(address.phone?.startsWith("+91")) address.phone = address.phone.substring(3);
+							let error = validateAddress(address);
+							if (error) {
+								errorShow = true;
+								errorMsg = error;
+								return false;
+							}
+							address.phone = "+91" + address.phone;
+							saveAddress(i, isChanged);
+							editing[i] = false;
+							return true;
+						}}
+						onEditStart={() => {
+							if (editError()) return false;
+							editing[i] = true;
+							return true;
+						}}
+					/>
+				</div>
+			{/each}
+		{/if}
+	</div>
 </div>
 
 <style lang="postcss">
+	:global(.animate_base) {
+		@apply transition-all duration-200;
+	}
 </style>

@@ -31,35 +31,35 @@
 			name: "Osprey",
 			icon: "🦅",
 			color: "#c2ff00",
-			desc: "The pinnacle of maker excellence, creating exceptional products that define standards in their niche.",
+			desc: "Master craftspeople with exceptional reputation and verified excellence.",
 			benefits: ["Premium visibility", "Dedicated support", "Early feature access", "Commission freedom"]
 		},
 		{
 			name: "Tiger",
 			icon: "🐯",
 			color: "#ff9900",
-			desc: "Established creators who consistently deliver quality and build sustainable maker businesses.",
+			desc: "Established creators with proven track record and consistent quality.",
 			benefits: ["Featured in collections", "Priority support", "Higher visibility", "Reduced fees"]
 		},
 		{
 			name: "Rhino",
 			icon: "🦏",
 			color: "#cccccc",
-			desc: "Experienced makers who've turned their passion into recognized craftsmanship and expertise.",
+			desc: "Skilled makers with growing reputation and reliable craftsmanship.",
 			benefits: ["Increased exposure", "Community spotlight", "Special events access", "Verified badge"]
 		},
 		{
 			name: "Peacock",
 			icon: "🦚",
 			color: "#00c2ff",
-			desc: "Promising talents developing their unique style with growing customer appreciation.",
+			desc: "Emerging talents with promising skills and positive customer feedback.",
 			benefits: ["Mentorship access", "Growth resources", "Community support", "Learning materials"]
 		},
 		{
 			name: "Bee",
 			icon: "🐝",
 			color: "#ffec00",
-			desc: "Every great maker starts here - newcomers with passion ready to join the creator economy.",
+			desc: "Starting craftspeople taking their first steps in the maker economy.",
 			benefits: ["Onboarding support", "Basic tools", "Community access", "Learning resources"]
 		}
 	];
@@ -75,11 +75,11 @@
 		<div class="text-center mb-20 relative z-10">
 			<div class="inline-flex items-center justify-center mb-4">
 				<span class="w-4 h-4 rounded-full bg-[#c2ff00] mr-2"></span>
-				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">What you'll get</span>
+				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">What we're doing</span>
 			</div>
 			<h1 class="text-4xl md:text-5xl font-bold max-w-4xl mx-auto leading-tight">
-				Connecting indie makers with
-				<span class="block">parts, products, and people.</span>
+				Kickstarting the indie
+				<span class="block">maker economy.</span>
 			</h1>
 		</div>
 		
@@ -88,23 +88,6 @@
 			<!-- Maker Marketplace Card -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
 				<h3 class="text-[#c2ff00] text-xl font-bold mb-4">Maker Marketplace</h3>
-				<div class="h-48 flex items-center justify-center">
-					<svg class="w-full h-full" viewBox="0 0 200 100">
-						<!-- Stylized bar chart (keeping the same visual) -->
-						<rect x="10" y="70" width="8" height="20" fill="#c2ff00" rx="2" />
-						<rect x="25" y="50" width="8" height="40" fill="#c2ff00" rx="2" />
-						<rect x="40" y="60" width="8" height="30" fill="#c2ff00" rx="2" />
-						<rect x="55" y="30" width="8" height="60" fill="#c2ff00" rx="2" />
-						<rect x="70" y="45" width="8" height="45" fill="#c2ff00" rx="2" />
-						<rect x="85" y="20" width="8" height="70" fill="#c2ff00" rx="2" />
-						<rect x="100" y="40" width="8" height="50" fill="#c2ff00" rx="2" />
-						<rect x="115" y="25" width="8" height="65" fill="#c2ff00" rx="2" />
-						<rect x="130" y="35" width="8" height="55" fill="#c2ff00" rx="2" />
-						<rect x="145" y="15" width="8" height="75" fill="#c2ff00" rx="2" />
-						<rect x="160" y="25" width="8" height="65" fill="#c2ff00" rx="2" />
-						<rect x="175" y="10" width="8" height="80" fill="#c2ff00" rx="2" />
-					</svg>
-				</div>
 				<div class="text-lg font-medium mt-4">
 					Buy and sell both finished products and critical components
 				</div>
@@ -112,23 +95,12 @@
 			
 			<!-- Local Sourcing Card -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
-				<div class="flex justify-between mb-8">
+				<div class="flex justify-between mb-4">
 					<div class="flex items-center space-x-2">
 						<span class="text-xs text-white py-1 px-2 rounded bg-[#252525]">LOCAL FIRST</span>
 					</div>
 				</div>
 				
-				<div class="bg-[#1c1c1c] rounded-xl p-4 mb-6">
-					<div class="flex items-center space-x-3 mb-3">
-						<div class="w-8 h-8 rounded-full bg-[#252525] flex items-center justify-center">
-							<span class="text-[#c2ff00]">🔄</span>
-						</div>
-						<div>
-							<div class="text-white font-medium">Reduce imports</div>
-							<div class="text-gray-400 text-sm">Source locally</div>
-						</div>
-					</div>
-				</div>
 				
 				<h3 class="text-xl font-bold mb-3">Local Sourcing</h3>
 				<p class="text-gray-400">Reduce dependency on expensive imports by connecting with local component makers.</p>
@@ -137,13 +109,6 @@
 			<!-- Maker Community Card -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
 				<h3 class="text-xl font-bold mb-4">Maker Community</h3>
-				<div class="h-48 flex items-center justify-center">
-					<svg class="w-full h-full" viewBox="0 0 200 100">
-						<!-- Stylized line chart (keeping the same visual) -->
-						<path d="M10,80 Q30,75 50,65 T90,60 T130,40 T160,30 T190,10" stroke="#c2ff00" stroke-width="3" fill="none" />
-						<circle cx="190" cy="10" r="5" fill="#c2ff00" />
-					</svg>
-				</div>
 				<p class="text-gray-400 mt-4">
 					Join a network of indie creators solving common sourcing and scaling challenges together.
 				</p>
@@ -155,7 +120,7 @@
 			<!-- Creator Tools -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
 				<h3 class="text-xl font-bold mb-3">Creator Tools</h3>
-				<p class="text-gray-400 mb-4">Access specialized resources to design, manufacture, and market your innovations.</p>
+				<p class="text-gray-400 mb-4">Explore and learn about specialized resources to design, manufacture, and market your innovations with our connections.</p>
 				
 				<div class="flex space-x-3 mt-8">
 					<div class="w-8 h-8 rounded-lg bg-[#252525] flex items-center justify-center">
@@ -291,7 +256,7 @@
 		<div class="max-w-5xl mx-auto mt-20 text-center">
 			<h3 class="text-2xl font-bold mb-6">Ready to join the maker revolution?</h3>
 			<button class="bg-[#c2ff00] text-black px-8 py-3 rounded-lg font-bold hover:bg-white transition-colors">
-				Become a Crafter Today
+				<a href="/crafting">Become a Crafter Today</a>
 			</button>
 		</div>
 	</section>

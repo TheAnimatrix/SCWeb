@@ -21,38 +21,6 @@
 </script>
 
 <div class="flex flex-col text-white justify-center mx-auto">
-	<div class="flex flex-wrap text-xl justify-center items-center">
-		<div class="flex items-center">
-			<Icon
-				icon="solar:cart-large-2-bold-duotone"
-				class={currentPage == 'cart'
-					? 'text-[200%] text-scblue'
-					: 'text-[200%] text-scbluel0 opacity-50'}
-			/>
-			<span class={currentPage == 'cart' ? 'text-scbluel2 font-bold' : 'text-scbluel0 opacity-50'}
-				>Cart</span
-			>
-		</div>
-		<Icon icon="iconamoon:arrow-right-2-bold" class="text-[125%] mx-2" />
-		<div class="flex items-center">
-			<IconCheckout
-				class={currentPage == 'checkout'
-					? 'text-[200%] text-scblue'
-					: 'text-[200%] text-scbluel0 opacity-50'}
-			/>
-			<span class={currentPage == 'checkout' ? 'text-scbluel2 font-bold' : 'text-scbluel0 opacity-50'}
-				>Checkout</span
-			>
-		</div>
-		<Icon icon="iconamoon:arrow-right-2-bold" class="text-[125%] mx-2" />
-		<div class="flex items-center">
-			<IconOrderSummary
-			class={currentPage == 'summary'
-				? 'text-[200%] text-scblue'
-				: 'text-[200%] text-scbluel0 opacity-50'} />
-			<span class={currentPage == 'summary' ? 'text-scbluel2 font-bold' : 'text-scbluel0 opacity-50'}>Order Summary</span>
-		</div>
-	</div>
 	<div class="w-[55%] max-sm:w-[95%] max-md:w-[90%] max-lg:w-[85%] max-2xl:w-[75%] mx-auto">
 		<slot />
 	</div>

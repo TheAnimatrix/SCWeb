@@ -71,17 +71,168 @@
 	const keyFeatures = [
 		{
 			title: "Maker Marketplace",
-			icon: "🛒",
+			icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="w-10 h-10 feature-icon">
+				<defs>
+					<linearGradient id="storefront-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+						<stop offset="0%" stop-color="#4CAF50" />
+						<stop offset="100%" stop-color="#2E7D32" />
+					</linearGradient>
+					<linearGradient id="roof-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+						<stop offset="0%" stop-color="#7C4DFF" />
+						<stop offset="100%" stop-color="#512DA8" />
+					</linearGradient>
+					<linearGradient id="tech-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+						<stop offset="0%" stop-color="#00BCD4" />
+						<stop offset="100%" stop-color="#006064" />
+					</linearGradient>
+				</defs>
+				
+				<!-- Storefront base with modern design -->
+				<path d="M2 7h20v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7Z" fill="url(#storefront-gradient)" stroke="#ffffff" stroke-width="1.5" class="storefront-base" />
+				
+				<!-- Stylized roof -->
+				<path d="M1 7l2-4h18l2 4" fill="url(#roof-gradient)" stroke="#ffffff" stroke-width="1.5" class="storefront-roof" />
+				
+				<!-- Modern glass door -->
+				<path d="M9 13h6v8h-6v-8" fill="#E3F2FD" stroke="#ffffff" stroke-width="1.5" class="storefront-door" />
+				<path d="M11 17h2" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+				
+				<!-- Tech product displays -->
+				<rect x="4" y="9" width="2" height="2" rx="0.5" fill="#E1BEE7" stroke="#ffffff" stroke-width="1" class="product-item item-1" />
+				<rect x="7" y="9" width="2" height="2" rx="0.5" fill="#B2EBF2" stroke="#ffffff" stroke-width="1" class="product-item item-2" />
+				<rect x="15" y="9" width="2" height="2" rx="0.5" fill="#C8E6C9" stroke="#ffffff" stroke-width="1" class="product-item item-3" />
+				<rect x="18" y="9" width="2" height="2" rx="0.5" fill="#FFE0B2" stroke="#ffffff" stroke-width="1" class="product-item item-4" />
+				
+				<!-- Circuit board design -->
+				<path d="M4 13h2m1 0h1m4 4h1m1 0h2" stroke="url(#tech-gradient)" stroke-width="1.5" class="circuit-trace" />
+				<circle cx="18" cy="15" r="1" fill="#00BCD4" stroke="#ffffff" stroke-width="0.5" class="circuit-node node-1" />
+				<circle cx="5" cy="15" r="1" fill="#00BCD4" stroke="#ffffff" stroke-width="0.5" class="circuit-node node-2" />
+				
+				<!-- Digital elements -->
+				<path d="M5 11l1-1m12 1l1-1" stroke="#ffffff" stroke-width="0.5" opacity="0.6" />
+				<path d="M8 11l1-1m6 1l1-1" stroke="#ffffff" stroke-width="0.5" opacity="0.6" />
+			</svg>`,
 			desc: "Buy and sell both finished products and critical components in one platform."
 		},
 		{
 			title: "Local Sourcing",
-			icon: "🔄",
+			icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="w-10 h-10 feature-icon">
+				<defs>
+					<linearGradient id="globe-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+						<stop offset="0%" stop-color="#1976D2" />
+						<stop offset="100%" stop-color="#0D47A1" />
+					</linearGradient>
+					<linearGradient id="land-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+						<stop offset="0%" stop-color="#4CAF50" />
+						<stop offset="100%" stop-color="#2E7D32" />
+					</linearGradient>
+					<linearGradient id="connection-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+						<stop offset="0%" stop-color="#FFA726" />
+						<stop offset="100%" stop-color="#F57C00" />
+					</linearGradient>
+				</defs>
+				
+				<!-- World sphere with atmosphere effect -->
+				<circle cx="12" cy="12" r="9" fill="url(#globe-gradient)" stroke="#ffffff" stroke-width="1.5" class="world-map" />
+				<circle cx="12" cy="12" r="9" fill="none" stroke="#64B5F6" stroke-width="0.5" opacity="0.3" />
+				
+				<!-- Continents with detailed shapes -->
+				<path d="M5 9c1-1 2-1.5 3-1s2 1 2 2v1c0 1-.5 2-1.5 2S6 12 5 10V9z" fill="url(#land-gradient)" stroke="#ffffff" stroke-width="1" class="continent" />
+				<path d="M16 7c.5 0 1 .5 1 1v1c0 .5-.5 1.5-1 2s-1.5 1-2 1-1.5-.5-2-1-1-1.5-1-2 .5-1 1-1 1 .5 1.5.5S15 7 16 7z" fill="url(#land-gradient)" stroke="#ffffff" stroke-width="1" class="continent" />
+				<path d="M14 15c.5-.5 1-.5 1.5 0s.5 1 0 1.5-1 .5-1.5 0-.5-1 0-1.5z" fill="url(#land-gradient)" stroke="#ffffff" stroke-width="1" class="continent" />
+				
+				<!-- Connection network -->
+				<path d="M7.5 8L12 5l3.5 3" stroke="url(#connection-gradient)" stroke-width="2" class="connection-line network-line-1" />
+				<path d="M5.5 13l3 3 5-3" stroke="url(#connection-gradient)" stroke-width="2" class="connection-line network-line-2" />
+				
+				<!-- Connection points with glowing effect -->
+				<circle cx="7.5" cy="8" r="1.2" fill="#FFA726" class="source-node node-1">
+					<animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="12" cy="5" r="1.2" fill="#FFA726" class="source-node node-2">
+					<animate attributeName="opacity" values="0.6;1;0.6" dur="2s" begin="0.3s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="15.5" cy="8" r="1.2" fill="#FFA726" class="source-node node-3">
+					<animate attributeName="opacity" values="0.6;1;0.6" dur="2s" begin="0.6s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="5.5" cy="13" r="1.2" fill="#FFA726" class="source-node node-4">
+					<animate attributeName="opacity" values="0.6;1;0.6" dur="2s" begin="0.9s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="8.5" cy="16" r="1.2" fill="#FFA726" class="source-node node-5">
+					<animate attributeName="opacity" values="0.6;1;0.6" dur="2s" begin="1.2s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="13.5" cy="13" r="1.2" fill="#FFA726" class="source-node node-6">
+					<animate attributeName="opacity" values="0.6;1;0.6" dur="2s" begin="1.5s" repeatCount="indefinite" />
+				</circle>
+			</svg>`,
 			desc: "Reduce dependency on expensive imports by connecting with local component makers."
 		},
 		{
 			title: "Creator Community",
-			icon: "👥",
+			icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="w-10 h-10 feature-icon">
+				<defs>
+					<linearGradient id="hub-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+						<stop offset="0%" stop-color="#E91E63" />
+						<stop offset="100%" stop-color="#C2185B" />
+					</linearGradient>
+					<linearGradient id="creator-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+						<stop offset="0%" stop-color="#9C27B0" />
+						<stop offset="100%" stop-color="#6A1B9A" />
+					</linearGradient>
+					<linearGradient id="connection-gradient-2" x1="0%" y1="0%" x2="100%" y2="0%">
+						<stop offset="0%" stop-color="#FF4081" />
+						<stop offset="100%" stop-color="#F50057" />
+					</linearGradient>
+				</defs>
+				
+				<!-- Central hub with pulsing effect -->
+				<circle cx="12" cy="12" r="3.2" fill="url(#hub-gradient)" stroke="#ffffff" stroke-width="1.8" class="hub">
+					<animate attributeName="opacity" values="0.8;1;0.8" dur="3s" repeatCount="indefinite" />
+				</circle>
+				
+				<!-- Creator nodes with gradient fills -->
+				<circle cx="5" cy="8" r="2.2" fill="url(#creator-gradient)" stroke="#ffffff" stroke-width="1.5" class="creator creator-1">
+					<animate attributeName="r" values="2.2;2.4;2.2" dur="2s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="19" cy="8" r="2.2" fill="url(#creator-gradient)" stroke="#ffffff" stroke-width="1.5" class="creator creator-2">
+					<animate attributeName="r" values="2.2;2.4;2.2" dur="2s" begin="0.3s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="5" cy="16" r="2.2" fill="url(#creator-gradient)" stroke="#ffffff" stroke-width="1.5" class="creator creator-3">
+					<animate attributeName="r" values="2.2;2.4;2.2" dur="2s" begin="0.6s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="19" cy="16" r="2.2" fill="url(#creator-gradient)" stroke="#ffffff" stroke-width="1.5" class="creator creator-4">
+					<animate attributeName="r" values="2.2;2.4;2.2" dur="2s" begin="0.9s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="12" cy="4" r="2.2" fill="url(#creator-gradient)" stroke="#ffffff" stroke-width="1.5" class="creator creator-5">
+					<animate attributeName="r" values="2.2;2.4;2.2" dur="2s" begin="1.2s" repeatCount="indefinite" />
+				</circle>
+				<circle cx="12" cy="20" r="2.2" fill="url(#creator-gradient)" stroke="#ffffff" stroke-width="1.5" class="creator creator-6">
+					<animate attributeName="r" values="2.2;2.4;2.2" dur="2s" begin="1.5s" repeatCount="indefinite" />
+				</circle>
+				
+				<!-- Dynamic connection lines -->
+				<path d="M7 8l3 2.5" stroke="url(#connection-gradient-2)" stroke-width="1.5" class="connection network-line-1">
+					<animate attributeName="stroke-width" values="1.5;2;1.5" dur="2s" repeatCount="indefinite" />
+				</path>
+				<path d="M17 8l-3 2.5" stroke="url(#connection-gradient-2)" stroke-width="1.5" class="connection network-line-2">
+					<animate attributeName="stroke-width" values="1.5;2;1.5" dur="2s" begin="0.3s" repeatCount="indefinite" />
+				</path>
+				<path d="M7 16l3-2.5" stroke="url(#connection-gradient-2)" stroke-width="1.5" class="connection network-line-3">
+					<animate attributeName="stroke-width" values="1.5;2;1.5" dur="2s" begin="0.6s" repeatCount="indefinite" />
+				</path>
+				<path d="M17 16l-3-2.5" stroke="url(#connection-gradient-2)" stroke-width="1.5" class="connection network-line-4">
+					<animate attributeName="stroke-width" values="1.5;2;1.5" dur="2s" begin="0.9s" repeatCount="indefinite" />
+				</path>
+				<path d="M12 6v3" stroke="url(#connection-gradient-2)" stroke-width="1.5" class="connection network-line-5">
+					<animate attributeName="stroke-width" values="1.5;2;1.5" dur="2s" begin="1.2s" repeatCount="indefinite" />
+				</path>
+				<path d="M12 18v-3" stroke="url(#connection-gradient-2)" stroke-width="1.5" class="connection network-line-6">
+					<animate attributeName="stroke-width" values="1.5;2;1.5" dur="2s" begin="1.5s" repeatCount="indefinite" />
+				</path>
+				
+				<!-- Interconnected mesh -->
+				<path d="M5 10v4M19 10v4M7 7l10 1M7 17l10-1M10 5l4 1M10 19l4-1" stroke="#FF80AB" stroke-width="0.7" stroke-dasharray="2 1" class="network-mesh" opacity="0.6" />
+			</svg>`,
 			desc: "Join a network of indie creators solving common sourcing and scaling challenges together."
 		}
 	];
@@ -239,11 +390,11 @@
 
 </script>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white overflow-hidden">
+<div class="min-h-screen bg-[#0c0c0c] text-white w-full max-w-full overflow-x-hidden">
 	<!-- Welcome Section -->
-	<section class="pt-12 pb-16 px-4 relative">
+	<section class="pt-12 pb-16 px-4 relative w-full max-w-full overflow-hidden">
 		<!-- Glowing accent -->
-		<div class="absolute top-20 left-1/2 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] -translate-x-1/2 rounded-full"></div>
+		<!-- <div class="absolute top-20 left-1/2 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] -translate-x-1/2 rounded-full"></div> -->
 		
 		<!-- Heading -->
 		<div class="text-center mb-12 relative z-10">
@@ -260,19 +411,19 @@
 		<!-- Features Grid -->
 		<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 			{#each keyFeatures as feature, i}
-				<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
-					<div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl mb-4 border border-[#c2ff00]/30" style="background-color: rgba(194, 255, 0, 0.1);">
-						{feature.icon}
+				<div class="bg-[#151515]/40 rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all hover:shadow-glow group">
+					<div class="w-16 h-16 rounded-xl flex items-center justify-center mb-4 border border-[#c2ff00]/30 icon-container transition-all duration-300 group-hover:shadow-glow-sm group-hover:border-[#c2ff00]/50" style="background-color: rgba(194, 255, 0, 0.06);">
+						{@html feature.icon}
 					</div>
-					<h3 class="text-xl font-bold mb-2 text-[#c2ff00]">{feature.title}</h3>
-					<p class="text-gray-400">{feature.desc}</p>
+					<h3 class="text-xl font-bold mb-2 text-[#c2ff00] group-hover:translate-y-[-2px] transition-all duration-300">{feature.title}</h3>
+					<p class="text-gray-400 group-hover:text-gray-300 transition-colors duration-300">{feature.desc}</p>
 				</div>
 			{/each}
 		</div>
 	</section>
 	
 	<!-- Featured Products Section with Banner Carousel -->
-	<section class="py-20 px-4 relative overflow-hidden">
+	<section class="py-20 px-4 relative overflow-hidden w-full max-w-full">
 		<!-- Background Elements -->
 		<div class="absolute inset-0 bg-[#0a0a0a] z-0"></div>
 		
@@ -418,7 +569,7 @@
 	</section>
 	
 	<!-- Product List Section -->
-	<section class="px-4 pb-20 relative">
+	<section class="px-4 pb-20 relative w-full max-w-full overflow-hidden">
 		<div class="max-w-7xl mx-auto">
 			<!-- Section heading & Filters -->
 			<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-10 mt-10">
@@ -586,7 +737,7 @@
 	}
 	
 	.shadow-glow-sm {
-		box-shadow: 0 0 10px 2px rgba(194, 255, 0, 0.15);
+		box-shadow: 0 0 15px rgba(194, 255, 0, 0.2);
 	}
 	
 	/* Card Stack Container Styles */
@@ -1214,6 +1365,189 @@
 			opacity: 0;
 			transform: translate(-12px, -240px) scale(1.2);
 		}
+	}
+	
+	/* Enhanced Feature Icon Animations */
+	
+	/* Feature Icon Base */
+	.feature-icon {
+		transform: translateZ(0);
+		transition: all 0.3s ease;
+	}
+	
+	.w-16:hover .feature-icon {
+		transform: scale(1.1);
+	}
+	
+	/* Marketplace Icon Animation */
+	.storefront-base {
+		opacity: 0.9;
+	}
+	
+	.storefront-roof {
+		animation: shimmer 3s infinite alternate;
+		opacity: 0.85;
+	}
+	
+	.storefront-door {
+		animation: pulse 2s infinite alternate;
+		opacity: 0.9;
+	}
+	
+	.product-item {
+		animation: blink 4s infinite;
+		opacity: 0.8;
+	}
+	
+	.item-1 { animation-delay: 0s; }
+	.item-2 { animation-delay: 0.5s; }
+	.item-3 { animation-delay: 1s; }
+	.item-4 { animation-delay: 1.5s; }
+	
+	.circuit-trace {
+		stroke-dasharray: 8;
+		stroke-dashoffset: 16;
+		animation: dash 5s linear infinite;
+		opacity: 0.7;
+	}
+	
+	.circuit-node {
+		animation: pulse 3s infinite alternate;
+		opacity: 0.8;
+	}
+	
+	/* Local Sourcing Icon Animation */
+	.world-map {
+		animation: pulse 8s infinite alternate;
+		opacity: 0.8;
+	}
+	
+	.continent {
+		animation: pulse 5s infinite alternate;
+		opacity: 0.7;
+	}
+	
+	.connection-line {
+		stroke-dasharray: 10;
+		stroke-dashoffset: 20;
+		animation: dash 6s linear infinite;
+		opacity: 0.7;
+	}
+	
+	.source-node {
+		animation: glow 3s infinite alternate;
+	}
+	
+	.node-1 { animation-delay: 0s; }
+	.node-2 { animation-delay: 0.2s; }
+	.node-3 { animation-delay: 0.4s; }
+	.node-4 { animation-delay: 0.6s; }
+	.node-5 { animation-delay: 0.8s; }
+	.node-6 { animation-delay: 1s; }
+	
+	/* Community Icon Animation */
+	.hub {
+		animation: pulse 3s infinite alternate;
+		opacity: 0.9;
+	}
+	
+	.creator {
+		animation: glow 4s infinite alternate;
+	}
+	
+	.creator-1 { animation-delay: 0s; }
+	.creator-2 { animation-delay: 0.5s; }
+	.creator-3 { animation-delay: 1s; }
+	.creator-4 { animation-delay: 1.5s; }
+	.creator-5 { animation-delay: 2s; }
+	.creator-6 { animation-delay: 2.5s; }
+	
+	.connection {
+		stroke-dasharray: 10;
+		stroke-dashoffset: 10;
+		animation: dash 5s linear infinite;
+		opacity: 0.8;
+	}
+	
+	.network-line-1 { animation-delay: 0s; }
+	.network-line-2 { animation-delay: 0.5s; }
+	.network-line-3 { animation-delay: 1s; }
+	.network-line-4 { animation-delay: 1.5s; }
+	.network-line-5 { animation-delay: 2s; }
+	.network-line-6 { animation-delay: 2.5s; }
+	
+	.network-mesh {
+		animation: pulse 4s infinite alternate;
+		opacity: 0.5;
+	}
+	
+	.mesh-1 { animation-delay: 0.1s; }
+	.mesh-2 { animation-delay: 0.6s; }
+	.mesh-3 { animation-delay: 1.1s; }
+	.mesh-4 { animation-delay: 1.6s; }
+	.mesh-5 { animation-delay: 2.1s; }
+	.mesh-6 { animation-delay: 2.6s; }
+	
+	@keyframes shimmer {
+		0% { opacity: 0.7; }
+		100% { opacity: 1; stroke-width: 1.8; }
+	}
+	
+	@keyframes blink {
+		0%, 100% { opacity: 0.4; }
+		50% { opacity: 0.9; }
+	}
+	
+	@keyframes dash {
+		to { stroke-dashoffset: 0; }
+	}
+	
+	@keyframes glow {
+		0% { opacity: 0.6; stroke-width: 1.3; }
+		100% { opacity: 1; stroke-width: 1.8; }
+	}
+	
+	/* Feature Icon Container Styles */
+	.icon-container {
+		position: relative;
+		overflow: hidden;
+		transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+		transform: translateZ(0);
+	}
+	
+	.icon-container:before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: radial-gradient(circle at center, rgba(194, 255, 0, 0.15), transparent 70%);
+		opacity: 0;
+		transition: opacity 0.5s ease;
+	}
+	
+	.group:hover .icon-container {
+		transform: scale(1.05) translateZ(5px);
+	}
+	
+	.group:hover .icon-container:before {
+		opacity: 1;
+	}
+	
+	.shadow-glow {
+		box-shadow: 0 5px 20px -5px rgba(194, 255, 0, 0.1);
+	}
+
+	/* Animation Keyframes */
+	@keyframes pulse {
+		0% { opacity: 0.6; }
+		100% { opacity: 1; }
+	}
+	
+	@keyframes rotate {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
 	}
 </style>
 

@@ -23,15 +23,15 @@
 	$: {
 		if ($page.route.id?.startsWith('/user')) {
 			primaryColor = 'scoranged1';
-			filter = 'filter-orange';
+			filter = 'filter-green';
 			pageName = 'user';
 		} else if ($page.route.id?.startsWith('/about') || $page.route.id?.startsWith('/policy')) {
 			primaryColor = 'sccyand1';
-			filter = 'filter-about';
+			filter = 'filter-green';
 			pageName = 'about';
 		} else if ($page.route.id?.startsWith('/crafting')) {
 			primaryColor = 'scredd1';
-			filter = 'filter-crafting';
+			filter = 'filter-green';
 			pageName = 'crafting';
 		} else if ($page.route.id?.startsWith('/pif-portal')) {
 			primaryColor = 'scblued1';
@@ -39,11 +39,11 @@
 			pageName = 'about';
 		} else if ($page.route.id?.startsWith('/(cart)')) {
 			primaryColor = 'scblued1';
-			filter = 'filter-cart';
+			filter = 'filter-green';
 			pageName = 'cart';
 		} else {
-			primaryColor = 'scpurpled1';
-			filter = 'filter-purple';
+			primaryColor = 'scgreen';
+			filter = 'filter-green';
 			pageName = 'main';
 		}
 	}
@@ -94,7 +94,7 @@
 	});
 </script>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white overflow-hidden">
+<div class="min-h-screen bg-[#0c0c0c] text-white w-full max-w-full overflow-x-hidden">
 	<!-- Loading Overlay -->
 	<div
 		class="h-screen bg-[rgba(0,0,0,0.8)] z-50 inset-0 fixed justify-center flex flex-col items-center"
@@ -105,7 +105,7 @@
 	
 	<!-- Background Elements -->
 	<div class="absolute inset-0 z-0 opacity-10 pointer-events-none bg-[url('/images/noise.png')]"></div>
-	<div class="absolute top-20 left-1/2 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] -translate-x-1/2 rounded-full"></div>
+	<div class="absolute top-20 z-0 left-1/2 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] -translate-x-1/2 rounded-full pointer-events-none"></div>
 	
 	<!-- Desktop Navbar -->
 	<header class="sticky top-0 z-40 backdrop-blur-lg border-b border-[#252525]/50">
@@ -222,7 +222,7 @@
 	</main>
 
 	<!-- Footer -->
-	<footer class="mt-32 border-t border-[#252525]/50 pt-16 pb-8 px-4">
+	<footer class="mt-32 border-t border-[#252525]/50 pt-16 pb-8 px-4 w-full max-w-full overflow-hidden">
 		<div class="max-w-7xl mx-auto">
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
 				<!-- Logo & Socials -->
@@ -277,6 +277,11 @@
 </div>
 
 <style lang="postcss">
+
+	.filter-green {
+		filter: hue-rotate(-50deg) saturate(2);
+	}
+
 	.filter-purple {
 		filter: hue-rotate(48deg);
 	}

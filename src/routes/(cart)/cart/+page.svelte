@@ -4,6 +4,8 @@
   import Icon from '@iconify/svelte';
   import IconCheckout from '$lib/svg/icon-checkout.svelte';
   import IconOrderSummary from '$lib/svg/icon-order-summary.svelte';
+  import { fade, fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { getContext, onDestroy, onMount } from 'svelte';
   import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
   import type { Unsubscriber, Writable } from 'svelte/store';
@@ -20,6 +22,8 @@
   let isCheckoutHovered = false;
   let cartDetails: Cart;
   let cartSubtotal = 0;
+  let isUpdatingCart = false;
+  let highlightedRow: number | null = null;
 
   let quantityList: string[] = [];
   $: {
@@ -29,20 +33,29 @@
       cartDetails?.list?.forEach((item, i) => {
         quantityList[i] = item.qty.toString();
       });
-      cartSubtotal = calculateCartSubtotal(data);
+      cartSubtotal = calculateCartSubtotal();
     }
   }
 
+  let productDetailsCache: Record<string, any> = {};
+
   async function getItemDetails(itemId: string) {
+    // Use cached data if available to reduce requests
+    if (productDetailsCache[itemId]) {
+      return productDetailsCache[itemId];
+    }
+
     const result = await data.supabase_lt.from('products').select('*').eq('id', itemId);
     if (result.data && result.data[0]) {
+      // Cache the result
+      productDetailsCache[itemId] = result.data[0];
       return result.data[0];
     } else {
       return null;
     }
   }
 
-  function calculateCartSubtotal(data: any) {
+  function calculateCartSubtotal() {
     let total = 0;
     cartDetails?.list?.forEach((item) => {
       total += item.price * item.qty;
@@ -58,15 +71,61 @@
     return itemQuantity <= stockCount;
   }
 
-  async function updateQuantity(k: any, i: number, result: any) {
-    let inputElement = k.srcElement?.[0];
-    let inputQuantity = +inputElement?.value;
+  async function updateQuantity(event: Event, i: number, result: any) {
+    if (isUpdatingCart) return; // Prevent concurrent updates
+    isUpdatingCart = true;
+    
+    const inputQuantity = parseInt(quantityList[i]);
 
-    if (typeof inputQuantity === 'number' && isStockAvailable(result.stock.count, inputQuantity)) {
-      let product = cartDetails.list![i];
+    if (!isNaN(inputQuantity) && isStockAvailable(result.stock.count, inputQuantity)) {
+      let product = {...cartDetails.list![i]}; // Clone to avoid reactivity issues
       product.qty = inputQuantity;
       setLoading(load_store, true);
-      const changeResult = await changeCart(
+      try {
+        await changeCart(
+          data.supabase_lt,
+          cart_store,
+          product,
+          result.stock.count,
+          data.clientId,
+          true,
+        );
+        await invalidate('cart:change');
+        highlightRow(i);
+      } catch (err) {
+        console.error("Error updating cart:", err);
+        quantityList[i] = cartDetails.list![i].qty.toString(); // Reset to original on error
+      } finally {
+        setLoading(load_store, false);
+        isUpdatingCart = false;
+      }
+    } else {
+      alert('Not enough stock available!');
+      quantityList[i] = cartDetails.list![i].qty.toString();
+      isUpdatingCart = false;
+    }
+  }
+
+  async function incrementDecrementQuantity(isIncrement: boolean, i: number, result: any) {
+    console.log(`Button clicked: ${isIncrement ? 'increment' : 'decrement'} for item ${i}`);
+    if (isUpdatingCart) return; // Prevent concurrent updates
+    isUpdatingCart = true;
+    
+    let product = {...cartDetails.list![i]}; // Clone to avoid reactivity issues
+    let quantity = product.qty ?? 0;
+    if (isIncrement) quantity++;
+    else quantity = quantity > 0 ? quantity - 1 : 0;
+
+    if (!isStockAvailable(result.stock.count, quantity)) {
+      alert('Not enough stock available');
+      isUpdatingCart = false;
+      return;
+    }
+
+    product.qty = quantity;
+    setLoading(load_store, true);
+    try {
+      await changeCart(
         data.supabase_lt,
         cart_store,
         product,
@@ -75,217 +134,337 @@
         true,
       );
       await invalidate('cart:change');
+      highlightRow(i);
+    } catch (err) {
+      console.error("Error updating cart:", err);
+    } finally {
       setLoading(load_store, false);
-    } else {
-      alert('not enough stock!');
-      inputElement.value = '';
+      isUpdatingCart = false;
     }
   }
-
-  async function incrementDecrementQuantity(isIncrement: boolean, i: number, result: any) {
-    let product = cartDetails.list![i];
-    let quantity = product.qty ?? 0;
-    if (isIncrement) quantity++;
-    else quantity = quantity > 0 ? quantity - 1 : 0;
-
-    if (!isStockAvailable(result.stock.count, quantity)) {
-      alert('not enough stock');
-      return;
-    }
-
-    product.qty = quantity;
+  
+  async function removeItem(i: number, result: any) {
+    if (isUpdatingCart) return; // Prevent concurrent updates
+    isUpdatingCart = true;
+    
+    const product = {...cartDetails.list![i]}; // Clone to avoid reactivity issues
+    product.qty = 0;
+    
     setLoading(load_store, true);
-    const changeResult = await changeCart(
-      data.supabase_lt,
-      cart_store,
-      product,
-      result.stock.count,
-      data.clientId,
-      true,
-    );
-    await invalidate('cart:change');
-    setLoading(load_store, false);
+    try {
+      await changeCart(
+        data.supabase_lt,
+        cart_store,
+        product,
+        result.stock.count,
+        data.clientId,
+        true,
+      );
+      await invalidate('cart:change');
+    } catch (err) {
+      console.error("Error removing item:", err);
+    } finally {
+      setLoading(load_store, false);
+      isUpdatingCart = false;
+    }
+  }
+  
+  // Visual feedback when updating quantities
+  function highlightRow(index: number) {
+    highlightedRow = index;
+    setTimeout(() => {
+      highlightedRow = null;
+    }, 1000);
   }
 
   const cart_store = getContext<Writable<CartG>>('userCartStatus');
   let load_store = getContext<Writable<boolean>>('loading');
 </script>
 
-<div class="flex flex-wrap mt-4 gap-x-3 mb-4">
-  <div class="cart flex flex-col flex-[3_0_66%] gap-y-4 mb-4">
-    {#if cartDetails && (cartDetails.list ?? [])?.length > 0}
-      {#each cartDetails.list ?? [] as productItem, i}
-        {#await getItemDetails(productItem.product_id)}
-          <div class="bg-scblued2 p-2 rounded-xl">
-            <div class="cart-item flex border-[1px] border-scblue rounded-lg p-6 font-semibold">
-              Loading
-            </div>
-          </div>
-        {:then result}
-          <div class="block lg:hidden bg-scblued2 p-2 rounded-xl">
-            <div class="flex flex-col border-[1px] border-scblue rounded-xl">
-              <div class="flex">
-                <img
-                  src={result.images[0].url}
-                  class="aspect-square w-[180px] h-[180px] rounded-xl object-scale-down"
-                  alt=""
-                />
-                <div class="p-4 flex flex-col">
-                  <div class="text-2xl font-bold pr-2">{result.name}</div>
-                  <div class="text-xl font-bold text-scblue">by {result.author}</div>
-                  <hr class="my-2 border-scblue opacity-10" />
-                  <div class="flex gap-x-2">
-                    <div class="text-xl max-sm:text-md self-start font-bold text-scbluel2">₹{result.price.new}</div>
-                    {#if result.price.old != 0}
-                      <span class="text-scblue line-through text-lg font-medium -mb-2"
-                        >₹{result.price.old}</span
-                      >
-                    {/if}
-                  </div>
-                  <div class="text-lg text-scbluel2 font-bold">{result.stock.count} in stock</div>
-                  <div class="text-xs font-bold text-scbluel0 opacity-60 {result.guarantee ? '' : 'hidden'}">
-                    {result.guarantee}
-                  </div>
-                </div>
-              </div>
-              <hr class="mt-2 border-scblue opacity-10">
-              <div class="flex w-full justify-between items-center">
-                <div class="font-bold text-scbluel2 text-2xl ml-4">₹{calculateTotalPrice(result.price.new, productItem.qty)}</div>
-                <div class="flex gap-x-2 gap-y-2 my-4 mr-4">
-                  <button
-                    on:click={() => incrementDecrementQuantity(true, i, result)}
-                    class="min-w-[50px] w-[50px] bg-scblued1 text-center border-[1px] border-scblue rounded-md text-scblue justify-center items-center p-1"
-                  >
-                    <!-- incrementDecrementQuantity -->
-                    <Icon icon="line-md:plus" class="text-xl w-full" />
-                  </button>
-                  <form on:submit={(p) => updateQuantity(p, i, result)}>
-                    <input
-                      id="qtyInput{i}"
-                      type="number"
-                      placeholder={productItem.qty.toString()}
-                      class="min-w-[50px] w-[50px] bg-scblued1 text-center border-[1px] border-scblue rounded-md placeholder-scblue py-1"
-                    />
-                  </form>
-                  <button
-                    on:click={() => incrementDecrementQuantity(false, i, result)}
-                    class="min-w-[50px] w-[50px] bg-scblued1 text-center border-[1px] border-scblue rounded-md text-scblue justify-center items-center p-1"
-                  >
-                    <!-- incrementDecrementQuantity -->
-                    <Icon icon="line-md:minus" class="text-xl w-full" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="hidden lg:block bg-scblued2 p-2 rounded-xl">
-            <div class="cart-item flex border-[1px] border-scblue rounded-lg">
-              <div>
-                <img
-                  src={result.images[0].url}
-                  class="min-h-full max-h-[180px] aspect-[1.2] rounded-lg object-cover"
-                  alt=""
-                />
-              </div>
-              <div class="flex-1 flex flex-col p-4 max-sm:p-2">
-                <div class="max-sm:text-xl text-2xl font-bold pr-2">{result.name}</div>
-                <div class="max-sm:text-sm text-xl font-bold text-scblue">by {result.author}</div>
-                <div class="flex-1"></div>
-                <div class="text-lg text-scbluel2 font-bold">{result.stock.count} in stock</div>
-                <div class="max-sm:hidden text-xs font-bold text-scbluel0 opacity-60 {result.guarantee ? '' : 'hidden'}">
-                  {result.guarantee}
-                </div>
-              </div>
-              <div
-                class="flex text-center gap-x-8 gap-y-2 mr-8 my-4 max-sm:my-2 max-sm:mx-2 max-sm:gap-x-4 h-fit items-end justify-end"
-              >
-                <div class="text-xl max-sm:text-md self-start flex flex-col">₹{result.price.new}
-                  {#if result.price.old != 0}
-                    <span class="text-scblue line-through text-lg font-medium -mb-2"
-                      >₹{result.price.old}</span
-                    >
-                  {/if}
-                </div>
-                <div class="self-start flex flex-wrap flex-col gap-x-2 gap-y-2">
-                  <form on:submit={(p) => updateQuantity(p, i, result)}>
-                    <input
-                      id="qtyInput{i}"
-                      type="number"
-                      placeholder={productItem.qty.toString()}
-                      class="min-w-[50px] w-[50px] bg-scblued1 text-center border-[1px] border-scblue rounded-md placeholder-scblue py-1"
-                    />
-                  </form>
-                  <button
-                    on:click={() => incrementDecrementQuantity(true, i, result)}
-                    class="min-w-[50px] w-[50px] bg-scblued1 text-center border-[1px] border-scblue rounded-md text-scblue justify-center items-center p-1"
-                  >
-                    <!-- incrementDecrementQuantity -->
-                    <Icon icon="line-md:plus" class="text-xl w-full" />
-                  </button>
-                  <button
-                    on:click={() => incrementDecrementQuantity(false, i, result)}
-                    class="min-w-[50px] w-[50px] bg-scblued1 text-center border-[1px] border-scblue rounded-md text-scblue justify-center items-center p-1"
-                  >
-                    <!-- incrementDecrementQuantity -->
-                    <Icon icon="line-md:minus" class="text-xl w-full" />
-                  </button>
-                </div>
-                <div class="self-start font-bold text-xl max-sm:text-lg">
-                  ₹{calculateTotalPrice(result.price.new, productItem.qty)}
-                </div>
-              </div>
-            </div>
-          </div>
-        {:catch err}
-          <div class="bg-scblued2 p-2 rounded-xl">
-            <div class="cart-item flex border-[1px] border-scblue rounded-lg p-6 font-semibold">
-              Unknown error occured
-            </div>
-          </div>
-        {/await}
-      {/each}
-    {:else}
-      <div class="bg-scblued2 p-2 rounded-xl">
-        <div class="cart-item flex border-[1px] border-scblue rounded-lg p-6 font-semibold">
-          No items in cart
-        </div>
+<div class="min-h-screen bg-[#0c0c0c] text-white">
+  <div class="container mx-auto px-4 py-12">
+    <!-- Page Header -->
+    <div class="text-center mb-10" in:fly="{{ y: -20, duration: 600, delay: 200, easing: cubicOut }}">
+      <div class="inline-flex items-center justify-center mb-4">
+        <span class="w-4 h-4 rounded-full bg-[#c2ff00] mr-2"></span>
+        <span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">Shopping Cart</span>
       </div>
-    {/if}
-  </div>
-  {#if cartDetails && cartDetails.list && cartDetails.list.length > 0}
-    <div class="flex-[1_1_25%]">
-      <div class="w-full bg-scblued2 p-2 rounded-xl">
-        <div class="flex flex-col bg-scblued1 w-full rounded-xl border-scblue border-[1px] py-2">
-          <div class="flex justify-between px-3 pb-2">
-            <div class="mt-2">Subtotal</div>
-            <div class="mt-2">₹{cartSubtotal}</div>
-          </div>
-          <div class="flex justify-between py-2 px-3 bg-scblued3">
-            <div>
-              <div>Shipping</div>
-            </div>
-            <div class="text-end">
-              <div>₹{DELIVERY_FLAT_FEE}</div>
-              <div>Flat Rate</div>
-              <div>India-Wide</div>
-            </div>
-          </div>
-          <div class="flex justify-between mt-2 py-2 px-3">
-            <div class="text-xl font-bold">Total</div>
-            <div class="text-xl font-bold">₹{cartSubtotal + DELIVERY_FLAT_FEE}</div>
-          </div>
-          <div class="flex justify-center p-2">
-            <GlowButton
-              disabled={(cartDetails.list ?? []).length <= 0}
-              on:click={() => {
-                goto('/checkout');
-              }}
-            >
-              <div class="px-8 py-1">Checkout</div>
-            </GlowButton>
-          </div>
-        </div>
-      </div>
+      <h1 class="text-4xl font-bold mb-2">Your Items</h1>
+      <p class="text-gray-400">Review your cart before checking out</p>
     </div>
-  {/if}
+
+    <!-- Main Content -->
+    <div class="flex flex-col lg:flex-row gap-8 mb-16" in:fly="{{ y: 20, duration: 400, delay: 300, easing: cubicOut }}">
+      <!-- Cart Items -->
+      <div class="lg:w-2/3 space-y-6 flex-1">
+        {#if !cartDetails || (cartDetails.list ?? []).length === 0}
+          <div class="flex items-center justify-center w-full">
+            <div 
+              class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl p-10 border border-[#252525] transition-all duration-300 hover:shadow-glow flex flex-col items-center justify-center text-center min-h-[400px] w-full max-w-2xl mx-auto"
+              in:fade={{ duration: 200 }}
+            >
+              <div class="relative">
+                <div class="absolute -inset-4 rounded-full bg-[#c2ff00]/5 blur-xl"></div>
+                <Icon icon="ph:shopping-cart" class="text-[#c2ff00] text-6xl mb-6 opacity-70" />
+              </div>
+              <h2 class="text-3xl font-bold mb-3">Your cart is empty</h2>
+              <p class="text-gray-400 mb-8 max-w-md">Looks like you haven't added any items yet. Explore our products and find something you like!</p>
+              <button 
+                class="flex items-center justify-center gap-2 bg-[#c2ff00]/10 text-[#c2ff00] px-8 py-4 rounded-xl font-medium hover:bg-[#c2ff00]/20 transition-all duration-300 hover:scale-105 transform"
+                on:click={() => goto('/')}
+              >
+                <Icon icon="ph:shopping-bag-bold" class="text-xl" />
+                Browse Crafts
+              </button>
+            </div>
+          </div>
+        {:else}
+          {#each cartDetails.list ?? [] as productItem, i (productItem.product_id)}
+            {#await getItemDetails(productItem.product_id)}
+              <div class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl p-4 border border-[#252525] animate-pulse">
+                <div class="flex items-center space-x-4">
+                  <div class="w-20 h-20 bg-[#252525] rounded-xl"></div>
+                  <div class="flex-1">
+                    <div class="h-5 bg-[#252525] rounded w-1/2 mb-2"></div>
+                    <div class="h-4 bg-[#252525] rounded w-1/4"></div>
+                  </div>
+                </div>
+              </div>
+            {:then result}
+              <div 
+                class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl border border-[#252525] overflow-hidden transition-all duration-300 hover:shadow-glow group"
+                class:highlight-animation={highlightedRow === i}
+                in:fade={{ duration: 200 }}
+                style="isolation: isolate;"
+              >
+                <div class="flex flex-col md:flex-row">
+                  <!-- Product Image - No black borders -->
+                  <div class="relative md:w-1/4 lg:w-1/3 bg-[#151515] flex items-center justify-center overflow-hidden">
+                    <img
+                      src={result.images[0].url}
+                      class="object-cover w-full h-full max-h-[200px] transition-transform duration-300 group-hover:scale-110"
+                      alt={result.name}
+                      loading="lazy"
+                    />
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[#151515]/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                  </div>
+                  
+                  <!-- Product Details - More compact -->
+                  <div class="flex-1 p-4 flex flex-col">
+                    <div class="flex flex-col md:flex-row justify-between">
+                      <div>
+                        <h3 class="text-xl font-bold text-white group-hover:text-[#c2ff00] transition-colors duration-300">{result.name}</h3>
+                        <p class="text-[#c2ff00] opacity-80 text-xs mb-2">by {result.author}</p>
+                      </div>
+                      <!-- Removed duplicate price here -->
+                    </div>
+                    
+                    <div class="flex items-center text-xs text-gray-400 mb-3">
+                      <Icon icon="ph:cube-bold" class="mr-1" />
+                      <span class={result.stock.count > 5 ? 'text-green-400' : 'text-yellow-400'}>
+                        {result.stock.count} in stock
+                      </span>
+                      
+                      {#if result.guarantee}
+                        <span class="mx-2">•</span>
+                        <Icon icon="ph:shield-check-bold" class="mr-1" />
+                        <span>{result.guarantee}</span>
+                      {/if}
+                    </div>
+                    
+                    <!-- Price and Quantity Controls - More compact -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-auto pt-2 border-t border-[#252525]">
+                      <div class="text-2xl font-bold text-[#c2ff00]">
+                        ₹{calculateTotalPrice(result.price.new, productItem.qty)}
+                      </div>
+                      
+                      <div class="flex items-center mt-2 sm:mt-0 relative z-10">
+                        <button
+                          on:click={() => incrementDecrementQuantity(false, i, result)}
+                          class="w-8 h-8 flex items-center justify-center bg-[#252525] hover:bg-[#c2ff00]/20 text-[#c2ff00] rounded-l-lg transition-colors duration-200 relative z-10"
+                          aria-label="Decrease quantity"
+                          type="button"
+                          style="touch-action: manipulation;"
+                        >
+                          <span class="flex items-center justify-center w-full h-full pointer-events-none">
+                            <Icon icon="ph:minus-bold" />
+                          </span>
+                        </button>
+                        
+                        <input
+                          type="number"
+                          bind:value={quantityList[i]}
+                          min="1"
+                          max={result.stock.count}
+                          class="w-12 h-8 bg-[#252525] text-center border-x border-[#353535] text-white focus:outline-none focus:ring-1 focus:ring-[#c2ff00]/50 relative z-10"
+                          disabled={isUpdatingCart}
+                          on:change={(e) => updateQuantity(e, i, result)}
+                          style="touch-action: manipulation;"
+                        />
+                        
+                        <button
+                          on:click={() => incrementDecrementQuantity(true, i, result)}
+                          class="w-8 h-8 flex items-center justify-center bg-[#252525] hover:bg-[#c2ff00]/20 text-[#c2ff00] rounded-r-lg transition-colors duration-200 relative z-10"
+                          aria-label="Increase quantity"
+                          disabled={isUpdatingCart}
+                          type="button"
+                          style="touch-action: manipulation;"
+                        >
+                          <span class="flex items-center justify-center w-full h-full pointer-events-none">
+                            <Icon icon="ph:plus-bold" />
+                          </span>
+                        </button>
+                        
+                        <button
+                          on:click={() => removeItem(i, result)}
+                          class="ml-3 w-8 h-8 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors duration-200 relative z-10"
+                          aria-label="Remove item"
+                          disabled={isUpdatingCart}
+                          type="button"
+                          style="touch-action: manipulation;"
+                        >
+                          <span class="flex items-center justify-center w-full h-full pointer-events-none">
+                            <Icon icon="ph:trash-bold" />
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {:catch err}
+              <div class="bg-[#151515]/70 backdrop-blur-sm rounded-2xl p-6 border border-red-500/20 text-center">
+                <Icon icon="ph:warning-circle" class="text-red-400 text-3xl mb-2" />
+                <p>There was an error loading this item. Please try refreshing the page.</p>
+              </div>
+            {/await}
+          {/each}
+        {/if}
+      </div>
+
+      <!-- Order Summary with background blur -->
+      {#if cartDetails && cartDetails.list && cartDetails.list.length > 0}
+        <div class="lg:w-1/3">
+          <div 
+            class="relative bg-[#151515]/30 backdrop-blur-md rounded-2xl border border-[#252525] overflow-hidden sticky top-4 transition-all duration-300 hover:shadow-glow"
+            in:fade={{ duration: 200, delay: 300 }}
+          >
+            <div class="p-5 border-b border-[#252525]">
+              <h2 class="text-xl font-bold flex items-center">
+                <Icon icon="ph:receipt-bold" class="mr-2 text-[#c2ff00]" />
+                Order Summary
+              </h2>
+            </div>
+            
+            <div class="p-5 space-y-4">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-400">Subtotal</span>
+                <span class="font-medium">₹{cartSubtotal.toFixed(2)}</span>
+              </div>
+              
+              <div class="flex justify-between items-center pb-4 border-b border-[#252525]">
+                <div>
+                  <span class="text-gray-400">Shipping</span>
+                  <div class="text-xs text-gray-500">India-Wide Flat Rate</div>
+                </div>
+                <span class="font-medium">₹{DELIVERY_FLAT_FEE}</span>
+              </div>
+              
+              <div class="flex justify-between items-center pt-1">
+                <span class="text-lg font-bold">Total</span>
+                <span class="text-2xl font-bold text-[#c2ff00]">
+                  ₹{(cartSubtotal + DELIVERY_FLAT_FEE).toFixed(2)}
+                </span>
+              </div>
+              
+              <button
+                class="w-full mt-5 relative group/button overflow-hidden"
+                class:opacity-50={isUpdatingCart}
+                disabled={isUpdatingCart}
+                on:click={() => goto('/checkout')}
+              >
+                <div class="absolute inset-0 bg-[#c2ff00] opacity-10 group-hover/button:opacity-20 transition-opacity duration-300"></div>
+                
+                <div class="relative flex items-center justify-center gap-2 bg-transparent border border-[#c2ff00]/30 rounded-xl px-5 py-3 font-medium text-[#c2ff00]">
+                  <Icon icon="ph:shopping-cart-simple-bold" />
+                  <span>Proceed to Checkout</span>
+                  
+                  <div class="absolute right-4 opacity-0 group-hover/button:opacity-100 transform group-hover/button:translate-x-1 transition-all duration-300">
+                    <Icon icon="ph:arrow-right-bold" />
+                  </div>
+                </div>
+              </button>
+              
+              <div class="text-center mt-3">
+                <button 
+                  class="text-sm text-gray-400 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
+                  on:click={() => goto('/products')}
+                >
+                  <Icon icon="ph:arrow-left-bold" />
+                  Continue Shopping
+                </button>
+              </div>
+              
+              <div class="pt-4 border-t border-[#252525] flex items-center justify-center gap-3 text-gray-500">
+                <Icon icon="ph:shield-check-bold" class="text-[#c2ff00] opacity-50" />
+                <span class="text-xs">Secure Checkout</span>
+                <Icon icon="ph:lock-simple-bold" class="text-[#c2ff00] opacity-50" />
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
 </div>
+
+<style>
+  .shadow-glow {
+    box-shadow: 0 4px 20px -5px rgba(194, 255, 0, 0.1);
+  }
+
+  .shadow-glow-lg {
+    box-shadow: 0 8px 30px -5px rgba(194, 255, 0, 0.2);
+  }
+
+  /* Animation for price changes */
+  @keyframes highlight {
+    0% { background-color: rgba(194, 255, 0, 0.1); }
+    100% { background-color: transparent; }
+  }
+
+  .highlight-animation {
+    animation: highlight 1.5s ease-out;
+  }
+
+  /* Smooth transitions */
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
+
+  /* Input styles */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
+
+  input:focus {
+    outline: none;
+  }
+
+  /* Loading animation */
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+  }
+</style>

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { getValidState, type Address, compareAddress } from '$lib/types/product';
 	import Icon from '@iconify/svelte';
-	import GlowleftInput from './glowleft_input.svelte';
 	function getWithoutCountryCode(phone: string) {
 		if (phone?.startsWith('+91')) return phone.substring(3);
 		else return phone;
@@ -45,108 +44,100 @@
 		}
 		if (k) type = type == 'text' ? 'edit' : 'text';
 	}
+
+	const inputClasses = "w-full px-4 py-3 bg-white bg-opacity-5 rounded-lg border border-white border-opacity-10 focus:border-[#c2ff00] focus:border-opacity-50 focus:ring-1 focus:ring-[#c2ff00] focus:ring-opacity-50 outline-none text-white placeholder-gray-500 transition-all";
 </script>
 
-<div
-	class="flex flex-row max-sm:flex-col border-[1px] border-orange-300 rounded-xl p-4 bg-scoranged2 {className}"
->
-	<div
-		class="flex flex-col flex-1 self-start text-orange-200 opacity-80 font-medium text-lg animate_base"
-	>
-		{#if type == 'text'}
-			<div>
-				<div class="font-bold text-xl mb-2">{address.name ?? 'Name'}</div>
-				<div>{address.line1 ?? 'Line 1 Address'}</div>
-				<div>{address.line2 ?? 'Line 2 Address'}</div>
-				<div>
+<div class="{className} relative">
+	<div class="flex justify-between items-start mb-4">
+		{#if type === 'text'}
+			<div class="space-y-2">
+				<div class="text-lg font-medium text-[#c2ff00]">{address.name ?? 'Name'}</div>
+				<div class="text-gray-300">{address.line1 ?? 'Line 1 Address'}</div>
+				<div class="text-gray-300">{address.line2 ?? 'Line 2 Address'}</div>
+				<div class="text-gray-300">
 					{address.city ?? 'City'}-{address.pincode ?? 'Pincode'}, {address.state ?? 'State'}
 				</div>
 				{#if address.phone}
-					<div>Phone: {address.phone ?? 'Phone'}</div>
+					<div class="text-gray-300 flex items-center gap-2">
+						<Icon icon="ph:phone-bold" />
+						<span>{address.phone ?? 'Phone'}</span>
+					</div>
 				{/if}
 			</div>
 		{:else}
-			<div class="flex flex-wrap flex-col space-y-2">
-				<GlowleftInput
-					f22="bg-scoranged1"
-					gradient="bg-orange-300 bg-opacity-80"
-					inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
-					bind:value={address.name}
-					placeholder={address.name ?? 'Name'}
-				/>
-				<GlowleftInput
-					f22="bg-scoranged1"
-					gradient="bg-orange-300 bg-opacity-80"
-					inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
-					bind:value={address.line1}
-					placeholder={address.line1 ?? 'Line 1 Address'}
-				/>
-				<GlowleftInput
-					f22="bg-scoranged1"
-					gradient="bg-orange-300 bg-opacity-80"
-					inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
-					bind:value={address.line2}
-					placeholder={address.line2 ?? 'Line 2 Address'}
-				/>
-				<div class="flex flex-wrap w-full gap-x-2 gap-y-2">
-					<GlowleftInput
-						f22="bg-scoranged1"
-						class="flex-1 min-w-32"
-						gradient="bg-orange-300 bg-opacity-80"
-						inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
-						bind:value={address.city}
-						placeholder={address.city ?? 'City'}
+			<div class="w-full space-y-4">
+				<div class="grid gap-4">
+					<input
+						type="text"
+						class={inputClasses}
+						placeholder="Name"
+						bind:value={address.name}
 					/>
-					<GlowleftInput
-						f22="bg-scoranged1"
-						class="flex-1 min-w-32"
-						gradient="bg-orange-300 bg-opacity-80"
-						inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
-						bind:value={address.pincode}
-						placeholder={address.pincode ?? 'Pincode'}
+					<input
+						type="text"
+						class={inputClasses}
+						placeholder="Address Line 1"
+						bind:value={address.line1}
 					/>
-					<GlowleftInput
-						f22="bg-scoranged1"
-						class="flex-1 min-w-32"
-						gradient="bg-orange-300 bg-opacity-80"
-						inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
-						bind:value={address.state}
-						placeholder={address.state ?? 'State'}
+					<input
+						type="text"
+						class={inputClasses}
+						placeholder="Address Line 2"
+						bind:value={address.line2}
 					/>
 				</div>
-				<GlowleftInput
-					f22="bg-scoranged1"
-					class="w-fit"
-					gradient="bg-orange-300 bg-opacity-80"
-					inputClass="text-start !text-orange-200 !text-lg !px-2 !placeholder-orange-200 !placeholder-opacity-30"
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+					<input
+						type="text"
+						class={inputClasses}
+						placeholder="City"
+						bind:value={address.city}
+					/>
+					<input
+						type="text"
+						class={inputClasses}
+						placeholder="Pincode"
+						bind:value={address.pincode}
+					/>
+					<input
+						type="text"
+						class={inputClasses}
+						placeholder="State"
+						bind:value={address.state}
+					/>
+				</div>
+				<input
+					type="tel"
+					class={inputClasses}
+					placeholder="Phone Number"
 					bind:value={address.phone}
-					placeholder={getWithoutCountryCode(address.phone) ?? 'Phone'}
 				/>
 			</div>
 		{/if}
-	</div>
-	<div class="flex self-start flex-[0_1_0%] ml-2">
-		<button on:click={toggleType}>
-			<Icon
-				icon={type == 'text' ? 'iconamoon:edit-duotone' : 'iconamoon:check-square-duotone'}
-				class="text-orange-300 text-3xl m-2"
-			/>
-		</button>
-		<button on:click={onDeleteLocal}>
-			<Icon
-				icon="iconamoon:trash-simple-duotone"
-				class="text-orange-300 text-3xl m-2 {type == 'edit' && address.id ? 'hidden' : 'visible'}"
-			/>
-			<Icon
-				icon="iconamoon:close-circle-1-duotone"
-				class="text-orange-300 text-3xl m-2 {type == 'text' || !address.id ? 'hidden' : 'visible'}"
-			/>
-		</button>
+		<div class="flex gap-2 ml-4">
+			<button
+				class="p-2 text-[#c2ff00] hover:bg-[#c2ff00] hover:bg-opacity-10 rounded-lg transition-all"
+				on:click={toggleType}
+			>
+				<Icon
+					icon={type == 'text' ? 'ph:pencil-bold' : 'ph:check-bold'}
+					class="text-2xl"
+				/>
+			</button>
+			<button
+				class="p-2 text-red-400 hover:bg-red-400 hover:bg-opacity-10 rounded-lg transition-all"
+				on:click={onDeleteLocal}
+			>
+				<Icon
+					icon={type == 'edit' && address.id ? 'ph:x-bold' : 'ph:trash-bold'}
+					class="text-2xl"
+				/>
+			</button>
+		</div>
 	</div>
 </div>
 
 <style lang="postcss">
-	input {
-		@apply bg-scoranged1 rounded-lg p-2 placeholder-orange-200 placeholder-opacity-30  focus:outline-none focus:outline focus:outline-2 flex-1 border-l-2 border-spacing-2;
-	}
+
 </style>
