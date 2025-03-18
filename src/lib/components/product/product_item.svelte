@@ -4,17 +4,6 @@
 	import type { Product } from '$lib/types/product';
 	import { HSLToHex, HexToHSL } from '$lib/types/helper';
 	export let product: Product;
-	export let accent1 = '#0c0c0c';
-	export let accent2 = '#151515';
-	export let accent3 = '#c2ff00';
-	let accent4: any = HexToHSL(accent2);
-	let accent6 = `${accent4.h},${accent4.s}%,${accent4.l}%`;
-	accent4.l += 10;
-	accent4 = HSLToHex(accent4);
-	let accent5: any = HexToHSL(accent3);
-	accent5.l -= 30;
-	accent5.s -= 30;
-	accent5 = HSLToHex(accent5);
 	export let href: string;
 	export let onClick: any;
 </script>
@@ -47,7 +36,7 @@
 					₹{product.price.old}
 				</div>
 			{/if}
-			<div class="bg-[#c2ff00] text-black px-3 py-1 rounded-lg font-bold">
+			<div class="bg-accent text-black px-3 py-1 rounded-lg font-bold">
 				₹{product.price.new}
 			</div>
 		</div>
@@ -66,7 +55,7 @@
 	<div class="p-5 flex flex-col flex-grow">
 		<!-- Title and author -->
 		<div>
-			<h3 class="text-xl font-bold text-white group-hover:text-[#c2ff00] transition-colors">
+			<h3 class="text-xl font-bold text-white group-hover:text-accent transition-colors">
 				{product.name}
 			</h3>
 			<p class="text-gray-400 text-sm mt-1">by {product.author}</p>
@@ -86,7 +75,7 @@
 		<!-- Bottom actions -->
 		<div class="mt-auto pt-4 flex justify-between items-center">
 			<!-- Stock status -->
-			<div class="{product.stock.count > 0 ? 'text-[#c2ff00]' : 'text-red-400'} text-sm font-medium">
+			<div class="{product.stock.count > 0 ? 'text-accent' : 'text-red-400'} text-sm font-medium">
 				{#if product.stock.count > 0}
 					<span>{product.stock.count} in stock</span>
 				{:else if product.stock.status}
@@ -96,7 +85,7 @@
 			
 			<!-- Add to cart button -->
 			{#if product.stock.count > 0}
-				<button class="w-10 h-10 rounded-lg bg-[#252525] hover:bg-[#c2ff00] hover:text-black text-white flex items-center justify-center transition-colors">
+				<button class="w-10 h-10 rounded-lg bg-[#252525] hover:bg-accent hover:text-black text-white flex items-center justify-center transition-colors">
 					<Icon icon="ph:shopping-cart-simple-bold" class="text-xl" />
 				</button>
 			{/if}

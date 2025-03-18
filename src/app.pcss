@@ -11,38 +11,66 @@
 		background-image: url('/images/noise.svg');
 		background-blend-mode: overlay;
 	}
+
+	.shadow-glow {
+		box-shadow: 0 0 20px theme('colors.accent.DEFAULT' / 0.1),
+					0 0 40px theme('colors.accent.DEFAULT' / 0.05);
+	}
+	
+	.shadow-glow-sm {
+		box-shadow: 0 0 10px theme('colors.accent.DEFAULT' / 0.1),
+					0 0 20px theme('colors.accent.DEFAULT' / 0.05);
+	}
 }
 
 @layer base {
 	:root {
-		--background: 0 0% 100%;
-		--foreground: 222.2 84% 4.9%;
+		/* Theme colors */
+		--accent-hue: 205;  /* Base hue for accent color */
+		--accent-saturation: 100%;
+		--accent-lightness: 75%;
+		--accent: var(--accent-hue) var(--accent-saturation) var(--accent-lightness);
+		--accent-foreground: 0 0% 0%;  /* Black text on accent */
+		--accent-dark: var(--accent-hue) var(--accent-saturation) 60%;  /* Darker variant */
+		--accent-rgb: var(--accent-hue), 255, 0;  /* RGB values for accent color */
+		--accent-shadow: var(--accent-hue) 100% 50%;  /* For shadow effects */
+		--accent-transparent: rgba(var(--accent-hue), 255, 0, 0.2);  /* Semi-transparent accent */
+		/* Background system */
+		--background: 0 0% 5%;  /* #0c0c0c */
+		--background-light: 0 0% 8%;  /* #151515 */
+		--background-lighter: 0 0% 15%;  /* #252525 */
+		--background-lightest: 0 0% 21%;  /* #353535 */
+		--foreground: 0 0% 100%;
 
-		--muted: 210 40% 96.1%;
-		--muted-foreground: 215.4 16.3% 46.9%;
+		/* Semantic colors */
+		--success: 122 55% 49%;  /* #4CAF50 */
+		--error: 0 60% 48%;  /* #C53333 */
+		--warning: 33 100% 57%;  /* #FFA726 */
+		--info: 187 100% 42%;  /* #00BCD4 */
 
-		--popover: 0 0% 100%;
-		--popover-foreground: 222.2 84% 4.9%;
+		/* System colors */
+		--muted: 217.2 32.6% 17.5%;
+		--muted-foreground: 215 20.2% 65.1%;
 
-		--card: 0 0% 100%;
-		--card-foreground: 222.2 84% 4.9%;
+		--popover: 222.2 84% 4.9%;
+		--popover-foreground: 210 40% 98%;
 
-		--border: 214.3 31.8% 91.4%;
-		--input: 214.3 31.8% 91.4%;
+		--card: 222.2 84% 4.9%;
+		--card-foreground: 210 40% 98%;
 
-		--primary: 222.2 47.4% 11.2%;
-		--primary-foreground: 210 40% 98%;
+		--border: 217.2 32.6% 17.5%;
+		--input: 217.2 32.6% 17.5%;
 
-		--secondary: 210 40% 96.1%;
-		--secondary-foreground: 222.2 47.4% 11.2%;
+		--primary: 210 40% 98%;
+		--primary-foreground: 222.2 47.4% 11.2%;
 
-		--accent: 210 40% 96.1%;
-		--accent-foreground: 222.2 47.4% 11.2%;
+		--secondary: 217.2 32.6% 17.5%;
+		--secondary-foreground: 210 40% 98%;
 
-		--destructive: 0 72.2% 50.6%;
+		--destructive: 0 62.8% 30.6%;
 		--destructive-foreground: 210 40% 98%;
 
-		--ring: 222.2 84% 4.9%;
+		--ring: var(--accent);
 
 		--radius: 0.5rem;
 	}

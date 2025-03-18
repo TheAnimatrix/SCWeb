@@ -58,7 +58,7 @@
 	<!-- Profile Info Section -->
 	<div class="p-6 border-b border-[#252525]">
 		<h2 class="text-2xl font-bold flex items-center gap-3 mb-6">
-			<Icon icon="ph:user-circle-bold" class="text-[#c2ff00] opacity-80" />
+			<Icon icon="ph:user-circle-bold" class="text-accent opacity-80" />
 			Profile Information
 		</h2>
 		
@@ -82,7 +82,7 @@
 				<div>
 					<label class="text-sm text-gray-400">Tier</label>
 					<div class="mt-1 p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] flex items-center gap-2">
-						<Icon icon="ph:star-bold" class="text-[#c2ff00]" />
+						<Icon icon="ph:star-bold" class="text-accent" />
 						{tier}
 					</div>
 				</div>
@@ -102,7 +102,7 @@
 	<!-- Security Section -->
 	<div class="p-6">
 		<h2 class="text-2xl font-bold flex items-center gap-3 mb-6">
-			<Icon icon="ph:shield-check-bold" class="text-[#c2ff00] opacity-80" />
+			<Icon icon="ph:shield-check-bold" class="text-accent opacity-80" />
 			Security Settings
 		</h2>
 
@@ -119,7 +119,7 @@
 					type="password"
 					bind:value={newPass}
 					placeholder="Enter new password"
-					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-none focus:ring-1 focus:ring-[#c2ff00]/50"
+					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-none focus:ring-1 focus:ring-accent/50"
 				/>
 			</div>
 
@@ -129,14 +129,14 @@
 					type="password"
 					bind:value={confirmPass}
 					placeholder="Confirm new password"
-					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-none focus:ring-1 focus:ring-[#c2ff00]/50"
+					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-none focus:ring-1 focus:ring-accent/50"
 				/>
 			</div>
 
 			<div class="pt-4 flex flex-col gap-3">
 				<button
 					on:click={changePassword}
-					class="w-full px-4 py-3 bg-[#c2ff00]/10 hover:bg-[#c2ff00]/20 text-[#c2ff00] rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
+					class="w-full px-4 py-3 bg-accent/10 hover:bg-accent/20 text-accent rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
 					disabled={isUpdatingPassword}
 				>
 					<Icon icon="ph:key-bold" />

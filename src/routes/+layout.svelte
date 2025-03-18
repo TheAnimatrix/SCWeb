@@ -16,7 +16,7 @@
 
 	// Maintain primary colors for different sections but simplify
 	let primaryColor: string;
-	let accentColor = "#c2ff00"; // Use the lime green accent as the primary accent
+	let accentColor = "accent"; // Use the lime green accent as the primary accent
 	let filter: string;
 
 	let pageName: string;
@@ -105,7 +105,7 @@
 	
 	<!-- Background Elements -->
 	<div class="absolute inset-0 z-0 opacity-10 pointer-events-none bg-[url('/images/noise.png')]"></div>
-	<div class="absolute top-20 z-0 left-1/2 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] -translate-x-1/2 rounded-full pointer-events-none"></div>
+	<div class="absolute top-20 z-0 left-1/2 w-96 h-96 bg-accent opacity-10 blur-[120px] -translate-x-1/2 rounded-full pointer-events-none"></div>
 	
 	<!-- Desktop Navbar -->
 	<header class="sticky top-0 z-40 backdrop-blur-lg border-b border-[#252525]/50">
@@ -120,22 +120,22 @@
 				<div class="hidden md:flex items-center space-x-1">
 					<a 
 						href="/" 
-						class="px-4 py-2 rounded-lg transition-all {$page.route.id === '/' ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id === '/' ? 'bg-accent text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
 						Crafts
 					</a>
 					<a 
 						href="/about" 
-						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-accent text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
 						About
 					</a>
 					<a 
 						href="/crafting" 
-						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-accent text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
 						Start Crafting
 					</a>
 					<a 
 						href="/pif-portal" 
-						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-[#c2ff00] text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
+						class="px-4 py-2 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-accent text-black font-medium' : 'text-gray-300 hover:bg-[#151515]'}">
 						PIF Portal
 					</a>
 				</div>
@@ -144,14 +144,14 @@
 				<div class="flex items-center space-x-3">
 					<a 
 						href={userRoute}
-						class="p-2 rounded-lg transition-all {$page.route.id?.startsWith('/user') ? 'bg-[#c2ff00] text-black' : 'text-gray-300 hover:bg-[#151515]'}"
+						class="p-2 rounded-lg transition-all {$page.route.id?.startsWith('/user') ? 'bg-accent text-black' : 'text-gray-300 hover:bg-[#151515]'}"
 					>
 						<Icon icon="ph:user-focus-duotone" class="text-2xl" />
 					</a>
 					
 					<a 
 						href="/cart"
-						class="flex items-center space-x-1 p-2 rounded-lg transition-all {$page.route.id?.startsWith('/(cart)') ? 'bg-[#c2ff00] text-black' : 'text-gray-300 hover:bg-[#151515]'}"
+						class="flex items-center space-x-1 p-2 rounded-lg transition-all {$page.route.id?.startsWith('/(cart)') ? 'bg-accent text-black' : 'text-gray-300 hover:bg-[#151515]'}"
 					>
 						<Icon
 							icon={$cart_store.itemCount > 0
@@ -177,7 +177,7 @@
 							<Drawer.Content class="bg-[#0c0c0c] border-t border-[#252525]">
 								<div class="p-6">
 									<div class="flex justify-between items-center mb-8">
-										<h2 class="text-xl font-medium text-[#c2ff00]">Menu</h2>
+										<h2 class="text-xl font-medium text-accent">Menu</h2>
 										<Drawer.Close>
 											<button class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg">
 												<Icon icon="mdi:close" class="text-xl" />
@@ -188,22 +188,22 @@
 									<nav class="flex flex-col space-y-4">
 										<a 
 											href="/" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id === '/' ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id === '/' ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
 											Crafts
 										</a>
 										<a 
 											href="/about" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
 											About
 										</a>
 										<a 
 											href="/crafting" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
 											Start Crafting
 										</a>
 										<a 
 											href="/pif-portal" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-[#151515] border-l-4 border-[#c2ff00] font-medium' : 'text-gray-300'}">
+											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
 											PIF Portal
 										</a>
 									</nav>
@@ -233,7 +233,7 @@
 							href="https://discord.gg/UQ74TQfMqM" 
 							target="_blank" 
 							rel="noopener noreferrer"
-							class="hover:text-[#c2ff00] transition-colors"
+							class="hover:text-accent transition-colors"
 						>
 							<Icon icon="ph:discord-logo-duotone" class="text-2xl" />
 						</a>
@@ -241,7 +241,7 @@
 							href="https://github.com/TheAnimatrix/SCWeb" 
 							target="_blank" 
 							rel="noopener noreferrer"
-							class="hover:text-[#c2ff00] transition-colors"
+							class="hover:text-accent transition-colors"
 						>
 							<Icon icon="ph:github-logo-duotone" class="text-2xl" />
 						</a>
@@ -252,9 +252,9 @@
 				<div>
 					<h3 class="text-lg font-medium mb-4">Policies</h3>
 					<ul class="space-y-2 text-gray-400">
-						<li><a href="/policy#privacy" class="hover:text-[#c2ff00] transition-colors">Privacy Policy</a></li>
-						<li><a href="/policy#terms" class="hover:text-[#c2ff00] transition-colors">Terms & Conditions</a></li>
-						<li><a href="/policy#shipping" class="hover:text-[#c2ff00] transition-colors">Shipping & Delivery</a></li>
+						<li><a href="/policy#privacy" class="hover:text-accent transition-colors">Privacy Policy</a></li>
+						<li><a href="/policy#terms" class="hover:text-accent transition-colors">Terms & Conditions</a></li>
+						<li><a href="/policy#shipping" class="hover:text-accent transition-colors">Shipping & Delivery</a></li>
 					</ul>
 				</div>
 				
@@ -262,8 +262,8 @@
 				<div>
 					<h3 class="text-lg font-medium mb-4">Support</h3>
 					<ul class="space-y-2 text-gray-400">
-						<li><a href="/policy#cancellation" class="hover:text-[#c2ff00] transition-colors">Cancellation & Refund</a></li>
-						<li><a href="/policy#contact" class="hover:text-[#c2ff00] transition-colors">Contact Us</a></li>
+						<li><a href="/policy#cancellation" class="hover:text-accent transition-colors">Cancellation & Refund</a></li>
+						<li><a href="/policy#contact" class="hover:text-accent transition-colors">Contact Us</a></li>
 					</ul>
 				</div>
 			</div>
@@ -279,11 +279,11 @@
 <style lang="postcss">
 
 	.filter-green {
-		filter: hue-rotate(-50deg) saturate(2);
+		filter: hue-rotate(65deg) saturate(2);
 	}
 
 	.filter-purple {
-		filter: hue-rotate(48deg);
+		filter: hue-rotate(58deg);
 	}
 
 	.filter-orange {

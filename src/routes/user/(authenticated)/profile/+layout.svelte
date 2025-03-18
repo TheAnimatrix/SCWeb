@@ -27,8 +27,8 @@
 		<!-- Header -->
 		<div class="text-center mb-12">
 			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-3 h-3 rounded-full bg-[#c2ff00] mr-2"></span>
-				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">Profile Settings</span>
+				<span class="w-3 h-3 rounded-full bg-accent mr-2"></span>
+				<span class="text-accent text-sm uppercase tracking-wider font-medium">Profile Settings</span>
 			</div>
 			<h1 class="text-4xl font-bold mb-3">Your Profile</h1>
 			<p class="text-gray-400 max-w-2xl mx-auto">Manage your account settings, addresses, orders and crafts.</p>
@@ -41,7 +41,7 @@
 					{href}
 					class="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2 {
 						getLastRoute($page.route.id) === href 
-							? 'bg-[#c2ff00] bg-opacity-10 text-[#c2ff00]' 
+							? 'bg-accent bg-opacity-10 text-accent' 
 							: 'bg-[#151515] bg-opacity-40 text-gray-400'
 					}"
 				>

@@ -128,7 +128,7 @@
 	<!-- Add Address Button -->
 	<div class="flex justify-between items-center">
 		<button
-			class="flex items-center gap-2 px-6 py-3 bg-[#151515] hover:bg-opacity-80 rounded-xl transition-all text-[#c2ff00]"
+			class="flex items-center gap-2 px-6 py-3 bg-[#151515] hover:bg-opacity-80 rounded-xl transition-all text-accent"
 			on:click={newAddress}
 		>
 			<Icon icon="ph:plus-circle-bold" class="text-xl" />
@@ -153,7 +153,7 @@
 				<Icon icon="ph:map-pin-bold" class="text-4xl text-gray-400 mx-auto mb-4" />
 				<p class="text-gray-400">No addresses added yet</p>
 				<button
-					class="inline-block mt-4 px-6 py-2 bg-[#c2ff00] bg-opacity-10 text-[#c2ff00] rounded-lg hover:bg-opacity-20 transition-all"
+					class="inline-block mt-4 px-6 py-2 bg-accent bg-opacity-10 text-accent rounded-lg hover:bg-opacity-20 transition-all"
 					on:click={newAddress}
 				>
 					Add Your First Address

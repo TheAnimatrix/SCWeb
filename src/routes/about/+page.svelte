@@ -69,13 +69,13 @@
 	<!-- SECTION 1: MAKER ECOSYSTEM -->
 	<section class="pt-16 pb-24 px-4 relative">
 		<!-- Glowing accent -->
-		<div class="absolute top-20 left-1/2 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] -translate-x-1/2 rounded-full"></div>
+		<div class="absolute top-20 left-1/2 w-96 h-96 bg-accent opacity-10 blur-[120px] -translate-x-1/2 rounded-full"></div>
 		
 		<!-- Heading -->
 		<div class="text-center mb-20 relative z-10">
 			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-4 h-4 rounded-full bg-[#c2ff00] mr-2"></span>
-				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">What we're doing</span>
+				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
+				<span class="text-accent text-sm uppercase tracking-wider font-medium">What we're doing</span>
 			</div>
 			<h1 class="text-4xl md:text-5xl font-bold max-w-4xl mx-auto leading-tight">
 				Kickstarting the indie
@@ -87,7 +87,7 @@
 		<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
 			<!-- Maker Marketplace Card -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
-				<h3 class="text-[#c2ff00] text-xl font-bold mb-4">Maker Marketplace</h3>
+				<h3 class="text-accent text-xl font-bold mb-4">Maker Marketplace</h3>
 				<div class="text-lg font-medium mt-4">
 					Buy and sell both finished products and critical components
 				</div>
@@ -147,7 +147,7 @@
 					<div class="w-10 h-10 rounded-full bg-[#00c2ff] border-2 border-[#151515] flex items-center justify-center -ml-2 z-20">
 						<span>👨‍🔧</span>
 					</div>
-					<div class="w-10 h-10 rounded-full bg-[#c2ff00] border-2 border-[#151515] flex items-center justify-center -ml-2 z-10">
+					<div class="w-10 h-10 rounded-full bg-accent border-2 border-[#151515] flex items-center justify-center -ml-2 z-10">
 						<span>👩‍💻</span>
 					</div>
 					<div class="w-10 h-10 rounded-full bg-[#151515] border-2 border-[#252525] flex items-center justify-center -ml-2 text-xs font-bold">
@@ -160,31 +160,31 @@
 		<!-- Features Tags -->
 		<div class="max-w-5xl mx-auto mt-16 flex flex-wrap justify-center gap-3">
 			<div class="bg-[#151515] border border-[#252525] rounded-full px-4 py-2 flex items-center">
-				<span class="w-2 h-2 bg-[#c2ff00] rounded-full mr-2"></span>
+				<span class="w-2 h-2 bg-accent rounded-full mr-2"></span>
 				<span>Component Sourcing</span>
 			</div>
 			<div class="bg-[#151515] border border-[#252525] rounded-full px-4 py-2 flex items-center">
-				<span class="w-2 h-2 bg-[#c2ff00] rounded-full mr-2"></span>
+				<span class="w-2 h-2 bg-accent rounded-full mr-2"></span>
 				<span>Niche Products</span>
 			</div>
 			<div class="bg-[#151515] border border-[#252525] rounded-full px-4 py-2 flex items-center">
-				<span class="w-2 h-2 bg-[#c2ff00] rounded-full mr-2"></span>
+				<span class="w-2 h-2 bg-accent rounded-full mr-2"></span>
 				<span>Maker Storefront</span>
 			</div>
 			<div class="bg-[#151515] border border-[#252525] rounded-full px-4 py-2 flex items-center">
-				<span class="w-2 h-2 bg-[#c2ff00] rounded-full mr-2"></span>
+				<span class="w-2 h-2 bg-accent rounded-full mr-2"></span>
 				<span>Import Alternatives</span>
 			</div>
 			<div class="bg-[#151515] border border-[#252525] rounded-full px-4 py-2 flex items-center">
-				<span class="w-2 h-2 bg-[#c2ff00] rounded-full mr-2"></span>
+				<span class="w-2 h-2 bg-accent rounded-full mr-2"></span>
 				<span>Small-batch Production</span>
 			</div>
 			<div class="bg-[#151515] border border-[#252525] rounded-full px-4 py-2 flex items-center">
-				<span class="w-2 h-2 bg-[#c2ff00] rounded-full mr-2"></span>
+				<span class="w-2 h-2 bg-accent rounded-full mr-2"></span>
 				<span>Creator Support</span>
 			</div>
 			<div class="bg-[#151515] border border-[#252525] rounded-full px-4 py-2 flex items-center">
-				<span class="w-2 h-2 bg-[#c2ff00] rounded-full mr-2"></span>
+				<span class="w-2 h-2 bg-accent rounded-full mr-2"></span>
 				<span>Innovation Network</span>
 			</div>
 		</div>
@@ -194,12 +194,13 @@
 	<section class="pt-24 pb-32 px-4 relative">
 		<!-- Glowing accent -->
 		<div class="absolute top-40 right-20 w-96 h-96 bg-[#ff9900] opacity-10 blur-[120px] rounded-full"></div>
+		<div class="absolute  bottom-40 left-20 w-96 h-96 bg-accent opacity-[8%] blur-[120px] rounded-full"></div>
 		
 		<!-- Heading -->
 		<div class="text-center mb-20 relative z-10">
 			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-4 h-4 rounded-full bg-[#c2ff00] mr-2"></span>
-				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">How it works</span>
+				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
+				<span class="text-accent text-sm uppercase tracking-wider font-medium">How it works</span>
 			</div>
 			<h2 class="text-4xl font-bold max-w-4xl mx-auto leading-tight">
 				Your journey from hobbyist
@@ -255,7 +256,7 @@
 		<!-- CTA -->
 		<div class="max-w-5xl mx-auto mt-20 text-center">
 			<h3 class="text-2xl font-bold mb-6">Ready to join the maker revolution?</h3>
-			<button class="bg-[#c2ff00] text-black px-8 py-3 rounded-lg font-bold hover:bg-white transition-colors">
+			<button class="bg-accent text-black px-8 py-3 rounded-lg font-bold hover:bg-white transition-colors">
 				<a href="/crafting">Become a Crafter Today</a>
 			</button>
 		</div>

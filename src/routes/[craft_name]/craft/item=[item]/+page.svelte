@@ -129,7 +129,7 @@
 	}
 	// styles
 	const triggerTabStyle =
-		'data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-4 py-2 text-md text-gray-100 rounded-xl hover:bg-[#151515]';
+		'data-[state=active]:bg-accent data-[state=active]:text-black px-4 py-2 text-md text-gray-100 rounded-xl hover:bg-[#151515]';
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white">
@@ -137,7 +137,7 @@
 		class="self-center h-full flex flex-col mx-auto items-center w-[95%] md:w-[90%] lg:w-[85%] 2xl:w-[75%] 3xl:w-[60%] 4xl:w-[50%] relative pt-4 pb-8">
 		
 		<!-- Glowing accent -->
-		<div class="absolute top-20 right-20 w-96 h-96 bg-[#c2ff00] opacity-10 blur-[120px] rounded-full"></div>
+		<div class="absolute top-20 right-20 w-96 h-96 bg-accent opacity-10 blur-[120px] rounded-full"></div>
 		
 		<div class="w-full flex flex-col items-center z-10">
 			<div class="text-[#b8b8b8] mr-auto pb-2 flex items-center">
@@ -163,7 +163,7 @@
 							<div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
 								{#each Array(indicator_max) as _, i}
 									<button
-										class="h-1.5 rounded-full transition-all duration-300 {i === indicator_cur ? 'w-12 bg-[#c2ff00] shadow-[0_0_10px_#c2ff00]' : 'w-6 bg-white/60 hover:bg-white/80 hover:w-8'}"
+										class="h-1.5 rounded-full transition-all duration-300 {i === indicator_cur ? 'w-12 bg-accent shadow-[0_0_10px] shadow-accent' : 'w-6 bg-white/60 hover:bg-white/80 hover:w-8'}"
 										on:click={() => (indicator_cur = i)}
 									/>
 								{/each}
@@ -176,11 +176,11 @@
 					<!-- Product title and author -->
 					<div class="mb-3">
 						<div class="inline-flex items-center justify-start mb-1">
-							<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
-							<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Premium Craft</span>
+							<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+							<span class="text-accent text-xs uppercase tracking-wider font-medium">Premium Craft</span>
 						</div>
 						<h1 class="text-2xl font-bold text-white">{productItem.name}</h1>
-						<div class="text-[#c2ff00] font-medium">By {productItem.author}</div>
+						<div class="text-accent font-medium">By {productItem.author}</div>
 					</div>
 					
 					<!-- Tags - Horizontal Compact Layout -->
@@ -216,8 +216,8 @@
 					<!-- Status Tags -->
 					<div class="flex flex-wrap gap-2 mb-3">
 						<!-- Verified Tag -->
-						<div class="inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1 rounded-lg text-sm relative before:absolute before:inset-0 before:rounded-lg before:border-2 before:border-dotted before:border-[#c2ff00]/50 before:animate-[border-dance_4s_linear_infinite]">
-							<Icon icon="material-symbols:verified" class="text-[#c2ff00]" />
+						<div class="inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1 rounded-lg text-sm relative before:absolute before:inset-0 before:rounded-lg before:border-2 before:border-dotted before:border-accent/50 before:animate-[border-dance_4s_linear_infinite]">
+							<Icon icon="material-symbols:verified" class="text-accent" />
 							<span>15 day SC Guarantee</span>
 						</div>
 
@@ -252,7 +252,7 @@
 								</button>
 							</div>
 							<button
-								class="flex-1 py-2 px-4 bg-[#c2ff00] text-black font-bold rounded-r-lg hover:brightness-110 transition-all flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+								class="flex-1 py-2 px-4 bg-accent text-black font-bold rounded-r-lg hover:brightness-110 transition-all flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 								disabled={productItem.stock.count <= 0}
 								on:click={cart_submit}>
 									<Icon icon="iconamoon:plus" class="text-lg" />
@@ -267,9 +267,9 @@
 						<!-- Success message -->
 						<div class="absolute inset-0 transition-all duration-300" class:opacity-0={addToCartSuccess !== true} class:invisible={addToCartSuccess !== true}>
 							<div
-								class="rounded-lg text-black pl-3 py-1 text-sm text-start bg-[#c2ff00]/20 h-full flex items-center gap-2 border-[#c2ff00] border animate-pulse">
-								<Icon icon="line-md:confirm-square-twotone" class="text-[#c2ff00] text-xl" />
-								<span class="text-[#c2ff00] line-clamp-2">"{productItem.name}" x {addToCartMsg} - Added to cart</span>
+								class="rounded-lg text-black pl-3 py-1 text-sm text-start bg-accent/20 h-full flex items-center gap-2 border-accent border animate-pulse">
+								<Icon icon="line-md:confirm-square-twotone" class="text-accent text-xl" />
+								<span class="text-accent line-clamp-2">"{productItem.name}" x {addToCartMsg} - Added to cart</span>
 							</div>
 						</div>
 						
@@ -290,8 +290,8 @@
 				<!-- Description Panel - Takes 2/3 width on desktop -->
 				<div class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525] max-h-[800px] overflow-y-auto">
 					<div class="inline-flex items-center mb-3">
-						<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
-						<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Description</span>
+						<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+						<span class="text-accent text-xs uppercase tracking-wider font-medium">Description</span>
 					</div>
 					<div class="text-gray-300 text-sm">
 						{#if productItem.documentation?.at(0)?.isMDUrl && productItem.documentation?.at(0)?.data}
@@ -327,10 +327,10 @@
 						<Tabs.Root value="faq" class="w-full h-full">
 							<Tabs.List
 								class="bg-[#151515] w-full justify-between p-1 h-fit border-b border-[#252525] flex p-2">
-								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="faq">FAQ</Tabs.Trigger>
-								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="documentation">Docs</Tabs.Trigger>
-								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="shipping">Shipping</Tabs.Trigger>
-								<Tabs.Trigger class="data-[state=active]:bg-[#c2ff00] data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="costing">Cost</Tabs.Trigger>
+								<Tabs.Trigger class="data-[state=active]:bg-accent data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="faq">FAQ</Tabs.Trigger>
+								<Tabs.Trigger class="data-[state=active]:bg-accent data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="documentation">Docs</Tabs.Trigger>
+								<Tabs.Trigger class="data-[state=active]:bg-accent data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="shipping">Shipping</Tabs.Trigger>
+								<Tabs.Trigger class="data-[state=active]:bg-accent data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]" value="costing">Cost</Tabs.Trigger>
 							</Tabs.List>
 							<div class="overflow-y-auto">
 								<Tabs.Content value="faq" class="text-white p-3 text-start h-full">
@@ -341,7 +341,7 @@
 													<Accordion.Item
 														value="item-{i}"
 														class="border-b border-[#252525] last:border-0 px-3 py-1">
-														<Accordion.Trigger class="font-medium hover:text-[#c2ff00] text-sm"
+														<Accordion.Trigger class="font-medium hover:text-accent text-sm"
 															><span class="text-start">{faq.question}</span></Accordion.Trigger>
 														<Accordion.Content class="text-gray-400 text-xs"
 															><span class="text-start">{faq.answer}</span></Accordion.Content>
@@ -411,13 +411,13 @@
 							{#if result.data && !result.error && result.data.length > 0}
 								<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525] h-full max-h-[170px]">
 									<div class="inline-flex items-center mb-2">
-										<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
-										<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+										<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+										<span class="text-accent text-xs uppercase tracking-wider font-medium">Related Products</span>
 									</div>
 									<div class="flex flex-col gap-2 overflow-y-auto pr-1 max-h-[120px]">
 										{#each result.data as relProd}
 										<a href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} 
-										   class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-[#c2ff00] transition-all p-1.5">
+										   class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-accent transition-all p-1.5">
 											<div class="w-10 h-10 overflow-hidden rounded-md flex-shrink-0">
 												<img src={relProd.images[0]?.url ?? no_img} alt={relProd.name} class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
 											</div>
@@ -425,7 +425,7 @@
 												<div class="text-white text-xs font-bold line-clamp-1">{relProd.name}</div>
 												<div class="flex items-center justify-between">
 													<span class="text-gray-400 text-[10px]">{relProd.stock.count} in stock</span>
-													<span class="text-[#c2ff00] font-bold text-xs">₹{relProd.price.new}</span>
+													<span class="text-accent font-bold text-xs">₹{relProd.price.new}</span>
 												</div>
 											</div>
 										</a>
@@ -435,8 +435,8 @@
 							{:else}
 								<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525]">
 									<div class="inline-flex items-center mb-2">
-										<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
-										<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+										<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+										<span class="text-accent text-xs uppercase tracking-wider font-medium">Related Products</span>
 									</div>
 									<div class="text-gray-400 text-sm p-2">No related products available</div>
 								</div>
@@ -447,13 +447,13 @@
 						{#if result.data && !result.error && result.data.length > 0}
 							<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525] h-full max-h-[170px]">
 								<div class="inline-flex items-center mb-2">
-									<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
-									<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+									<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+									<span class="text-accent text-xs uppercase tracking-wider font-medium">Related Products</span>
 								</div>
 								<div class="flex flex-col gap-2 overflow-y-auto pr-1 max-h-[120px]">
 									{#each result.data as relProd}
 									<a href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`} 
-									   class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-[#c2ff00] transition-all p-1.5">
+									   class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-accent transition-all p-1.5">
 										<div class="w-10 h-10 overflow-hidden rounded-md flex-shrink-0">
 											<img src={relProd.images[0]?.url ?? no_img} alt={relProd.name} class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
 										</div>
@@ -461,7 +461,7 @@
 											<div class="text-white text-xs font-bold line-clamp-1">{relProd.name}</div>
 											<div class="flex items-center justify-between">
 												<span class="text-gray-400 text-[10px]">{relProd.stock.count} in stock</span>
-												<span class="text-[#c2ff00] font-bold text-xs">₹{relProd.price.new}</span>
+												<span class="text-accent font-bold text-xs">₹{relProd.price.new}</span>
 											</div>
 										</div>
 									</a>
@@ -471,8 +471,8 @@
 						{:else}
 							<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525]">
 								<div class="inline-flex items-center mb-2">
-									<span class="w-2 h-2 rounded-full bg-[#c2ff00] mr-2"></span>
-									<span class="text-[#c2ff00] text-xs uppercase tracking-wider font-medium">Related Products</span>
+									<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+									<span class="text-accent text-xs uppercase tracking-wider font-medium">Related Products</span>
 								</div>
 								<div class="text-gray-400 text-sm p-2">No related products available</div>
 							</div>

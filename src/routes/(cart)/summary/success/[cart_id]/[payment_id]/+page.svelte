@@ -1,32 +1,75 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import Icon from '@iconify/svelte';
 </script>
 
-<div
-	class="flex flex-col justify-center md:items-center  mt-8 w-full md:mx-4 bg-green-950 rounded-md border-green-500 border-[1px] p-4">
-	<div class="text-2xl">Your order was successfully placed</div>
-	<div class="h-2"></div>
-	<div>
-		<span class="font-bold">Order ID</span> : &nbsp;&nbsp;<button class="text-blue-300"
-			on:click={() => navigator.clipboard.writeText($page.params.cart_id)}
-		>#{$page.params.cart_id}</button>
-	</div>
-	<div class="mt-2">
-		<span class="font-bold">Payment ID</span> : &nbsp;&nbsp; <button class="text-blue-300"
-			on:click={() => navigator.clipboard.writeText($page.params.payment_id)}
-		>#{$page.params.payment_id}</button>
-	</div>
-	<div class="h-4"></div>
-	Order tracking details will be shared on the provided mobile number & email address
-</div>
+<div class="min-h-screen bg-[#0c0c0c] text-white">
+	<div class="container mx-auto px-4 py-12">
+		<!-- Page Header -->
+		<div class="text-center mb-10" in:fly="{{ y: -20, duration: 600, delay: 200, easing: cubicOut }}">
+			<div class="inline-flex items-center justify-center mb-4">
+				<span class="w-4 h-4 rounded-full bg-green-500 mr-2"></span>
+				<span class="text-green-500 text-sm uppercase tracking-wider font-medium">Order Confirmed</span>
+			</div>
+			<h1 class="text-4xl font-bold mb-4">Payment Successful</h1>
+			<p class="text-gray-400">Your order has been successfully placed</p>
+		</div>
 
-<div
-	class="flex flex-col justify-center md:items-center mt-2 w-full md:mx-4 bg-green-950 rounded-md border-green-500 border-[1px] p-4">
-	<div class="md:text-center">
-		You can screesnhot this and share it with us, should you have any issues. Feel free to contact
-		us if you have any questions : <a
-			href="mailto:support@selfcrafted.in"
-			class="text-blue-400 inline">support@selfcrafted.in</a>
+		<!-- Order Details -->
+		<div class="max-w-2xl mx-auto">
+			<div class="bg-[#1c1c1c] rounded-lg p-6 mb-6" in:fly="{{ y: 20, duration: 600, delay: 400, easing: cubicOut }}">
+				<h2 class="text-xl font-semibold mb-4 flex items-center">
+					<Icon icon="mdi:check-circle-outline" class="mr-2 text-green-500" width="24" />
+					Transaction Details
+				</h2>
+				
+				<div class="space-y-4">
+					<div class="flex justify-between items-center py-2 border-b border-gray-700">
+						<span class="text-gray-400">Order ID</span>
+						<button
+							class="text-green-400 hover:text-green-300 transition-colors flex items-center"
+							on:click={() => {navigator.clipboard.writeText($page.params.cart_id); alert('copied to clipboard');}}>
+							#{$page.params.cart_id}
+							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
+						</button>
+					</div>
+					
+					<div class="flex justify-between items-center py-2 border-b border-gray-700">
+						<span class="text-gray-400">Payment ID</span>
+						<button
+							class="text-green-400 hover:text-green-300 transition-colors flex items-center"
+							on:click={() => {navigator.clipboard.writeText($page.params.payment_id); alert('copied to clipboard');}}>
+							#{$page.params.payment_id}
+							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
+						</button>
+					</div>
+
+					<p class="text-gray-400 pt-2">
+						Order tracking details will be shared on your registered mobile number & email address
+					</p>
+				</div>
+			</div>
+
+			<div class="bg-[#1c1c1c] rounded-lg p-6" in:fly="{{ y: 20, duration: 600, delay: 600, easing: cubicOut }}">
+				<h2 class="text-xl font-semibold mb-4 flex items-center">
+					<Icon icon="mdi:help-circle-outline" class="mr-2 text-green-500" width="24" />
+					Need Help?
+				</h2>
+				
+				<p class="text-gray-400 mb-4">
+					You can take a screenshot of this page for your reference. If you have any questions or concerns,
+					our support team is here to help.
+				</p>
+
+				<button
+					on:click={() => window.open('mailto:support@selfcrafted.in', '_blank')}
+					class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg transition-colors flex items-center justify-center">
+					<Icon icon="mdi:email-outline" class="mr-2" width="20" />
+					Contact Support
+				</button>
+			</div>
+		</div>
 	</div>
-	<div class="mt-2 text-xl">Thank you for shopping with us!</div>
 </div>

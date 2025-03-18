@@ -20,8 +20,8 @@
 		<!-- Header -->
 		<div class="text-center mb-12">
 			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-3 h-3 rounded-full bg-[#c2ff00] mr-2"></span>
-				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">Legal & Policies</span>
+				<span class="w-3 h-3 rounded-full bg-accent mr-2"></span>
+				<span class="text-accent text-sm uppercase tracking-wider font-medium">Legal & Policies</span>
 			</div>
 			<h1 class="text-4xl font-bold mb-3">Our Policies</h1>
 			<p class="text-gray-400 max-w-2xl mx-auto">Everything you need to know about our terms, policies, and procedures.</p>
@@ -33,7 +33,7 @@
 				<button
 					class="{`
 						px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105
-						${currentSelection === i ? 'bg-[#c2ff00]/10 text-[#c2ff00]' : 'bg-[#151515]/40 text-gray-400'}
+						${currentSelection === i ? 'bg-accent/10 text-accent' : 'bg-[#151515]/40 text-gray-400'}
 					`}"
 					on:click={() => {
 						currentSelection = i;
@@ -51,7 +51,7 @@
 				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
-							<Icon icon="ph:shield-check-bold" class="text-[#c2ff00] opacity-80" />
+							<Icon icon="ph:shield-check-bold" class="text-accent opacity-80" />
 							Privacy Policy
 						</Card.Title>
 					</Card.Header>
@@ -65,7 +65,7 @@
 				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
-							<Icon icon="ph:book-bold" class="text-[#c2ff00] opacity-80" />
+							<Icon icon="ph:book-bold" class="text-accent opacity-80" />
 							Terms & Conditions
 						</Card.Title>
 					</Card.Header>
@@ -79,7 +79,7 @@
 				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
-							<Icon icon="ph:arrow-counter-clockwise-bold" class="text-[#c2ff00] opacity-80" />
+							<Icon icon="ph:arrow-counter-clockwise-bold" class="text-accent opacity-80" />
 							Cancellation & Refund
 						</Card.Title>
 					</Card.Header>
@@ -93,7 +93,7 @@
 				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
-							<Icon icon="ph:truck-bold" class="text-[#c2ff00] opacity-80" />
+							<Icon icon="ph:truck-bold" class="text-accent opacity-80" />
 							Shipping & Delivery
 						</Card.Title>
 					</Card.Header>
@@ -107,7 +107,7 @@
 				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
-							<Icon icon="ph:phone-bold" class="text-[#c2ff00] opacity-80" />
+							<Icon icon="ph:phone-bold" class="text-accent opacity-80" />
 							Contact Us
 						</Card.Title>
 					</Card.Header>
@@ -121,7 +121,7 @@
 				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
-							<Icon icon="ph:warning-circle-bold" class="text-[#c2ff00] opacity-80" />
+							<Icon icon="ph:warning-circle-bold" class="text-accent opacity-80" />
 							Risks
 						</Card.Title>
 					</Card.Header>
@@ -164,7 +164,6 @@
 	}
 
 	:global(.prose a) {
-		color: #c2ff00;
 		text-decoration: none;
 	}
 

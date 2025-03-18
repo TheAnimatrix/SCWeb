@@ -1,5 +1,6 @@
 import { fontFamily } from 'tailwindcss/defaultTheme';
 import colors from 'tailwindcss/colors';
+import { custom_colors } from './colors';
 
 /** @type {import('tailwindcss').Config} */
 const config = {
@@ -29,6 +30,7 @@ const config = {
 		},
 		extend: {
 			colors: {
+				...custom_colors,
 				border: 'hsl(var(--border) / <alpha-value>)',
 				input: 'hsl(var(--input) / <alpha-value>)',
 				ring: 'hsl(var(--ring) / <alpha-value>)',

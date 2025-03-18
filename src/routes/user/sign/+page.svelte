@@ -14,13 +14,13 @@
 	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import Smoke from '$lib/components/effects/Smoke.svelte';
 
 	const triggerTabStyle =
-		'data-[state=active]:bg-transparent data-[state=active]:shadow-glow data-[state=active]:text-[#c2ff00] px-6 py-3 text-2xl text-gray-500 rounded-xl hover:bg-[#151515] text-gray-400 font-bold transition-all duration-300';
+		'data-[state=active]:bg-transparent data-[state=active]:shadow-glow data-[state=active]:text-accent px-6 py-3 text-2xl text-gray-500 rounded-xl hover:bg-[#151515] text-gray-400 font-bold transition-all duration-300';
 
 	export let data;
 	let { supabase_lt } = data;
-	let smokeCanvas: HTMLCanvasElement;
 
 	const getURL = () => {
 		let url =
@@ -105,120 +105,6 @@
 		errorText: string,
 		errorShow: number = 0;
 
-	onMount(() => {
-		// Initialize smoke animation
-		const initSmoke = () => {
-			if (!smokeCanvas) return;
-
-			const ctx = smokeCanvas.getContext('2d');
-			if (!ctx) return;
-
-			// Set canvas size
-			const resizeCanvas = () => {
-				smokeCanvas.width = smokeCanvas.offsetWidth;
-				smokeCanvas.height = smokeCanvas.offsetHeight;
-			};
-
-			resizeCanvas();
-			window.addEventListener('resize', resizeCanvas);
-
-			// Smoke particles
-			interface Particle {
-				x: number;
-				y: number;
-				radius: number;
-				color: string;
-				velocity: {
-					x: number;
-					y: number;
-				};
-				alpha: number;
-				decreasing: boolean;
-			}
-
-			const particles: Particle[] = [];
-			const particleCount = 40;
-
-			function createParticle(): Particle {
-				const radius = Math.random() * 180 + 120;
-				return {
-					x: Math.random() * smokeCanvas.width,
-					y: smokeCanvas.height + radius,
-					radius: radius,
-					color: `rgba(${194}, ${255}, ${0}, 0.15)`,
-					velocity: {
-						x: (Math.random() - 0.5) * 0.4,
-						y: -Math.random() * 0.7 - 0.4
-					},
-					alpha: 0.07 + Math.random() * 0.08,
-					decreasing: Math.random() > 0.5
-				};
-			}
-
-			// Create initial particles
-			for (let i = 0; i < particleCount; i++) {
-				particles.push(createParticle());
-			}
-
-			function updateSmoke() {
-				if (!ctx) return;
-				
-				ctx.clearRect(0, 0, smokeCanvas.width, smokeCanvas.height);
-
-				for (let i = 0; i < particles.length; i++) {
-					const particle = particles[i];
-
-					// Update position
-					particle.x += particle.velocity.x;
-					particle.y += particle.velocity.y;
-
-					// Fade in/out effect
-					if (particle.decreasing) {
-						particle.alpha -= 0.0005;
-						if (particle.alpha <= 0.06) {
-							particle.decreasing = false;
-						}
-					} else {
-						particle.alpha += 0.0005;
-						if (particle.alpha >= 0.15) {
-							particle.decreasing = true;
-						}
-					}
-
-					// Draw the particle
-					ctx.beginPath();
-					const gradient = ctx.createRadialGradient(
-						particle.x, particle.y, 0,
-						particle.x, particle.y, particle.radius
-					);
-					
-					gradient.addColorStop(0, `rgba(194, 255, 0, ${particle.alpha})`);
-					gradient.addColorStop(1, `rgba(194, 255, 0, 0)`);
-					
-					ctx.fillStyle = gradient;
-					ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-					ctx.fill();
-
-					// Reset particle if it goes off-screen
-					if (particle.y < -particle.radius || 
-							particle.x < -particle.radius || 
-							particle.x > smokeCanvas.width + particle.radius) {
-						particles[i] = createParticle();
-					}
-				}
-
-				requestAnimationFrame(updateSmoke);
-			}
-
-			updateSmoke();
-
-			return () => {
-				window.removeEventListener('resize', resizeCanvas);
-			};
-		};
-
-		initSmoke();
-	});
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white relative overflow-hidden">
@@ -226,20 +112,21 @@
 	<div class="absolute inset-0 bg-[#0a0a0a] z-0"></div>
 	
 	<!-- Animated Green Smoke Plumes -->
-	<div class="smoke-container absolute inset-0 z-0 opacity-40 overflow-hidden">
-		<canvas bind:this={smokeCanvas} class="w-full h-full"></canvas>
+	<div class="absolute inset-0 z-0">
+		<!-- Using default accent color -->
+		<Smoke opacity={0.4} particleCount={40} />
 	</div>
 	
 	<!-- Glowing accents -->
-	<div class="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-[#c2ff00] opacity-5 blur-[150px] rounded-full"></div>
-	<div class="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-[#c2ff00] opacity-5 blur-[150px] rounded-full"></div>
+	<div class="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-accent opacity-5 blur-[150px] rounded-full"></div>
+	<div class="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-accent opacity-5 blur-[150px] rounded-full"></div>
 
 	<div class="relative z-10 container mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-screen">
 		<!-- Logo/Brand -->
 		<div class="text-center mb-12" in:fly="{{ y: -20, duration: 800, delay: 200, easing: cubicOut }}">
 			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-4 h-4 rounded-full bg-[#c2ff00] mr-2"></span>
-				<span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">Welcome Back</span>
+				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
+				<span class="text-accent text-sm uppercase tracking-wider font-medium">Welcome Back</span>
 			</div>
 			<h1 class="text-4xl font-bold mb-2">Sign in to SelfCrafted</h1>
 			<p class="text-gray-400">Join our community of makers and creators</p>
@@ -253,14 +140,14 @@
 			>
 				<Tabs.List class="flex p-8 gap-1 rounded-2xl bg-[#000000]/50 backdrop-blur-xl mb-8 border border-[#252525]">
 					<Tabs.Trigger 
-						class="flex-1 flex items-center justify-center gap-2 px-8 py-2 rounded-xl font-bold text-xl transition-all duration-300 data-[state=active]:bg-[#c2ff00]/10 data-[state=active]:text-[#c2ff00] text-gray-400 hover:bg-white/5" 
+						class="flex-1 flex items-center justify-center gap-2 px-8 py-2 rounded-xl font-bold text-xl transition-all duration-300 data-[state=active]:bg-accent/10 data-[state=active]:text-accent text-gray-400 hover:bg-white/5" 
 						value="Login"
 					>
 						<Icon icon="ph:sign-in-bold" class="text-2xl" />
 						Login
 					</Tabs.Trigger>
 					<Tabs.Trigger 
-						class="flex-1 flex items-center justify-center gap-2 px-8 py-2 rounded-xl font-bold text-xl transition-all duration-300 data-[state=active]:bg-[#c2ff00]/10 data-[state=active]:text-[#c2ff00] text-gray-400 hover:bg-white/5"
+						class="flex-1 flex items-center justify-center gap-2 px-8 py-2 rounded-xl font-bold text-xl transition-all duration-300 data-[state=active]:bg-accent/10 data-[state=active]:text-accent text-gray-400 hover:bg-white/5"
 						value="Register"
 					>
 						<Icon icon="ph:user-plus-bold" class="text-2xl" />
@@ -275,11 +162,6 @@
 							<div>
 								<GlowleftInput
 									placeholder="E-Mail/Username"
-									gradient="bg-[linear-gradient(273deg,_#c2ff00_0%,_#86b100_100%)]"
-									f11="[box-shadow:0px_9px_34px_6px_rgba(194,_255,_0,_0.31)]"
-									f21="bg-[rgba(28,38,0,0.40)]"
-									f22="bg-[rgba(18,24,0,0.40)]"
-									class="w-full"
 									bind:value={emailLogin}
 									icon="ph:envelope-simple-bold"
 									iconPosition="left"
@@ -291,11 +173,6 @@
 							<div>
 								<GlowleftInput
 									placeholder="Password"
-									gradient="bg-[linear-gradient(273deg,_#c2ff00_0%,_#86b100_100%)]"
-									f11="[box-shadow:0px_9px_34px_6px_rgba(194,_255,_0,_0.31)]"
-									f21="bg-[rgba(28,38,0,0.40)]"
-									f22="bg-[rgba(18,24,0,0.40)]"
-									class="w-full"
 									type="password"
 									bind:value={passwordLogin}
 									icon="ph:lock-simple-bold"
@@ -347,11 +224,6 @@
 							<div>
 								<GlowleftInput
 									placeholder="E-Mail"
-									gradient="bg-[linear-gradient(273deg,_#c2ff00_0%,_#86b100_100%)]"
-									f11="[box-shadow:0px_9px_34px_6px_rgba(194,_255,_0,_0.31)]"
-									f21="bg-[rgba(28,38,0,0.40)]"
-									f22="bg-[rgba(18,24,0,0.40)]"
-									class="w-full"
 									bind:value={emailRegister}
 									icon="ph:envelope-simple-bold"
 									iconPosition="left"
@@ -363,11 +235,6 @@
 							<div>
 								<GlowleftInput
 									placeholder="Username"
-									gradient="bg-[linear-gradient(273deg,_#c2ff00_0%,_#86b100_100%)]"
-									f11="[box-shadow:0px_9px_34px_6px_rgba(194,_255,_0,_0.31)]"
-									f21="bg-[rgba(28,38,0,0.40)]"
-									f22="bg-[rgba(18,24,0,0.40)]"
-									class="w-full"
 									bind:value={usernameRegister}
 									icon="ph:user-bold"
 									iconPosition="left"
@@ -379,11 +246,6 @@
 							<div>
 								<GlowleftInput
 									placeholder="Password"
-									gradient="bg-[linear-gradient(273deg,_#c2ff00_0%,_#86b100_100%)]"
-									f11="[box-shadow:0px_9px_34px_6px_rgba(194,_255,_0,_0.31)]"
-									f21="bg-[rgba(28,38,0,0.40)]"
-									f22="bg-[rgba(18,24,0,0.40)]"
-									class="w-full"
 									type="password"
 									bind:value={passwordRegister}
 									icon="ph:lock-simple-bold"
@@ -441,11 +303,7 @@
 		box-shadow: 0 8px 30px -5px rgba(194, 255, 0, 0.2);
 	}
 
-	/* Smoke container styles */
-	.smoke-container {
-		mix-blend-mode: screen;
-		pointer-events: none;
-	}
+	
 
 	/* Animation keyframes */
 	@keyframes pulse {

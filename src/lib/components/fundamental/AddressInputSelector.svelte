@@ -1,5 +1,4 @@
 <script lang="ts">
-	import GlowleftInput from './glowleft_input.svelte';
 	import Icon from '@iconify/svelte';
 	import {
 		getValidState,
@@ -9,8 +8,9 @@
 		newAddress
 	} from '$lib/types/product';
 
-	function getWithoutCountryCode(phone: string) {
-		if (phone?.startsWith('+91')) return phone.substring(3);
+	function getWithoutCountryCode(phone: string | undefined) {
+		if (!phone) return '';
+		if (phone.startsWith('+91')) return phone.substring(3);
 		else return phone;
 	}
 
@@ -49,7 +49,7 @@
 		if (result) addressError = result;
 		else addressError = undefined;
 		if (!result) {
-			address.phone = '+91' + addr.phone;
+			address.phone = '+91' + (addr.phone || '');
 			address = {...address};
 			addressValid = true;
 			return true;
@@ -75,9 +75,8 @@
 		if (k) type = type == 'text' ? 'edit' : 'text';
 	}
 
-	let hoverAddressTitle = false;
+	let showAddressList = false;
 	let addressCount = addresses?.length ?? 0;
-	let listAddresses = false;
 
 	//default behavior
 	if (!userExists) type = 'edit';
@@ -88,182 +87,283 @@
 		} else type = 'edit';
 	}
 
-
+	// Input styling
+	const inputClasses = "w-full px-4 py-3 bg-[#252525]/80 rounded-lg border border-[#353535] focus:border-accent/50 focus:ring-1 focus:ring-accent/30 outline-none text-white placeholder-gray-500 transition-all";
 </script>
 
-<div class="flex flex-col border-[1px] border-scblue bg-scblued1 rounded-xl">
-	<div class="flex justify-between ml-8 mt-4 mr-4">
-		<button
-			on:mouseenter={() => {
-				hoverAddressTitle = true;
-			}}
-			on:mouseleave={() => {
-				hoverAddressTitle = false;
-			}}
-			on:click={() => {
-				if (userExists && addressCount) {
-					//load addresses
-					listAddresses = !listAddresses;
-				}
-			}}
-			class="text-scbluel1 text-lg w-fit font-semibold flex flex-col -mt-4">
-			<hr
-				class="border-scblue w-full mb-2 border-[1px] rounded-xl animate_base {hoverAddressTitle
-					? '[box-shadow:0px_9px_34px_6px_hsla(206.33,_100%,_73.14%,_0.61)]'
-					: '[box-shadow:0px_9px_34px_6px_hsla(206.33,_100%,_73.14%,_0.31)]'}" />
-			<div class="flex w-fit items-center">
-				Delivery Address
+<div class="bg-[#151515]/30 rounded-xl border border-[#252525] overflow-hidden transition-all duration-300">
+	<!-- Header Section -->
+	<div class="flex justify-between items-center p-4 border-b border-[#252525]">
+		<div class="flex items-center gap-2">
+			<button 
+				class="group flex items-center gap-2 focus:outline-none"
+				on:click={() => {
+					if (userExists && addressCount) {
+						showAddressList = !showAddressList;
+					}
+				}}
+			>
+				<span class="text-lg font-medium group-hover:text-accent transition-colors">
+					Shipping Address
+				</span>
+				
 				{#if userExists && addressCount}
-					{#if listAddresses}
-						<Icon icon="iconamoon:arrow-up-2-bold" class="w-6 h-6 ml-1" />
-					{:else}
-						<Icon icon="iconamoon:arrow-down-2-bold" class="w-6 h-6 ml-1" />
-					{/if}
+					<div class="text-accent/70 transition-transform duration-300 group-hover:text-accent" class:rotate-180={showAddressList}>
+						<Icon icon="ph:caret-down-bold" />
+					</div>
 				{/if}
-			</div>
-			<div class="text-red-500 font-normal text-sm {addressError ? 'visible' : 'hidden'}">
-				{addressError}
-			</div>
-		</button>
-		<div class="flex items-start">
-			<button on:click={toggleType}>
-				<Icon
-					icon={type == 'text' ? 'iconamoon:edit-duotone' : 'iconamoon:check-square-duotone'}
-					class="text-blue-300 text-2xl mr-2" />
 			</button>
-			<button on:click={onDeleteLocal}>
-				<Icon
-					icon="iconamoon:trash-simple-duotone"
-					class="text-blue-300 text-2xl mr-2 {type == 'edit' && address.id
-						? 'hidden'
-						: 'visible'}" />
-				<Icon
-					icon="iconamoon:close-circle-1-duotone"
-					class="text-blue-300 text-2xl mr-2 {type == 'text' || !address.id
-						? 'hidden'
-						: 'visible'}" />
+			
+			{#if addressError}
+				<span class="text-red-400 text-sm ml-2 animate-pulse">
+					{addressError}
+				</span>
+			{/if}
+		</div>
+		
+		<div class="flex items-center gap-2">
+			<button
+				class="p-2 text-gray-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-all"
+				on:click={toggleType}
+				aria-label={type === 'text' ? 'Edit address' : 'Save address'}
+			>
+				<Icon icon={type === 'text' ? 'ph:pencil-bold' : 'ph:check-bold'} class="text-xl" />
+			</button>
+			
+			<button
+				class="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+				on:click={onDeleteLocal}
+				aria-label={type === 'edit' && address.id ? 'Cancel edit' : 'Delete address'}
+			>
+				<Icon 
+					icon={type === 'edit' && address.id ? 'ph:x-bold' : 'ph:trash-bold'} 
+					class="text-xl" 
+				/>
 			</button>
 		</div>
 	</div>
-	<div
-		class="flex flex-col w-full self-start text-blue-200 opacity-80 font-medium text-lg animate_base mt-2 mb-6">
-		{#if listAddresses == false}
-			{#if type == 'text'}
-				<div class="px-8">
-					<div class="text-scbluel2 font-semibold">{address.name ?? 'Name'}</div>
-					<div>{address.line1 ?? 'Line 1 Address'}</div>
-					<div>{address.line2 ?? 'Line 2 Address'}</div>
-					<div>
-						{address.city ?? 'City'}-{address.pincode ?? 'Pincode'}, {address.state ?? 'State'}
+	
+	<!-- Address Content -->
+	<div class="p-5">
+		{#if !showAddressList}
+			{#if type === 'text'}
+				<!-- Read-only address display -->
+				<div class="space-y-2 text-gray-300">
+					<div class="text-lg font-medium text-accent">{address.name || 'Name'}</div>
+					
+					<div class="flex items-start">
+						<Icon icon="ph:map-pin-bold" class="mt-1 mr-2 text-accent/50" />
+						<div class="space-y-1">
+							<div>{address.line1 || 'Address Line 1'}</div>
+							<div>{address.line2 || 'Address Line 2'}</div>
+							<div>{address.city || 'City'} - {address.pincode || 'Pincode'}, {address.state || 'State'}</div>
+						</div>
 					</div>
+					
 					{#if address.phone}
-						<div>
-							Ph: {`+91-${getWithoutCountryCode(address.phone)}` ?? 'Phone'}
+						<div class="flex items-center mt-2">
+							<Icon icon="ph:phone-bold" class="mr-2 text-accent/50" />
+							<span>+91 {getWithoutCountryCode(address.phone)}</span>
+						</div>
+					{/if}
+					
+					{#if address.email && !email}
+						<div class="flex items-center mt-2">
+							<Icon icon="ph:envelope-bold" class="mr-2 text-accent/50" />
+							<span>{address.email}</span>
 						</div>
 					{/if}
 				</div>
 			{:else}
-				<div class="flex flex-wrap flex-col space-y-2 px-4">
-					<GlowleftInput
-						f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-						f21="bg-scblued3"
-						f22="bg-scblued2"
-						gradient="bg-blue-300 bg-opacity-80"
-						inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-						bind:value={address.name}
-						placeholder={address.name ?? 'Name'} />
-					<GlowleftInput
-						f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-						f21="bg-scblued3"
-						f22="bg-scblued2"
-						gradient="bg-blue-300 bg-opacity-80"
-						inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-						bind:value={address.line1}
-						placeholder={address.line1 ?? 'Line 1 Address'} />
-					<GlowleftInput
-						f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-						f21="bg-scblued3"
-						f22="bg-scblued2"
-						gradient="bg-blue-300 bg-opacity-80"
-						inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-						bind:value={address.line2}
-						placeholder={address.line2 ?? 'Line 2 Address'} />
-					<div class="flex flex-wrap w-full gap-x-2 gap-y-2">
-						<GlowleftInput
-							f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-							f21="bg-scblued3"
-							f22="bg-scblued2"
-							class="flex-1 min-w-32"
-							gradient="bg-blue-300 bg-opacity-80"
-							inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-							bind:value={address.city}
-							placeholder={address.city ?? 'City'} />
-						<GlowleftInput
-							f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-							f21="bg-scblued3"
-							f22="bg-scblued2"
-							class="flex-1 min-w-32"
-							gradient="bg-blue-300 bg-opacity-80"
-							inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-							bind:value={address.pincode}
-							placeholder={address.pincode ?? 'Pincode'} />
-						<GlowleftInput
-							f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-							f21="bg-scblued3"
-							f22="bg-scblued2"
-							class="flex-1 min-w-32"
-							gradient="bg-blue-300 bg-opacity-80"
-							inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-							bind:value={address.state}
-							placeholder={address.state ?? 'State'} />
+				<!-- Edit mode with form fields -->
+				<div class="space-y-4">
+					<!-- Name field -->
+					<div>
+						<label for="name" class="text-sm font-medium text-gray-400 mb-1 block">Full Name</label>
+						<div class="relative">
+							<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
+								<Icon icon="ph:user-bold" />
+							</div>
+							<input
+								id="name"
+								type="text"
+								class="{inputClasses} pl-10"
+								placeholder="Enter your full name"
+								bind:value={address.name}
+							/>
+						</div>
 					</div>
-					<div class="flex flex-wrap w-full gap-x-2 gap-y-2">
-						<GlowleftInput
-							f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-							f21="bg-scblued3"
-							f22="bg-scblued2"
-							class="flex-1 min-w-32"
-							gradient="bg-blue-300 bg-opacity-80"
-							inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-							bind:value={address.phone}
-							placeholder={getWithoutCountryCode(address.phone) ?? 'Phone'} />
+					
+					<!-- Address fields -->
+					<div>
+						<label for="line1" class="text-sm font-medium text-gray-400 mb-1 block">Address Line 1</label>
+						<div class="relative">
+							<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
+								<Icon icon="ph:map-pin-bold" />
+							</div>
+							<input
+								id="line1"
+								type="text"
+								class="{inputClasses} pl-10"
+								placeholder="Street address"
+								bind:value={address.line1}
+							/>
+						</div>
+					</div>
+					
+					<div>
+						<label for="line2" class="text-sm font-medium text-gray-400 mb-1 block">Address Line 2</label>
+						<input
+							id="line2"
+							type="text"
+							class="{inputClasses}"
+							placeholder="Apartment, suite, unit, building, floor, etc."
+							bind:value={address.line2}
+						/>
+					</div>
+					
+					<!-- City, Pincode, State in a row for larger screens -->
+					<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+						<div>
+							<label for="city" class="text-sm font-medium text-gray-400 mb-1 block">City</label>
+							<input
+								id="city"
+								type="text"
+								class="{inputClasses}"
+								placeholder="City"
+								bind:value={address.city}
+							/>
+						</div>
+						
+						<div>
+							<label for="pincode" class="text-sm font-medium text-gray-400 mb-1 block">Pincode</label>
+							<input
+								id="pincode"
+								type="text"
+								class="{inputClasses}"
+								placeholder="Pincode / ZIP"
+								bind:value={address.pincode}
+							/>
+						</div>
+						
+						<div>
+							<label for="state" class="text-sm font-medium text-gray-400 mb-1 block">State</label>
+							<input
+								id="state"
+								type="text"
+								class="{inputClasses}"
+								placeholder="State"
+								bind:value={address.state}
+							/>
+						</div>
+					</div>
+					
+					<!-- Phone and Email in a row -->
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div>
+							<label for="phone" class="text-sm font-medium text-gray-400 mb-1 block">Phone Number</label>
+							<div class="relative">
+								<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
+									<Icon icon="ph:phone-bold" />
+								</div>
+								<div class="absolute left-10 top-1/2 transform -translate-y-1/2 text-gray-500">
+									+91
+								</div>
+								<input
+									id="phone"
+									type="tel"
+									class="{inputClasses} pl-16"
+									placeholder="Phone number"
+									bind:value={address.phone}
+								/>
+							</div>
+						</div>
+						
 						{#if !email}
-							<GlowleftInput
-								f11="[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.61)]"
-								f21="bg-scblued3"
-								f22="bg-scblued2"
-								class="flex-1 min-w-32"
-								gradient="bg-blue-300 bg-opacity-80"
-								inputClass="text-start !text-blue-200 !text-lg !px-2 !placeholder-blue-200 !placeholder-opacity-30"
-								bind:value={address.email}
-								placeholder={address.email ?? 'E-Mail'} />
+							<div>
+								<label for="email" class="text-sm font-medium text-gray-400 mb-1 block">Email</label>
+								<div class="relative">
+									<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
+										<Icon icon="ph:envelope-bold" />
+									</div>
+									<input
+										id="email"
+										type="email"
+										class="{inputClasses} pl-10"
+										placeholder="Email address"
+										bind:value={address.email}
+									/>
+								</div>
+							</div>
 						{/if}
 					</div>
 				</div>
 			{/if}
-		{:else if addresses}
-			{#each addresses as addritem, i}
-				<hr class="w-full border-scblue border-opacity-30" />
-				<button
-					class="flex flex-col hover:bg-scblued2 px-8 py-1 text-start w-full"
-					on:click={() => {
-						address = addritem;
-						listAddresses = false;
-						addressValid = true;
-						type = 'text';
-					}}>
-					<div class="text-scbluel2 font-semibold">{addritem.name}</div>
-					<div>{addritem.line1}</div>
-					<div>{addritem.line2}</div>
-					<div>{addritem.city}-{addritem.pincode}, {addritem.state}</div>
-					<div>Ph: {addritem.phone.substring(0, 3)}-{addritem.phone.substring(3)}</div>
-				</button>
-				{#if i == addresses.length - 1}
-					<hr class="w-[calc(100%)+20px] border-scblue border-opacity-30 -mr-1" />
-				{/if}
-			{/each}
+		{:else if addresses && addresses.length > 0}
+			<!-- Address list for selection -->
+			<div class="max-h-80 overflow-y-auto pr-1 scrollbar">
+				{#each addresses as addrItem, i}
+					<button
+						class="flex flex-col w-full text-left p-3 rounded-lg transition-all duration-200 hover:bg-accent/5 mb-2 border border-[#353535] hover:border-accent/30"
+						on:click={() => {
+							address = addrItem;
+							showAddressList = false;
+							addressValid = true;
+							type = 'text';
+						}}
+					>
+						<div class="text-lg font-medium text-accent">{addrItem.name || ''}</div>
+						<div class="text-gray-300">{addrItem.line1 || ''}</div>
+						<div class="text-gray-300">{addrItem.line2 || ''}</div>
+						<div class="text-gray-300">
+							{addrItem.city || ''} - {addrItem.pincode || ''}, {addrItem.state || ''}
+						</div>
+						{#if addrItem.phone}
+							<div class="text-gray-300 flex items-center gap-1 mt-1">
+								<Icon icon="ph:phone-bold" class="text-accent/50" />
+								<span>+91 {addrItem.phone.startsWith('+91') ? addrItem.phone.substring(3) : addrItem.phone}</span>
+							</div>
+						{/if}
+					</button>
+				{/each}
+			</div>
 		{:else}
-			<div>Unknown error occured, Please refresh</div>
+			<div class="p-4 text-center text-red-400">
+				<Icon icon="ph:warning-circle" class="text-3xl mb-2" />
+				<p>Unknown error occurred, please refresh the page.</p>
+			</div>
 		{/if}
 	</div>
 </div>
+
+<style lang="postcss">
+  /* Scrollbar styling */
+  .scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .scrollbar::-webkit-scrollbar-track {
+    background: #252525;
+    border-radius: 10px;
+  }
+  
+  .scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-accent);
+    border-radius: 10px;
+    opacity: 0.5;
+  }
+  
+  .scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent);
+    opacity: 0.7;
+  }
+  
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+  }
+</style>

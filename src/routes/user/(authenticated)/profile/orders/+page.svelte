@@ -85,7 +85,7 @@
 				<p class="text-gray-400">Loading your orders...</p>
 			{:else}
 				<p class="text-gray-400">No orders placed yet</p>
-				<a href="/shop" class="inline-block mt-4 px-6 py-2 bg-[#c2ff00] bg-opacity-10 text-[#c2ff00] rounded-lg hover:bg-opacity-20 transition-all">
+				<a href="/shop" class="inline-block mt-4 px-6 py-2 bg-accent bg-opacity-10 text-accent rounded-lg hover:bg-opacity-20 transition-all">
 					Start Shopping
 				</a>
 			{/if}
@@ -145,7 +145,7 @@
 											href="/{order.cart_id}/craft/item={item.product_id}"
 											class="grid grid-cols-3 p-4 hover:bg-white hover:bg-opacity-5 transition-all"
 										>
-											<div class="font-medium text-[#c2ff00]">
+											<div class="font-medium text-accent">
 												{list.products[j].name}
 												<span class="text-gray-400 text-sm">(₹{item.price})</span>
 											</div>

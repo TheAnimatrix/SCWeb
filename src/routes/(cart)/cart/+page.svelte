@@ -82,7 +82,7 @@
       product.qty = inputQuantity;
       setLoading(load_store, true);
       try {
-        await changeCart(
+        const success = await changeCart(
           data.supabase_lt,
           cart_store,
           product,
@@ -90,8 +90,20 @@
           data.clientId,
           true,
         );
-        await invalidate('cart:change');
-        highlightRow(i);
+        
+        if (success) {
+          await invalidate('cart:change');
+          // Force UI update with current cart data
+          const cartResult = await getActiveCart(data.supabase_lt, data.clientId);
+          if (!cartResult.error && cartResult.data) {
+            cartDetails = cartResult.data;
+            quantityList = Array(cartDetails.list?.length ?? 0).fill(0);
+            cartDetails?.list?.forEach((item, idx) => {
+              quantityList[idx] = item.qty.toString();
+            });
+          }
+          highlightRow(i);
+        }
       } catch (err) {
         console.error("Error updating cart:", err);
         quantityList[i] = cartDetails.list![i].qty.toString(); // Reset to original on error
@@ -125,7 +137,7 @@
     product.qty = quantity;
     setLoading(load_store, true);
     try {
-      await changeCart(
+      const success = await changeCart(
         data.supabase_lt,
         cart_store,
         product,
@@ -133,8 +145,20 @@
         data.clientId,
         true,
       );
-      await invalidate('cart:change');
-      highlightRow(i);
+      
+      if (success) {
+        await invalidate('cart:change');
+        // Force refresh cart data
+        const cartResult = await getActiveCart(data.supabase_lt, data.clientId);
+        if (!cartResult.error && cartResult.data) {
+          cartDetails = cartResult.data;
+          quantityList = Array(cartDetails.list?.length ?? 0).fill(0);
+          cartDetails?.list?.forEach((item, idx) => {
+            quantityList[idx] = item.qty.toString();
+          });
+        }
+        highlightRow(i);
+      }
     } catch (err) {
       console.error("Error updating cart:", err);
     } finally {
@@ -152,7 +176,7 @@
     
     setLoading(load_store, true);
     try {
-      await changeCart(
+      const success = await changeCart(
         data.supabase_lt,
         cart_store,
         product,
@@ -160,7 +184,19 @@
         data.clientId,
         true,
       );
-      await invalidate('cart:change');
+      
+      if (success) {
+        await invalidate('cart:change');
+        // Force refresh cart data after removing item
+        const cartResult = await getActiveCart(data.supabase_lt, data.clientId);
+        if (!cartResult.error && cartResult.data) {
+          cartDetails = cartResult.data;
+          quantityList = Array(cartDetails.list?.length ?? 0).fill(0);
+          cartDetails?.list?.forEach((item, idx) => {
+            quantityList[idx] = item.qty.toString();
+          });
+        }
+      }
     } catch (err) {
       console.error("Error removing item:", err);
     } finally {
@@ -177,6 +213,22 @@
     }, 1000);
   }
 
+  // Refresh cart data on mount to ensure consistency
+  onMount(async () => {
+    try {
+      const cartResult = await getActiveCart(data.supabase_lt, data.clientId);
+      if (!cartResult.error && cartResult.data) {
+        cartDetails = cartResult.data;
+        quantityList = Array(cartDetails.list?.length ?? 0).fill(0);
+        cartDetails?.list?.forEach((item, idx) => {
+          quantityList[idx] = item.qty.toString();
+        });
+      }
+    } catch (err) {
+      console.error("Error loading cart:", err);
+    }
+  });
+
   const cart_store = getContext<Writable<CartG>>('userCartStatus');
   let load_store = getContext<Writable<boolean>>('loading');
 </script>
@@ -186,8 +238,8 @@
     <!-- Page Header -->
     <div class="text-center mb-10" in:fly="{{ y: -20, duration: 600, delay: 200, easing: cubicOut }}">
       <div class="inline-flex items-center justify-center mb-4">
-        <span class="w-4 h-4 rounded-full bg-[#c2ff00] mr-2"></span>
-        <span class="text-[#c2ff00] text-sm uppercase tracking-wider font-medium">Shopping Cart</span>
+        <span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
+        <span class="text-accent text-sm uppercase tracking-wider font-medium">Shopping Cart</span>
       </div>
       <h1 class="text-4xl font-bold mb-2">Your Items</h1>
       <p class="text-gray-400">Review your cart before checking out</p>
@@ -204,13 +256,13 @@
               in:fade={{ duration: 200 }}
             >
               <div class="relative">
-                <div class="absolute -inset-4 rounded-full bg-[#c2ff00]/5 blur-xl"></div>
-                <Icon icon="ph:shopping-cart" class="text-[#c2ff00] text-6xl mb-6 opacity-70" />
+                <div class="absolute -inset-4 rounded-full bg-accent/5 blur-xl"></div>
+                <Icon icon="ph:shopping-cart" class="text-accent text-6xl mb-6 opacity-70" />
               </div>
               <h2 class="text-3xl font-bold mb-3">Your cart is empty</h2>
               <p class="text-gray-400 mb-8 max-w-md">Looks like you haven't added any items yet. Explore our products and find something you like!</p>
               <button 
-                class="flex items-center justify-center gap-2 bg-[#c2ff00]/10 text-[#c2ff00] px-8 py-4 rounded-xl font-medium hover:bg-[#c2ff00]/20 transition-all duration-300 hover:scale-105 transform"
+                class="flex items-center justify-center gap-2 bg-accent/10 text-accent px-8 py-4 rounded-xl font-medium hover:bg-accent/20 transition-all duration-300 hover:scale-105 transform"
                 on:click={() => goto('/')}
               >
                 <Icon icon="ph:shopping-bag-bold" class="text-xl" />
@@ -253,8 +305,8 @@
                   <div class="flex-1 p-4 flex flex-col">
                     <div class="flex flex-col md:flex-row justify-between">
                       <div>
-                        <h3 class="text-xl font-bold text-white group-hover:text-[#c2ff00] transition-colors duration-300">{result.name}</h3>
-                        <p class="text-[#c2ff00] opacity-80 text-xs mb-2">by {result.author}</p>
+                        <h3 class="text-xl font-bold text-white group-hover:text-accent transition-colors duration-300">{result.name}</h3>
+                        <p class="text-accent opacity-80 text-xs mb-2">by {result.author}</p>
                       </div>
                       <!-- Removed duplicate price here -->
                     </div>
@@ -274,14 +326,14 @@
                     
                     <!-- Price and Quantity Controls - More compact -->
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-auto pt-2 border-t border-[#252525]">
-                      <div class="text-2xl font-bold text-[#c2ff00]">
+                      <div class="text-2xl font-bold text-accent">
                         ₹{calculateTotalPrice(result.price.new, productItem.qty)}
                       </div>
                       
                       <div class="flex items-center mt-2 sm:mt-0 relative z-10">
                         <button
                           on:click={() => incrementDecrementQuantity(false, i, result)}
-                          class="w-8 h-8 flex items-center justify-center bg-[#252525] hover:bg-[#c2ff00]/20 text-[#c2ff00] rounded-l-lg transition-colors duration-200 relative z-10"
+                          class="w-8 h-8 flex items-center justify-center bg-[#252525]/30 hover:bg-accent/20 text-accent rounded-l-lg transition-colors duration-200 relative z-10"
                           aria-label="Decrease quantity"
                           type="button"
                           style="touch-action: manipulation;"
@@ -296,7 +348,7 @@
                           bind:value={quantityList[i]}
                           min="1"
                           max={result.stock.count}
-                          class="w-12 h-8 bg-[#252525] text-center border-x border-[#353535] text-white focus:outline-none focus:ring-1 focus:ring-[#c2ff00]/50 relative z-10"
+                          class="w-12 h-8 bg-[#252525]/30 text-center border-x border-[#353535] text-white focus:outline-none focus:ring-1 focus:ring-accent/50 relative z-10"
                           disabled={isUpdatingCart}
                           on:change={(e) => updateQuantity(e, i, result)}
                           style="touch-action: manipulation;"
@@ -304,7 +356,7 @@
                         
                         <button
                           on:click={() => incrementDecrementQuantity(true, i, result)}
-                          class="w-8 h-8 flex items-center justify-center bg-[#252525] hover:bg-[#c2ff00]/20 text-[#c2ff00] rounded-r-lg transition-colors duration-200 relative z-10"
+                          class="w-8 h-8 flex items-center justify-center bg-[#252525]/30 hover:bg-accent/20 text-accent rounded-r-lg transition-colors duration-200 relative z-10"
                           aria-label="Increase quantity"
                           disabled={isUpdatingCart}
                           type="button"
@@ -351,7 +403,7 @@
           >
             <div class="p-5 border-b border-[#252525]">
               <h2 class="text-xl font-bold flex items-center">
-                <Icon icon="ph:receipt-bold" class="mr-2 text-[#c2ff00]" />
+                <Icon icon="ph:receipt-bold" class="mr-2 text-accent" />
                 Order Summary
               </h2>
             </div>
@@ -372,7 +424,7 @@
               
               <div class="flex justify-between items-center pt-1">
                 <span class="text-lg font-bold">Total</span>
-                <span class="text-2xl font-bold text-[#c2ff00]">
+                <span class="text-2xl font-bold text-accent">
                   ₹{(cartSubtotal + DELIVERY_FLAT_FEE).toFixed(2)}
                 </span>
               </div>
@@ -383,9 +435,9 @@
                 disabled={isUpdatingCart}
                 on:click={() => goto('/checkout')}
               >
-                <div class="absolute inset-0 bg-[#c2ff00] opacity-10 group-hover/button:opacity-20 transition-opacity duration-300"></div>
+                <div class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300"></div>
                 
-                <div class="relative flex items-center justify-center gap-2 bg-transparent border border-[#c2ff00]/30 rounded-xl px-5 py-3 font-medium text-[#c2ff00]">
+                <div class="relative flex items-center justify-center gap-2 bg-transparent border border-accent/30 rounded-xl px-5 py-3 font-medium text-accent">
                   <Icon icon="ph:shopping-cart-simple-bold" />
                   <span>Proceed to Checkout</span>
                   
@@ -406,9 +458,9 @@
               </div>
               
               <div class="pt-4 border-t border-[#252525] flex items-center justify-center gap-3 text-gray-500">
-                <Icon icon="ph:shield-check-bold" class="text-[#c2ff00] opacity-50" />
+                <Icon icon="ph:shield-check-bold" class="text-accent opacity-50" />
                 <span class="text-xs">Secure Checkout</span>
-                <Icon icon="ph:lock-simple-bold" class="text-[#c2ff00] opacity-50" />
+                <Icon icon="ph:lock-simple-bold" class="text-accent opacity-50" />
               </div>
             </div>
           </div>
@@ -418,18 +470,18 @@
   </div>
 </div>
 
-<style>
+<style lang="postcss">
   .shadow-glow {
-    box-shadow: 0 4px 20px -5px rgba(194, 255, 0, 0.1);
+    @apply [box-shadow:0_4px_20px_-5px_accent/10];
   }
 
   .shadow-glow-lg {
-    box-shadow: 0 8px 30px -5px rgba(194, 255, 0, 0.2);
+    @apply [box-shadow:0_8px_30px_-5px_accent/20];
   }
 
   /* Animation for price changes */
   @keyframes highlight {
-    0% { background-color: rgba(194, 255, 0, 0.1); }
+    0% { background-color: hsl(var(--accent) / 0.1); }
     100% { background-color: transparent; }
   }
 
