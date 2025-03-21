@@ -32,6 +32,15 @@
 	let cart_qty = 0;
 	let addToCartSuccess: boolean | null = null;
 	let addToCartMsg: string;
+	let showReviewModal = false;
+	let reviewRating = 5;
+	let reviewComment = '';
+	let isSubmittingReview = false;
+	let reviewSuccess: boolean | null = null;
+	let reviewError = '';
+	let reviews: any[] | null | undefined = [];
+	let userReview: { rating: number; comment: string; id: any; user_id: any; } | null = null;
+	let isEditingReview = false;
 
 	// Status tag glow effect variables
 	let statusTagElement: HTMLElement;
@@ -40,6 +49,7 @@
 	let glowX = 50;
 	let glowY = 50;
 	let isHovering = false;
+
 
 	// Track mouse position for glow effect
 	function handleMouseMove(event: MouseEvent) {
@@ -69,6 +79,106 @@
 		glowY = 50;
 	}
 
+	// Fetch reviews and check if user has already submitted one
+	async function fetchReviews() {
+		try {
+			reviews = data.reviews;
+			
+			// Check if current user has a review
+			const user = await data.supabase_lt.auth.getUser();
+			if (user && user.data?.user) {
+				userReview = reviews.find(r => r.user_id === user.data.user.id);
+			}
+		} catch (err) {
+			console.error('Error fetching reviews:', err);
+		}
+	}
+	
+	// Open the review modal for editing
+	function editReview() {
+		if (userReview) {
+			isEditingReview = true;
+			reviewRating = userReview.rating;
+			reviewComment = userReview.comment;
+			showReviewModal = true;
+		}
+	}
+
+	async function submitReview() {
+		if (!reviewComment.trim()) {
+			reviewError = 'Please enter a review comment';
+			return;
+		}
+
+		isSubmittingReview = true;
+		reviewError = '';
+
+		try {
+			// Get current user
+			const user = await data.supabase_lt.auth.getUser();
+			if (!user || !user.data?.user) {
+				throw new Error('You must be logged in to submit a review');
+			}
+			
+			const reviewData = {
+				product_id: productItem.id,
+				rating: reviewRating,
+				comment: reviewComment.trim()
+			};
+			
+			let result;
+			
+			// Update existing review or create new one
+			if (isEditingReview && userReview) {
+				result = await data.supabase_lt
+					.from('reviews')
+					.update(reviewData)
+					.eq('id', userReview.id)
+					.select('*, users(username)');
+			} else {
+				// Use upsert to handle potential duplicates
+				result = await data.supabase_lt
+					.from('reviews')
+					.upsert(reviewData, { 
+						onConflict: 'product_id,user_id'
+					})
+					.select('*, users(username)');
+			}
+
+			if (result.error) throw result.error;
+
+			reviewSuccess = true;
+			showReviewModal = false;
+			
+			// Update the reviews list with the new/updated review
+			if (result.data && result.data.length > 0) {
+				const updatedReview = result.data[0];
+				
+				// If editing, replace the existing review
+				if (isEditingReview && userReview) {
+					reviews = reviews.map(r => 
+						r.id === userReview.id ? updatedReview : r
+					);
+				} else {
+					// Add new review to the top of the list
+					reviews = [updatedReview, ...reviews.filter(r => r.user_id !== updatedReview.user_id)];
+				}
+				
+				// Update userReview reference
+				userReview = updatedReview;
+			}
+			
+			reviewComment = '';
+			reviewRating = 5;
+			isEditingReview = false;
+		} catch (error) {
+			reviewSuccess = false;
+			reviewError = error.message || 'Failed to submit review. Please try again.';
+		} finally {
+			isSubmittingReview = false;
+		}
+	}
+
 	onMount(() => {
 		if (productItem.stock.status) {
 			statusTagElement = document.getElementById('sale_info') as HTMLElement;
@@ -78,6 +188,9 @@
 				statusTagElement.addEventListener('mouseleave', handleMouseLeave);
 			}
 		}
+
+		// Fetch reviews on component mount
+		fetchReviews();
 
 		return () => {
 			if (statusTagElement) {
@@ -481,6 +594,144 @@
 					{/if}
 				</div>
 			</div>
+			
+			<!-- Reviews Section -->
+			<div class="w-full mt-3">
+				<div class="bg-[#151515] rounded-2xl p-4 border border-[#252525]">
+					<div class="flex items-center justify-between mb-3">
+						<div class="inline-flex items-center">
+							<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+							<span class="text-accent text-xs uppercase tracking-wider font-medium">Reviews</span>
+						</div>
+						<div class="flex gap-2">
+							{#if userReview}
+								<button 
+									on:click={editReview}
+									class="inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[#353535] transition-all"
+								>
+									<Icon icon="iconamoon:edit" class="text-lg" />
+									Edit My Review
+								</button>
+							{/if}
+							<button 
+								on:click={() => { isEditingReview = false; reviewRating = 5; reviewComment = ''; showReviewModal = true; }}
+								class="inline-flex items-center gap-1.5 bg-accent text-black px-3 py-1.5 rounded-lg text-sm font-medium hover:brightness-110 transition-all"
+							>
+								<Icon icon="iconamoon:plus" class="text-lg" />
+								{userReview ? 'New Review' : 'Add Review'}
+							</button>
+						</div>
+					</div>
+					
+					{#if reviews.length > 0}
+						<div class="flex flex-col gap-4">
+							{#each reviews as review}
+								<div class="bg-[#0c0c0c] rounded-xl p-3 border border-[#252525] {review.user_id === userReview?.user_id ? 'border-accent/30' : ''}">
+									<div class="flex items-center justify-between mb-2">
+										<div class="flex items-center gap-2">
+											<div class="w-8 h-8 rounded-full bg-[#252525] flex items-center justify-center">
+												<Icon icon="mdi:account" class="text-gray-400" />
+											</div>
+											<div>
+												<div class="text-white text-sm font-medium">
+													{review.users?.username ?? 'Anonymous'}
+													{#if review.user_id === userReview?.user_id}
+														<span class="text-accent text-xs ml-2">(You)</span>
+													{/if}
+												</div>
+												<div class="text-gray-400 text-xs">{new Date(review.created_at).toLocaleDateString()}</div>
+											</div>
+										</div>
+										<div class="flex items-center gap-1">
+											{#each Array(5) as _, i}
+												<Icon 
+													icon="iconamoon:star-duotone" 
+													class="text-sm {i < review.rating ? 'text-[#ff9900]' : 'text-gray-600'}" 
+												/>
+											{/each}
+										</div>
+									</div>
+									<div class="text-gray-300 text-sm">{review.comment}</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="text-gray-400 text-sm p-2 text-center">No reviews yet. Be the first to review this product!</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Review Modal -->
+			{#if showReviewModal}
+				<div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+					<div class="bg-[#151515] rounded-2xl p-6 w-full max-w-md border border-[#252525] relative">
+						<button 
+							on:click={() => showReviewModal = false}
+							class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+						>
+							<Icon icon="iconamoon:close" class="text-xl" />
+						</button>
+
+						<h3 class="text-xl font-bold text-white mb-4">
+							{isEditingReview ? 'Edit Your Review' : 'Write a Review'}
+						</h3>
+						
+						<div class="mb-4">
+							<label class="block text-sm font-medium text-gray-300 mb-2">Rating</label>
+							<div class="flex gap-1">
+								{#each Array(5) as _, i}
+									<button
+										on:click={() => reviewRating = i + 1}
+										class="text-2xl transition-colors"
+									>
+										<Icon 
+											icon="iconamoon:star-duotone" 
+											class="{i < reviewRating ? 'text-[#ff9900]' : 'text-gray-600'}" 
+										/>
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<div class="mb-4">
+							<label class="block text-sm font-medium text-gray-300 mb-2">Your Review</label>
+							<textarea
+								bind:value={reviewComment}
+								class="w-full h-32 bg-[#0c0c0c] border border-[#252525] rounded-lg p-3 text-white text-sm focus:outline-none focus:border-accent transition-colors resize-none"
+								placeholder="Share your experience with this product..."
+							></textarea>
+						</div>
+
+						{#if reviewError}
+							<div class="text-red-400 text-sm mb-4">{reviewError}</div>
+						{/if}
+
+						<div class="flex gap-3">
+							<button
+								on:click={() => showReviewModal = false}
+								class="flex-1 py-2 px-4 bg-[#252525] text-white rounded-lg hover:bg-[#353535] transition-colors"
+							>
+								Cancel
+							</button>
+							<button
+								on:click={submitReview}
+								disabled={isSubmittingReview}
+								class="flex-1 py-2 px-4 bg-accent text-black rounded-lg hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+							>
+								{#if isSubmittingReview}
+									<!-- cool spinner -->
+									<div class="w-4 h-4">
+										<div class="w-full h-full border-t-2 border-b-2 border-black rounded-full animate-spin"></div>
+									</div>
+									{isEditingReview ? 'Updating...' : 'Submitting...'}
+								{:else}
+									{isEditingReview ? 'Update Review' : 'Submit Review'}
+								{/if}
+							</button>
+						</div>
+					</div>
+				</div>
+			{/if}
 		</div>
 		
 	</div>
