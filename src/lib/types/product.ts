@@ -1,4 +1,5 @@
 export interface Product {
+	users: any;
 	id: string;
 	name: string;
 	images: { url: string }[];

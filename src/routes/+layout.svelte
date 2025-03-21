@@ -4,7 +4,8 @@
 	import { navigating } from '$app/stores';
 	import { loading, setLoading } from '$lib/client/loading';
 	import { page } from '$app/stores';
-	import { goto, invalidate } from '$app/navigation';
+	import { goto, invalidate, afterNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import Logo from '$lib/svg/logo_main.svg';
 	import Icon from '@iconify/svelte';
 	import * as Drawer from '$lib/components/ui/drawer';
@@ -92,6 +93,27 @@
 			}
 		});
 	});
+	
+	// Function to reset scroll position
+	function resetScroll() {
+		if (!browser) return; // Only run in browser environment
+		
+		// Scroll body to top
+		document.body.scrollTop = 0;
+		document.documentElement.scrollTop = 0; // For Safari
+	}
+
+	// Add afterNavigate handler for scroll reset
+	afterNavigate(({ from, to }) => {
+		if (!browser) return; // Only run in browser environment
+		
+		// Only reset if we're navigating to a different path
+		if (!from || (from.route.id !== to?.route.id)) {
+			// Force scroll body to top
+			document.body.scrollTop = 0;
+			document.documentElement.scrollTop = 0; // For Safari
+		}
+	});
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white w-full max-w-full overflow-x-hidden">
@@ -108,7 +130,7 @@
 	<div class="absolute top-20 z-0 left-1/2 w-96 h-96 bg-accent opacity-10 blur-[120px] -translate-x-1/2 rounded-full pointer-events-none"></div>
 	
 	<!-- Desktop Navbar -->
-	<header class="sticky top-0 z-40 backdrop-blur-lg border-b border-[#252525]/50">
+	<header class="fixed top-0 left-0 right-0 z-40 backdrop-blur-lg border-b border-[#252525]/30 w-full">
 		<div class="max-w-7xl mx-auto px-4">
 			<nav class="flex items-center justify-between h-16 md:h-20">
 				<!-- Logo -->
@@ -217,7 +239,7 @@
 	</header>
 
 	<!-- Main Content -->
-	<main>
+	<main class="pt-16 md:pt-20">
 		<slot />
 	</main>
 

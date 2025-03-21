@@ -234,7 +234,7 @@
 
 </script>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white w-full max-w-full overflow-x-hidden">
+<div class="min-h-screen bg-transparent text-white w-full max-w-full overflow-x-hidden">
 	<!-- Welcome Section -->
 	<section class="pt-12 pb-16 px-4 relative w-full max-w-full overflow-hidden">
 		<!-- Heading -->
