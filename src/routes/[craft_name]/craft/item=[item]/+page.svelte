@@ -21,6 +21,7 @@
 	import SocialEmbed from '$lib/components/fundamental/SocialEmbed.svelte';
 	import ProductItem from '$lib/components/product/product_item.svelte';
 	import ProductList from '$pages/product_list.svelte';
+	import { page } from '$app/stores';
 	let indicator_cur = 0;
 	let ItemQty = 0;
 	let tabSet = 0;
@@ -214,12 +215,22 @@
 		// Fetch reviews on component mount
 		fetchReviews();
 
+		// Subscribe to page changes to refresh data when navigating between products
+		const unsubscribe = page.subscribe(async ($page) => {
+			const newItemId = $page.params.item;
+			if (newItemId && newItemId !== productItem.id) {
+				// Product ID has changed, reload the page
+				window.location.reload();
+			}
+		});
+
 		return () => {
 			if (statusTagElement) {
 				statusTagElement.removeEventListener('mousemove', handleMouseMove);
 				statusTagElement.removeEventListener('mouseenter', handleMouseEnter);
 				statusTagElement.removeEventListener('mouseleave', handleMouseLeave);
 			}
+			unsubscribe();
 		};
 	});
 
@@ -300,10 +311,12 @@
 							<div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
 								{#each Array(indicator_max) as _, i}
 									<button
+										type="button"
 										class="h-1.5 rounded-full transition-all duration-300 {i === indicator_cur
 											? 'w-12 bg-accent shadow-[0_0_10px] shadow-accent'
 											: 'w-6 bg-white/60 hover:bg-white/80 hover:w-8'}"
-										on:click={() => (indicator_cur = i)} />
+										on:click={() => (indicator_cur = i)}
+										aria-label="View image {i+1} of {indicator_max}" />
 								{/each}
 							</div>
 						{/if}
@@ -977,6 +990,16 @@
 <style lang="postcss">
 	* {
 		@apply transition-all duration-200 ease-linear;
+	}
+
+	/* Button reset for image indicators */
+	.absolute.bottom-4 button {
+		appearance: none;
+		padding: 0;
+		border: none;
+		min-height: 0;
+		min-width: 0;
+		display: block;
 	}
 
 	/* For WebKit browsers (Chrome, Safari) */
