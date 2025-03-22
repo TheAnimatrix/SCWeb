@@ -178,12 +178,13 @@
 </div>
 
 <style>
+	@reference "../../../../../app.css";
 	.lhead {
-		@apply border-[1px] border-solid border-orange-300 bg-scoranged2 rounded-xl text-orange-200 text-opacity-75;
+		@apply border-[1px] border-solid border-orange-300 bg-scoranged2 rounded-xl text-orange-200 opacity-75;
 	}
 
 	.litem {
-		@apply bg-scoranged2 hover:bg-scorange hover:bg-opacity-10 p-4 text-orange-200 text-opacity-75 grid grid-flow-col grid-cols-4 gap-x-4 max-sm:text-sm text-center;
+		@apply bg-scoranged2 hover:bg-scorange/10 p-4 text-orange-200 opacity-75 grid grid-flow-col grid-cols-4 gap-x-4 max-sm:text-sm text-center;
 	}
 
 	.litem:first-child,
