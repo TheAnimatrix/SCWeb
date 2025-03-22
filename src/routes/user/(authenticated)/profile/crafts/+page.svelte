@@ -6,8 +6,8 @@
 		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
 	};
 
-	export let data;
-	let products: Product[];
+	let { data } = $props();
+	let products: Product[] = $state();
 	let loading = false;
 	if (data.products) products = data.products;
 </script>

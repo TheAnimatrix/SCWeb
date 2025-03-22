@@ -1,9 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  export let opacity = 0.4;
-  export let particleCount = 40;
-  export let color = 'hsl(var(--accent-hue), var(--accent-saturation), var(--accent-lightness))';
+  interface Props {
+    opacity?: number;
+    particleCount?: number;
+    color?: string;
+  }
+
+  let { opacity = 0.4, particleCount = 40, color = 'hsl(var(--accent-hue), var(--accent-saturation), var(--accent-lightness))' }: Props = $props();
   
   interface Particle {
     x: number;
@@ -17,8 +21,8 @@
     decreasing: boolean;
   }
 
-  let smokeCanvas: HTMLCanvasElement;
-  let colorHelper: HTMLDivElement;
+  let smokeCanvas: HTMLCanvasElement = $state();
+  let colorHelper: HTMLDivElement = $state();
 
   function createParticle(): Particle {
     const radius = Math.random() * 180 + 120;

@@ -30,7 +30,7 @@
 						<span class="text-gray-400">Order ID</span>
 						<button
 							class="text-green-400 hover:text-green-300 transition-colors flex items-center"
-							on:click={() => {navigator.clipboard.writeText($page.params.cart_id); alert('copied to clipboard');}}>
+							onclick={() => {navigator.clipboard.writeText($page.params.cart_id); alert('copied to clipboard');}}>
 							#{$page.params.cart_id}
 							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
 						</button>
@@ -40,7 +40,7 @@
 						<span class="text-gray-400">Payment ID</span>
 						<button
 							class="text-green-400 hover:text-green-300 transition-colors flex items-center"
-							on:click={() => {navigator.clipboard.writeText($page.params.payment_id); alert('copied to clipboard');}}>
+							onclick={() => {navigator.clipboard.writeText($page.params.payment_id); alert('copied to clipboard');}}>
 							#{$page.params.payment_id}
 							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
 						</button>
@@ -64,7 +64,7 @@
 				</p>
 
 				<button
-					on:click={() => window.open('mailto:support@selfcrafted.in', '_blank')}
+					onclick={() => window.open('mailto:support@selfcrafted.in', '_blank')}
 					class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg transition-colors flex items-center justify-center">
 					<Icon icon="mdi:email-outline" class="mr-2" width="20" />
 					Contact Support

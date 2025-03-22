@@ -4,12 +4,12 @@
 	import type { CartItem } from '$lib/client/cart.js';
 	import Icon from '@iconify/svelte';
 
-	export let data;
+	let { data } = $props();
 	let supabase_lt = data.supabase_lt;
 	let subload = false;
-	let orders: Orders = [];
+	let orders: Orders = $state([]);
 	orders = data.orders;
-	let visible = Array(orders.length).fill(false);
+	let visible = $state(Array(orders.length).fill(false));
 
 	function getDate(timestamp: string) {
 		const date = new Date(timestamp);
@@ -95,7 +95,7 @@
 			<div class="bg-[#151515] rounded-xl overflow-hidden">
 				<button
 					class="w-full p-4 grid grid-cols-4 gap-4 items-center text-left hover:bg-white hover:bg-opacity-5 transition-all"
-					on:click={() => {
+					onclick={() => {
 						visible[i] = !visible[i];
 					}}
 				>
@@ -177,7 +177,7 @@
 	{/if}
 </div>
 
-<style lang="postcss">
+<style>
 	.lhead {
 		@apply border-[1px] border-solid border-orange-300 bg-scoranged2 rounded-xl text-orange-200 text-opacity-75;
 	}

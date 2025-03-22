@@ -4,8 +4,8 @@
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
-	let currentStep = 0;
-	let canvas: HTMLCanvasElement;
+	let currentStep = $state(0);
+	let canvas: HTMLCanvasElement = $state();
 	
 	const craftingSteps = [
 		{
@@ -267,7 +267,7 @@
 	<canvas
 		bind:this={canvas}
 		class="absolute inset-0 w-full h-full opacity-30"
-	/>
+	></canvas>
 	
 	<!-- Hero Section -->
 	<section class="relative pt-20 pb-16 px-4">
@@ -295,7 +295,7 @@
 				{#each craftingSteps as step, i}
 					<button
 						class="bg-[#151515]/40 backdrop-blur-xl rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all hover:shadow-glow group relative overflow-hidden {currentStep === i ? 'active' : ''}"
-						on:mouseenter={() => currentStep = i}
+						onmouseenter={() => currentStep = i}
 					>
 						<!-- Glow Effect -->
 						<div class="absolute inset-0 bg-accent opacity-0 group-hover:opacity-5 transition-opacity duration-300 blur-2xl"></div>
@@ -366,6 +366,8 @@
 </div>
 
 <style lang="postcss">
+	
+	@reference '../../app.css';
 	.shadow-glow {
 		@apply shadow-accent/10;
 	}

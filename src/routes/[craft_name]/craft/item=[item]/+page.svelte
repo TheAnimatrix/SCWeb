@@ -22,35 +22,35 @@
 	import ProductItem from '$lib/components/product/product_item.svelte';
 	import ProductList from '$pages/product_list.svelte';
 	import { page } from '$app/stores';
-	let indicator_cur = 0;
+	let indicator_cur = $state(0);
 	let ItemQty = 0;
 	let tabSet = 0;
-	export let data;
+	let { data } = $props();
 	let productItem: Product = data.product;
 	let indicator_max = productItem.images.length;
 	let cart_qty_max = productItem.stock.count;
 	let picIndex = 0;
-	let cart_qty = 0;
-	let addToCartSuccess: boolean | null = null;
-	let addToCartMsg: string;
-	let showReviewModal = false;
-	let reviewRating = 5;
-	let reviewComment = '';
-	let isSubmittingReview = false;
+	let cart_qty = $state(0);
+	let addToCartSuccess: boolean | null = $state(null);
+	let addToCartMsg: string = $state();
+	let showReviewModal = $state(false);
+	let reviewRating = $state(5);
+	let reviewComment = $state('');
+	let isSubmittingReview = $state(false);
 	let reviewSuccess: boolean | null = null;
-	let reviewError = '';
-	let reviews: any[] = [];
-	let userReview: { rating: number; comment: string; id: any; user_id: any } | null = null;
-	let isEditingReview = false;
-	let showDeleteConfirmation = false;
+	let reviewError = $state('');
+	let reviews: any[] = $state([]);
+	let userReview: { rating: number; comment: string; id: any; user_id: any } | null = $state(null);
+	let isEditingReview = $state(false);
+	let showDeleteConfirmation = $state(false);
 
 	// Status tag glow effect variables
 	let statusTagElement: HTMLElement;
 	let mouseX = 0;
 	let mouseY = 0;
-	let glowX = 50;
-	let glowY = 50;
-	let isHovering = false;
+	let glowX = $state(50);
+	let glowY = $state(50);
+	let isHovering = $state(false);
 
 	// Track mouse position for glow effect
 	function handleMouseMove(event: MouseEvent) {
@@ -295,14 +295,14 @@
 				<!-- Product Image Box (Larger) - Takes 2/3 on desktop -->
 				<div class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525]">
 					<div class="relative group">
-						<div class="aspect-[4/3] overflow-hidden rounded-xl">
+						<div class="aspect-4/3 overflow-hidden rounded-xl">
 							<img
 								class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
 								id="product_image"
 								src={productItem.images[indicator_cur]?.url ?? no_img}
 								alt={productItem.name} />
 							<div
-								class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent">
+								class="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-black/70 to-transparent">
 							</div>
 						</div>
 
@@ -315,8 +315,8 @@
 										class="h-1.5 rounded-full transition-all duration-300 {i === indicator_cur
 											? 'w-12 bg-accent shadow-[0_0_10px] shadow-accent'
 											: 'w-6 bg-white/60 hover:bg-white/80 hover:w-8'}"
-										on:click={() => (indicator_cur = i)}
-										aria-label="View image {i+1} of {indicator_max}" />
+										onclick={() => (indicator_cur = i)}
+										aria-label="View image {i+1} of {indicator_max}"></button>
 								{/each}
 							</div>
 						{/if}
@@ -427,7 +427,7 @@
 					<div class="mt-auto">
 						<div class="flex items-center">
 							<div class="flex items-center bg-[#252525] rounded-l-lg overflow-hidden">
-								<button class="p-2 hover:bg-[#353535] transition-colors" on:click={dec_cart}>
+								<button class="p-2 hover:bg-[#353535] transition-colors" onclick={dec_cart}>
 									<svg
 										class="w-4 h-4"
 										viewBox="0 0 24 24"
@@ -443,7 +443,7 @@
 									</svg>
 								</button>
 								<div class="px-4 py-1 border-x border-[#353535] font-medium">{cart_qty}</div>
-								<button class="p-2 hover:bg-[#353535] transition-colors" on:click={inc_cart}>
+								<button class="p-2 hover:bg-[#353535] transition-colors" onclick={inc_cart}>
 									<svg
 										class="w-4 h-4"
 										viewBox="0 0 24 24"
@@ -461,7 +461,7 @@
 							<button
 								class="flex-1 py-2 px-4 bg-accent text-black font-bold rounded-r-lg hover:brightness-110 transition-all flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
 								disabled={productItem.stock.count <= 0}
-								on:click={cart_submit}>
+								onclick={cart_submit}>
 								<Icon icon="iconamoon:plus" class="text-lg" />
 								<Icon icon="iconamoon:shopping-bag-duotone" class="text-lg" />
 								{productItem.stock.count > 0 ? 'Add to Cart' : 'Out of Stock'}
@@ -580,8 +580,11 @@
 									</div>
 								</Tabs.Content>
 								<Tabs.Content value="documentation" class="p-3 h-full text-sm text-gray-300"
-									>{productItem.documentation?.at(1)?.data ??
-										'No documentation available'}</Tabs.Content>
+									>{#if productItem.documentation?.at(1)?.data}
+										{productItem.documentation?.at(1)?.data}
+									{:else}
+										<div class="p-2 text-center text-gray-400">No documentation available</div>
+									{/if}</Tabs.Content>
 								<Tabs.Content value="costing" class="p-3 h-full text-sm text-gray-300">
 									{#if productItem.documentation?.at(2)?.data && productItem.documentation?.at(2)?.isMDUrl}
 										{#await fetch(productItem.documentation.at(2)?.data ?? '')}
@@ -655,7 +658,7 @@
 											<a
 												href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`}
 												class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-accent transition-all p-1.5">
-												<div class="w-10 h-10 overflow-hidden rounded-md flex-shrink-0">
+												<div class="w-10 h-10 overflow-hidden rounded-md shrink-0">
 													<img
 														src={relProd.images[0]?.url ?? no_img}
 														alt={relProd.name}
@@ -704,7 +707,7 @@
 											<a
 												href={`/${relProd.name.replaceAll(' ', '_')}/craft/item=${relProd.id}`}
 												class="flex items-center gap-2 bg-[#0c0c0c] rounded-lg group overflow-hidden border border-[#252525] hover:border-accent transition-all p-1.5">
-												<div class="w-10 h-10 overflow-hidden rounded-md flex-shrink-0">
+												<div class="w-10 h-10 overflow-hidden rounded-md shrink-0">
 													<img
 														src={relProd.images[0]?.url ?? no_img}
 														alt={relProd.name}
@@ -752,20 +755,20 @@
 						<div class="flex gap-2">
 							{#if userReview}
 								<button
-									on:click={editReview}
+									onclick={editReview}
 									class="inline-flex items-center gap-1 bg-[#252525] text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-[#353535] transition-all">
 									<Icon icon="iconamoon:edit" class="text-base sm:text-lg" />
 									<span class="sm:inline">Edit My Review</span>
 								</button>
 								<button
-									on:click={() => (showDeleteConfirmation = true)}
+									onclick={() => (showDeleteConfirmation = true)}
 									class="inline-flex items-center gap-1 bg-[#252525] text-red-400 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-[#353535] transition-all">
 									<Icon icon="iconamoon:trash" class="text-base sm:text-lg" />
 									<span class="sm:inline">Delete</span>
 								</button>
 							{:else}
 								<button
-									on:click={() => {
+									onclick={() => {
 										isEditingReview = false;
 										reviewRating = 5;
 										reviewComment = '';
@@ -886,12 +889,12 @@
 			<!-- Review Modal -->
 			{#if showReviewModal}
 				<div
-					class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-0">
+					class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-0">
 					<div
 						class="bg-[#151515] rounded-2xl p-4 sm:p-6 w-full max-w-md border border-[#252525] relative">
 						<!-- Larger touch target for close button -->
 						<button
-							on:click={() => (showReviewModal = false)}
+							onclick={() => (showReviewModal = false)}
 							class="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-400 hover:text-white transition-colors p-1">
 							<Icon icon="iconamoon:close" class="text-xl" />
 						</button>
@@ -906,7 +909,7 @@
 							<div class="flex justify-between max-w-[200px]">
 								{#each Array(5) as _, i}
 									<button
-										on:click={() => (reviewRating = i + 1)}
+										onclick={() => (reviewRating = i + 1)}
 										class="text-2xl p-1.5 -mx-1 transition-colors">
 										<Icon
 											icon="iconamoon:star-duotone"
@@ -920,7 +923,7 @@
 							<label class="block text-sm font-medium text-gray-300 mb-2">Your Review</label>
 							<textarea
 								bind:value={reviewComment}
-								class="w-full h-32 bg-[#0c0c0c] border border-[#252525] rounded-lg p-3 text-white text-sm focus:outline-none focus:border-accent transition-colors resize-none"
+								class="w-full h-32 bg-[#0c0c0c] border border-[#252525] rounded-lg p-3 text-white text-sm focus:outline-hidden focus:border-accent transition-colors resize-none"
 								placeholder="Share your experience with this product..."></textarea>
 						</div>
 
@@ -930,12 +933,12 @@
 
 						<div class="flex gap-3">
 							<button
-								on:click={() => (showReviewModal = false)}
+								onclick={() => (showReviewModal = false)}
 								class="flex-1 py-2 px-4 bg-[#252525] text-white rounded-lg hover:bg-[#353535] transition-colors">
 								Cancel
 							</button>
 							<button
-								on:click={submitReview}
+								onclick={submitReview}
 								disabled={isSubmittingReview}
 								class="flex-1 py-2 px-4 bg-accent text-black rounded-lg hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
 								{#if isSubmittingReview}
@@ -958,7 +961,7 @@
 			<!-- Delete Confirmation Modal -->
 			{#if showDeleteConfirmation}
 				<div
-					class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-0">
+					class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-0">
 					<div
 						class="bg-[#151515] rounded-2xl p-4 sm:p-6 w-full max-w-md border border-[#252525] relative">
 						<h3 class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Delete Your Review</h3>
@@ -969,12 +972,12 @@
 
 						<div class="flex gap-3">
 							<button
-								on:click={() => (showDeleteConfirmation = false)}
+								onclick={() => (showDeleteConfirmation = false)}
 								class="flex-1 py-2 px-4 bg-[#252525] text-white rounded-lg hover:bg-[#353535] transition-colors">
 								Cancel
 							</button>
 							<button
-								on:click={deleteReview}
+								onclick={deleteReview}
 								class="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2">
 								<Icon icon="iconamoon:trash" class="text-base" />
 								Delete Review
@@ -987,7 +990,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
 	* {
 		@apply transition-all duration-200 ease-linear;
 	}

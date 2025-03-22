@@ -2,41 +2,69 @@
 	import { fade } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
 	
-	// Core props
-	export let value: string | undefined = undefined;
-	export let placeholder: string = '';
-	export let type: string = 'text';
 	
-	// Optional features
-	export let icon: string | undefined = undefined;
-	export let iconPosition: 'left' | 'right' = 'left';
-	export let iconClass: string = 'text-xl';
-	export let label: string | undefined = undefined;
-	export let labelClass: string = 'text-xs font-medium text-gray-400 mb-1';
 	
-	// Behavior
-	export let animate: boolean = true;
-	export let pulseOnFocus: boolean = true;
-	export let readonly: boolean = false;
-	export let required: boolean = false;
-	export let spellcheck: boolean = false;
 	
-	// Validation
-	export let isValid: boolean | undefined = undefined;
-	export let errorMessage: string | undefined = undefined;
 	
-	// Events
-	export let onSubmit: ((value: string) => void) | undefined = undefined;
-	export let onFocusCallback: (() => void) | undefined = undefined;
-	export let onBlurCallback: (() => void) | undefined = undefined;
+	
+	
+	
+	
+	
+	interface Props {
+		// Core props
+		value?: string | undefined;
+		placeholder?: string;
+		type?: string;
+		// Optional features
+		icon?: string | undefined;
+		iconPosition?: 'left' | 'right';
+		iconClass?: string;
+		label?: string | undefined;
+		labelClass?: string;
+		// Behavior
+		animate?: boolean;
+		pulseOnFocus?: boolean;
+		readonly?: boolean;
+		required?: boolean;
+		spellcheck?: boolean;
+		// Validation
+		isValid?: boolean | undefined;
+		errorMessage?: string | undefined;
+		// Events
+		onSubmit?: ((value: string) => void) | undefined;
+		onFocusCallback?: (() => void) | undefined;
+		onBlurCallback?: (() => void) | undefined;
+	}
+
+	let {
+		value = $bindable(undefined),
+		placeholder = '',
+		type = 'text',
+		icon = undefined,
+		iconPosition = 'left',
+		iconClass = 'text-xl',
+		label = undefined,
+		labelClass = 'text-xs font-medium text-gray-400 mb-1',
+		animate = true,
+		pulseOnFocus = true,
+		readonly = false,
+		required = false,
+		spellcheck = false,
+		isValid = undefined,
+		errorMessage = undefined,
+		onSubmit = undefined,
+		onFocusCallback = undefined,
+		onBlurCallback = undefined
+	}: Props = $props();
 	
 	let isFocused = false;
-	let inputElement: HTMLInputElement;
-	let containerElement: HTMLDivElement;
+	let inputElement: HTMLInputElement = $state();
+	let containerElement: HTMLDivElement = $state();
 	
 	// Mouse position tracking
-	let mouseX = 0;
-	let mouseY = 0;
+	let mouseX = $state(0);
+	let mouseY = $state(0);
 	
 	function handleMouseMove(e: MouseEvent) {
 		if (!containerElement) return;
@@ -94,8 +122,8 @@
 <div 
 	class="input-wrapper relative w-full"
 	bind:this={containerElement}
-	on:mousemove={handleMouseMove}
-	on:mouseleave={handleMouseLeave}
+	onmousemove={handleMouseMove}
+	onmouseleave={handleMouseLeave}
 >
 	<div 
 		class="group relative flex items-center py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300"
@@ -115,11 +143,11 @@
 			{required}
 			{spellcheck}
 			value={value || ''}
-			on:input={onInput}
-			on:focus={onFocus}
-			on:blur={onBlur}
-			on:keydown={onKeyDown}
-			class="w-full bg-transparent text-white text-xl not-italic font-semibold leading-[normal] focus:outline-none placeholder:text-gray-400 placeholder:opacity-50"
+			oninput={onInput}
+			onfocus={onFocus}
+			onblur={onBlur}
+			onkeydown={onKeyDown}
+			class="w-full bg-transparent text-white text-xl not-italic font-semibold leading-[normal] focus:outline-hidden placeholder:text-gray-400 placeholder:opacity-50"
 			aria-invalid={isValid === false}
 			aria-errormessage={errorMessage ? `error-${placeholder}` : undefined}
 		/>

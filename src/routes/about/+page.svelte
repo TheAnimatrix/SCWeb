@@ -212,8 +212,8 @@
 		<div class="max-w-7xl mx-auto mb-8">
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				{#each crafterTiers.slice(0, 3) as tier, i}
-					<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[{tier.color}30] transition-all">
-						<div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl mb-4 border border-[{tier.color}30]" style="background-color: {tier.color}15;">
+					<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-{tier.color}30 transition-all">
+						<div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl mb-4 border border-{tier.color}30" style="background-color: {tier.color}15;">
 							{tier.icon}
 						</div>
 						<h3 class="text-2xl font-bold mb-2" style="color: {tier.color};">{tier.name}</h3>
@@ -233,8 +233,8 @@
 			
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
 				{#each crafterTiers.slice(3) as tier, i}
-					<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[{tier.color}30] transition-all">
-						<div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl mb-4 border border-[{tier.color}30]" style="background-color: {tier.color}15;">
+					<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#0000030] transition-all">
+						<div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl mb-4 border border-[#0000030]" style="background-color: #0000015;">
 							{tier.icon}
 						</div>
 						<h3 class="text-2xl font-bold mb-2" style="color: {tier.color};">{tier.name}</h3>

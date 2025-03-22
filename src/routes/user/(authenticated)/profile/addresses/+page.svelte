@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { setLoading } from '$lib/client/loading.js';
 	import { compareAddress } from '$lib/types/product.js';
 	import { } from '$lib/client/loading.js';
@@ -8,11 +10,11 @@
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
 	
-	export let data;
-	let errorMsg = '';
-	let errorShow = false;
-	let editing: boolean[] = [];
-	let addresses: Address[] = [];
+	let { data } = $props();
+	let errorMsg = $state('');
+	let errorShow = $state(false);
+	let editing: boolean[] = $state([]);
+	let addresses: Address[] = $state([]);
 	let load_store = getContext<Writable<boolean>>('loading');
 
 	async function newAddress() {
@@ -29,17 +31,19 @@
 		return true;
 	}
 
-	let timeoutId: any;
+	let timeoutId: any = $state();
 	function timeout(es: boolean) {
 		timeoutId = setTimeout(() => {
 			errorShow = false;
 		}, 5000);
 	}
 
-	$: if (errorShow == true) {
-		clearTimeout(timeoutId);
-		timeout(errorShow);
-	}
+	run(() => {
+		if (errorShow == true) {
+			clearTimeout(timeoutId);
+			timeout(errorShow);
+		}
+	});
 
 	async function setup() {
 		setLoading(load_store, true);
@@ -129,7 +133,7 @@
 	<div class="flex justify-between items-center">
 		<button
 			class="flex items-center gap-2 px-6 py-3 bg-[#151515] hover:bg-opacity-80 rounded-xl transition-all text-accent"
-			on:click={newAddress}
+			onclick={newAddress}
 		>
 			<Icon icon="ph:plus-circle-bold" class="text-xl" />
 			<span class="font-medium">Add New Address</span>
@@ -154,7 +158,7 @@
 				<p class="text-gray-400">No addresses added yet</p>
 				<button
 					class="inline-block mt-4 px-6 py-2 bg-accent bg-opacity-10 text-accent rounded-lg hover:bg-opacity-20 transition-all"
-					on:click={newAddress}
+					onclick={newAddress}
 				>
 					Add Your First Address
 				</button>
@@ -205,7 +209,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
 	:global(.animate_base) {
 		@apply transition-all duration-200;
 	}

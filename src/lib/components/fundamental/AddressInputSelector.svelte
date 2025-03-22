@@ -14,26 +14,9 @@
 		else return phone;
 	}
 
-	export let email: string | undefined;
-	export let userExists: boolean = false;
-	export let addresses: Address[] | undefined;
-	export let type = 'text';
-	export let addressValid = false;
 
-	export let address: Address = newAddress();
-	export let address_old: Address = newAddress();
-	let addressError: string | undefined;
+	let addressError: string | undefined = $state();
 
-	export let onDelete = (isCloseOnly: boolean) => {
-		if (isCloseOnly) {
-			address = {...address_old};
-			type = 'text';
-		} else {
-			address = {...newAddress()};
-			addressValid = false;
-			type='edit';
-		}
-	};
 
 	let onDeleteLocal = () => {
 		if (type == 'text' || !address.id) onDelete(false);
@@ -43,7 +26,41 @@
 		}
 	};
 
-	export let onSave = (isChanged: boolean, addr: Address): boolean => {
+
+
+	interface Props {
+		email: string | undefined;
+		userExists?: boolean;
+		addresses: Address[] | undefined;
+		type?: string;
+		addressValid?: boolean;
+		address?: Address;
+		address_old?: Address;
+		onDelete?: any;
+		onSave?: any;
+		onEditStart?: any;
+		class?: string;
+	}
+
+	let {
+		email,
+		userExists = false,
+		addresses,
+		type = $bindable('text'),
+		addressValid = $bindable(false),
+		address = $bindable(newAddress()),
+		address_old = $bindable(newAddress()),
+		onDelete = (isCloseOnly: boolean) => {
+		if (isCloseOnly) {
+			address = {...address_old};
+			type = 'text';
+		} else {
+			address = {...newAddress()};
+			addressValid = false;
+			type='edit';
+		}
+	},
+		onSave = (isChanged: boolean, addr: Address): boolean => {
 		if (addr.phone?.startsWith('+91')) addr.phone = addr.phone.substring(3);
 		let result = validateAddress(addr, !userExists);
 		if (result) addressError = result;
@@ -54,16 +71,15 @@
 			addressValid = true;
 			return true;
 		} else return false;
-	};
-
-	export let onEditStart = (): boolean => {
+	},
+		onEditStart = (): boolean => {
 		addressValid = false;
 		if (address.phone?.startsWith('+91')) address.phone = address.phone.substring(3);
 		return true;
-	};
-
-	let className = '';
-	export { className as class };
+	},
+		class: className = ''
+	}: Props = $props();
+	
 
 	function toggleType() {
 		let k = true;
@@ -75,7 +91,7 @@
 		if (k) type = type == 'text' ? 'edit' : 'text';
 	}
 
-	let showAddressList = false;
+	let showAddressList = $state(false);
 	let addressCount = addresses?.length ?? 0;
 
 	//default behavior
@@ -88,7 +104,7 @@
 	}
 
 	// Input styling
-	const inputClasses = "w-full px-4 py-3 bg-[#252525]/80 rounded-lg border border-[#353535] focus:border-accent/50 focus:ring-1 focus:ring-accent/30 outline-none text-white placeholder-gray-500 transition-all";
+	const inputClasses = "w-full px-4 py-3 bg-[#252525]/80 rounded-lg border border-[#353535] focus:border-accent/50 focus:ring-1 focus:ring-accent/30 outline-hidden text-white placeholder-gray-500 transition-all";
 </script>
 
 <div class="bg-[#151515]/30 rounded-xl border border-[#252525] overflow-hidden transition-all duration-300">
@@ -96,8 +112,8 @@
 	<div class="flex justify-between items-center p-4 border-b border-[#252525]">
 		<div class="flex items-center gap-2">
 			<button 
-				class="group flex items-center gap-2 focus:outline-none"
-				on:click={() => {
+				class="group flex items-center gap-2 focus:outline-hidden"
+				onclick={() => {
 					if (userExists && addressCount) {
 						showAddressList = !showAddressList;
 					}
@@ -124,7 +140,7 @@
 		<div class="flex items-center gap-2">
 			<button
 				class="p-2 text-gray-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-all"
-				on:click={toggleType}
+				onclick={toggleType}
 				aria-label={type === 'text' ? 'Edit address' : 'Save address'}
 			>
 				<Icon icon={type === 'text' ? 'ph:pencil-bold' : 'ph:check-bold'} class="text-xl" />
@@ -132,7 +148,7 @@
 			
 			<button
 				class="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-				on:click={onDeleteLocal}
+				onclick={onDeleteLocal}
 				aria-label={type === 'edit' && address.id ? 'Cancel edit' : 'Delete address'}
 			>
 				<Icon 
@@ -305,7 +321,7 @@
 				{#each addresses as addrItem, i}
 					<button
 						class="flex flex-col w-full text-left p-3 rounded-lg transition-all duration-200 hover:bg-accent/5 mb-2 border border-[#353535] hover:border-accent/30"
-						on:click={() => {
+						onclick={() => {
 							address = addrItem;
 							showAddressList = false;
 							addressValid = true;
@@ -336,7 +352,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
   /* Scrollbar styling */
   .scrollbar::-webkit-scrollbar {
     width: 4px;

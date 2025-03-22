@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { error } from '@sveltejs/kit';
 	import { validateAddress, type Address } from '$lib/types/product';
 	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
@@ -15,10 +17,10 @@
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '@iconify/svelte';
 	
-	export let data;
-	let cartData: Cart;
-	let subtotal = 0;
-	let validAddress: Address;
+	let { data } = $props();
+	let cartData: Cart = $state();
+	let subtotal = $state(0);
+	let validAddress: Address = $state();
 	
 	// Cache for product details to avoid repeated lookups
 	let productDetailsCache: Record<string, any> = {};
@@ -71,7 +73,7 @@
 	}
 	
 	// Call the debug function when subtotal is recalculated
-	$: {
+	run(() => {
 		if (data.cart && !data.cart.error) {
 			cartData = data.cart.data!;
 			subtotal = calcSubTotal();
@@ -83,9 +85,9 @@
 			console.log('DELIVERY_FLAT_FEE:', DELIVERY_FLAT_FEE);
 			console.log('Final total:', subtotal + DELIVERY_FLAT_FEE);
 		}
-	}
+	});
 	
-	let addressValid: boolean = false;
+	let addressValid: boolean = $state(false);
 	if (data.userExists && data.addresses && data.addresses.length > 0) {
 		if (validateAddress(data.addresses[0])) {
 			addressValid = true;
@@ -179,7 +181,7 @@
 		<div class="flex flex-col lg:flex-row gap-8 mb-16" in:fly="{{ y: 20, duration: 400, delay: 300, easing: cubicOut }}">
 			<!-- Checkout Form -->
 			<div class="lg:w-2/3 space-y-6 flex-1">
-				<div class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl border border-[#252525] p-6 transition-all duration-300 hover:shadow-glow">
+				<div class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] p-6 transition-all duration-300 hover:shadow-glow">
 					{#if !data.userExists}
 						<div id="loginOption" class="flex flex-col mb-6">
 							<div class="flex items-center gap-2 mb-3">
@@ -187,7 +189,7 @@
 								<span class="text-white font-medium">Account Benefits</span>
 							</div>
 							<p class="text-gray-400 mb-4">Sign in for faster checkout, detailed order tracking, saved addresses, and exclusive offers!</p>
-							<GlowButton class="!w-fit !h-fit mb-2" on:click={() => goto('/user/sign')}>
+							<GlowButton class="w-fit! h-fit! mb-2" onclick={() => goto('/user/sign')}>
 								<div class="px-6 py-1 flex items-center gap-2">
 									<Icon icon="ph:sign-in-bold" />
 									Login or Register
@@ -312,7 +314,7 @@
 						<button
 							class={`w-full mt-5 relative group/button overflow-hidden ${(!addressValid || (cartData?.list ?? []).length <= 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
 							disabled={(cartData?.list ?? []).length <= 0 || !addressValid}
-							on:click={payNow}
+							onclick={payNow}
 						>
 							<div class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300"></div>
 							
@@ -329,7 +331,7 @@
 						<div class="text-center mt-3">
 							<button 
 								class="text-sm text-gray-400 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
-								on:click={() => goto('/cart')}
+								onclick={() => goto('/cart')}
 							>
 								<Icon icon="ph:arrow-left-bold" />
 								Return to Cart
@@ -348,7 +350,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
 	.shadow-glow {
 		@apply [box-shadow:0_4px_20px_-5px_var(--color-accent)/10];
 	}

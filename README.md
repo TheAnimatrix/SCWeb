@@ -6,13 +6,6 @@
 
 Selfcrafted is a web application designed to provide users with an engaging and interactive experience. The platform allows users to explore crafts, learn about the company, start crafting processes, manage their user profiles, and view their shopping carts.
 
-## API Routes
-
-- **GET /api/crafts**: Retrieve a list of available crafts.
-- **POST /api/orders**: Create a new order.
-- **GET /api/user/profile**: Get user profile information.
-- **PUT /api/user/profile**: Update user profile information.
-
 ## Getting Started
 
 ### Prerequisites
@@ -51,7 +44,7 @@ Selfcrafted is a web application designed to provide users with an engaging and 
     npm run dev
     ```
 
-5. Open your browser and navigate to `http://localhost:3000` to view the application.
+5. Open your browser and navigate to `http://localhost:5173` to view the application.
 
 ## Contributing
 

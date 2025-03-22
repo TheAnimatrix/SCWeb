@@ -1,6 +1,6 @@
 <span class="loader"></span>
 
-<style lang="postcss">
+<style>
 	.loader {
 		@apply relative flex items-center justify-center w-full max-w-[5rem] mt-[3rem] mb-[3rem];
 	}

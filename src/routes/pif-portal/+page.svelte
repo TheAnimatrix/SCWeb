@@ -1,3 +1,5 @@
+<!-- @migration-task Error while migrating Svelte code: `<button>` cannot be a descendant of `<button>`. The browser will 'repair' the HTML (by moving, removing, or inserting elements) which breaks Svelte's assumptions about the structure of your components.
+https://svelte.dev/e/node_invalid_placement -->
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import { getContext, onMount } from 'svelte';
@@ -88,14 +90,14 @@
 
 	// Print parameters
 	let selectedMaterial: 'PLA' | 'ABS' | 'PETG' | 'TPU' | 'NYLON' = 'PLA';
-	let selectedQuality = 'Standard';
+	let selectedQuality = 'Standard (0.20mm)';
 	let scale = 1.0;
-	let infill = 40; // Default to 40% (3 walls)
+	let infill = 15; // Default to 40% (3 walls)
 	let selectedColor = '#00FF00'; // Green default
 
 	// Material options
 	const materials = ['PLA', 'ABS', 'PETG', 'TPU', 'NYLON'] as const;
-	const qualities = ['Draft', 'Standard', 'High'];
+	const qualities = ['Draft (0.28mm)', 'Standard (0.20mm)', 'High (0.15mm)'];
 	const colors = ['#090909', '#FF4500', '#00FF00', '#0066FF', '#FFFF00', '#FF33FF'];
 
 	// Strength levels with walls mapping
@@ -451,7 +453,9 @@
 								modelColor={selectedColor}
 								selectedMaterial={selectedMaterial}
 								selectedScale={scale}
-								selectedInfill={infill} />
+								selectedInfill={infill}
+								selectedQuality={selectedQuality}
+								selectedWalls={parseInt(strengthLevels[sliderPosition].walls.split(' ')[0])} />
 						</div>
 					{:else}
 						<div class="flex flex-col items-center justify-center h-full">
@@ -460,8 +464,8 @@
 								<button 
 									bind:this={cubeContainer} 
 									class="cube-container"
-									on:mouseenter={handleCubeMouseEnter}
-									on:mouseleave={handleCubeMouseLeave}>
+									onmouseenter={handleCubeMouseEnter}
+									onmouseleave={handleCubeMouseLeave}>
 								</button>
 								
 								<div class="absolute bottom-6 left-0 right-0 text-center">
@@ -475,20 +479,21 @@
 
 				<!-- Upload area / Drag & drop -->
 				<button
-					class="w-full bg-black/40 border-2 border-dashed rounded-lg mb-4 p-4 flex flex-col items-center justify-center text-center backdrop-blur-sm shadow-glow-subtle transition-all duration-300 {dragActive ? 'border-indigo-400 shadow-glow-active' : 'border-zinc-800/60'}"
-					on:dragover={handleDragOver}
-					on:dragleave={handleDragLeave}
-					on:drop={handleDrop}>
+					class="w-full bg-black/40 border-2 border-dashed rounded-lg mb-4 p-4 flex flex-col items-center justify-center text-center backdrop-blur-xs shadow-glow-subtle transition-all duration-300 {dragActive ? 'border-indigo-400 shadow-glow-active' : 'border-zinc-800/60'}"
+					ondragover={handleDragOver}
+					ondragleave={handleDragLeave}
+					onclick={browseFiles}
+					ondrop={handleDrop}>
 					<div class="flex items-center gap-3">
 						<Icon icon="material-symbols:upload" class="text-2xl text-indigo-400 icon-glow" />
 						<div class="text-left">
 							<div class="text-white font-medium text-sm">Drag & drop your 3D model file</div>
 							<div class="flex items-center mt-1">
-								<button
+								<div
 									class="text-indigo-400 text-xs underline hover:text-indigo-300 transition-colors"
-									on:click={browseFiles}>
+									>
 									or click to browse
-								</button>
+								</div>
 								<span class="mx-2 text-white/30 text-xs">•</span>
 								<span class="text-white/50 text-xs">STL, OBJ, 3MF (max 50MB)</span>
 							</div>
@@ -498,12 +503,12 @@
 						type="file"
 						id="fileInput"
 						accept=".stl,.obj,.3mf"
-						on:change={handleFileInput}
+						onchange={handleFileInput}
 						class="hidden" />
 				</button>
 
 				<!-- Print Parameters -->
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-sm shadow-glow-subtle">
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle">
 					<div class="flex items-center mb-4">
 						<Icon icon="material-symbols:build-outline" class="text-xl text-indigo-400 mr-2 icon-glow" />
 						<div class="text-lg font-medium text-white glow-text-subtle">Print Parameters</div>
@@ -519,7 +524,7 @@
 									material
 										? 'bg-blue-700 text-white shadow-glow-active'
 										: 'bg-black-800/70 text-white/80 hover:bg-black-700/80'}"
-									on:click={() => (selectedMaterial = material)}>{material}</button>
+									onclick={() => (selectedMaterial = material)}>{material}</button>
 							{/each}
 						</div>
 					</div>
@@ -534,7 +539,7 @@
 									quality
 										? 'bg-blue-700 text-white shadow-glow-active'
 										: 'bg-black-800/70 text-white/80 hover:bg-black-700/80'}"
-									on:click={() => (selectedQuality = quality)}>{quality}</button>
+									onclick={() => (selectedQuality = quality)}>{quality}</button>
 							{/each}
 						</div>
 					</div>
@@ -557,7 +562,12 @@
 								max="2"
 								step="0.05"
 								bind:value={scale}
-								class="w-full accent-indigo-400 bg-black-800 h-1 rounded appearance-none" />
+								oninput={() => modelViewer?.notifySliderMoving?.()}
+								class="w-full accent-indigo-400 bg-black-800 h-2 rounded appearance-none" />
+							<!-- Visual progress indicator -->
+							<div 
+								class="absolute top-[3px] left-0 h-2 bg-white/40 rounded pointer-events-none"
+								style="width: {((scale - 0.5) / 1.5) * 100}%"></div>
 							<div
 								class="absolute top-0 left-0 right-0 flex justify-between px-1 -mt-1 pointer-events-none">
 								<div class="w-0.5 h-2 bg-white/20"></div>
@@ -586,13 +596,20 @@
 								max="6"
 								step="1"
 								bind:value={sliderPosition}
-								on:input={updateInfillFromSlider}
-								class="w-full accent-indigo-400 bg-black-800 h-1 rounded appearance-none" />
+								oninput={() => {
+									updateInfillFromSlider();
+									modelViewer?.notifySliderMoving?.();
+								}}
+								class="w-full accent-indigo-400 bg-black-800 h-2 rounded appearance-none" />
+							<!-- Visual progress indicator -->
+							<div 
+								class="absolute top-[3px] left-0 h-2 bg-white/40 rounded pointer-events-none"
+								style="width: {(sliderPosition / 6) * 100}%"></div>
 							<div
 								class="absolute top-3 left-0 right-0 flex justify-between text-[10px] text-white/50 pointer-events-none"
 								>
 								{#each Array(7) as _, i}
-									<div class="flex flex-col items-center" style="w-full">
+									<div class="flex flex-col items-center" style="width: 14%">
 											<div class="w-0.5 h-2 bg-white/20 mb-1"></div>
 											<span class="text-center">{strengthLevels[i].label}</span>
 									</div>
@@ -607,12 +624,12 @@
 						<div class="flex gap-3 mt-2">
 							{#each colors as color}
 								<button
-									class="w-10 h-10 rounded-full border-2 transition-colors {color=='#090909' ? 'outline-1 outline-dashed outline-white shadow-white shadow-sm' : 'outline-transparent'}"
+									class="w-10 h-10 rounded-full border-2 transition-colors {color=='#090909' ? 'outline-1 outline-dashed outline-white shadow-white shadow-xs' : 'outline-transparent'}"
 									class:border-white={selectedColor === color}
 									class:border-transparent={selectedColor !== color}
 									class:scale-110={selectedColor === color}
 									style="background-color: {color};"
-									on:click={() => (selectedColor = color)}></button>
+									onclick={() => (selectedColor = color)}></button>
 							{/each}
 						</div>
 					</div>
@@ -622,7 +639,7 @@
 
 			<!-- Right panel: Available Makers -->
 			<div class="lg:col-span-5">
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-sm shadow-glow-subtle">
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle">
 					<div class="text-lg font-medium text-white mb-4 flex items-center">
 						<Icon icon="material-symbols:person-pin-circle" class="text-indigo-400 mr-2 icon-glow" />
 						<span class="glow-text-subtle">Available Makers ({makers.length})</span>
@@ -634,7 +651,7 @@
 								<!-- Maker header -->
 								<div
 									class="p-3 flex items-center justify-between cursor-pointer hover:bg-black/70 transition-colors"
-									on:click={() => toggleMaker(maker.id)}>
+									onclick={() => toggleMaker(maker.id)}>
 									<div class="flex items-center gap-2">
 										<div
 											class="w-8 h-8 rounded-full flex items-center justify-center"
@@ -709,7 +726,7 @@
 
 												<button
 													class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-1.5 rounded text-sm flex items-center justify-center gap-1"
-													on:click={addToCart}>
+													onclick={addToCart}>
 													<Icon icon="material-symbols:add-shopping-cart" />
 													Add to Cart
 												</button>
@@ -733,26 +750,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
-	input[type='range']::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		appearance: none;
-		width: 14px;
-		height: 14px;
-		border-radius: 50%;
-		background: theme('colors.indigo.400');
-		cursor: pointer;
-	}
-
-	input[type='range']::-moz-range-thumb {
-		width: 14px;
-		height: 14px;
-		border-radius: 50%;
-		background: theme('colors.indigo.400');
-		cursor: pointer;
-		border: none;
-	}
-
+<style>
 	/* Firefox hides the up/down arrow buttons */
 	input[type='number'] {
 		-moz-appearance: textfield;
@@ -763,6 +761,74 @@
 	input::-webkit-inner-spin-button {
 		-webkit-appearance: none;
 		margin: 0;
+	}
+
+	/* Range input styling for better cross-browser compatibility */
+	input[type='range'] {
+		-webkit-appearance: none;
+		appearance: none;
+		height: 6px !important;
+		background: rgba(30, 30, 40, 0.8) !important;
+		border-radius: 4px;
+		outline: none;
+		margin: 8px 0;
+		position: relative;
+	}
+
+	input[type='range']::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 18px;
+		height: 18px;
+		border-radius: 50%;
+		background: var(--color-indigo-400);
+		cursor: pointer;
+		box-shadow: 0 0 6px 2px rgba(99, 102, 241, 0.5);
+		border: 2px solid white;
+	}
+
+	input[type='range']::-moz-range-thumb {
+		width: 18px;
+		height: 18px;
+		border-radius: 50%;
+		background: var(--color-indigo-400);
+		cursor: pointer;
+		box-shadow: 0 0 6px 2px rgba(99, 102, 241, 0.5);
+		border: 2px solid white;
+	}
+
+	input[type='range']::-moz-range-track {
+		background: rgba(30, 30, 40, 0.8);
+		height: 6px;
+		border-radius: 4px;
+	}
+
+	input[type='range']::-ms-track {
+		width: 100%;
+		height: 6px;
+		background: transparent;
+		border-color: transparent;
+		color: transparent;
+	}
+
+	input[type='range']::-ms-fill-lower {
+		background: rgba(30, 30, 40, 0.8);
+		border-radius: 4px;
+	}
+
+	input[type='range']::-ms-fill-upper {
+		background: rgba(30, 30, 40, 0.8);
+		border-radius: 4px;
+	}
+
+	input[type='range']::-ms-thumb {
+		width: 18px;
+		height: 18px;
+		border-radius: 50%;
+		background: var(--color-indigo-400);
+		cursor: pointer;
+		box-shadow: 0 0 6px 2px rgba(99, 102, 241, 0.5);
+		border: 2px solid white;
 	}
 
 	/* Styles for the 3D cube container */
@@ -802,9 +868,9 @@
 		right: 0;
 		bottom: 0;
 		background: 
-			radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
-			radial-gradient(circle at 85% 70%, rgba(79, 70, 229, 0.1) 0%, transparent 45%),
-			radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.7) 100%),
+			radial-gradient(circle at 15% 20%, rgba(99, 101, 241, 0.144) 0%, transparent 45%),
+			radial-gradient(circle at 85% 70%, rgba(78, 70, 229, 0.199) 0%, transparent 45%),
+			radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.363) 0%, rgba(0, 0, 0, 0.7) 100%),
 			linear-gradient(45deg, 
 				rgba(99, 102, 241, 0.03) 0%,
 				rgba(0, 0, 0, 0) 40%,
@@ -836,7 +902,7 @@
 	.orb-1 {
 		width: 400px;
 		height: 400px;
-		background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+		background: radial-gradient(circle, rgb(99, 101, 241) 0%, transparent 70%);
 		top: 5%;
 		left: 10%;
 		animation: float-orb 20s infinite alternate ease-in-out;
@@ -845,7 +911,7 @@
 	.orb-2 {
 		width: 500px;
 		height: 500px;
-		background: radial-gradient(circle, rgba(79, 70, 229, 0.15) 0%, transparent 70%);
+		background: radial-gradient(circle, rgb(78, 70, 229) 0%, transparent 70%);
 		bottom: 5%;
 		right: 10%;
 		animation: float-orb 25s infinite alternate-reverse ease-in-out;
@@ -854,7 +920,7 @@
 	.orb-3 {
 		width: 300px;
 		height: 300px;
-		background: radial-gradient(circle, rgba(129, 140, 248, 0.12) 0%, transparent 70%);
+		background: radial-gradient(circle, rgb(129, 141, 248) 0%, transparent 70%);
 		top: 40%;
 		right: 25%;
 		animation: float-orb 18s infinite alternate ease-in-out 5s;
@@ -946,7 +1012,7 @@
 	}
 	
 	.text-sccyan {
-		color: theme('colors.indigo.400');
+		color: var(--color-indigo-400);
 		text-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
 	}
 	
@@ -967,7 +1033,7 @@
 	}
 	
 	/* Enhanced blur effects */
-	.backdrop-blur-sm {
+	.backdrop-blur-xs {
 		backdrop-filter: blur(4px);
 		-webkit-backdrop-filter: blur(4px);
 	}

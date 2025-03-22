@@ -2,11 +2,20 @@
 	import type{ Product } from '$lib/types/product';
 	import ProductItem from '$lib/components/product/product_item.svelte';
 	import { goto } from '$app/navigation';
-    export let products : Product[] = [];
-	export let getLink : any;
-	export let onClick : any = ()=>{};
-	let className = "";
-	export {className as class};
+	interface Props {
+		products?: Product[];
+		getLink: any;
+		onClick?: any;
+		class?: string;
+	}
+
+	let {
+		products = [],
+		getLink,
+		onClick = ()=>{},
+		class: className = ""
+	}: Props = $props();
+	
 </script>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full {className}">

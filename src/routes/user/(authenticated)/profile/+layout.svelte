@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { navigating } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -19,7 +19,7 @@
 		{ href: 'crafts', label: 'Crafts', icon: 'ph:palette-bold' }
 	];
 
-	export let data;
+	let { data, children } = $props();
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white py-12">
@@ -40,7 +40,7 @@
 				<a
 					{href}
 					class="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2 {
-						getLastRoute($page.route.id) === href 
+						getLastRoute(page.route.id) === href 
 							? 'bg-accent bg-opacity-10 text-accent' 
 							: 'bg-[#151515] bg-opacity-40 text-gray-400'
 					}"
@@ -58,7 +58,7 @@
 				out:fly={{ y: -20, duration: 200 }}
 				class="max-w-4xl mx-auto"
 			>
-				<slot />
+				{@render children?.()}
 			</div>
 		{/key}
 	</div>

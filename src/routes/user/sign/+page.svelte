@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { createBubbler, preventDefault } from 'svelte/legacy';
+
+	const bubble = createBubbler();
 	import { writable, type Writable } from 'svelte/store';
 	import {env} from '$env/dynamic/public';
 	const PUBLIC_SITE_URL = (env.PUBLIC_SITE_URL == undefined)? null : env.PUBLIC_SITE_URL;
@@ -19,7 +22,7 @@
 	const triggerTabStyle =
 		'data-[state=active]:bg-transparent data-[state=active]:shadow-glow data-[state=active]:text-accent px-6 py-3 text-2xl text-gray-500 rounded-xl hover:bg-[#151515] text-gray-400 font-bold transition-all duration-300';
 
-	export let data;
+	let { data } = $props();
 	let { supabase_lt } = data;
 
 	const getURL = () => {
@@ -97,13 +100,13 @@
 			errorText = `Please confirm your account to login. E-mail sent to ${emailRegister}`;
 	}
 
-	let emailLogin: string,
-		emailRegister: string,
-		usernameRegister: string,
-		passwordRegister: string,
-		passwordLogin: string,
-		errorText: string,
-		errorShow: number = 0;
+	let emailLogin: string = $state(),
+		emailRegister: string = $state(),
+		usernameRegister: string = $state(),
+		passwordRegister: string = $state(),
+		passwordLogin: string = $state(),
+		errorText: string = $state(),
+		errorShow: number = $state(0);
 
 </script>
 
@@ -158,7 +161,7 @@
 				<Tabs.Content value="Login" class="w-full">
 					<div class="bg-[#000000]/50 backdrop-blur-xl rounded-2xl p-8 border border-[#252525] transition-all duration-300 hover:shadow-glow-lg" 
 						 in:fly="{{ y: 20, duration: 500, delay: 600, easing: cubicOut }}">
-						<form on:submit|preventDefault class="space-y-6">
+						<form onsubmit={preventDefault(bubble('submit'))} class="space-y-6">
 							<div>
 								<GlowleftInput
 									placeholder="E-Mail/Username"
@@ -192,7 +195,7 @@
 							<button
 								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
 								type="submit"
-								on:click={signInWithEmail}
+								onclick={signInWithEmail}
 							>
 								<Icon icon="ph:sign-in-bold" class="text-2xl" />
 								<span class="text-white font-medium">Sign In</span>
@@ -209,7 +212,7 @@
 
 							<button
 								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
-								on:click={() => signWithGoogle(false)}
+								onclick={() => signWithGoogle(false)}
 							>
 								<Icon icon="logos:google-icon" class="text-2xl" />
 								<span class="text-white font-medium">Google</span>
@@ -220,7 +223,7 @@
 
 				<Tabs.Content value="Register" class="w-full">
 					<div class="bg-[#000000]/50 backdrop-blur-xl  rounded-2xl p-8 border border-[#252525] shadow-glow transition-all duration-300 hover:shadow-glow-lg">
-						<form on:submit|preventDefault class="space-y-6">
+						<form onsubmit={preventDefault(bubble('submit'))} class="space-y-6">
 							<div>
 								<GlowleftInput
 									placeholder="E-Mail"
@@ -264,7 +267,7 @@
 
 							<button
 								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
-								on:click={signUpNewUser}
+								onclick={signUpNewUser}
 							>
 								<Icon icon="ph:user-plus-bold" class="text-2xl" />
 								<span class="text-white font-medium">Create Account</span>
@@ -281,7 +284,7 @@
 
 							<button
 								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
-								on:click={() => signWithGoogle(true)}
+								onclick={() => signWithGoogle(true)}
 							>
 								<Icon icon="logos:google-icon" class="text-2xl" />
 								<span class="text-white font-medium">Google</span>
@@ -294,7 +297,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
 	.shadow-glow {
 		box-shadow: 0 4px 20px -5px rgba(194, 255, 0, 0.1);
 	}

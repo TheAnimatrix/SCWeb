@@ -7,7 +7,7 @@
       <div class="mx-auto max-w-auto px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center space-around justify-center">
           <div class="flex items-center">
-            <div class="flex-shrink-0">
+            <div class="shrink-0">
               <a href="/"><img class="h-3/4 w-full" src="{Logo}" alt="Your Company"></a>
             </div>
             <div class="hidden md:block">
@@ -21,7 +21,7 @@
           </div>
           <div class="ml-2 -mr-2 flex md:hidden">
             <!-- Mobile menu button -->
-            <button type="button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800" aria-controls="mobile-menu" aria-expanded="false">
+            <button type="button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-hidden focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800" aria-controls="mobile-menu" aria-expanded="false">
               <span class="absolute -inset-0.5"></span>
               <span class="sr-only">Open main menu</span>
               <!-- Menu open: "hidden", Menu closed: "block" -->

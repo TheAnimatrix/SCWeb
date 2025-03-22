@@ -1,26 +1,56 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-@layer utilities {
-	.animate_base {
-		@apply ease-linear transition-all duration-200;
-	}
+@config '../tailwind.config.js';
 
-	.noise {
-		background-image: url('/images/noise.svg');
-		background-blend-mode: overlay;
-	}
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
 
-	.shadow-glow {
-		box-shadow: 0 0 20px theme('colors.accent.DEFAULT' / 0.1),
-					0 0 40px theme('colors.accent.DEFAULT' / 0.05);
-	}
-	
-	.shadow-glow-sm {
-		box-shadow: 0 0 10px theme('colors.accent.DEFAULT' / 0.1),
-					0 0 20px theme('colors.accent.DEFAULT' / 0.05);
-	}
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  h1 {
+	@apply !text-5xl;
+}
+h2 {
+	@apply !text-4xl;
+}
+h3 {
+	@apply !text-3xl;
+}
+}
+
+@utility animate_base {
+  @apply ease-linear transition-all duration-200;
+}
+
+@utility noise {
+  background-image: url('/images/noise.svg');
+  background-blend-mode: overlay;
+}
+
+@utility shadow-glow {
+  box-shadow:
+    0 0 20px var(--color-accent-default / 0.1),
+    0 0 40px var(--color-accent-default /  0.05);
+}
+
+@utility shadow-glow-sm {
+  box-shadow:
+    0 0 10px var(--color-accent-default /  0.1),
+    0 0 20px var(--color-accent-default /  0.05);
 }
 
 @layer base {

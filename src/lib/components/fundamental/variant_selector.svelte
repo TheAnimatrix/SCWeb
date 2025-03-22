@@ -2,14 +2,18 @@
 	import Icon from '@iconify/svelte';
 	import * as Select from '$lib/components/ui/select';
 
-	export let productSelect = [
+	interface Props {
+		productSelect?: any;
+		defaultSelected?: number;
+	}
+
+	let { productSelect = [
 		{ value: 'V1', label: 'V1' },
 		{ value: 'V2', label: 'V2' }
-	];
-	export let defaultSelected = 1;
-	let productSelected = productSelect[defaultSelected];
+	], defaultSelected = 1 }: Props = $props();
+	let productSelected = $state(productSelect[defaultSelected]);
 
-	let isFocused = false;
+	let isFocused = $state(false);
 	let focused = (openstate:boolean)=>{
 		isFocused = openstate;
 	}
@@ -17,7 +21,7 @@
 
 <div>
 	<div class="flex flex-col bg-scpurpled3 w-fit min-w-[50%] rounded-xl">
-		<div class="{isFocused?"top_line":"top_line_inactive"} w-[50%] self-start ml-4 animate_base" />
+		<div class="{isFocused?"top_line":"top_line_inactive"} w-[50%] self-start ml-4 animate_base"></div>
 		<div class="flex justify-between items-center">
 			<Select.Root portal={null} bind:selected={productSelected} onOpenChange={focused}>
 				<Select.Trigger class="w-[100%] border-opacity-0 m-1 ml-2">
@@ -41,6 +45,7 @@
 </div>
 
 <style lang="postcss">
+	@reference '../../../app.css'
 	.top_line {
 		height: 1.5px;
 		border-radius: 2px;
@@ -50,6 +55,6 @@
 	.top_line_inactive{
 		height: 1.5px;
 		border-radius: 2px;
-		@apply bg-scpurple
+		@apply bg-scpurple;
 	}
 </style>

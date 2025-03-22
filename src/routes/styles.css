@@ -1,3 +1,4 @@
+/* @import 'tailwindcss'; */
 /* @import '@fontsource/fira-mono'; */
 @font-face {
 	font-family: figtree;
@@ -30,16 +31,6 @@ body {
 	background-attachment: fixed;
 	/* background-color: var(--color-theme-1); */
 	background-size: 100vw 100vh;
-}
-
-h1 {
-	@apply !text-5xl;
-}
-h2 {
-	@apply !text-4xl;
-}
-h3 {
-	@apply !text-3xl;
 }
 
 input[type='number'] {

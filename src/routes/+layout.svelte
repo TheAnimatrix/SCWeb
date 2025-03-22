@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { type CartG, initCartG, getActiveCart } from '$lib/client/cart';
 	import './styles.css';
 	import { navigating } from '$app/stores';
@@ -8,20 +10,23 @@
 	import { browser } from '$app/environment';
 	import Logo from '$lib/svg/logo_main.svg';
 	import Icon from '@iconify/svelte';
-	import * as Drawer from '$lib/components/ui/drawer';
 	import { Button } from '$lib/components/ui/button';
-	import '../app.pcss';
+	import '../app.css';
 	import { get, writable, type Writable } from 'svelte/store';
 	import { onMount, setContext, getContext } from 'svelte';
 	import Loader from '$lib/components/fundamental/Loader.svelte';
+	import Drawer from '$lib/components/ui/Drawer.svelte';
+
+	// Mobile menu state
+	const mobileMenuOpen = writable(false);
 
 	// Maintain primary colors for different sections but simplify
-	let primaryColor: string;
+	let primaryColor: string = $state();
 	let accentColor = "accent"; // Use the lime green accent as the primary accent
-	let filter: string;
+	let filter: string = $state();
 
-	let pageName: string;
-	$: {
+	let pageName: string = $state();
+	run(() => {
 		if ($page.route.id?.startsWith('/user')) {
 			primaryColor = 'scoranged1';
 			filter = 'filter-green';
@@ -47,11 +52,11 @@
 			filter = 'filter-green';
 			pageName = 'main';
 		}
-	}
+	});
 
-	let userRoute: string = '/user/sign';
+	let userRoute: string = $state('/user/sign');
 
-	export let data;
+	let { data, children } = $props();
 	data.supabase_lt.auth.onAuthStateChange(async (event, session) => {
 		if (event == 'SIGNED_IN') {
 		}
@@ -189,49 +194,57 @@
 					</a>
 					
 					<!-- Mobile Menu Button -->
-					<div class="md:hidden">
-						<Drawer.Root shouldScaleBackground>
-							<Drawer.Trigger>
-								<button class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg transition-all">
+					<div class="md:hidden h-full">
+						<Drawer open={$mobileMenuOpen} position="bottom">
+							{#snippet trigger(open, handleClose)}
+								<button 
+								onclick={() => $mobileMenuOpen = !$mobileMenuOpen} 
+								class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg transition-all"
+								>
 									<Icon icon="mdi:menu" class="text-2xl" />
 								</button>
-							</Drawer.Trigger>
-							<Drawer.Content class="bg-[#0c0c0c] border-t border-[#252525]">
-								<div class="p-6">
-									<div class="flex justify-between items-center mb-8">
-										<h2 class="text-xl font-medium text-accent">Menu</h2>
-										<Drawer.Close>
-											<button class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg">
-												<Icon icon="mdi:close" class="text-xl" />
-											</button>
-										</Drawer.Close>
-									</div>
-									
-									<nav class="flex flex-col space-y-4">
-										<a 
-											href="/" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id === '/' ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
-											Crafts
-										</a>
-										<a 
-											href="/about" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
-											About
-										</a>
-										<a 
-											href="/crafting" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
-											Start Crafting
-										</a>
-										<a 
-											href="/pif-portal" 
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-[#151515] border-l-4 border-accent font-medium' : 'text-gray-300'}">
-											PIF Portal
-										</a>
-									</nav>
+							{/snippet}
+							{#snippet content(handleClose)}
+							<div class="p-6 h-full w-full overflow-y-auto flex flex-col">
+								<div class="flex justify-between items-center mb-8">
+									<h2 class="text-xl font-medium text-accent">Menu</h2>
+									<button 
+										onclick={handleClose}
+										class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg"
+									>
+										<Icon icon="mdi:close" class="text-xl" />
+									</button>
 								</div>
-							</Drawer.Content>
-						</Drawer.Root>
+								
+								<nav class="flex flex-col space-y-4">
+									<a 
+										href="/" 
+										onclick={handleClose}
+										class="px-4 py-3 rounded-lg transition-all {$page.route.id === '/' ? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium' : 'text-gray-300'}">
+										Crafts
+									</a>
+									<a 
+										href="/about" 
+										onclick={handleClose}
+										class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/about') ? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium' : 'text-gray-300'}">
+										About
+									</a>
+									<a 
+										href="/crafting" 
+										onclick={handleClose}
+										class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/crafting') ? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium' : 'text-gray-300'}">
+										Start Crafting
+									</a>
+									<a 
+										href="/pif-portal" 
+										onclick={handleClose}
+										class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith('/pif-portal') ? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium' : 'text-gray-300'}">
+										PIF Portal
+									</a>
+								</nav>
+							</div>
+							{/snippet}
+						</Drawer>
 					</div>
 				</div>
 			</nav>
@@ -240,7 +253,7 @@
 
 	<!-- Main Content -->
 	<main class="pt-16 md:pt-20">
-		<slot />
+		{@render children?.()}
 	</main>
 
 	<!-- Footer -->
@@ -298,7 +311,7 @@
 	</footer>
 </div>
 
-<style lang="postcss">
+<style>
 
 	.filter-green {
 		filter: hue-rotate(65deg) saturate(2);

@@ -3,19 +3,23 @@
 	import Icon from '@iconify/svelte';
 	import type { Product } from '$lib/types/product';
 	import { HSLToHex, HexToHSL } from '$lib/types/helper';
-	export let product: Product;
-	export let href: string;
-	export let onClick: any;
+	interface Props {
+		product: Product;
+		href: string;
+		onClick: any;
+	}
+
+	let { product, href, onClick }: Props = $props();
 </script>
 
 <a
 	href={product.stock.count > 0 ? href : '#'}
 	class="group bg-[#151515] border border-[#252525] hover:border-[#353535] rounded-2xl overflow-hidden transition-all duration-300 flex flex-col h-full relative {product.stock.count <= 0 ? 'opacity-70' : ''}"
-	on:click={product.stock.count > 0 ? onClick : null}>
+	onclick={product.stock.count > 0 ? onClick : null}>
 	
 	<!-- Out of stock overlay -->
 	{#if product.stock.count <= 0}
-		<div class="absolute inset-0 bg-black/60 backdrop-blur-sm z-20 flex items-center justify-center">
+		<div class="absolute inset-0 bg-black/60 backdrop-blur-xs z-20 flex items-center justify-center">
 			<div class="bg-black/80 text-white px-4 py-2 rounded-lg font-medium">
 				Out of Stock
 			</div>
@@ -32,7 +36,7 @@
 		<!-- Price badge -->
 		<div class="absolute top-4 right-4 z-10 flex items-center">
 			{#if product.price.old != 0}
-				<div class="bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded-lg line-through text-sm mr-2">
+				<div class="bg-black/60 backdrop-blur-xs text-white px-2 py-1 rounded-lg line-through text-sm mr-2">
 					₹{product.price.old}
 				</div>
 			{/if}
@@ -43,7 +47,7 @@
 		
 		<!-- Rating badge (if available) -->
 		{#if product.rating?.count && product.rating?.count > 0}
-			<div class="absolute bottom-4 left-4 z-10 bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center">
+			<div class="absolute bottom-4 left-4 z-10 bg-black/60 backdrop-blur-xs rounded-lg px-2 py-1 flex items-center">
 				<Icon icon="iconamoon:star-duotone" class="text-[#ff9b3d] mr-1" />
 				<span class="text-white font-medium">{product.rating?.rating}</span>
 				<span class="text-gray-300 text-xs ml-1">({product.rating?.count})</span>
@@ -52,7 +56,7 @@
 	</div>
 	
 	<!-- Product details -->
-	<div class="p-5 flex flex-col flex-grow">
+	<div class="p-5 flex flex-col grow">
 		<!-- Title and author -->
 		<div>
 			<h3 class="text-xl font-bold text-white group-hover:text-accent transition-colors">

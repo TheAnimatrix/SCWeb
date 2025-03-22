@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import Icon from '@iconify/svelte';
 	import { getContext, onMount, onDestroy } from 'svelte';
 	import { writable, type Writable } from 'svelte/store';
@@ -8,13 +10,13 @@
 	import { type Banner } from '$lib/client/banner';
 	import ProductList from './product_list.svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import Loader from '$lib/components/fundamental/Loader.svelte';
 	import Smoke from '$lib/components/effects/Smoke.svelte';
 
-	export let data;
+	let { data } = $props();
 
-	let indicator_cur = 0;
+	let indicator_cur = $state(0);
 	let cinterval = 5000; // 5 seconds between slides
 	let autoplayInterval: ReturnType<typeof setInterval> | undefined;
 
@@ -23,23 +25,23 @@
 	};
 
 	let image = writable('');
-	let name: string, author: string, url: string;
-	$: {
+	let name: string = $state(), author: string = $state(), url: string = $state();
+	run(() => {
 		if (data.banners?.[indicator_cur]?.img) {
 			image.set(data.banners?.[indicator_cur].img);
 			name = data.banners?.[indicator_cur].name;
 			author = data.banners?.[indicator_cur].author;
 			url = data.banners?.[indicator_cur].url;
 		}
-	}
+	});
 
-	let products: Product[];
+	let products: Product[] = $state();
 	let default_filter = "Products";
 
-	let loading = false;
+	let loading = $state(false);
 	async function setup(filterf:string|null) {
 		loading = true;
-		let filter = filterf ?? $page.url.searchParams.get('filter') ?? default_filter;
+		let filter = filterf ?? page.url.searchParams.get('filter') ?? default_filter;
 		let query = data.supabase_lt.from('products').select('*');
 		if (filter) {
 			if(filter == 'Products') {
@@ -306,8 +308,8 @@
 									class="absolute inset-0 bg-cover bg-center"
 									role="img"
 									aria-label="Featured banner for {data.banners[indicator_cur].name}"
-									on:mouseenter={pauseAutoplay}
-									on:mouseleave={resumeAutoplay}>
+									onmouseenter={pauseAutoplay}
+									onmouseleave={resumeAutoplay}>
 									<div class="card-content">
 										<div class="flex flex-col items-start mb-4">
 											<div class="px-3 py-1 bg-accent text-black text-xs font-bold uppercase rounded-full mb-4 shadow-elevation-1 transform-gpu hover:shadow-elevation-2 hover:translate-z-[5px] transition-all">
@@ -355,27 +357,27 @@
 					<!-- Navigation Controls with 3D pop effect -->
 					<div class="absolute top-1/2 left-4 -translate-y-1/2 z-30">
 						<button 
-							on:click={() => {
+							onclick={() => {
 								pauseAutoplay();
 								if (data.banners && data.banners.length > 0) {
 									indicator_cur = (indicator_cur - 1 + data.banners.length) % data.banners.length;
 								}
 								setTimeout(resumeAutoplay, 10000);
 							}}
-							class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-accent hover:text-black transition-colors shadow-elevation-1 hover:shadow-elevation-2 transform-gpu hover:scale-110">
+							class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-xs text-white flex items-center justify-center hover:bg-accent hover:text-black transition-colors shadow-elevation-1 hover:shadow-elevation-2 transform-gpu hover:scale-110">
 							<Icon icon="ph:caret-left-bold" />
 						</button>
 					</div>
 					<div class="absolute top-1/2 right-4 -translate-y-1/2 z-30">
 						<button 
-							on:click={() => {
+							onclick={() => {
 								pauseAutoplay();
 								if (data.banners && data.banners.length > 0) {
 									indicator_cur = (indicator_cur + 1) % data.banners.length;
 								}
 								setTimeout(resumeAutoplay, 10000);
 							}}
-							class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-accent hover:text-black transition-colors shadow-elevation-1 hover:shadow-elevation-2 transform-gpu hover:scale-110">
+							class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-xs text-white flex items-center justify-center hover:bg-accent hover:text-black transition-colors shadow-elevation-1 hover:shadow-elevation-2 transform-gpu hover:scale-110">
 							<Icon icon="ph:caret-right-bold" />
 						</button>
 					</div>
@@ -388,7 +390,7 @@
 				<div class="flex items-center justify-center mt-8 space-x-3">
 					{#each Array(data.banners?.length || 0) as _, i}
 						<button 
-							on:click={() => {
+							onclick={() => {
 								if (indicator_cur !== i) {
 									pauseAutoplay();
 									indicator_cur = i;
@@ -422,23 +424,23 @@
 				
 				<div class="flex flex-wrap gap-3 items-center">
 					<button 
-						on:click={()=>{goto('?filter=All');setup("All")}} 
-						class="px-4 py-2 rounded-full transition-all {$page.url.searchParams.get('filter') == 'All' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white'}">
+						onclick={()=>{goto('?filter=All');setup("All")}} 
+						class="px-4 py-2 rounded-full transition-all {page.url.searchParams.get('filter') == 'All' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white'}">
 						All
 					</button>
 					<button 
-						on:click={()=>{goto('?filter=Products');setup("Products")}} 
-						class="px-4 py-2 rounded-full transition-all {$page.url.searchParams.get('filter') != null ? $page.url.searchParams.get('filter') == 'Products' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white' : 'bg-accent text-black font-medium'}">
+						onclick={()=>{goto('?filter=Products');setup("Products")}} 
+						class="px-4 py-2 rounded-full transition-all {page.url.searchParams.get('filter') != null ? page.url.searchParams.get('filter') == 'Products' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white' : 'bg-accent text-black font-medium'}">
 						Products
 					</button>
 					<button 
-						on:click={()=>{goto('?filter=Spares',);setup("Spares")}} 
-						class="px-4 py-2 rounded-full transition-all {$page.url.searchParams.get('filter') == 'Spares' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white'}">
+						onclick={()=>{goto('?filter=Spares',);setup("Spares")}} 
+						class="px-4 py-2 rounded-full transition-all {page.url.searchParams.get('filter') == 'Spares' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white'}">
 						Spares
 					</button>
 					<button 
-						on:click={()=>{goto('?filter=FleaMarket',);setup("FleaMarket")}} 
-						class="px-4 py-2 rounded-full transition-all {$page.url.searchParams.get('filter') == 'FleaMarket' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white'}">
+						onclick={()=>{goto('?filter=FleaMarket',);setup("FleaMarket")}} 
+						class="px-4 py-2 rounded-full transition-all {page.url.searchParams.get('filter') == 'FleaMarket' ? 'bg-accent text-black font-medium' : 'bg-[#151515] hover:bg-[#252525] text-white'}">
 						Flea Market
 					</button>
 				</div>
@@ -474,7 +476,7 @@
 						</div>
 						
 						<button 
-							on:click={()=>{goto('?filter=All');setup("All")}}
+							onclick={()=>{goto('?filter=All');setup("All")}}
 							class="mt-8 px-6 py-3 bg-[#151515] hover:bg-[#252525] rounded-lg text-white transition-all">
 							View All Products
 						</button>
@@ -485,7 +487,7 @@
 	</section>
 </div>
 
-<style lang="postcss">
+<style>
 	/* 3D Transform Styles */
 	.perspective-container {
 		perspective: 1000px;

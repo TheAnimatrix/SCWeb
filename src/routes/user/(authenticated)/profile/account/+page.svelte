@@ -7,22 +7,22 @@
 	import type { Writable } from 'svelte/store';
 	import Icon from '@iconify/svelte';
 
-	export let data;
+	let { data } = $props();
 	let supabase_lt = data.supabase_lt;
 
-	let username: string | undefined = '',
-		email: string | undefined = '',
+	let username: string | undefined = $state(''),
+		email: string | undefined = $state(''),
 		picture: string | undefined = '',
-		tier: string | undefined = '';
+		tier: string | undefined = $state('');
 
 	username = data.username;
 	email = data.email;
 	tier = data.tier;
 
-	let newPass: string = '', confirmPass: string = '';
+	let newPass: string = $state(''), confirmPass: string = $state('');
 	let load_store = getContext<Writable<boolean>>('loading');
-	let error_msg: string | undefined;
-	let isUpdatingPassword = false;
+	let error_msg: string | undefined = $state();
+	let isUpdatingPassword = $state(false);
 
 	async function changePassword() {
 		if (isUpdatingPassword) return;
@@ -54,7 +54,7 @@
 	}
 </script>
 
-<div class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl border border-[#252525] overflow-hidden">
+<div class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] overflow-hidden">
 	<!-- Profile Info Section -->
 	<div class="p-6 border-b border-[#252525]">
 		<h2 class="text-2xl font-bold flex items-center gap-3 mb-6">
@@ -119,7 +119,7 @@
 					type="password"
 					bind:value={newPass}
 					placeholder="Enter new password"
-					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-none focus:ring-1 focus:ring-accent/50"
+					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-hidden focus:ring-1 focus:ring-accent/50"
 				/>
 			</div>
 
@@ -129,13 +129,13 @@
 					type="password"
 					bind:value={confirmPass}
 					placeholder="Confirm new password"
-					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-none focus:ring-1 focus:ring-accent/50"
+					class="mt-1 w-full p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-hidden focus:ring-1 focus:ring-accent/50"
 				/>
 			</div>
 
 			<div class="pt-4 flex flex-col gap-3">
 				<button
-					on:click={changePassword}
+					onclick={changePassword}
 					class="w-full px-4 py-3 bg-accent/10 hover:bg-accent/20 text-accent rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
 					disabled={isUpdatingPassword}
 				>
@@ -144,7 +144,7 @@
 				</button>
 
 				<button
-					on:click={logout}
+					onclick={logout}
 					class="w-full px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
 				>
 					<Icon icon="ph:sign-out-bold" />
@@ -155,7 +155,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
 	.highlight {
 		@apply font-normal mt-2 mb-4 p-4 border-solid border-orange-200 border-[1px] rounded-xl bg-[#362515] w-fit;
 	}

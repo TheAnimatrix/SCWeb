@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy';
+
   import { setLoading } from '$lib/client/loading.js';
   import { goto, invalidate } from '$app/navigation';
   import Icon from '@iconify/svelte';
@@ -18,24 +20,14 @@
   } from '$lib/client/cart';
   import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
 
-  export let data;
+  let { data } = $props();
   let isCheckoutHovered = false;
-  let cartDetails: Cart;
-  let cartSubtotal = 0;
-  let isUpdatingCart = false;
-  let highlightedRow: number | null = null;
+  let cartDetails: Cart = $state();
+  let cartSubtotal = $state(0);
+  let isUpdatingCart = $state(false);
+  let highlightedRow: number | null = $state(null);
 
-  let quantityList: string[] = [];
-  $: {
-    if (data.cart && !data.cart.error) {
-      cartDetails = data.cart.data!;
-      quantityList = Array(cartDetails.list?.length ?? 0).fill(0);
-      cartDetails?.list?.forEach((item, i) => {
-        quantityList[i] = item.qty.toString();
-      });
-      cartSubtotal = calculateCartSubtotal();
-    }
-  }
+  let quantityList: string[] = $state([]);
 
   let productDetailsCache: Record<string, any> = {};
 
@@ -231,6 +223,16 @@
 
   const cart_store = getContext<Writable<CartG>>('userCartStatus');
   let load_store = getContext<Writable<boolean>>('loading');
+  run(() => {
+    if (data.cart && !data.cart.error) {
+      cartDetails = data.cart.data!;
+      quantityList = Array(cartDetails.list?.length ?? 0).fill(0);
+      cartDetails?.list?.forEach((item, i) => {
+        quantityList[i] = item.qty.toString();
+      });
+      cartSubtotal = calculateCartSubtotal();
+    }
+  });
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white">
@@ -252,7 +254,7 @@
         {#if !cartDetails || (cartDetails.list ?? []).length === 0}
           <div class="flex items-center justify-center w-full">
             <div 
-              class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl p-10 border border-[#252525] transition-all duration-300 hover:shadow-glow flex flex-col items-center justify-center text-center min-h-[400px] w-full max-w-2xl mx-auto"
+              class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl p-10 border border-[#252525] transition-all duration-300 hover:shadow-glow flex flex-col items-center justify-center text-center min-h-[400px] w-full max-w-2xl mx-auto"
               in:fade={{ duration: 200 }}
             >
               <div class="relative">
@@ -263,7 +265,7 @@
               <p class="text-gray-400 mb-8 max-w-md">Looks like you haven't added any items yet. Explore our products and find something you like!</p>
               <button 
                 class="flex items-center justify-center gap-2 bg-accent/10 text-accent px-8 py-4 rounded-xl font-medium hover:bg-accent/20 transition-all duration-300 hover:scale-105 transform"
-                on:click={() => goto('/')}
+                onclick={() => goto('/')}
               >
                 <Icon icon="ph:shopping-bag-bold" class="text-xl" />
                 Browse Crafts
@@ -273,7 +275,7 @@
         {:else}
           {#each cartDetails.list ?? [] as productItem, i (productItem.product_id)}
             {#await getItemDetails(productItem.product_id)}
-              <div class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl p-4 border border-[#252525] animate-pulse">
+              <div class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl p-4 border border-[#252525] animate-pulse">
                 <div class="flex items-center space-x-4">
                   <div class="w-20 h-20 bg-[#252525] rounded-xl"></div>
                   <div class="flex-1">
@@ -284,7 +286,7 @@
               </div>
             {:then result}
               <div 
-                class="bg-[#151515]/40 backdrop-blur-sm rounded-2xl border border-[#252525] overflow-hidden transition-all duration-300 hover:shadow-glow group"
+                class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] overflow-hidden transition-all duration-300 hover:shadow-glow group"
                 class:highlight-animation={highlightedRow === i}
                 in:fade={{ duration: 200 }}
                 style="isolation: isolate;"
@@ -298,7 +300,7 @@
                       alt={result.name}
                       loading="lazy"
                     />
-                    <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[#151515]/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                    <div class="absolute inset-0 bg-linear-to-r from-transparent to-[#151515]/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                   </div>
                   
                   <!-- Product Details - More compact -->
@@ -332,7 +334,7 @@
                       
                       <div class="flex items-center mt-2 sm:mt-0 relative z-10">
                         <button
-                          on:click={() => incrementDecrementQuantity(false, i, result)}
+                          onclick={() => incrementDecrementQuantity(false, i, result)}
                           class="w-8 h-8 flex items-center justify-center bg-[#252525]/30 hover:bg-accent/20 text-accent rounded-l-lg transition-colors duration-200 relative z-10"
                           aria-label="Decrease quantity"
                           type="button"
@@ -348,14 +350,14 @@
                           bind:value={quantityList[i]}
                           min="1"
                           max={result.stock.count}
-                          class="w-12 h-8 bg-[#252525]/30 text-center border-x border-[#353535] text-white focus:outline-none focus:ring-1 focus:ring-accent/50 relative z-10"
+                          class="w-12 h-8 bg-[#252525]/30 text-center border-x border-[#353535] text-white focus:outline-hidden focus:ring-1 focus:ring-accent/50 relative z-10"
                           disabled={isUpdatingCart}
-                          on:change={(e) => updateQuantity(e, i, result)}
+                          onchange={(e) => updateQuantity(e, i, result)}
                           style="touch-action: manipulation;"
                         />
                         
                         <button
-                          on:click={() => incrementDecrementQuantity(true, i, result)}
+                          onclick={() => incrementDecrementQuantity(true, i, result)}
                           class="w-8 h-8 flex items-center justify-center bg-[#252525]/30 hover:bg-accent/20 text-accent rounded-r-lg transition-colors duration-200 relative z-10"
                           aria-label="Increase quantity"
                           disabled={isUpdatingCart}
@@ -368,7 +370,7 @@
                         </button>
                         
                         <button
-                          on:click={() => removeItem(i, result)}
+                          onclick={() => removeItem(i, result)}
                           class="ml-3 w-8 h-8 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors duration-200 relative z-10"
                           aria-label="Remove item"
                           disabled={isUpdatingCart}
@@ -385,7 +387,7 @@
                 </div>
               </div>
             {:catch err}
-              <div class="bg-[#151515]/70 backdrop-blur-sm rounded-2xl p-6 border border-red-500/20 text-center">
+              <div class="bg-[#151515]/70 backdrop-blur-xs rounded-2xl p-6 border border-red-500/20 text-center">
                 <Icon icon="ph:warning-circle" class="text-red-400 text-3xl mb-2" />
                 <p>There was an error loading this item. Please try refreshing the page.</p>
               </div>
@@ -433,7 +435,7 @@
                 class="w-full mt-5 relative group/button overflow-hidden"
                 class:opacity-50={isUpdatingCart}
                 disabled={isUpdatingCart}
-                on:click={() => goto('/checkout')}
+                onclick={() => goto('/checkout')}
               >
                 <div class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300"></div>
                 
@@ -450,7 +452,7 @@
               <div class="text-center mt-3">
                 <button 
                   class="text-sm text-gray-400 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
-                  on:click={() => goto('/products')}
+                  onclick={() => goto('/products')}
                 >
                   <Icon icon="ph:arrow-left-bold" />
                   Continue Shopping
@@ -470,7 +472,7 @@
   </div>
 </div>
 
-<style lang="postcss">
+<style>
   .shadow-glow {
     @apply [box-shadow:0_4px_20px_-5px_accent/10];
   }

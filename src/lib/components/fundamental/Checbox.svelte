@@ -1,8 +1,12 @@
 <script lang="ts">
-    export let checked : boolean = false;
-    let className : string = "";
-    export {className as class};
-    export let disabled : boolean = true;
+    
+  interface Props {
+    checked?: boolean;
+    class?: string;
+    disabled?: boolean;
+  }
+
+  let { checked = false, class: className = "", disabled = true }: Props = $props();
 </script>
 <div class="inline-flex items-center {className}">
     <label class="relative flex items-center  rounded-full cursor-pointer">

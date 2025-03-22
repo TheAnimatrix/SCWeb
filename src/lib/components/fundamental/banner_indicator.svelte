@@ -2,18 +2,34 @@
 	import { onMount } from 'svelte';
 	// import { each } from 'svelte/internal';
 	import arrowLeft from '$lib/svg/arrow_left.svg';
-	export let curActive : number;
-	export let max : number;
 	let boilerPlate = ' transition-all duration-200 linear ';
-	export let colorPrimary = 'bg-white';
-	export let colorSecondary = 'bg-scpurple';
-	export let hoverAccent = 'hover:bg-scpurplel1';
-	export let styleActive : string = '';
-	export let styleNormal : string = '';
-	export let wActive = 'w-[24%]';
-	export let wNormal = 'w-[6%]';
-	export let hoverNormal = 'w-[8%]';
-	export let interval : number | undefined = 0;
+	interface Props {
+		curActive: number;
+		max: number;
+		colorPrimary?: string;
+		colorSecondary?: string;
+		hoverAccent?: string;
+		styleActive?: string;
+		styleNormal?: string;
+		wActive?: string;
+		wNormal?: string;
+		hoverNormal?: string;
+		interval?: number | undefined;
+	}
+
+	let {
+		curActive = $bindable(),
+		max,
+		colorPrimary = 'bg-white',
+		colorSecondary = 'bg-scpurple',
+		hoverAccent = 'hover:bg-scpurplel1',
+		styleActive = $bindable(''),
+		styleNormal = $bindable(''),
+		wActive = 'w-[24%]',
+		wNormal = 'w-[6%]',
+		hoverNormal = 'w-[8%]',
+		interval = 0
+	}: Props = $props();
 	let i = 0;
 
 	styleActive = `rounded-lg box-border ${wActive} h-[12px] mr-[8px] ${colorPrimary} ` + boilerPlate;
@@ -39,14 +55,14 @@
 	{#each Array(max) as _, i (i)}
 		<button
 			class={i === curActive ? styleActive : styleNormal}
-			on:click={() => {
+			onclick={() => {
 				curActive = i;
 			}}
-		/>
+		></button>
 	{/each}
 </div>
 
-<style lang="postcss">
+<style>
 	.btn-clear {
 		background: none;
 		color: inherit;

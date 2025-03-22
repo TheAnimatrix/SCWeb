@@ -78,6 +78,7 @@ const config = {
 				purple: colors.purple,
 				yellow: colors.amber,
 				pink: colors.pink,
+				indigo: colors.indigo,
 				transparent: 'transparent',
 				current: 'currentColor',
 				scbg: '#232323',

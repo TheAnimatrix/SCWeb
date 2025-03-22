@@ -11,7 +11,7 @@
 	let contact = ABOUT_STRINGS.contact;
 	let roadmap = ABOUT_STRINGS.roadmap;
 	let risks = ABOUT_STRINGS.risks;
-	let currentSelection: number = 0;
+	let currentSelection: number = $state(0);
 	import * as Card from '$lib/components/ui/card';
 </script>
 
@@ -35,7 +35,7 @@
 						px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105
 						${currentSelection === i ? 'bg-accent/10 text-accent' : 'bg-[#151515]/40 text-gray-400'}
 					`}"
-					on:click={() => {
+					onclick={() => {
 						currentSelection = i;
 						document.getElementById(['privacy', 'terms', 'cancellation', 'shipping', 'contact', 'risks'][i])?.scrollIntoView({ behavior: 'smooth' });
 					}}
@@ -48,7 +48,7 @@
 		<!-- Policy Content -->
 		<div class="max-w-4xl mx-auto space-y-8">
 			<div id="privacy" class="policy-section">
-				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-xs border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
 							<Icon icon="ph:shield-check-bold" class="text-accent opacity-80" />
@@ -62,7 +62,7 @@
 			</div>
 
 			<div id="terms" class="policy-section">
-				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-xs border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
 							<Icon icon="ph:book-bold" class="text-accent opacity-80" />
@@ -76,7 +76,7 @@
 			</div>
 
 			<div id="cancellation" class="policy-section">
-				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-xs border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
 							<Icon icon="ph:arrow-counter-clockwise-bold" class="text-accent opacity-80" />
@@ -90,7 +90,7 @@
 			</div>
 
 			<div id="shipping" class="policy-section">
-				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-xs border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
 							<Icon icon="ph:truck-bold" class="text-accent opacity-80" />
@@ -104,7 +104,7 @@
 			</div>
 
 			<div id="contact" class="policy-section">
-				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-xs border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
 							<Icon icon="ph:phone-bold" class="text-accent opacity-80" />
@@ -118,7 +118,7 @@
 			</div>
 
 			<div id="risks" class="policy-section">
-				<Card.Root class="bg-[#151515]/40 backdrop-blur-sm border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
+				<Card.Root class="bg-[#151515]/40 backdrop-blur-xs border-[#252525] text-white text-left mb-8 w-full hover:shadow-glow transition-all duration-300">
 					<Card.Header class="border-b border-[#252525] p-6">
 						<Card.Title class="text-2xl flex items-center gap-3">
 							<Icon icon="ph:warning-circle-bold" class="text-accent opacity-80" />
@@ -134,7 +134,7 @@
 	</div>
 </div>
 
-<style lang="postcss">
+<style>
 	.shadow-glow {
 		box-shadow: 0 4px 20px -5px rgba(194, 255, 0, 0.1);
 	}

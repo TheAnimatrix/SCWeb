@@ -1,3 +1,4 @@
+<!-- @migration-task Error while migrating Svelte code: $$props is used together with named props in a way that cannot be automatically migrated. -->
 <script lang="ts">
     import { createEventDispatcher } from 'svelte'
     import { spring } from 'svelte/motion'
@@ -45,7 +46,7 @@
 
 <button
     {...$$props}
-    on:click={(e) => {
+    onclick={(e) => {
         dispatch('click');
         createRipple(e);
         scale.set(pressScale);
@@ -55,14 +56,14 @@
             isPressed = false;
         }, 150);
     }}
-    on:focus={() => {}}
-    on:mouseover={() => {
+    onfocus={() => {}}
+    onmouseover={() => {
         if (hoverable && !isPressed) {
             checkoutHover = true;
             scale.set(hoverScale);
         }
     }}
-    on:mouseleave={() => {
+    onmouseleave={() => {
         checkoutHover = false;
         if (!isPressed) scale.set(1);
     }}

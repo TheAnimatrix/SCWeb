@@ -1,11 +1,15 @@
 <script lang="ts">
 	import { modifyHtml } from '$lib/client/helper';
 
-	export let html: string;
 
 	import { onMount } from 'svelte';
+	interface Props {
+		html: string;
+	}
 
-	let modifiedHtml: string;
+	let { html }: Props = $props();
+
+	let modifiedHtml: string = $state();
 
 	onMount(() => {
 		// Modify style tags

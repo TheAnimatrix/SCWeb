@@ -30,7 +30,7 @@
 						<span class="text-gray-400">Order ID</span>
 						<button
 							class="text-blue-400 hover:text-blue-300 transition-colors flex items-center"
-							on:click={() => {navigator.clipboard.writeText($page.params.cart_id); alert('copied to clipboard');}}>
+							onclick={() => {navigator.clipboard.writeText($page.params.cart_id); alert('copied to clipboard');}}>
 							#{$page.params.cart_id}
 							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
 						</button>
@@ -40,7 +40,7 @@
 						<span class="text-gray-400">Payment ID</span>
 						<button
 							class="text-blue-400 hover:text-blue-300 transition-colors flex items-center"
-							on:click={() => {navigator.clipboard.writeText($page.params.order_id); alert('copied to clipboard');}}>
+							onclick={() => {navigator.clipboard.writeText($page.params.order_id); alert('copied to clipboard');}}>
 							#{$page.params.order_id}
 							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
 						</button>
@@ -60,7 +60,7 @@
 				</p>
 
 				<button
-					on:click={() =>
+					onclick={() =>
 						window.open(
 							`mailto:support@selfcrafted.in?subject=Failed%20payment%20with%20orderId%20%23${$page.params.cart_id}%20and%20paymentId%20%23${$page.params.order_id}`,
 							'_blank'
