@@ -14,7 +14,6 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { validatePassword } from '$lib/types/helper.js';
-	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Smoke from '$lib/components/effects/Smoke.svelte';

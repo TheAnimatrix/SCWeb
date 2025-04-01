@@ -82,18 +82,25 @@
 				<div>
 					<label class="text-sm text-gray-400">Tier</label>
 					<div class="mt-1 p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] flex items-center gap-2">
-						<Icon icon="ph:star-bold" class="text-accent" />
+						<Icon 
+							icon={tier?.toLowerCase() === 'osprey' ? 'fluent-emoji:eagle' :
+								  tier?.toLowerCase() === 'rhino' ? 'fluent-emoji:rhinoceros' :
+								  tier?.toLowerCase() === 'tiger' ? 'fluent-emoji:tiger-face' :
+								  tier?.toLowerCase() === 'peacock' ? 'fluent-emoji:peacock' :
+								  tier?.toLowerCase() === 'bee' ? 'fluent-emoji:honeybee' :
+								  'ph:star-bold'}
+							class="text-accent text-5xl" />
 						{tier}
 					</div>
 				</div>
 			</div>
 
 			<!-- Profile Picture -->
-			<div class="flex flex-col items-center justify-center">
+			<div class="flex flex-col items-center justify-center w-full h-full ">
 				<img
 					src="/images/crane.png"
-					class="w-48 h-48 object-cover rounded-xl border border-[#252525] bg-[#0c0c0c]/60"
-					alt="Profile picture"
+					class="object-cover rounded-xl border border-[#252525] bg-[#0c0c0c]/60"
+					alt="Profile"
 				/>
 			</div>
 		</div>

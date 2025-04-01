@@ -89,14 +89,10 @@
 
 			// Check if current user has a review
 			const user = await data.supabase_lt.auth.getUser();
-			console.log(user);
 			if (user && user.data?.user) {
-				console.log(user.data.user);
-				console.log(reviews);
 				userReview = reviews.find((r) => r.user_id === user?.data.user?.id);
 			}
 		} catch (err) {
-			console.error('Error fetching reviews:', err);
 		}
 	}
 
@@ -560,7 +556,7 @@
 								<Tabs.Content value="faq" class="text-white p-3 text-start h-full">
 									<div>
 										{#if productItem.faq && productItem.faq.length > 0}
-											<Accordion.Root class="w-full" multiple>
+											<Accordion.Root class="w-full" type="multiple">
 												{#each productItem.faq as faq, i}
 													<Accordion.Item
 														value="item-{i}"

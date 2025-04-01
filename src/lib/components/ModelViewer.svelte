@@ -42,7 +42,7 @@
         quantity = 1
     }: Props = $props();
     
-    let container: HTMLDivElement | null = $state(null);
+    let container: HTMLDivElement = $state();
     let scene: THREE.Scene;
     let camera: THREE.PerspectiveCamera;
     let renderer: THREE.WebGLRenderer;
@@ -197,7 +197,6 @@
             // Check cache first
             if (weightCalculationCache.has(cacheKey)) {
                 weight = weightCalculationCache.get(cacheKey)!;
-                console.log("Using cached weight calculation:", weight);
             } else {
                 // Extract layer height from quality string
                 const layerHeightMatch = selectedQuality.match(/\(([\d.]+)mm\)/);
@@ -528,11 +527,9 @@
             // Add loading indicator
             const loadingManager = new THREE.LoadingManager();
             loadingManager.onStart = () => {
-                console.log('Loading model...');
             };
             
             loadingManager.onError = (url) => {
-                console.error('Error loading', url);
             };
 
             try {
@@ -603,7 +600,6 @@
             
             // Handle abnormally large models
             if (maxDim > 1000) {
-                console.log("Scaling down large model", maxDim);
                 const scale = 100 / maxDim;
                 group.scale.set(scale, scale, scale);
             }
@@ -991,7 +987,6 @@
                             <span class="text-indigo-200 animate-pulse">Calculating...</span>
                             <button 
                                 onclick={() => { 
-                                    console.log("Manual reset of calculation state");
                                     modelInfo.isCalculating = false;
                                     // Provide fallback value if needed
                                     if (modelInfo.estimatedWeight === '0g') {

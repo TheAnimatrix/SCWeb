@@ -30,17 +30,70 @@ function calculateVolumeAndAreaSingle(geometry: BufferGeometry): { volume: numbe
   let volume = 0;
   let area = 0;
   const position = geometry.attributes.position;
+  let skippedTriangles = 0;
+  let totalTriangles = position.count / 3;
+  
   for (let i = 0; i < position.count; i += 3) {
     const a = new Vector3().fromBufferAttribute(position, i);
     const b = new Vector3().fromBufferAttribute(position, i + 1);
     const c = new Vector3().fromBufferAttribute(position, i + 2);
-    volume += (a.x * (b.y * c.z - b.z * c.y) + a.y * (b.z * c.x - b.x * c.z) + a.z * (b.x * c.y - b.y * c.x)) / 6;
+    
+    // Check if any coordinates are NaN
+    if (isNaN(a.x) || isNaN(a.y) || isNaN(a.z) || 
+        isNaN(b.x) || isNaN(b.y) || isNaN(b.z) || 
+        isNaN(c.x) || isNaN(c.y) || isNaN(c.z)) {
+        
+        // Instead of skipping entirely, try to repair the triangle if possible
+        // Fix NaN values with 0 (simple approach)
+        if (isNaN(a.x)) a.x = 0;
+        if (isNaN(a.y)) a.y = 0;
+        if (isNaN(a.z)) a.z = 0;
+        if (isNaN(b.x)) b.x = 0;
+        if (isNaN(b.y)) b.y = 0;
+        if (isNaN(b.z)) b.z = 0;
+        if (isNaN(c.x)) c.x = 0;
+        if (isNaN(c.y)) c.y = 0;
+        if (isNaN(c.z)) c.z = 0;
+        
+        skippedTriangles++;
+    }
+    
+    // Calculate volume contribution (using signed tetrahedron volume formula)
+    const triVolume = (a.x * (b.y * c.z - b.z * c.y) + 
+                       a.y * (b.z * c.x - b.x * c.z) + 
+                       a.z * (b.x * c.y - b.y * c.x)) / 6;
+    
+    // Only add valid volume contributions
+    if (!isNaN(triVolume)) {
+      volume += triVolume;
+    }
+    
+    // Calculate area using cross product
     const ab = new Vector3().subVectors(b, a);
     const ac = new Vector3().subVectors(c, a);
     const cross = new Vector3().crossVectors(ab, ac);
-    area += cross.length() / 2;
+    const triangleArea = cross.length() / 2;
+    
+    // Only add valid area contributions
+    if (!isNaN(triangleArea)) {
+      area += triangleArea;
+    }
   }
+  
   volume = Math.abs(volume);
+  
+  // Apply correction factor if many triangles were skipped/repaired
+  if (skippedTriangles > 0) {
+    const skippedRatio = skippedTriangles / totalTriangles;
+    
+    // If more than 10% of triangles needed repair, apply a correction factor
+    if (skippedRatio > 0.1) {
+      // Apply a conservative volume adjustment
+      const correctionFactor = 1 + (skippedRatio * 0.5); // Increase volume by up to 50% for 100% repaired
+      volume *= correctionFactor;
+    }
+  }
+  
   return { volume, area };
 }
 
@@ -56,33 +109,48 @@ function calculateVolumeAndArea(geometries: BufferGeometry[]): { volume: number;
   return { volume: totalVolume, area: totalArea };
 }
 
-// Extract geometries from loaded object
-function getGeometries(loadedObject: BufferGeometry | Group): BufferGeometry[] {
+// Extract geometries from loaded object, excluding specified names
+function getGeometries(loadedObject: BufferGeometry | Group, excludeNames: string[] = []): BufferGeometry[] {
   if (loadedObject instanceof BufferGeometry) {
-    return [loadedObject];
+    return [loadedObject]; // STL case: single geometry, no filtering needed
   } else if (loadedObject instanceof Group) {
     const geometries: BufferGeometry[] = [];
+    // More thorough traversal to ensure we don't miss any geometries
     loadedObject.traverse((child) => {
       if (child instanceof THREE.Mesh && child.geometry) {
-        geometries.push(child.geometry as BufferGeometry);
+        // Check if the child has a name and if it should be excluded
+        const shouldInclude = !child.name || !excludeNames.includes(child.name);
+        if (shouldInclude) {
+          // Clone the geometry to ensure we process it correctly
+          const clonedGeometry = child.geometry.clone();
+          
+          // Apply any local transformations from the mesh to the geometry
+          if (child.matrixWorld) {
+            clonedGeometry.applyMatrix4(child.matrixWorld);
+          }
+          
+          geometries.push(clonedGeometry);
+        }
       }
     });
+    
     return geometries;
   } else {
     throw new Error('Unexpected loaded object type.');
   }
 }
 
-// Main function to estimate weight with scale option
+// Main function to estimate weight with scale option and excludeNames
 async function estimateWeight(
   material: Material,
   infill: number, // percentage (0-100)
   walls: number, // number of wall lines
   layerHeight: number, // in mm, not used in weight calculation
   scale: number = 1.0, // scale factor (e.g., 1.1 for 110%)
-  modelFile: string | File // URL or File object
+  modelFile: string | File, // URL or File object
+  excludeNames: string[] = [] // Names of meshes to exclude (e.g., ['buildplate'])
 ): Promise<number> {
-    scale = 0.91 * scale;
+  scale = 0.91 * scale; // Ensure scale is treated as a number
   // Validate material
   const density = densities[material];
   if (!density) {
@@ -116,8 +184,8 @@ async function estimateWeight(
     }
   }
 
-  // Get geometries from the loaded object
-  const geometries = getGeometries(loadedObject);
+  // Get geometries from the loaded object, excluding specified names
+  const geometries = getGeometries(loadedObject, excludeNames);
 
   // Calculate base volume and surface area (in mm³ and mm²)
   const { volume, area } = calculateVolumeAndArea(geometries);
@@ -126,15 +194,26 @@ async function estimateWeight(
   const scaledVolume = volume * Math.pow(scale, 3);
   const scaledArea = area * Math.pow(scale, 2);
 
-  // Calculate material volume
-  const volumeWalls = scaledArea * wallThickness; // mm³
-  let volumeInternal = scaledVolume - volumeWalls; // mm³
+  // Calculate effective wall volume, ensuring it doesn't exceed total volume
+  const maxWallVolume = scaledVolume; // Wall volume can't exceed total volume
+  const wallVolumeAttempt = scaledArea * wallThickness; // Attempted wall volume
+  const volumeWalls = Math.min(wallVolumeAttempt, maxWallVolume); // Cap wall volume
+
+  // Calculate internal volume
+  let volumeInternal = scaledVolume - volumeWalls;
   if (volumeInternal < 0) volumeInternal = 0; // Prevent negative internal volume
+
+  // Calculate material volume
   const volumeMaterial = volumeWalls + volumeInternal * (infill / 100); // mm³
 
   // Calculate weight in grams (volume in mm³ to cm³ is /1000)
   const weight = (volumeMaterial / 1000) * density;
-  return weight;
+
+  // After calculating the weight, ensure a minimum value
+  const minimumWeight = 3; // 3 grams minimum
+  const finalWeight = Math.max(weight, minimumWeight);
+
+  return finalWeight;
 }
 
 export { estimateWeight };

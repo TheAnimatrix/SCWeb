@@ -11,6 +11,7 @@ https://svelte.dev/e/node_invalid_placement -->
 	import * as Tabs from '$lib/components/ui/tabs';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import * as THREE from 'three';
+	import * as Accordion from '$lib/components/ui/accordion';
 
 	export let data;
 
@@ -108,7 +109,7 @@ https://svelte.dev/e/node_invalid_placement -->
 		{ label: 'Strong', value: 40, walls: '4 walls' },
 		{ label: 'Stronger', value: 50, walls: '5 walls' },
 		{ label: 'Heavy', value: 80, walls: '5 walls' },
-		{ label: 'Solid', value: 100, walls: 'Full' }
+		{ label: 'Solid', value: 100, walls: '10 walls' }
 	];
 
 	// Slider position to strength level mapping
@@ -116,15 +117,7 @@ https://svelte.dev/e/node_invalid_placement -->
 	
 	// Map slider position to actual infill percentage
 	function updateInfillFromSlider() {
-		if (sliderPosition === 0) infill = 15; // Position 0 (unused but fallback to Light)
-		else if (sliderPosition === 1) infill = 15; // Position 1 = Light
-		else if (sliderPosition === 2) infill = 20; // Position 2 = Basic
-		else if (sliderPosition === 3) infill = 30; // Position 3 = Medium
-		else if (sliderPosition === 4) infill = 40; // Position 4 = Strong
-		else if (sliderPosition === 5) infill = 50; // Position 5 = Stronger
-		else if (sliderPosition === 6) infill = 80; // Position 6 = Heavy
-		else if (sliderPosition === 7) infill = 100; // Position 7 = Solid
-		else infill = 100; // Position 8 (unused but fallback to Solid)
+		infill = strengthLevels[sliderPosition].value;
 	}
 
 	// Function to get position based on strength level (used for initial value)
@@ -385,7 +378,7 @@ https://svelte.dev/e/node_invalid_placement -->
 
 	function handleFiles(files: FileList) {
 		// Filter for 3D model files
-		const supportedFormats = ['.stl', '.obj', '.3mf'];
+		const supportedFormats = ['.stl'];
 		const file = files[0];
 
 		if (file) {
@@ -396,7 +389,7 @@ https://svelte.dev/e/node_invalid_placement -->
 				modelFile = file;
 				modelLoaded = true;
 			} else {
-				alert('Please upload a supported 3D model file (STL, OBJ, 3MF)');
+				alert('Please upload a supported 3D model file (STL)');
 			}
 		}
 	}
@@ -495,14 +488,14 @@ https://svelte.dev/e/node_invalid_placement -->
 									or click to browse
 								</div>
 								<span class="mx-2 text-white/30 text-xs">•</span>
-								<span class="text-white/50 text-xs">STL, OBJ, 3MF (max 50MB)</span>
+								<span class="text-white/50 text-xs">STL (max 50MB)</span>
 							</div>
 						</div>
 					</div>
 					<input
 						type="file"
 						id="fileInput"
-						accept=".stl,.obj,.3mf"
+						accept=".stl"
 						onchange={handleFileInput}
 						class="hidden" />
 				</button>
@@ -550,9 +543,9 @@ https://svelte.dev/e/node_invalid_placement -->
 							<label class="text-white/80 text-sm"
 								>Scale: <span class="text-white">{scale.toFixed(2)}x</span></label>
 							<div class="flex items-center text-white/60 text-xs">
-								<span>0.5x</span>
+								<button onclick={() => (scale = 1)}>1x</button>
 								<span class="mx-2 text-white/30">|</span>
-								<span>2x</span>
+								<button onclick={() => (scale = 2)}>2x</button>
 							</div>
 						</div>
 						<div class="relative">
@@ -564,10 +557,6 @@ https://svelte.dev/e/node_invalid_placement -->
 								bind:value={scale}
 								oninput={() => modelViewer?.notifySliderMoving?.()}
 								class="w-full accent-indigo-400 bg-black-800 h-2 rounded appearance-none" />
-							<!-- Visual progress indicator -->
-							<div 
-								class="absolute top-[3px] left-0 h-2 bg-white/40 rounded pointer-events-none"
-								style="width: {((scale - 0.5) / 1.5) * 100}%"></div>
 							<div
 								class="absolute top-0 left-0 right-0 flex justify-between px-1 -mt-1 pointer-events-none">
 								<div class="w-0.5 h-2 bg-white/20"></div>
@@ -600,16 +589,13 @@ https://svelte.dev/e/node_invalid_placement -->
 									updateInfillFromSlider();
 									modelViewer?.notifySliderMoving?.();
 								}}
-								class="w-full accent-indigo-400 bg-black-800 h-2 rounded appearance-none" />
+								class="w-full accent-indigo-700 bg-black-800 h-2 rounded appearance-none" />
 							<!-- Visual progress indicator -->
-							<div 
-								class="absolute top-[3px] left-0 h-2 bg-white/40 rounded pointer-events-none"
-								style="width: {(sliderPosition / 6) * 100}%"></div>
 							<div
 								class="absolute top-3 left-0 right-0 flex justify-between text-[10px] text-white/50 pointer-events-none"
 								>
 								{#each Array(7) as _, i}
-									<div class="flex flex-col items-center" style="width: 14%">
+									<div class="flex flex-col items-start" style="width: 1%">
 											<div class="w-0.5 h-2 bg-white/20 mb-1"></div>
 											<span class="text-center">{strengthLevels[i].label}</span>
 									</div>
@@ -639,7 +625,7 @@ https://svelte.dev/e/node_invalid_placement -->
 
 			<!-- Right panel: Available Makers -->
 			<div class="lg:col-span-5">
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle">
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle mb-4">
 					<div class="text-lg font-medium text-white mb-4 flex items-center">
 						<Icon icon="material-symbols:person-pin-circle" class="text-indigo-400 mr-2 icon-glow" />
 						<span class="glow-text-subtle">Available Makers ({makers.length})</span>
@@ -744,6 +730,100 @@ https://svelte.dev/e/node_invalid_placement -->
 						{/each}
 					</div>
 				</div>
+
+				<!-- FAQ Section -->
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle">
+					<div class="text-lg font-medium text-white mb-4 flex items-center">
+						<Icon icon="material-symbols:quiz" class="text-indigo-400 mr-2 icon-glow" />
+						<span class="glow-text-subtle">Frequently Asked Questions</span>
+					</div>
+
+					<Accordion.Root class="w-full" type="multiple">
+						<Accordion.Item value="disclaimer" class="border-b border-zinc-800/50 pb-1">
+							<Accordion.Trigger class="font-medium hover:text-accent text-sm text-white w-full text-left">
+								Disclaimer
+							</Accordion.Trigger>
+							<Accordion.Content class="text-white/70 text-sm mt-2">
+								<p>Well, all weights are estimated so your final quote can change after review.</p>
+								<p class="mt-2">
+									If you choose to communicate with a crafter and decide to place an order outside of this platform, please be aware that you assume full responsibility for that order. Any ratings or reviews related to such transactions will also not be considered.
+								</p>
+							</Accordion.Content>
+						</Accordion.Item>
+
+						<Accordion.Item value="supports" class="border-b border-zinc-800/50 pb-1">
+							<Accordion.Trigger class="font-medium hover:text-accent text-sm text-white w-full text-left">
+								How about customization?
+							</Accordion.Trigger>
+							<Accordion.Content class="text-white/70 text-sm mt-2">
+								<p>
+									For custom PIF requests, our Discord server is an excellent resource. Additionally, you can utilize the basic chat feature available on the PIF orders page within your profile. After a thorough discussion, the crafter will be able to revise the final quote, allowing you to proceed with your order.
+								</p>
+							</Accordion.Content>
+						</Accordion.Item>
+
+						<Accordion.Item value="3mf" class="border-0 pb-1">
+							<Accordion.Trigger class="font-medium hover:text-accent text-sm text-white w-full text-left">
+								Why don't you support 3MF?
+							</Accordion.Trigger>
+							<Accordion.Content class="text-white/70 text-sm mt-2">
+								<p>
+									Currently, processing 3MF files in the browser is challenging and not fully supported due to various bugs. As an alternative, you can use a slicer of your choice to convert the 3MF file into a single STL format.
+								</p>
+							</Accordion.Content>
+						</Accordion.Item>
+					</Accordion.Root>
+				</div>
+
+				<!-- Become a Maker Section -->
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle mt-4">
+					<div class="text-lg font-medium text-white mb-4 flex items-center">
+						<Icon icon="material-symbols:engineering" class="text-indigo-400 mr-2 icon-glow" />
+						<span class="glow-text-subtle">Join the PIF Portal!</span>
+					</div>
+
+					<div class="space-y-4">
+						<div class="text-white/80 text-sm leading-relaxed">
+							<p class="mb-3">
+								Are you passionate about 3D printing? Join our community of skilled makers and turn your expertise into opportunities! Share your skills and connect with designers worldwide.
+							</p>
+							
+							<div class="bg-black/30 rounded-lg p-3 mb-4">
+								<div class="font-medium text-white mb-2">Requirements:</div>
+								<ul class="list-none space-y-2">
+									<li class="flex items-center text-white/70">
+										<Icon icon="material-symbols:check-circle-outline" class="text-indigo-400 mr-2" />
+										<span>Active Selfcrafted Account</span>
+									</li>
+									<li class="flex items-center text-white/70">
+										<Icon icon="material-symbols:check-circle-outline" class="text-indigo-400 mr-2" />
+										<span>Verified ownership of operational 3D printer(s)</span>
+									</li>
+								</ul>
+							</div>
+						</div>
+
+						{#await data.supabase_lt.auth.getUser() then user}
+						<div class="flex items-center justify-between">
+							<div class="text-white/60 text-sm">
+								{#if !user.data.user}
+									<span class="flex items-center">
+										<Icon icon="material-symbols:info-outline" class="mr-1" />
+										Login required to apply
+									</span>	
+								{/if}
+							</div>
+							<button
+								class="bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white font-medium px-6 py-2 rounded text-sm flex items-center gap-2 transition-colors"
+								disabled={!user.data.user}
+								onclick={() => goto('/maker-application')}>
+								<Icon icon="material-symbols:handyman" />
+								I want to be a PIF Crafter!
+							</button>
+						</div>
+						{/await}
+					</div>
+				</div>
 			</div>
 			<div class="h-[100px] w-[1px] bg-transparent"></div>
 		</div>
@@ -767,68 +847,65 @@ https://svelte.dev/e/node_invalid_placement -->
 	input[type='range'] {
 		-webkit-appearance: none;
 		appearance: none;
-		height: 6px !important;
-		background: rgba(30, 30, 40, 0.8) !important;
-		border-radius: 4px;
+		height: 8px !important;
+		background: rgba(50, 50, 65, 0.8) !important;
+		border-radius: 8px;
 		outline: none;
-		margin: 8px 0;
+		margin: 12px 0;
 		position: relative;
+		transition: all 0.3s ease;
 	}
 
 	input[type='range']::-webkit-slider-thumb {
 		-webkit-appearance: none;
 		appearance: none;
-		width: 18px;
-		height: 18px;
+		width: 22px;
+		height: 22px;
 		border-radius: 50%;
-		background: var(--color-indigo-400);
+		background: #6366f1;
 		cursor: pointer;
-		box-shadow: 0 0 6px 2px rgba(99, 102, 241, 0.5);
-		border: 2px solid white;
+		box-shadow: 0 0 12px 3px rgba(99, 102, 241, 0.4);
+		border: 3px solid white;
+		transition: all 0.2s ease;
 	}
 
 	input[type='range']::-moz-range-thumb {
-		width: 18px;
-		height: 18px;
+		width: 22px;
+		height: 22px;
 		border-radius: 50%;
-		background: var(--color-indigo-400);
+		background: #6366f1;
 		cursor: pointer;
-		box-shadow: 0 0 6px 2px rgba(99, 102, 241, 0.5);
-		border: 2px solid white;
+		box-shadow: 0 0 12px 3px rgba(99, 102, 241, 0.4);
+		border: 3px solid white;
+		transition: all 0.2s ease;
 	}
 
-	input[type='range']::-moz-range-track {
-		background: rgba(30, 30, 40, 0.8);
-		height: 6px;
-		border-radius: 4px;
+	input[type='range']:hover::-webkit-slider-thumb {
+		transform: scale(1.1);
+		box-shadow: 0 0 15px 4px rgba(99, 102, 241, 0.5);
 	}
 
-	input[type='range']::-ms-track {
-		width: 100%;
-		height: 6px;
-		background: transparent;
-		border-color: transparent;
-		color: transparent;
+	input[type='range']:active::-webkit-slider-thumb {
+		transform: scale(0.95);
 	}
 
-	input[type='range']::-ms-fill-lower {
-		background: rgba(30, 30, 40, 0.8);
-		border-radius: 4px;
+	/* Slider Track Progress */
+	input[type='range']::-webkit-slider-runnable-track {
+		height: 8px;
+		border-radius: 8px;
+		background: linear-gradient(90deg,
+			rgba(99, 102, 241, 0.6) 0%,
+			rgba(165, 180, 252, 0.4) 100%
+		);
 	}
 
-	input[type='range']::-ms-fill-upper {
-		background: rgba(30, 30, 40, 0.8);
-		border-radius: 4px;
-	}
-
-	input[type='range']::-ms-thumb {
-		width: 18px;
-		height: 18px;
-		border-radius: 50%;
-		background: var(--color-indigo-400);
-		cursor: pointer;
-		box-shadow: 0 0 6px 2px rgba(99, 102, 241, 0.5);
-		border: 2px solid white;
+	input[type='range']::-moz-range-progress {
+		background: linear-gradient(90deg,
+			rgba(99, 102, 241, 0.6) 0%,
+			rgba(165, 180, 252, 0.4) 100%
+		);
+		height: 8px;
+		border-radius: 8px;
 	}
 
 	/* Styles for the 3D cube container */
@@ -852,9 +929,9 @@ https://svelte.dev/e/node_invalid_placement -->
 	/* Gradient background effects */
 	.gradient-background {
 		background: linear-gradient(to bottom right,
-			#06060a,
-			#0a0a14,
-			#06060a
+			#0a0a12,
+			#0f0f1a,
+			#0a0a12
 		);
 		position: relative;
 		overflow: hidden;
@@ -868,13 +945,13 @@ https://svelte.dev/e/node_invalid_placement -->
 		right: 0;
 		bottom: 0;
 		background: 
-			radial-gradient(circle at 15% 20%, rgba(99, 101, 241, 0.144) 0%, transparent 45%),
-			radial-gradient(circle at 85% 70%, rgba(78, 70, 229, 0.199) 0%, transparent 45%),
-			radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.363) 0%, rgba(0, 0, 0, 0.7) 100%),
+			radial-gradient(circle at 15% 20%, rgba(99, 101, 241, 0.2) 0%, transparent 45%),
+			radial-gradient(circle at 85% 70%, rgba(78, 70, 229, 0.25) 0%, transparent 45%),
+			radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.6) 100%),
 			linear-gradient(45deg, 
-				rgba(99, 102, 241, 0.03) 0%,
+				rgba(99, 102, 241, 0.05) 0%,
 				rgba(0, 0, 0, 0) 40%,
-				rgba(79, 70, 229, 0.03) 100%
+				rgba(79, 70, 229, 0.05) 100%
 			);
 		pointer-events: none;
 		z-index: 1;
@@ -900,18 +977,18 @@ https://svelte.dev/e/node_invalid_placement -->
 	}
 	
 	.orb-1 {
-		width: 400px;
-		height: 400px;
-		background: radial-gradient(circle, rgb(99, 101, 241) 0%, transparent 70%);
+		width: 450px;
+		height: 450px;
+		background: radial-gradient(circle, rgb(120, 122, 245) 0%, transparent 70%);
 		top: 5%;
 		left: 10%;
 		animation: float-orb 20s infinite alternate ease-in-out;
 	}
 	
 	.orb-2 {
-		width: 500px;
-		height: 500px;
-		background: radial-gradient(circle, rgb(78, 70, 229) 0%, transparent 70%);
+		width: 550px;
+		height: 550px;
+		background: radial-gradient(circle, rgb(90, 82, 235) 0%, transparent 70%);
 		bottom: 5%;
 		right: 10%;
 		animation: float-orb 25s infinite alternate-reverse ease-in-out;

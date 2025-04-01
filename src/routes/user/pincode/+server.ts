@@ -19,7 +19,7 @@ export const GET = async (event) => {
 	const next = url.searchParams.get('next') ?? '/';
 
   if (token_hash && type) {
-    const { error } = await supabase.auth.getSession()
+    const { error } = await supabase.auth.getUser()
     if (!error) {
       throw redirect(303, `/${next.slice(1)}`);
     }

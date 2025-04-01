@@ -288,7 +288,7 @@
 								<input
 									id="phone"
 									type="tel"
-									class="{inputClasses} pl-16"
+									class="{inputClasses} pl-18"
 									placeholder="Phone number"
 									bind:value={address.phone}
 								/>

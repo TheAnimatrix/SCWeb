@@ -102,7 +102,7 @@ export function validateAddress(address: Address,checkEmail?:boolean): string | 
 		return 'City should be a valid Indian city.';
 	}
 
-	if (!address.phone || !/^[6789]\d{9}$/.test(address.phone)) {
+	if (!address.phone || !/^(\+91)?[6789]\d{9}$/.test(address.phone)) {
 		return 'Phone should be a valid Indian number.';
 	}
 

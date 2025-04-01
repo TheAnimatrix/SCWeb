@@ -41,8 +41,8 @@
 					{href}
 					class="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2 {
 						getLastRoute(page.route.id) === href 
-							? 'bg-accent bg-opacity-10 text-accent' 
-							: 'bg-[#151515] bg-opacity-40 text-gray-400'
+							? 'bg-accent/10 text-accent' 
+							: 'bg-[#151515]/40 text-gray-400'
 					}"
 				>
 					<Icon {icon} class="text-lg" />

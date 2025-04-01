@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
+	// Removed unused 'run' import
+	// import { run } from 'svelte/legacy';
 
 	import { error } from '@sveltejs/kit';
-	import { validateAddress, type Address } from '$lib/types/product';
+	import { newAddress, validateAddress, type Address } from '$lib/types/product';
 	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { goto } from '$app/navigation';
-	import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
 	import { type CartG, type Cart } from '$lib/client/cart';
-	import { browser } from '$app/environment';
+	// Removed unused 'browser' import
+	// import { browser } from '$app/environment';
 	import { getContext, onMount } from 'svelte';
 	import { setLoading } from '$lib/client/loading';
 	import { type Writable } from 'svelte/store';
@@ -18,9 +19,11 @@
 	import Icon from '@iconify/svelte';
 	
 	let { data } = $props();
-	let cartData: Cart = $state();
-	let subtotal = $state(0);
-	let validAddress: Address = $state();
+	// Removed $state declarations for derived values
+	// let cartData: Cart = $state();
+	// let subtotal = $state(0);
+
+	let validAddress: Address | undefined = $state();
 	
 	// Cache for product details to avoid repeated lookups
 	let productDetailsCache: Record<string, any> = {};
@@ -33,7 +36,6 @@
 		
 		const result = await data.supabase_lt.from('products').select('name,images,price,author').eq('id', productId);
 		if (result.data && result.data[0]) {
-			console.log('Product details:', result.data[0]);
 			// Cache the result
 			productDetailsCache[productId] = result.data[0];
 			return result.data[0];
@@ -42,62 +44,74 @@
 		}
 	}
 	
-	function calcSubTotal() {
+	// Updated function to accept cart argument
+	function calcSubTotal(cart: Cart | undefined) {
 		let total = 0;
-		cartData?.list?.forEach((item) => {
+		cart?.list?.forEach((item) => {
 			total += item.price * item.qty;
 		});
-		console.log('Calculated subtotal:', total);
 		return total;
 	}
 	
-	// Debug function for payment issue
-	function debugPaymentCalculation() {
-		console.log('=== DEBUG PAYMENT CALCULATION ===');
-		console.log('Cart Data:', cartData);
-		console.log('Cart Items:', cartData?.list);
-		console.log('Delivery Fee:', DELIVERY_FLAT_FEE);
+	// Updated function to accept cart argument
+	function debugPaymentCalculation(cart: Cart | undefined) {
 		
 		let calculatedTotal = 0;
-		cartData?.list?.forEach((item, index) => {
+		cart?.list?.forEach((item, index) => {
 			const itemTotal = item.price * item.qty;
-			console.log(`Item ${index}: ${item.product_id} - Price: ${item.price} × Qty: ${item.qty} = ${itemTotal}`);
 			calculatedTotal += itemTotal;
 		});
 		
-		console.log('Calculated Subtotal:', calculatedTotal);
-		console.log('Final Total:', calculatedTotal + DELIVERY_FLAT_FEE);
-		console.log('============================');
-		
 		return calculatedTotal;
 	}
-	
-	// Call the debug function when subtotal is recalculated
-	run(() => {
-		if (data.cart && !data.cart.error) {
-			cartData = data.cart.data!;
-			subtotal = calcSubTotal();
-			// Debug calculation
-			const debugTotal = debugPaymentCalculation();
-			if (subtotal !== debugTotal) {
-				console.error('MISMATCH IN CALCULATION!', { subtotal, debugTotal });
+
+	// Use $derived for reactive calculations
+	let cartData = $derived(data.cart?.error ? undefined : data.cart?.data);
+	let subtotal = $derived(calcSubTotal(cartData));
+
+	// Use $effect for side effects like debugging logs based on derived values
+	$effect(() => {
+		if (cartData) {
+			const currentSubtotal = subtotal; // Read the derived value
+			const debugTotal = debugPaymentCalculation(cartData);
+			if (currentSubtotal !== debugTotal) {
+				console.error('MISMATCH IN CALCULATION!', { subtotal: currentSubtotal, debugTotal });
 			}
-			console.log('DELIVERY_FLAT_FEE:', DELIVERY_FLAT_FEE);
-			console.log('Final total:', subtotal + DELIVERY_FLAT_FEE);
 		}
 	});
 	
 	let addressValid: boolean = $state(false);
 	if (data.userExists && data.addresses && data.addresses.length > 0) {
-		if (validateAddress(data.addresses[0])) {
+		const firstAddress = data.addresses[0];
+		if (validateAddress(firstAddress)) {
 			addressValid = true;
+			validAddress = firstAddress;
 		}
+	}else {
+		addressValid = false;
+		validAddress = newAddress();
 	}
 
 	let cart_store = getContext<Writable<CartG>>('userCartStatus');
 	let load_store = getContext<Writable<boolean>>('loading');
 	
 	async function payNow() {
+		// Add check to ensure cartData is defined
+		if (!cartData) {
+			console.error('Cannot proceed to payment: Cart data is not available.');
+			alert('An error occurred preparing your order. Please try again.');
+			setLoading(load_store, false); // Ensure loading is stopped
+			return;
+		}
+
+		// Add check for validAddress being defined
+		if (!validAddress) {
+			console.error('Cannot proceed to payment: Shipping address is not selected or invalid.');
+			alert('Please select or enter a valid shipping address.');
+			setLoading(load_store, false); // Ensure loading is stopped
+			return;
+		}
+
 		setLoading(load_store, true);
 		const formData = new FormData();
 		formData.append('orderId', cartData.id);
@@ -105,8 +119,10 @@
 		const result = await fetch('/checkout/createOrder', { method: 'POST', body: formData });
 		try {
 			const dataResult = await result.json();
-			if (!dataResult || dataResult.error) {
-				//handle error
+			if (!result.ok || !dataResult || dataResult.error) { // Check result.ok as well
+				console.error('Error creating Razorpay order:', dataResult?.error || result.statusText);
+				alert('Failed to create payment order. Please check your details and try again.');
+				setLoading(load_store, false); // Stop loading on error
 				return;
 			}
 			var options = {
@@ -118,14 +134,29 @@
 					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
 				order_id: dataResult.orderId, //This is a sample Order ID. Pass the `id` obtained in the response of Step 1
 				handler: async function (response: any) {
+					// Add check for cartData inside handler as well, just in case
+					if (!cartData) {
+						console.error('Cart data became unavailable during payment processing.');
+						setLoading(load_store, false); // Stop loading on error
+						return;
+					}
 					const formData2 = new FormData();
 					formData2.append('payment_id_a', response.razorpay_order_id);
 					formData2.append('payment_id_b', response.razorpay_payment_id);
 					formData2.append('payment_signature', response.razorpay_signature);
-					const result = await fetch('/checkout/createOrder', { method: 'PATCH', body: formData2 });
+					const patchResult = await fetch('/checkout/createOrder', { method: 'PATCH', body: formData2 }); // Use a different variable name
+					if (!patchResult.ok) {
+						console.error('Failed to update order status after payment.');
+						// Potentially redirect to a different summary page or show an error
+						// Still set loading false and navigate, maybe to an error page?
+						setLoading(load_store, false); // Stop loading even if PATCH fails
+						// Decide on navigation for PATCH failure, e.g., goto('/summary/error');
+						return; 
+					}
 					cart_store.set({ valid: false, itemCount: 0 });
+					// Explicitly set loading to false *before* navigating
+					setLoading(load_store, false); 
 					goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
-					setLoading(load_store, false);
 				},
 				modal: {
 					ondismiss: function () {
@@ -146,18 +177,32 @@
 			}
 			rzp1.open();
 			rzp1.on('payment.failed', function (response: any) {
+				// Ensure cartData is available for the failure URL
+				if (!cartData) {
+					console.error('Cart data unavailable for failure redirect.');
+					setLoading(load_store, false);
+					rzp1.close();
+					// Maybe redirect to a generic failure page
+					goto('/summary/failure'); 
+					return;
+				}
 				setLoading(load_store, false);
 				rzp1.close();
 				window.location.href = `/summary/failure/${cartData.id}/${response.error.metadata.order_id}`;
 				// goto(`/summary/failure/${cartData.id}/${response.error.metadata.order_id}`,{invalidateAll:true});
 			});
-			rzp1.on('payment.success', function (response: any) {
-				goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
-			});
-		} catch (e) {
-			setLoading(load_store,false);
+			// Removed redundant payment.success handler as it's covered by the main handler
+			// rzp1.on('payment.success', function (response: any) {
+			// 	goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
+			// });
+		} catch (e: unknown) { // Explicitly type caught error as unknown
+			console.error('Error during payment process:', e);
+			// Provide more specific error feedback if possible
+			alert(`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`);
+			setLoading(load_store, false); // Ensure loading stops on catch
 			return;
 		}
+		// Removed setLoading(load_store, false) from here as it should be handled within handlers/catch
 	}
 </script>
 
@@ -189,12 +234,13 @@
 								<span class="text-white font-medium">Account Benefits</span>
 							</div>
 							<p class="text-gray-400 mb-4">Sign in for faster checkout, detailed order tracking, saved addresses, and exclusive offers!</p>
-							<GlowButton class="w-fit! h-fit! mb-2" onclick={() => goto('/user/sign')}>
-								<div class="px-6 py-1 flex items-center gap-2">
-									<Icon icon="ph:sign-in-bold" />
-									Login or Register
-								</div>
-							</GlowButton>
+							<button
+								class="w-fit mb-2 px-5 py-2 flex items-center gap-2 bg-accent hover:bg-accent/80 text-black font-medium rounded-lg transition-all duration-200"
+								onclick={() => goto('/user/sign')}
+							>
+								<Icon icon="ph:sign-in-bold" />
+								<span>Login or Register</span>
+							</button>
 						</div>
 						<div class="relative py-3 my-6">
 							<div class="absolute inset-0 flex items-center">

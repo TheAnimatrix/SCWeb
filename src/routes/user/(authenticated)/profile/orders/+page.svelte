@@ -85,7 +85,7 @@
 				<p class="text-gray-400">Loading your orders...</p>
 			{:else}
 				<p class="text-gray-400">No orders placed yet</p>
-				<a href="/shop" class="inline-block mt-4 px-6 py-2 bg-accent bg-opacity-10 text-accent rounded-lg hover:bg-opacity-20 transition-all">
+				<a href="/shop" class="inline-block mt-4 px-6 py-2 bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-all">
 					Start Shopping
 				</a>
 			{/if}
@@ -94,20 +94,20 @@
 		{#each orders as order, i}
 			<div class="bg-[#151515] rounded-xl overflow-hidden">
 				<button
-					class="w-full p-4 grid grid-cols-4 gap-4 items-center text-left hover:bg-white hover:bg-opacity-5 transition-all"
+					class="w-full p-3 md:p-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 items-start text-left hover:bg-white/5 transition-all"
 					onclick={() => {
-						visible[i] = !visible[i];
+						visible = visible.with(i, !visible[i]);
 					}}
 				>
-					<div class="space-y-1">
-						<div class="text-sm text-gray-400">Order ID</div>
-						<div class="font-medium">{order.id}</div>
+					<div class="space-y-1 md:col-span-1">
+						<div class="text-xs md:text-sm text-gray-400">Order ID</div>
+						<div class="font-medium text-sm md:text-base break-all">{order.id}</div>
 					</div>
 					
 					<div class="space-y-1">
-						<div class="text-sm text-gray-400">Status</div>
-						<div class="font-medium capitalize {getStatusColor(order.payment_status)}">
-							<span class="flex items-center gap-2">
+						<div class="text-xs md:text-sm text-gray-400">Status</div>
+						<div class="font-medium text-sm md:text-base capitalize {getStatusColor(order.payment_status)}">
+							<span class="flex items-center gap-1.5 md:gap-2">
 								<Icon icon={order.payment_status.toLowerCase() === 'completed' ? 'ph:check-circle' : 'ph:clock'} />
 								{order.payment_status}
 							</span>
@@ -115,19 +115,23 @@
 					</div>
 					
 					<div class="space-y-1">
-						<div class="text-sm text-gray-400">Date</div>
-						<div class="font-medium">{getDate(order.created_at)}</div>
-						<div class="text-sm text-gray-400">{getTime(order.created_at)}</div>
+						<div class="text-xs md:text-sm text-gray-400">Date</div>
+						<div class="font-medium text-sm md:text-base">{getDate(order.created_at)}</div>
+						<div class="text-xs text-gray-400">{getTime(order.created_at)}</div>
 					</div>
 					
-					<div class="space-y-1">
-						<div class="text-sm text-gray-400">Amount</div>
-						<div class="font-medium">₹{order.amount}</div>
+					<div class="space-y-1 md:text-left">
+						<div class="text-xs md:text-sm text-gray-400">Amount</div>
+						<div class="font-medium text-sm md:text-base">₹{order.amount}</div>
+					</div>
+					
+					<div class="col-span-2 md:col-span-4 flex justify-center text-gray-400 pt-2 md:hidden">
+						<Icon icon={visible[i] ? 'ph:caret-up-bold' : 'ph:caret-down-bold'} class="text-lg"/>
 					</div>
 				</button>
 
 				{#if visible[i]}
-					<div class="border-t border-white border-opacity-10">
+					<div class="border-t border-white/10">
 						{#await getCartDetails(order.cart_id)}
 							<div class="p-4 text-center text-gray-400">
 								<Icon icon="ph:spinner" class="animate-spin text-2xl mx-auto mb-2" />
@@ -139,32 +143,36 @@
 									Unable to fetch order information
 								</div>
 							{:else}
-								<div class="divide-y divide-white divide-opacity-10">
+								<div class="divide-y divide-white/10">
 									{#each list.cart as item, j}
 										<a
-											href="/{order.cart_id}/craft/item={item.product_id}"
-											class="grid grid-cols-3 p-4 hover:bg-white hover:bg-opacity-5 transition-all"
+											href={`/${order.cart_id}/craft/item=${item.product_id}`}
+											class="block md:grid md:grid-cols-3 gap-4 p-3 md:p-4 hover:bg-white/5 transition-all text-sm"
 										>
-											<div class="font-medium text-accent">
-												{list.products[j].name}
-												<span class="text-gray-400 text-sm">(₹{item.price})</span>
+											<div class="font-medium text-accent mb-1 md:mb-0 flex justify-between items-center">
+												<span>{list.products[j].name}</span>
+												<span class="md:hidden text-gray-400 text-xs">(₹{item.price})</span>
 											</div>
-											<div class="text-center text-gray-400">
-												{item.qty} {item.qty === 1 ? 'unit' : 'units'}
+											<div class="flex justify-between items-center text-gray-400 md:text-center mb-1 md:mb-0">
+												<span class="md:hidden text-xs">Quantity:</span>
+												<span>{item.qty} {item.qty === 1 ? 'unit' : 'units'}</span>
 											</div>
-											<div class="text-right">₹{item.price * item.qty}</div>
+											<div class="flex justify-between items-center md:text-right">
+												<span class="md:hidden text-xs text-gray-400">Subtotal:</span>
+												<span class="font-medium">₹{item.price * item.qty}</span>
+											</div>
 										</a>
 									{/each}
 									
-									<div class="grid grid-cols-3 p-4 text-gray-400">
+									<div class="grid grid-cols-2 md:grid-cols-3 gap-4 p-3 md:p-4 text-gray-400 text-sm">
 										<div>Shipping</div>
-										<div></div>
+										<div class="hidden md:block"></div>
 										<div class="text-right">₹{list.shipping}</div>
 									</div>
 									
-									<div class="grid grid-cols-3 p-4 font-medium">
+									<div class="grid grid-cols-2 md:grid-cols-3 gap-4 p-3 md:p-4 font-medium text-sm md:text-base">
 										<div>Total</div>
-										<div></div>
+										<div class="hidden md:block"></div>
 										<div class="text-right">₹{list.price}</div>
 									</div>
 								</div>

@@ -9,7 +9,6 @@
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { getContext, onDestroy, onMount } from 'svelte';
-  import GlowButton from '$lib/components/fundamental/GlowButton.svelte';
   import type { Unsubscriber, Writable } from 'svelte/store';
   import {
     getActiveCart,
@@ -111,7 +110,6 @@
   }
 
   async function incrementDecrementQuantity(isIncrement: boolean, i: number, result: any) {
-    console.log(`Button clicked: ${isIncrement ? 'increment' : 'decrement'} for item ${i}`);
     if (isUpdatingCart) return; // Prevent concurrent updates
     isUpdatingCart = true;
     
