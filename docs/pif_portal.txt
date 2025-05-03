@@ -1,0 +1,12 @@
+PrintOrders
+{ print_id, created_at, ordered_by, ordered_to, updated_at, chat[], updateAckBy, updateAckTo, updateCount, initialQuote, revisedQuote, invoiceRemarks[], stage[0,1,2,3,4,5] }
+
+stage 0 -> request
+stage 1 -> revised 
+stage 2 -> payment
+stage 3 -> manufacturing
+stage 4/5 -> shipped (tracking)
+stage 5/5 -> completed
+
+PrintUsers
+{ id, user_id, created_at, printers [ {name, x, y, z, flowrate, materials[PLA,NYLON], $/h } ], filaments [ {name, material, color, $/g} ], jobs: 25, time:[1D,2D,3D,7D,14D], availability: yes/no }

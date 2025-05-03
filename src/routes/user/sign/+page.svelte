@@ -9,6 +9,8 @@
 	import { getContext, onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import { goto, invalidate, replaceState } from '$app/navigation';
+	import { page } from '$app/stores'; // Import page store
+	import { toastStore } from '$lib/client/toastStore'; // Import custom toast store
 	import {setLoading } from '$lib/client/loading.js';
 	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -18,6 +20,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import Smoke from '$lib/components/effects/Smoke.svelte';
 
+	const postLoginPath = $page.url.searchParams.get('postLogin');
 	const triggerTabStyle =
 		'data-[state=active]:bg-transparent data-[state=active]:shadow-glow data-[state=active]:text-accent px-6 py-3 text-2xl text-gray-500 rounded-xl hover:bg-[#151515] text-gray-400 font-bold transition-all duration-300';
 
@@ -40,7 +43,9 @@
 			const { data, error } = await supabase_lt.auth.signInWithOAuth({
 				provider: 'google',
 				options: {
-					queryParams: {},
+					queryParams: {
+						
+					},
 					redirectTo: getURL() + '?next=/user/profile/account/'
 				}
 			});
@@ -99,14 +104,32 @@
 			errorText = `Please confirm your account to login. E-mail sent to ${emailRegister}`;
 	}
 
-	let emailLogin: string = $state(),
-		emailRegister: string = $state(),
-		usernameRegister: string = $state(),
-		passwordRegister: string = $state(),
-		passwordLogin: string = $state(),
-		errorText: string = $state(),
-		errorShow: number = $state(0);
+	let emailLogin: string = $state('');
+	let emailRegister: string = $state('');
+	let usernameRegister: string = $state('');
+	let passwordRegister: string = $state('');
+	let passwordLogin: string = $state('');
+	let errorText: string = $state('');
+	let errorShow: number = $state(0);
 
+	onMount(() => {
+		// Access the reactive page store value with $page
+		console.log("postlogin path : ", postLoginPath);
+		if (postLoginPath) {
+			// You might want to decode the path if it's URL encoded
+			const decodedPath = decodeURIComponent(postLoginPath); // Decode for better display
+			if (decodedPath === '/user/profile/3dp-manager/maker') {
+				toastStore.show('Ready to join our 3D Printer Network? Log in to apply!', 'info', 20000);
+			} else {
+				toastStore.show(`Please log in to access: ${decodedPath}`, 'info');
+			}
+
+			// Optionally remove the query param from the URL without reloading
+			// const url = new URL(window.location.href);
+			// url.searchParams.delete('postLogin');
+			// replaceState(url, {});
+		}
+	});
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white relative overflow-hidden">
@@ -167,9 +190,7 @@
 									bind:value={emailLogin}
 									icon="ph:envelope-simple-bold"
 									iconPosition="left"
-									textAlign="left"
 									pulseOnFocus={true}
-									glowStrength="medium"
 								/>
 							</div>
 							<div>
@@ -179,9 +200,7 @@
 									bind:value={passwordLogin}
 									icon="ph:lock-simple-bold"
 									iconPosition="left"
-									textAlign="left"
 									pulseOnFocus={true}
-									glowStrength="medium"
 								/>
 							</div>
 
@@ -229,9 +248,7 @@
 									bind:value={emailRegister}
 									icon="ph:envelope-simple-bold"
 									iconPosition="left"
-									textAlign="left"
 									pulseOnFocus={true}
-									glowStrength="medium"
 								/>
 							</div>
 							<div>
@@ -240,9 +257,7 @@
 									bind:value={usernameRegister}
 									icon="ph:user-bold"
 									iconPosition="left"
-									textAlign="left"
 									pulseOnFocus={true}
-									glowStrength="medium"
 								/>
 							</div>
 							<div>
@@ -252,9 +267,7 @@
 									bind:value={passwordRegister}
 									icon="ph:lock-simple-bold"
 									iconPosition="left"
-									textAlign="left"
 									pulseOnFocus={true}
-									glowStrength="medium"
 								/>
 							</div>
 

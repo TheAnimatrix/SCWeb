@@ -1,32 +1,29 @@
 <script lang="ts">
-	import { Accordion as AccordionPrimitive } from "bits-ui";
-	import { ChevronDown } from "lucide-svelte";
-	import { cn } from "$lib/utils";
+	import { Accordion as AccordionPrimitive, type WithoutChild } from "bits-ui";
+	import ChevronDown from "@lucide/svelte/icons/chevron-down";
+	import { cn } from "$lib/utils.js";
 
-	type $$Props = AccordionPrimitive.TriggerProps;
-	type $$Events = AccordionPrimitive.TriggerEvents;
-
-	interface Props {
-		class?: $$Props["class"];
+	let {
+		ref = $bindable(null),
+		class: className,
+		level = 3,
+		children,
+		...restProps
+	}: WithoutChild<AccordionPrimitive.TriggerProps> & {
 		level?: AccordionPrimitive.HeaderProps["level"];
-		children?: import('svelte').Snippet;
-		[key: string]: any
-	}
-
-	let { class: className = undefined, level = 3, children, ...rest }: Props = $props();
-	
+	} = $props();
 </script>
 
 <AccordionPrimitive.Header {level} class="flex">
 	<AccordionPrimitive.Trigger
+		bind:ref
 		class={cn(
 			"flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
 			className
 		)}
-		{...rest}
-		onclick
+		{...restProps}
 	>
 		{@render children?.()}
-		<ChevronDown class="h-4 w-4 transition-transform duration-200" />
+		<ChevronDown class="size-4 shrink-0 transition-transform duration-200" />
 	</AccordionPrimitive.Trigger>
 </AccordionPrimitive.Header>

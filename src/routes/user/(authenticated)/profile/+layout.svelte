@@ -13,10 +13,11 @@
 	}
 
 	const navItems = [
-		{ href: 'orders', label: 'Orders', icon: 'ph:shopping-bag-bold' },
-		{ href: 'addresses', label: 'Address', icon: 'ph:map-pin-bold' },
-		{ href: 'account', label: 'Account', icon: 'ph:user-bold' },
-		{ href: 'crafts', label: 'Crafts', icon: 'ph:palette-bold' }
+		{ href: '/user/profile/orders', label: 'Orders', icon: 'ph:shopping-bag-bold' },
+		{ href: '/user/profile/addresses', label: 'Address', icon: 'ph:map-pin-bold' },
+		{ href: '/user/profile/account', label: 'Account', icon: 'ph:user-bold' },
+		{ href: '/user/profile/crafts', label: 'Crafts', icon: 'ph:palette-bold' },
+		{ href: '/user/profile/3dp-manager', label: '3DP Manager', icon: 'ph:printer-bold' }
 	];
 
 	let { data, children } = $props();

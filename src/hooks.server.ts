@@ -15,8 +15,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   const clientId = clientIdCookie || generateUniqueId();
 
   let options = {};
-  if(PUBLIC_IS_PRODUCTION === "false"){
-    options = {httpOnly : true, secure:false}
+  if (PUBLIC_IS_PRODUCTION === "false") {
+    options = { httpOnly: true, secure: false }
   }
 
   event.locals.clientId = clientId;
@@ -27,27 +27,35 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_KEY, {
     cookies: {
-      get: (key) => event.cookies.get(key),
-      set: (key, value, options) => {
-        event.cookies.set(key, value, { ...options, path: '/' });
+      getAll: () => {
+        return event.cookies.getAll()
       },
-      remove: (key, options) => {
-        event.cookies.delete(key, { ...options, path: '/' });
+      setAll: (cookiesToSet) => {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          event.cookies.set(name, value, { ...options, path: '/' })
+        })
       },
     },
-  });
+  })
 
   event.locals.supabaseServer = createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_KEY, {
     cookies: {
-      get: () => '',
-      set: (_, __, ____) => undefined,
-      remove: (_, __) => undefined,
+      // Implement no-op cookie handling using getAll/setAll
+      getAll: () => {
+        return []; // Return empty array as no cookies are managed by this client
+      },
+      setAll: (cookiesToSet) => {
+        // Do nothing, as this client should not set cookies
+      },
     },
   });
 
 
   event.locals.getSession = async () => {
-    const { data: { session } } = await event.locals.supabase.auth.getSession();
+    const { data: { session }, } = await event.locals.supabase.auth.getSession()
+    if (!session) {
+      return null;
+    } 
     return session;
   };
 
