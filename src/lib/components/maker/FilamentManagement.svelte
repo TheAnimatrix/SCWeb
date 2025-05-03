@@ -4,6 +4,7 @@
 	import type { SupabaseClient, Session } from '@supabase/supabase-js';
 	import { onMount } from 'svelte'; // Or use $effect if preferred
 	import FilamentFormModal from './FilamentFormModal.svelte'; // Import the modal
+	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
 	// Define the expected structure for a filament object (can be imported from a types file later)
 	interface Filament {
@@ -28,6 +29,10 @@
 	let isModalOpen = $state(false);
 	let modalMode = $state<'add' | 'edit'>('add');
 	let currentFilament = $state<Partial<Filament>>({}); // Filament being edited - Use correct interface
+
+	// State for delete confirmation dialog
+	let isDeleteDialogOpen = $state(false);
+	let filamentToDelete = $state<Filament | null>(null);
 
 	// Move fetchFilamentData to top-level for reuse
 	async function fetchFilamentData() {
@@ -139,11 +144,33 @@
 		}
 	}
 
+	function askDeleteFilament(filament: Filament) {
+		filamentToDelete = filament;
+		isDeleteDialogOpen = true;
+	}
+
+	function confirmDeleteFilament() {
+		if (filamentToDelete) {
+			handleDeleteFilament(filamentToDelete);
+		}
+		isDeleteDialogOpen = false;
+		filamentToDelete = null;
+	}
+
+	function cancelDeleteFilament() {
+		isDeleteDialogOpen = false;
+		filamentToDelete = null;
+	}
+
 </script>
 
 <!-- Filament Management Section -->
 <div class="mt-8">
-	<div class="text-xl font-semibold mb-4 text-accent/60 text-left">Filament Management</div>
+	<div class="text-xl font-semibold text-white/60 mb-2 text-left pl-1 tracking-wide" style="backdrop-filter: blur(2px);">Filament inventory</div>
+	<p class="text-sm text-red-400 pl-1">Disclaimer:</p>
+	<p class="text-sm text-gray-500 pl-1">1. You will not be displayed on the marketplace if you have no filaments in your inventory</p>
+	<p class="text-sm text-gray-500 pl-1">2. Only the colors you have in your inventory will be displayed on the marketplace</p>
+	<p class="text-sm text-gray-500 pl-1 mb-2">3. Only the material types you have in your inventory will be displayed on the marketplace</p>
 	<!-- Glassmorphism container -->
 	<div class="overflow-x-auto bg-[#151515]/60 rounded-lg p-4 border border-gray-700/50">
 		<table class="min-w-full divide-y divide-gray-700 text-left">
@@ -154,7 +181,7 @@
 					<th scope="col" class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
 					<th scope="col" class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Color</th>
 					<th scope="col" class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Quantity Left (kg)</th>
-					<!-- Actions column removed -->
+					<th scope="col" class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-gray-700/50">
@@ -174,17 +201,26 @@
 							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">{filament.name}</td>
 							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">{filament.brand || 'N/A'}</td>
 							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">{filament.material_type || 'N/A'}</td>
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300 flex items-center gap-2">
-								<span class="inline-block w-4 h-4 rounded-full border border-gray-500" style="background-color: {filament.color || '#ffffff'};"></span>
-								{filament.color || 'N/A'}
+							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="inline-block w-4 h-4 rounded-full border border-gray-500" style="background-color: {filament.color || '#ffffff'};"></span>
+									<span class="text-xs">{filament.color || 'N/A'}</span>
+								</div>
 							</td>
 							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">{filament.quantity_kg ?? 'N/A'}</td>
-							<!-- Actions cell removed -->
+							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+								<Button variant="ghost" size="icon" class="p-2 text-gray-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-all" onclick={() => openEditModal(filament)} aria-label="Edit filament">
+									<Icon icon="ph:pencil-simple-line-bold" class="text-xl" />
+								</Button>
+								<Button variant="ghost" size="icon" class="ml-1 p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all" onclick={() => askDeleteFilament(filament)} aria-label="Delete filament">
+									<Icon icon="ph:trash-bold" class="text-xl" />
+								</Button>
+							</td>
 						</tr>
 					{:else}
 						<!-- Enhanced Empty State Placeholder -->
 						<tr>
-							<td colspan="5" class="px-4 py-10 text-center text-sm text-gray-400">
+							<td colspan="6" class="px-4 py-10 text-center text-sm text-gray-400">
 								<div class="flex flex-col items-center space-y-3">
 									<Icon icon="mdi:database-off-outline" class="h-10 w-10 text-gray-500" />
 									<span>
@@ -199,9 +235,12 @@
 		</table>
 	</div>
 	<div class="mt-4 text-right">
-			<Button onclick={openAddModal}>
-					<Icon icon="ph:plus-bold" class="mr-1 h-4 w-4"/> Add Filament
-			</Button>
+			<button
+				class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/20"
+				onclick={openAddModal}
+			>
+				<Icon icon="ph:plus-bold" class="mr-1.5 h-4 w-4" /> Add Filament
+			</button>
 	</div>
 </div>
 <!-- End Filament Management Section -->
@@ -213,4 +252,14 @@
 	bind:filament={currentFilament}
 	onSave={handleSaveFilament}
 	onClose={closeModal}
+/>
+
+<ConfirmDialog
+	bind:open={isDeleteDialogOpen}
+	title="Delete Filament?"
+	message="Are you sure you want to delete this filament? This action cannot be undone."
+	confirmText="Delete"
+	cancelText="Cancel"
+	onConfirm={confirmDeleteFilament}
+	onCancel={cancelDeleteFilament}
 />

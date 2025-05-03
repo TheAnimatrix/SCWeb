@@ -59,7 +59,7 @@
 						<Icon icon="ph:warning-bold" class="text-xl text-red-400" />
 					</div>
 					<div class="flex-grow">
-						<h2 id="dialog-title" class="text-lg font-semibold text-gray-100">{title}</h2>
+						<div id="dialog-title" class="text-lg font-semibold text-gray-100">{title}</div>
 						<p class="mt-1 text-sm text-gray-400">{message}</p>
 					</div>
 					<button
