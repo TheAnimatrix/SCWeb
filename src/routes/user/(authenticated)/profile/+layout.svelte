@@ -24,7 +24,7 @@
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white py-12">
-	<div class="container mx-auto px-4">
+	<div class="mx-auto px-4">
 		<!-- Header -->
 		<div class="text-center mb-12">
 			<div class="inline-flex items-center justify-center mb-4">

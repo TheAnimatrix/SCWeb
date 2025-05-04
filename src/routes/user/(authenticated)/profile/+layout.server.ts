@@ -1,9 +1,9 @@
 import { redirect, error } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";
 
-export const load: LayoutServerLoad = async ({ url, route, locals: { getSession,supabaseServer } }) => {
-	const session = await getSession();
-	if (!session) {
+export const load: LayoutServerLoad = async ({ url, route, locals: { supabase,supabaseServer } }) => {
+	const session = await supabase.auth.getUser();
+	if (session.error || !session.data.user) {
         // Construct the redirect URL with the current path as postLogin query parameter
         const postLoginRedirect = `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`;
 		redirect(302, postLoginRedirect); // Redirect if not logged in
@@ -16,7 +16,7 @@ export const load: LayoutServerLoad = async ({ url, route, locals: { getSession,
 		const { data: crafterData, error: dbError } = await supabaseServer
 			.from('PrintingCrafters')
 			.select('approved_state, name')
-			.eq('maker_id', session.user.id) // Assuming 'userId' is the column linking to auth.users.id
+			.eq('maker_id', session.data.user.id) // Assuming 'userId' is the column linking to auth.users.id
 			.maybeSingle();
 
 		if (dbError) {

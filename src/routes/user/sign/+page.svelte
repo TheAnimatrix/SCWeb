@@ -114,7 +114,6 @@
 
 	onMount(() => {
 		// Access the reactive page store value with $page
-		console.log("postlogin path : ", postLoginPath);
 		if (postLoginPath) {
 			// You might want to decode the path if it's URL encoded
 			const decodedPath = decodeURIComponent(postLoginPath); // Decode for better display

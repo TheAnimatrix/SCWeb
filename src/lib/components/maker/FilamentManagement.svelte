@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import Icon from '@iconify/svelte';
-	import type { SupabaseClient, Session } from '@supabase/supabase-js';
+	import type { SupabaseClient } from '@supabase/supabase-js';
 	import { onMount } from 'svelte'; // Or use $effect if preferred
 	import FilamentFormModal from './FilamentFormModal.svelte'; // Import the modal
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -18,7 +18,7 @@
 	}
 
 	// Props expected from the parent component
-	let { supabase_lt, session }: { supabase_lt: SupabaseClient, session: Session | null } = $props();
+	let { supabase_lt, session }: { supabase_lt: SupabaseClient, session: { data: { user: { id: string } } } | null } = $props();
 
 	// State for filament inventory
 	let filamentInventory = $state<Filament[]>([]);
@@ -36,7 +36,7 @@
 
 	// Move fetchFilamentData to top-level for reuse
 	async function fetchFilamentData() {
-		if (session?.user?.id) {
+		if (session?.data?.user?.id) {
 			isLoadingFilaments = true;
 			filamentError = null;
 			filamentInventory = [];
@@ -45,7 +45,7 @@
 				const { data, error } = await supabase_lt
 					.from('UserFilament')
 					.select('*')
-					.eq('owner_id', session.user.id)
+					.eq('owner_id', session?.data?.user?.id)
 					.order('created_at', { ascending: false });
 
 				if (error) {
@@ -97,7 +97,7 @@
 
 	// Update handleSaveFilament to insert/update UserFilament
 	async function handleSaveFilament(savedData: any) {
-		if (!session?.user?.id) return;
+		if (!session?.data?.user?.id) return;
 		let isEdit = Boolean(savedData.id);
 		let payload = {
 			name: savedData.name,
@@ -107,7 +107,7 @@
 			quantity_kg: savedData.quantity_kg,
 			cost_approx: savedData.cost_kg,
 			product_link: savedData.product_link,
-			owner_id: session.user.id
+			owner_id: session?.data?.user?.id
 		};
 		let result;
 		if (isEdit) {
@@ -169,10 +169,10 @@
 	<div class="text-xl font-semibold text-white/60 mb-2 text-left pl-1 tracking-wide" style="backdrop-filter: blur(2px);">Filament inventory</div>
 	<p class="text-sm text-red-400 pl-1">Disclaimer:</p>
 	<p class="text-sm text-gray-500 pl-1">1. You will not be displayed on the marketplace if you have no filaments in your inventory</p>
-	<p class="text-sm text-gray-500 pl-1">2. Only the colors you have in your inventory will be displayed on the marketplace</p>
-	<p class="text-sm text-gray-500 pl-1 mb-2">3. Only the material types you have in your inventory will be displayed on the marketplace</p>
+	<p class="text-sm text-gray-500 pl-1">2. Only the colors you have in your inventory will be displayed in the marketplace</p>
+	<p class="text-sm text-gray-500 pl-1 mb-2">3. Only the material types you have in your inventory will be displayed in the marketplace</p>
 	<!-- Glassmorphism container -->
-	<div class="overflow-x-auto bg-[#151515]/60 rounded-lg p-4 border border-gray-700/50">
+	<div class="overflow-x-auto bg-[#151515]/60 rounded-lg sm:p-4 xs:px-0 xs:pt-0 border border-gray-700/50">
 		<table class="min-w-full divide-y divide-gray-700 text-left">
 			<thead class="bg-[#0c0c0c]/50">
 				<tr>
@@ -252,6 +252,7 @@
 	bind:filament={currentFilament}
 	onSave={handleSaveFilament}
 	onClose={closeModal}
+	{supabase_lt}
 />
 
 <ConfirmDialog

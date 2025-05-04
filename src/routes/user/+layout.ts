@@ -3,15 +3,8 @@ import type { LayoutLoad } from '../$types';
 
 export const load: LayoutLoad = async ({ route, parent, url }) => {
 	const data = await parent();
-	// Assuming supabase_lt is correctly passed from the root layout's load function
-	// If not, the root layout needs adjustment. The type error suggests it might be missing.
-	// Let's proceed assuming it exists in `data` for now, but this needs verification.
-	const { supabase_lt } = data as any; // Using 'as any' temporarily to bypass TS error, needs proper typing from parent
-	const { data: { session } } = await supabase_lt.auth.getSession();
-	const user = session?.user;
-
-	if (user?.id) {
-		// If logged in, redirect away from sign-in page
+	const { session } = data as any;
+	if (session?.user?.id) {
 		if (route.id === '/user/sign') {
 			redirect(303, '/user/profile/account');
 		}
@@ -21,7 +14,6 @@ export const load: LayoutLoad = async ({ route, parent, url }) => {
 		//  redirect(303, '/user/profile/account');
 		// }
 	} else {
-		// If not logged in and trying to access an authenticated route
 		if (route.id?.includes('/(authenticated)/')) {
             const postLoginRedirect = `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`;
 			redirect(303, postLoginRedirect);

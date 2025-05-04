@@ -3,10 +3,11 @@
 	// Import Dialog using the correct alias path
 	import * as Dialog from "$lib/components/ui/dialog";
 	import Icon from '@iconify/svelte';
-	import { supabrowserclient } from '$lib/supabaseclient';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import ColorPicker from './ColorPicker.svelte';
+	import type { SupabaseClient } from '@supabase/supabase-js';
+
 
 	// Define the structure for a filament object (can be imported from a types file later)
 	interface FilamentData {
@@ -28,14 +29,16 @@
 		mode = 'add' as 'add' | 'edit', // 'add' or 'edit'
 		filament = $bindable<Partial<FilamentData>>({}), // Data for editing or initial values
 		onSave,
-		onClose
+		onClose,
+		supabase_lt
 	}: {
 		isOpen?: boolean,
 		mode?: 'add' | 'edit',
 		filament?: Partial<FilamentData>,
 		// Event handlers passed as props
 		onSave: (data: FilamentData) => void,
-		onClose: () => void
+		onClose: () => void,
+		supabase_lt: SupabaseClient
 	} = $props();
 
 	// Use a Svelte store for formData to allow reactive binding
@@ -71,7 +74,7 @@
 		// Fetch filament types from constants table
 		typesLoading = true;
 		try {
-			const { data, error } = await supabrowserclient
+			const { data, error } = await supabase_lt
 				.from('constants')
 				.select('value')
 				.eq('key', 'FILTYPES')
@@ -93,7 +96,7 @@
 		presetLoading = true;
 		presetError = null;
 		try {
-			const { data, error } = await supabrowserclient
+			const { data, error } = await supabase_lt
 				.from('Filament')
 				.select('id, name, brand, material_type, cost_approx, product_link')
 				.limit(100);

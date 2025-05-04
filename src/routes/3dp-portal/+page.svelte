@@ -862,7 +862,6 @@
 											disabled={!user.data.user}
 											onclick={() => {
 												let isLoggedIn = data.session?.user.id;
-												console.log(isLoggedIn);
 												if (!isLoggedIn)
 													toastStore.show('You need to login/signup first', 'warning', 5000);
 												else goto('/user/profile/3dp-manager/maker');

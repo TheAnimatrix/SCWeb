@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
-const supakey = import.meta.env.VITE_SUPABASE_KEY;
-const supaurl = import.meta.env.VITE_SUPABASE_URL;
-export const supabrowserclient = createBrowserClient(supaurl, supakey);
+import { PUBLIC_SUPABASE_KEY } from '$env/static/public';
+import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+
+export const supabrowserclient = createBrowserClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY);
