@@ -60,7 +60,7 @@ h3 {
 		--accent-saturation: 100%;
 		--accent-lightness: 75%;
 		--accent: var(--accent-hue) var(--accent-saturation) var(--accent-lightness);
-		--accent-foreground: 0 0% 0%;  /* Black text on accent */
+		--accent-foreground: 20 20% 20%;  /* Black text on accent */
 		--accent-dark: var(--accent-hue) var(--accent-saturation) 60%;  /* Darker variant */
 		--accent-rgb: var(--accent-hue), 255, 0;  /* RGB values for accent color */
 		--accent-shadow: var(--accent-hue) 100% 50%;  /* For shadow effects */

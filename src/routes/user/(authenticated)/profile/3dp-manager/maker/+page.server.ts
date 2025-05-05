@@ -100,16 +100,6 @@ export const actions: Actions = {
 
         const errors = validateServerForm(formData);
 
-        // Parse max printer size for DB insertion (largest dimension)
-        let maxDimensionForDb: number | null = null;
-        const match = maxPrinterSize.match(/^(\d+)[xX](\d+)$/);
-        if (match) {
-            const width = parseInt(match[1], 10);
-            const depth = parseInt(match[2], 10);
-            if (!isNaN(width) && !isNaN(depth)) {
-                maxDimensionForDb = Math.max(width, depth);
-            }
-        }
 
 
         if (Object.keys(errors).length > 0) {
@@ -130,7 +120,7 @@ export const actions: Actions = {
             name: name.trim(),
             contact_number: '+91' + contactNumber.trim(), // Add country code
             email: email.trim(),
-            max_printer_size: maxDimensionForDb, // Store the largest dimension
+            max_printer_size: maxPrinterSize, // Store the largest dimension
             number_of_printers: numPrinters,
             filament_types: selectedFilaments, // Store as array of text
             approved_state: 'pending' // Default state

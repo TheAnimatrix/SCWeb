@@ -12,18 +12,18 @@
     import { estimateWeight } from '$lib/helper/modelWeightCalculator';
 
     // Material densities in g/cm³
-    const MATERIAL_DENSITIES = {
-        'PLA': 1.24,
-        'ABS': 1.04,
-        'PETG': 1.27,
-        'TPU': 1.20,
-        'NYLON': 1.14
-    };
+    // const MATERIAL_DENSITIES = {
+    //     'PLA': 1.24,
+    //     'ABS': 1.04,
+    //     'PETG': 1.27,
+    //     'TPU': 1.20,
+    //     'NYLON': 1.14
+    // };
 
     interface Props {
         file?: File | null;
         modelColor?: string; // Default to indigo-400
-        selectedMaterial?: keyof typeof MATERIAL_DENSITIES;
+        selectedMaterial?: string;
         selectedScale?: number;
         selectedInfill?: number;
         selectedWalls?: number;
@@ -56,10 +56,10 @@
         fileSize: '0 KB',
         vertexCount: 0,
         triangleCount: 0,
-        estimatedWeight: '0g',
-        totalWeight: '0g',
+        // estimatedWeight: '0g',
+        // totalWeight: '0g',
         isCalculating: false,
-        calculationAttempts: 0  // Track calculation attempts
+        // calculationAttempts: 0  // Track calculation attempts
     });
     
     // Track the last loaded file to prevent reloading the same file
@@ -119,47 +119,47 @@
             _sliderDebounceTimer = null;
             
             // Queue calculation for when slider stops
-            queueWeightCalculation();
+            // queueWeightCalculation();
         }, SLIDER_DEBOUNCE);
     }
 
     // Queue a calculation to happen outside of reactivity
-    function queueWeightCalculation() {
-        if (_isCalculating || _isSliderMoving) {
-            _calculateQueued = true;
-            return;
-        }
+    // function queueWeightCalculation() {
+    //     if (_isCalculating || _isSliderMoving) {
+    //         _calculateQueued = true;
+    //         return;
+    //     }
         
-        // Compare parameter hash to see if calculation is needed
-        const newHash = generateParameterHash();
-        if (newHash !== _currentParameterHash) {
-            _currentParameterHash = newHash;
+    //     // Compare parameter hash to see if calculation is needed
+    //     const newHash = generateParameterHash();
+    //     if (newHash !== _currentParameterHash) {
+    //         _currentParameterHash = newHash;
             
-            // Schedule weight calculation outside of reactive cycle
-            setTimeout(calculateWeight, 50);
-        }
-    }
+    //         // Schedule weight calculation outside of reactive cycle
+    //         setTimeout(calculateWeight, 50);
+    //     }
+    // }
 
-    // Quick estimate function for fallback
-    function calculateQuickEstimate(): number {
-        const scaledDimensions = {
-            x: modelInfo.dimensions.x * selectedScale,
-            y: modelInfo.dimensions.y * selectedScale, 
-            z: modelInfo.dimensions.z * selectedScale
-        };
+    // // Quick estimate function for fallback
+    // function calculateQuickEstimate(): number {
+    //     const scaledDimensions = {
+    //         x: modelInfo.dimensions.x * selectedScale,
+    //         y: modelInfo.dimensions.y * selectedScale, 
+    //         z: modelInfo.dimensions.z * selectedScale
+    //     };
         
-        const volume = scaledDimensions.x * scaledDimensions.y * scaledDimensions.z;
-        const materialDensity = MATERIAL_DENSITIES[selectedMaterial] || 1.24;
-        return (volume / 1000) * materialDensity * (selectedInfill / 100);
-    }
+    //     const volume = scaledDimensions.x * scaledDimensions.y * scaledDimensions.z;
+    //     const materialDensity = MATERIAL_DENSITIES[selectedMaterial] || 1.24;
+    //     return (volume / 1000) * materialDensity * (selectedInfill / 100);
+    // }
 
-    // Helper function to format weight
-    function formatWeight(weight: number): string {
-        if (weight < 1) {
-            return `${(weight * 1000).toFixed(1)}mg`;
-        }
-        return `${weight.toFixed(1)}g`;
-    }
+    // // Helper function to format weight
+    // function formatWeight(weight: number): string {
+    //     if (weight < 1) {
+    //         return `${(weight * 1000).toFixed(1)}mg`;
+    //     }
+    //     return `${weight.toFixed(1)}g`;
+    // }
 
     // Helper function to format file size
     function formatFileSize(bytes: number): string {
@@ -176,104 +176,104 @@
     }
 
     // Calculate weight using current parameters
-    async function calculateWeight() {
-        if (!file || !currentModel || !modelInfo || modelInfo.dimensions.x <= 0 || _isCalculating) {
-            return;
-        }
+    // async function calculateWeight() {
+    //     if (!file || !currentModel || !modelInfo || modelInfo.dimensions.x <= 0 || _isCalculating) {
+    //         return;
+    //     }
         
-        // Set flags first (non-reactive)
-        _isCalculating = true;
-        _calculateQueued = false;
+    //     // Set flags first (non-reactive)
+    //     _isCalculating = true;
+    //     _calculateQueued = false;
         
-        // Update UI state (reactive, but isolated)
-        setTimeout(() => {
-            modelInfo.isCalculating = true;
-        }, 0);
+    //     // Update UI state (reactive, but isolated)
+    //     setTimeout(() => {
+    //         modelInfo.isCalculating = true;
+    //     }, 0);
         
-        const cacheKey = getCacheKey();
-        let weight: number;
+    //     const cacheKey = getCacheKey();
+    //     let weight: number;
         
-        try {
-            // Check cache first
-            if (weightCalculationCache.has(cacheKey)) {
-                weight = weightCalculationCache.get(cacheKey)!;
-            } else {
-                // Extract layer height from quality string
-                const layerHeightMatch = selectedQuality.match(/\(([\d.]+)mm\)/);
-                const layerHeight = layerHeightMatch ? parseFloat(layerHeightMatch[1]) : 0.2;
+    //     try {
+    //         // Check cache first
+    //         if (weightCalculationCache.has(cacheKey)) {
+    //             weight = weightCalculationCache.get(cacheKey)!;
+    //         } else {
+    //             // Extract layer height from quality string
+    //             const layerHeightMatch = selectedQuality.match(/\(([\d.]+)mm\)/);
+    //             const layerHeight = layerHeightMatch ? parseFloat(layerHeightMatch[1]) : 0.2;
                 
-                // Calculate weight with timeout protection
-                const timeoutPromise = new Promise<number>((_, reject) => {
-                    setTimeout(() => reject(new Error("Weight calculation timed out")), 5000);
-                });
+    //             // Calculate weight with timeout protection
+    //             const timeoutPromise = new Promise<number>((_, reject) => {
+    //                 setTimeout(() => reject(new Error("Weight calculation timed out")), 5000);
+    //             });
                 
-                // Do the actual calculation
-                const calculationPromise = estimateWeight(
-                    selectedMaterial,
-                    selectedInfill,
-                    selectedWalls,
-                    layerHeight,
-                    selectedScale,
-                    file
-                );
+    //             // Do the actual calculation
+    //             const calculationPromise = estimateWeight(
+    //                 selectedMaterial,
+    //                 selectedInfill,
+    //                 selectedWalls,
+    //                 layerHeight,
+    //                 selectedScale,
+    //                 file
+    //             );
                 
-                // Race between calculation and timeout
-                weight = await Promise.race([calculationPromise, timeoutPromise])
-                    .catch(error => {
-                        console.error("Error calculating weight:", error);
-                        // Fall back to quick estimate
-                        return calculateQuickEstimate();
-                    });
+    //             // Race between calculation and timeout
+    //             weight = await Promise.race([calculationPromise, timeoutPromise])
+    //                 .catch(error => {
+    //                     console.error("Error calculating weight:", error);
+    //                     // Fall back to quick estimate
+    //                     return calculateQuickEstimate();
+    //                 });
                 
-                // Cache result
-                weightCalculationCache.set(cacheKey, weight);
-            }
+    //             // Cache result
+    //             weightCalculationCache.set(cacheKey, weight);
+    //         }
             
-            // Update UI weight with minimum of 3g
-            const finalWeight = Math.max(weight, 3);
+    //         // Update UI weight with minimum of 3g
+    //         const finalWeight = Math.max(weight, 3);
             
-            // Update UI safely outside of reactive cycle
-            setTimeout(() => {
-                if (modelInfo) {
-                    modelInfo.estimatedWeight = formatWeight(finalWeight);
-                    modelInfo.totalWeight = formatWeight(finalWeight * quantity);
+    //         // Update UI safely outside of reactive cycle
+    //         setTimeout(() => {
+    //             if (modelInfo) {
+    //                 modelInfo.estimatedWeight = formatWeight(finalWeight);
+    //                 modelInfo.totalWeight = formatWeight(finalWeight * quantity);
                     
-                    // Reset calculation state after a delay to ensure UI updates first
-                    setTimeout(() => {
-                        modelInfo.isCalculating = false;
-                    }, 100);
-                }
-            }, 100);
-        } 
-        catch (error) {
-            console.error("Weight calculation failed:", error);
+    //                 // Reset calculation state after a delay to ensure UI updates first
+    //                 setTimeout(() => {
+    //                     modelInfo.isCalculating = false;
+    //                 }, 100);
+    //             }
+    //         }, 100);
+    //     } 
+    //     catch (error) {
+    //         console.error("Weight calculation failed:", error);
             
-            // Use quick estimate as fallback
-            const quickEstimate = calculateQuickEstimate();
-            const finalWeight = Math.max(quickEstimate, 3);
+    //         // Use quick estimate as fallback
+    //         const quickEstimate = calculateQuickEstimate();
+    //         const finalWeight = Math.max(quickEstimate, 3);
             
-            setTimeout(() => {
-                if (modelInfo) {
-                    modelInfo.estimatedWeight = formatWeight(finalWeight);
-                    modelInfo.totalWeight = formatWeight(finalWeight * quantity);
+    //         setTimeout(() => {
+    //             if (modelInfo) {
+    //                 modelInfo.estimatedWeight = formatWeight(finalWeight);
+    //                 modelInfo.totalWeight = formatWeight(finalWeight * quantity);
                     
-                    // Reset calculation state after a delay to ensure UI updates first
-                    setTimeout(() => {
-                        modelInfo.isCalculating = false;
-                    }, 100);
-                }
-            }, 100);
-        }
-        finally {
-            // Release calculation lock
-            _isCalculating = false;
+    //                 // Reset calculation state after a delay to ensure UI updates first
+    //                 setTimeout(() => {
+    //                     modelInfo.isCalculating = false;
+    //                 }, 100);
+    //             }
+    //         }, 100);
+    //     }
+    //     finally {
+    //         // Release calculation lock
+    //         _isCalculating = false;
             
-            // Process any queued calculations
-            if (_calculateQueued && !_isSliderMoving) {
-                setTimeout(queueWeightCalculation, 500);
-            }
-        }
-    }
+    //         // Process any queued calculations
+    //         if (_calculateQueued && !_isSliderMoving) {
+    //             setTimeout(queueWeightCalculation, 500);
+    //         }
+    //     }
+    // }
 
     // Track parameters without causing reactivity
     function trackParameters() {
@@ -285,10 +285,10 @@
         const quality = selectedQuality;
         const qty = quantity;
         
-        // Only queue calculation if not already calculating or moving slider
-        if (!_isCalculating && !_isSliderMoving && currentModel && file) {
-            queueWeightCalculation();
-        }
+        // // Only queue calculation if not already calculating or moving slider
+        // if (!_isCalculating && !_isSliderMoving && currentModel && file) {
+        //     queueWeightCalculation();
+        // }
     }
 
     // Add custom handler functions for specific parameter updates
@@ -301,9 +301,9 @@
     }
     
     function onOtherParameterChange() {
-        if (!_isSliderMoving && !_isCalculating) {
-            queueWeightCalculation();
-        }
+        // if (!_isSliderMoving && !_isCalculating) {
+        //     queueWeightCalculation();
+        // }
     }
 
     // Use a single effect for parameter tracking but don't cause updates inside it
@@ -336,7 +336,7 @@
                 _currentParameterHash = generateParameterHash();
                 
                 // Use timeout to break the reactivity chain
-                setTimeout(calculateWeight, 100);
+                // setTimeout(calculateWeight, 100);
             });
         }
 
@@ -518,8 +518,8 @@
             modelInfo.dimensions = { x: 0, y: 0, z: 0 };
             modelInfo.triangleCount = 0;
             modelInfo.vertexCount = 0;
-            modelInfo.estimatedWeight = '0g';
-            modelInfo.totalWeight = '0g';
+            // modelInfo.estimatedWeight = '0g';
+            // modelInfo.totalWeight = '0g';
 
             const url = URL.createObjectURL(file);
             const extension = file.name.split('.').pop()?.toLowerCase();
@@ -980,7 +980,7 @@
                     {formatDimension(modelInfo.dimensions.z * selectedScale)}
                 </span>
                 
-                <span class="text-indigo-300/80">Est. Weight:</span>
+                <!-- <span class="text-indigo-300/80">Est. Weight:</span>
                 <div class="font-medium">
                     {#if modelInfo.isCalculating}
                         <div class="flex items-center">
@@ -1014,7 +1014,7 @@
                             ({selectedMaterial}, {selectedInfill}% infill, {selectedWalls} walls)
                         </span>
                     {/if}
-                </div>
+                </div> -->
             </div>
         </div>
     {/if}

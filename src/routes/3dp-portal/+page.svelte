@@ -11,94 +11,32 @@
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import * as THREE from 'three';
 	import * as Accordion from '$lib/components/ui/accordion';
+	import AvailableMakers from './AvailableMakers.svelte';
 
-	export let data;
+	let { data } = $props();
 
 	// Model upload state
-	let dragActive = false;
-	let modelLoaded = false;
-	let modelFile: File | null = null;
-	let loading = false;
+	let dragActive = $state(false);
+	let modelLoaded = $state(false);
+	let modelFile: File | null = $state(null);
+	let loading = $state(false);
 
 	// ThreeJS cube references
-	let cubeContainer: HTMLElement;
-	let renderer: THREE.WebGLRenderer;
-	let isHovering = false;
-
-	// Available makers data
-	const makers = [
-		{
-			id: 1,
-			name: 'Animatrix',
-			icon: 'mdi:tiger',
-			iconColor: '#ffcc33',
-			rating: 4.9,
-			printers: 2,
-			completedJobs: 253,
-			location: 'Chennai',
-			printerModels: [
-				{
-					name: 'Ratrig Vcore 3',
-					resolution: '220x220',
-					delivery: '1-2 days',
-					price: 25,
-					materials: ['PLA', 'PETG', 'TPU']
-				}
-			]
-		},
-		{
-			id: 2,
-			name: 'RhinoWorks',
-			icon: 'mdi:rhino',
-			iconColor: '#6b9bff',
-			rating: 4.8,
-			printers: 1,
-			completedJobs: 178,
-			printerModels: []
-		},
-		{
-			id: 3,
-			name: 'PeacockPrints',
-			icon: 'mdi:bird',
-			iconColor: '#33cc99',
-			rating: 5.0,
-			printers: 2,
-			completedJobs: 412,
-			printerModels: []
-		},
-		{
-			id: 4,
-			name: 'OspreyLabs',
-			icon: 'mdi:bird',
-			iconColor: '#5572d9',
-			rating: 4.7,
-			printers: 1,
-			completedJobs: 97,
-			printerModels: []
-		},
-		{
-			id: 5,
-			name: 'BuzzyBee3D',
-			icon: 'mdi:bee',
-			iconColor: '#ffd633',
-			rating: 4.6,
-			printers: 1,
-			completedJobs: 64,
-			printerModels: []
-		}
-	];
+	let cubeContainer: HTMLElement | null = $state(null);
+	let renderer: THREE.WebGLRenderer | null = $state(null);
+	let isHovering = $state(false);
 
 	// Print parameters
-	let selectedMaterial: 'PLA' | 'ABS' | 'PETG' | 'TPU' | 'NYLON' = 'PLA';
-	let selectedQuality = 'Standard (0.20mm)';
-	let scale = 1.0;
-	let infill = 15; // Default to 40% (3 walls)
-	let selectedColor = '#00FF00'; // Green default
+	let selectedMaterial: string = $state('PLA');
+	let selectedQuality = $state('Standard (0.20mm)');
+	let scale = $state(1.0);
+	let infill = $state(15); // Default to 40% (3 walls)
+	let walls = $state(3);
+	let selectedColor = $state('#fff'); // Green default
 
 	// Material options
-	const materials = ['PLA', 'ABS', 'PETG', 'TPU', 'NYLON'] as const;
+	const materials = data.filtypes;
 	const qualities = ['Draft (0.28mm)', 'Standard (0.20mm)', 'High (0.15mm)'];
-	const colors = ['#090909', '#FF4500', '#00FF00', '#0066FF', '#FFFF00', '#FF33FF'];
 
 	// Strength levels with walls mapping
 	const strengthLevels = [
@@ -117,6 +55,7 @@
 	// Map slider position to actual infill percentage
 	function updateInfillFromSlider() {
 		infill = strengthLevels[sliderPosition].value;
+		walls = parseInt(strengthLevels[sliderPosition].walls.split(' ')[0]);
 	}
 
 	// Function to get position based on strength level (used for initial value)
@@ -133,6 +72,7 @@
 
 	// Initialize slider and infill values on mount
 	onMount(() => {
+		fetchQuoteRequestStats();
 		// Initialize slider position based on initial infill value
 		sliderPosition = getPositionFromStrength(infill);
 
@@ -172,9 +112,6 @@
 			}
 		};
 	});
-
-	// Expanded maker state
-	let expandedMaker = makers[0].id;
 
 	// Add ModelViewer reference
 	let modelViewer: ModelViewer;
@@ -240,9 +177,9 @@
 					uniform float time;
 					varying vec3 vPosition;
 					
-					vec3 colorA = vec3(0.4, 0.4, 0.9);  // Indigo
-					vec3 colorB = vec3(0.3, 0.3, 0.8);  // Darker indigo
-					vec3 colorC = vec3(0.5, 0.5, 1.0);  // Lighter indigo
+					vec3 colorA = vec3(0.4, 0.6, 0.9);  // Blue
+					vec3 colorB = vec3(0.3, 0.5, 0.8);  // Darker blue
+					vec3 colorC = vec3(0.5, 0.7, 1.0);  // Lighter blue
 					
 					void main() {
 						float t = sin(time * 0.5) * 0.5 + 0.5;
@@ -387,6 +324,9 @@
 			if (isSupported) {
 				modelFile = file;
 				modelLoaded = true;
+				// Reset file input so same file can be uploaded again
+				const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+				if (fileInput) fileInput.value = '';
 			} else {
 				alert('Please upload a supported 3D model file (STL)');
 			}
@@ -400,10 +340,6 @@
 
 	function goBack() {
 		window.history.back();
-	}
-
-	function toggleMaker(id: number) {
-		expandedMaker = expandedMaker === id ? -1 : id;
 	}
 
 	function addToCart() {
@@ -424,6 +360,111 @@
 			return true;
 		} else return false;
 	}
+
+	let requestsLeft : number | null = $state(null);
+	let quoteDailyLimit : number | null = $state(null);
+	let loadingRequests = $state(true);
+
+	async function fetchQuoteRequestStats() {
+		loadingRequests = true;
+		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getUser();
+		if (userErr || !userRes?.user) {
+			requestsLeft = null;
+			quoteDailyLimit = null;
+			loadingRequests = false;
+			return;
+		}
+		const user_id = userRes.user.id;
+		// Get user's daily limit
+		const { data: userRow, error: userRowErr } = await data.supabase_lt
+			.from('users')
+			.select('quote_daily_limit')
+			.eq('id', user_id)
+			.single();
+		quoteDailyLimit = userRow?.quote_daily_limit ?? 3;
+		// Get today's printrequests count
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		console.log(`Today: ${today.toISOString()}`);
+		const { count, error: countErr } = await data.supabase_lt
+			.from('printrequests')
+			.select('id', { count: 'exact', head: true })
+			.eq('user_id', user_id)
+			.gte('created_at', today.toISOString());
+		console.log(`Count: ${count} ${quoteDailyLimit} ${requestsLeft}`);
+		requestsLeft = (quoteDailyLimit ?? 0) - (count ?? 0);
+		loadingRequests = false;
+	}
+
+	async function requestQuoteCompleter(
+		maker_id: string,
+		model: File | null,
+		color: string,
+		material: string,
+		quality: string,
+		scale: number,
+		infill: number,
+		walls: number,
+		onProgress?: (progress: number | null) => void
+	) {
+		loading = true;
+		if (onProgress) onProgress(0);
+		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
+		if(userErr || !userRes?.session?.access_token) {
+			toastStore.show('You must be logged in to request a quote', 'error');
+			loading = false;
+			if (onProgress) onProgress(null);
+			return;
+		}
+		const jwt = userRes.session.access_token;
+
+		// Build FormData for edge function
+		const formData = new FormData();
+		formData.append('maker_id', maker_id);
+		formData.append('color', color);
+		formData.append('material', material);
+		formData.append('quality', quality);
+		formData.append('scale', String(scale));
+		formData.append('infill', String(infill));
+		formData.append('walls', String(walls));
+		if (model) formData.append('model_file', model);
+
+		try {
+			// Use XMLHttpRequest for upload progress
+			const xhr = new XMLHttpRequest();
+			xhr.open('POST', 'https://pfeewicqoxkuwnbuxnoz.supabase.co/functions/v1/upload-model-request');
+			xhr.setRequestHeader('Authorization', `Bearer ${jwt}`);
+			xhr.upload.onprogress = (event) => {
+				if (event.lengthComputable && onProgress) {
+					const percent = Math.round((event.loaded / event.total) * 100);
+					onProgress(percent);
+				}
+			};
+			const promise = new Promise<{ok: boolean, json: any}>((resolve, reject) => {
+				xhr.onload = () => {
+					let json;
+					try { json = JSON.parse(xhr.responseText); } catch { json = {}; }
+					resolve({ ok: xhr.status >= 200 && xhr.status < 300, json });
+				};
+				xhr.onerror = () => reject(new Error('Network error'));
+			});
+			xhr.send(formData);
+			const { ok, json: result } = await promise;
+			if (!ok) {
+				toastStore.show(result.error || 'Failed to create quote request', 'error');
+				loading = false;
+				if (onProgress) onProgress(null);
+				return;
+			}
+			toastStore.show('Quote request submitted!', 'success');
+			await fetchQuoteRequestStats();
+		} catch (err) {
+			toastStore.show('Unexpected error submitting quote request', 'error');
+		} finally {
+			loading = false;
+			if (onProgress) onProgress(null);
+		}
+	}
 </script>
 
 <div class="w-full flex justify-center min-h-screen gradient-background">
@@ -436,8 +477,8 @@
 	<div class="w-full max-w-7xl px-4 relative z-10">
 		<div class="text-center mb-8 mt-12">
 			<div class="inline-flex items-center justify-center mb-3">
-				<span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>
-				<span class="text-indigo-400 text-sm uppercase tracking-wider font-medium"
+				<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
+				<span class="text-accent text-sm uppercase tracking-wider font-medium"
 					><span class="font-bold">Fabbly</span></span>
 			</div>
 			<h1 class="text-3xl font-bold mb-2">Community 3D Printing</h1>
@@ -452,7 +493,7 @@
 			<div class="lg:col-span-7">
 				<!-- Model preview area -->
 				<div
-					class="bg-black/60 border border-zinc-800/80 rounded-lg mb-4 h-80 flex flex-col backdrop-blur-md relative overflow-hidden shadow-glow">
+					class="bg-black/60 border border-accent/15 rounded-lg mb-4 h-80 flex flex-col backdrop-blur-md relative overflow-hidden shadow-glow">
 					<div class="cube-glow-effect"></div>
 					{#if modelLoaded}
 						<div class="flex-1 flex flex-col items-center justify-center relative">
@@ -489,19 +530,19 @@
 				<!-- Upload area / Drag & drop -->
 				<button
 					class="w-full bg-black/40 border-2 border-dashed rounded-lg mb-4 p-4 flex flex-col items-center justify-center text-center backdrop-blur-xs shadow-glow-subtle transition-all duration-300 {dragActive
-						? 'border-indigo-400 shadow-glow-active'
-						: 'border-zinc-800/60'}"
+						? 'border-accent shadow-glow-active'
+						: 'border-accent/15'}"
 					ondragover={handleDragOver}
 					ondragleave={handleDragLeave}
 					onclick={browseFiles}
 					ondrop={handleDrop}>
 					<div class="flex items-center gap-3">
-						<Icon icon="material-symbols:upload" class="text-2xl text-indigo-400 icon-glow" />
+						<Icon icon="material-symbols:upload" class="text-2xl text-accent icon-glow" />
 						<div class="text-left">
 							<div class="text-white font-medium text-sm">Drag & drop your 3D model file</div>
 							<div class="flex items-center mt-1">
 								<div
-									class="text-indigo-400 text-xs underline hover:text-indigo-300 transition-colors">
+									class="text-accent text-xs underline hover:text-accent/80 transition-colors">
 									or click to browse
 								</div>
 								<span class="mx-2 text-white/30 text-xs">•</span>
@@ -518,11 +559,11 @@
 				</button>
 
 				<!-- Print Parameters -->
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle">
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle border border-accent/15">
 					<div class="flex items-center mb-4">
 						<Icon
 							icon="material-symbols:build-outline"
-							class="text-xl text-indigo-400 mr-2 icon-glow" />
+							class="text-xl text-accent mr-2 icon-glow" />
 						<div class="text-lg font-medium text-white glow-text-subtle">Print Parameters</div>
 					</div>
 
@@ -532,11 +573,11 @@
 						<div class="grid grid-cols-5 gap-1">
 							{#each materials as material}
 								<button
-									class="py-2 text-center text-sm transition-colors rounded {selectedMaterial ===
+									class="animate_base py-2 text-center text-sm transition-colors hover:bg-accent/20 rounded {selectedMaterial ===
 									material
-										? 'bg-blue-700 text-white shadow-glow-active'
-										: 'bg-black-800/70 text-white/80 hover:bg-black-700/80'}"
-									onclick={() => (selectedMaterial = material)}>{material}</button>
+										? 'bg-accent/10 text-accent hover:bg-accent/20'
+										: 'bg-black-800/70 text-accent hover:bg-black-700/80'}"
+									onclick={() => {selectedMaterial = material; selectedColor = '#fff';}}>{material}</button>
 							{/each}
 						</div>
 					</div>
@@ -547,10 +588,10 @@
 						<div class="grid grid-cols-3 gap-1">
 							{#each qualities as quality}
 								<button
-									class="py-2 text-center text-sm transition-colors rounded {selectedQuality ===
+									class="py-2 text-center text-sm hover:bg-accent/20 animate_base transition-colors rounded {selectedQuality ===
 									quality
-										? 'bg-blue-700 text-white shadow-glow-active'
-										: 'bg-black-800/70 text-white/80 hover:bg-black-700/80'}"
+										? 'bg-accent/10 text-accent hover:bg-accent/20'
+										: 'bg-black-800/70 text-accent hover:bg-black-700/80'}"
 									onclick={() => (selectedQuality = quality)}>{quality}</button>
 							{/each}
 						</div>
@@ -575,7 +616,7 @@
 								step="0.05"
 								bind:value={scale}
 								oninput={() => modelViewer?.notifySliderMoving?.()}
-								class="w-full accent-indigo-400 bg-black-800 h-2 rounded appearance-none" />
+								class="w-full bg-accent bg-black-800 h-2 rounded appearance-none" />
 							<div
 								class="absolute top-0 left-0 right-0 flex justify-between px-1 -mt-1 pointer-events-none">
 								<div class="w-0.5 h-2 bg-white/20"></div>
@@ -610,7 +651,7 @@
 									updateInfillFromSlider();
 									modelViewer?.notifySliderMoving?.();
 								}}
-								class="w-full accent-indigo-700 bg-black-800 h-2 rounded appearance-none" />
+								class="w-full bg-accent bg-black-800 h-2 rounded appearance-none" />
 							<!-- Visual progress indicator -->
 							<div
 								class="absolute top-3 left-0 right-0 flex justify-between text-[10px] text-white/50 pointer-events-none">
@@ -623,143 +664,36 @@
 							</div>
 						</div>
 					</div>
-
-					<!-- Color Selection -->
-					<div class="mb-1">
-						<label class="text-white/80 text-sm mb-2 block">Color</label>
-						<div class="flex gap-3 mt-2">
-							{#each colors as color}
-								<button
-									class="w-10 h-10 rounded-full border-2 transition-colors {color == '#090909'
-										? 'outline-1 outline-dashed outline-white shadow-white shadow-xs'
-										: 'outline-transparent'}"
-									class:border-white={selectedColor === color}
-									class:border-transparent={selectedColor !== color}
-									class:scale-110={selectedColor === color}
-									style="background-color: {color};"
-									onclick={() => (selectedColor = color)}></button>
-							{/each}
-						</div>
-					</div>
 				</div>
 			</div>
 
 			<!-- Right panel: Available Makers -->
 			<div class="lg:col-span-5">
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle mb-4">
-					<div class="text-lg font-medium text-white mb-4 flex items-center">
-						<Icon
-							icon="material-symbols:person-pin-circle"
-							class="text-indigo-400 mr-2 icon-glow" />
-						<span class="glow-text-subtle">Available Makers ({makers.length})</span>
+				<!-- Quote Requests Available Section -->
+				<div class="bg-gradient-to-r from-accent/5 via-black/40 to-accent/5 border border-accent/10 rounded-lg p-4 mb-4 flex items-center gap-4 shadow-glow-subtle">
+					<div class="flex items-center justify-center w-12 h-12 rounded-full bg-accent/20">
+						<Icon icon="material-symbols:request-quote" class="text-3xl text-accent icon-glow" />
 					</div>
-
-					<div class="space-y-3">
-						{#each makers as maker}
-							<div class="bg-black/50 rounded-lg overflow-hidden border border-zinc-800">
-								<!-- Maker header -->
-								<div
-									class="p-3 flex items-center justify-between cursor-pointer hover:bg-black/70 transition-colors"
-									onclick={() => toggleMaker(maker.id)}>
-									<div class="flex items-center gap-2">
-										<div
-											class="w-8 h-8 rounded-full flex items-center justify-center"
-											style="background-color: {maker.iconColor}30;">
-											<Icon icon={maker.icon} style="color: {maker.iconColor}" class="text-lg" />
-										</div>
-										<div class="font-medium text-white text-lg">{maker.name}</div>
-									</div>
-									<div class="flex items-center gap-4">
-										<div class="flex items-center gap-1">
-											<Icon icon="material-symbols:star" class="text-yellow-400 text-sm" />
-											<span class="text-white text-sm">{maker.rating}</span>
-										</div>
-										<button class="text-xl text-zinc-400">
-											<Icon
-												icon={expandedMaker === maker.id
-													? 'material-symbols:expand-less'
-													: 'material-symbols:expand-more'} />
-										</button>
-									</div>
-								</div>
-
-								<!-- Expanded maker details -->
-								{#if expandedMaker === maker.id}
-									<div class="px-3 pb-3">
-										<div class="flex items-center gap-4 text-xs text-white/70 mb-2">
-											<div class="flex items-center">
-												<Icon icon="material-symbols:print" class="text-indigo-400 mr-1" />
-												<span
-													>{maker.printers} {maker.printers === 1 ? 'printer' : 'printers'}</span>
-											</div>
-											<div class="flex items-center">
-												<Icon
-													icon="material-symbols:check-circle-outline"
-													class="text-indigo-400 mr-1" />
-												<span>{maker.completedJobs} completed jobs</span>
-											</div>
-										</div>
-
-										{#if maker.id === 1}
-											<!-- Printer model for first maker only -->
-											<div class="bg-black-900 rounded p-3 mt-2">
-												<div class="flex justify-between mb-1">
-													<div>
-														<div class="text-white font-medium text-sm">
-															{maker.printerModels[0].name}
-														</div>
-														<div class="text-white/50 text-xs">
-															{maker.printerModels[0].resolution}
-														</div>
-													</div>
-													<div class="text-right">
-														<div class="text-white font-bold">${maker.printerModels[0].price}</div>
-														<div class="text-white/50 text-xs">Estimated base price</div>
-													</div>
-												</div>
-
-												<div class="mb-3">
-													<div class="flex items-center text-white/80 text-xs mb-1">
-														<Icon
-															icon="material-symbols:check-circle-outline"
-															class="text-indigo-400 mr-1 text-xs" />
-														<span>Instant printing</span>
-														<span class="mx-2 text-white/30">•</span>
-														<span>1-2 days</span>
-													</div>
-
-													<div class="flex items-center gap-1 mt-1">
-														<div class="text-white/50 text-xs">Materials:</div>
-														{#each ['PLA', 'PETG', 'TPU'] as mat}
-															<span class="bg-black-800 text-white/80 text-xs px-2 py-0.5 rounded"
-																>{mat}</span>
-														{/each}
-													</div>
-												</div>
-
-												<button
-													class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-1.5 rounded text-sm flex items-center justify-center gap-1"
-													onclick={addToCart}>
-													<Icon icon="material-symbols:add-shopping-cart" />
-													Add to Cart
-												</button>
-											</div>
-										{:else}
-											<div class="text-center py-2 text-white/60 text-sm">
-												Click for more details
-											</div>
-										{/if}
-									</div>
-								{/if}
+					<div class="flex-1">
+						<div class="text-lg font-semibold text-accent glow-text">Quote Requests</div>
+						{#if loadingRequests}
+							<div class="text-white/80 text-sm">Loading...</div>
+						{:else if requestsLeft !== null && quoteDailyLimit !== null}
+							<div class="text-white/80 text-sm">
+								You have <span class="font-bold text-accent">{requestsLeft}</span> quote request{requestsLeft === 1 ? '' : 's'} available today
+								<span class="text-white/40">/ {quoteDailyLimit} max</span>
 							</div>
-						{/each}
+						{:else}
+							<div class="text-white/80 text-sm">Unable to determine your quote request limit</div>
+						{/if}
+						<div class="text-xs text-gray-400 mt-1">We are a very small unfunded team, so please be frugal with your requests. Thank you!</div>
 					</div>
 				</div>
-
+				<AvailableMakers supabase_lt={data.supabase_lt} model={modelFile} bind:color={selectedColor} bind:material={selectedMaterial} quality={selectedQuality} {scale} {infill} walls={walls} requestQuoteCompleter={requestQuoteCompleter} />
 				<!-- FAQ Section -->
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle">
+				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle border border-accent/15">
 					<div class="text-lg font-medium text-white mb-4 flex items-center">
-						<Icon icon="material-symbols:quiz" class="text-indigo-400 mr-2 icon-glow" />
+						<Icon icon="material-symbols:quiz" class="text-accent mr-2 icon-glow" />
 						<span class="glow-text-subtle">Frequently Asked Questions</span>
 					</div>
 
@@ -770,8 +704,7 @@
 								Disclaimer
 							</Accordion.Trigger>
 							<Accordion.Content class="text-white/70 text-sm mt-2">
-								<p>Well, all weights are estimated so your final quote can change after review.</p>
-								<p class="mt-2">
+								<p>
 									If you choose to communicate with a crafter and decide to place an order outside
 									of this platform, please be aware that you assume full responsibility for that
 									order. Any ratings or reviews related to such transactions will also not be
@@ -816,7 +749,7 @@
 					{#if !isMaker}
 						<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle mt-4">
 							<div class="text-lg font-medium text-white mb-4 flex items-center">
-								<Icon icon="material-symbols:engineering" class="text-indigo-400 mr-2 icon-glow" />
+								<Icon icon="material-symbols:engineering" class="text-accent mr-2 icon-glow" />
 								<span class="glow-text-subtle">Join the Fabbly Portal!</span>
 							</div>
 
@@ -834,13 +767,13 @@
 											<li class="flex items-center text-white/70">
 												<Icon
 													icon="material-symbols:check-circle-outline"
-													class="text-indigo-400 mr-2" />
+													class="text-accent mr-2" />
 												<span>Active Selfcrafted Account</span>
 											</li>
 											<li class="flex items-center text-white/70">
 												<Icon
 													icon="material-symbols:check-circle-outline"
-													class="text-indigo-400 mr-2" />
+													class="text-accent mr-2" />
 												<span>Verified ownership of operational 3D printer(s)</span>
 											</li>
 										</ul>
@@ -858,7 +791,7 @@
 											{/if}
 										</div>
 										<button
-											class="bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white font-medium px-6 py-2 rounded text-sm flex items-center gap-2 transition-colors"
+											class="bg-accent-dark/60 hover:bg-accent/60 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white font-medium px-6 py-2 rounded text-sm flex items-center gap-2 transition-colors"
 											disabled={!user.data.user}
 											onclick={() => {
 												let isLoggedIn = data.session?.user.id;
@@ -899,7 +832,7 @@
 		-webkit-appearance: none;
 		appearance: none;
 		height: 8px !important;
-		background: rgba(50, 50, 65, 0.8) !important;
+		background: hsla(205, 13%, 23%, 0.8) !important;
 		border-radius: 8px;
 		outline: none;
 		margin: 12px 0;
@@ -913,9 +846,9 @@
 		width: 22px;
 		height: 22px;
 		border-radius: 50%;
-		background: #6366f1;
+		background: hsl(205, 91%, 60%);
 		cursor: pointer;
-		box-shadow: 0 0 12px 3px rgba(99, 102, 241, 0.4);
+		box-shadow: 0 0 12px 3px hsla(205, 91%, 60%, 0.4);
 		border: 3px solid white;
 		transition: all 0.2s ease;
 	}
@@ -924,16 +857,16 @@
 		width: 22px;
 		height: 22px;
 		border-radius: 50%;
-		background: #6366f1;
+		background: hsl(205, 91%, 60%);
 		cursor: pointer;
-		box-shadow: 0 0 12px 3px rgba(99, 102, 241, 0.4);
+		box-shadow: 0 0 12px 3px hsla(205, 91%, 60%, 0.4);
 		border: 3px solid white;
 		transition: all 0.2s ease;
 	}
 
 	input[type='range']:hover::-webkit-slider-thumb {
 		transform: scale(1.1);
-		box-shadow: 0 0 15px 4px rgba(99, 102, 241, 0.5);
+		box-shadow: 0 0 15px 4px hsla(205, 83%, 67%, 0.5);
 	}
 
 	input[type='range']:active::-webkit-slider-thumb {
@@ -944,11 +877,11 @@
 	input[type='range']::-webkit-slider-runnable-track {
 		height: 8px;
 		border-radius: 8px;
-		background: linear-gradient(90deg, rgba(99, 102, 241, 0.6) 0%, rgba(165, 180, 252, 0.4) 100%);
+		background: linear-gradient(90deg, hsla(205, 83%, 67%, 0.6) 0%, hsla(205, 99%, 85%, 0.4) 100%);
 	}
 
 	input[type='range']::-moz-range-progress {
-		background: linear-gradient(90deg, rgba(99, 102, 241, 0.6) 0%, rgba(165, 180, 252, 0.4) 100%);
+		background: linear-gradient(90deg, hsla(205, 91%, 60%, 0.6) 0%, hsla(205, 91%, 60%, 0.4) 100%);
 		height: 8px;
 		border-radius: 8px;
 	}
@@ -986,14 +919,14 @@
 		right: 0;
 		bottom: 0;
 		background:
-			radial-gradient(circle at 15% 20%, rgba(99, 101, 241, 0.2) 0%, transparent 45%),
-			radial-gradient(circle at 85% 70%, rgba(78, 70, 229, 0.25) 0%, transparent 45%),
-			radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.6) 100%),
+			radial-gradient(circle at 15% 20%, hsla(205, 51%, 54%, 0.2) 0%, transparent 45%),
+			radial-gradient(circle at 85% 70%, hsla(0, 60%, 56%, 0.05) 0%, transparent 45%),
+			radial-gradient(circle at 50% 50%, hsla(0, 0%, 0%, 0.3) 0%, hsla(0, 0%, 0%, 0.6) 100%),
 			linear-gradient(
 				45deg,
-				rgba(99, 102, 241, 0.05) 0%,
-				rgba(0, 0, 0, 0) 40%,
-				rgba(79, 70, 229, 0.05) 100%
+				hsla(205, 96%, 67%, 0.05) 0%,
+				hsla(0, 0%, 0%, 0) 40%,
+				hsla(205, 60%, 59%, 0.05) 100%
 			);
 		pointer-events: none;
 		z-index: 1;
@@ -1021,7 +954,7 @@
 	.orb-1 {
 		width: 450px;
 		height: 450px;
-		background: radial-gradient(circle, rgb(120, 122, 245) 0%, transparent 70%);
+		background: radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%);
 		top: 5%;
 		left: 10%;
 		animation: float-orb 20s infinite alternate ease-in-out;
@@ -1030,7 +963,7 @@
 	.orb-2 {
 		width: 550px;
 		height: 550px;
-		background: radial-gradient(circle, rgb(90, 82, 235) 0%, transparent 70%);
+		background: radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%);
 		bottom: 5%;
 		right: 10%;
 		animation: float-orb 25s infinite alternate-reverse ease-in-out;
@@ -1039,7 +972,7 @@
 	.orb-3 {
 		width: 300px;
 		height: 300px;
-		background: radial-gradient(circle, rgb(129, 141, 248) 0%, transparent 70%);
+		background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
 		top: 40%;
 		right: 25%;
 		animation: float-orb 18s infinite alternate ease-in-out 5s;
@@ -1131,7 +1064,7 @@
 	}
 
 	.text-sccyan {
-		color: var(--color-indigo-400);
+		color: var(--color-accent);
 		text-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
 	}
 

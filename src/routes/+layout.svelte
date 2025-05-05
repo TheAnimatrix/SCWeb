@@ -39,9 +39,9 @@
 			primaryColor = 'scredd1';
 			filter = 'filter-green';
 			pageName = 'crafting';
-		} else if ($page.route.id?.startsWith('/pif-portal')) {
+		} else if ($page.route.id?.startsWith('/3dp-portal')) {
 			primaryColor = 'scblued1';
-			filter = 'filter-pif';
+			filter = 'filter-green';
 			pageName = 'about';
 		} else if ($page.route.id?.startsWith('/(cart)')) {
 			primaryColor = 'scblued1';
@@ -386,7 +386,7 @@
 		filter: hue-rotate(52deg);
 	}
 
-	.filter-pif {
+	.filter-3dp {
 		filter: hue-rotate(65deg) saturate(1.2);
 	}
 

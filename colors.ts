@@ -5,10 +5,10 @@ export const custom_colors = {
 
 	// Theme colors
 	accent: {
-		DEFAULT: 'hsl(15, 100%, 70%)',  // Primary accent color - bright blue
-		light: 'hsla(217, 100%, 50%, 0.15)',
-		lighter: 'hsla(217, 100%, 50%, 0.06)',
-		dark: 'hsla(217, 100%, 50%, 0.5)',
+		DEFAULT: 'hsl(205, 100%, 75%)',  // Primary accent color - bright blue
+		light: 'hsla(205, 100%, 75%, 0.15)',
+		lighter: 'hsla(205, 100%, 75%, 0.06)',
+		dark: 'hsla(205, 100%, 75%, 0.5)',
 	},
 
 	// Background colors
