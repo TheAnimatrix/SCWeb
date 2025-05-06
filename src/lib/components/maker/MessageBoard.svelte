@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import type { SupabaseClient } from '@supabase/supabase-js';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { Filter } from 'bad-words';
 	import { toastStore } from '$lib/client/toastStore';
 
@@ -32,6 +32,7 @@
 	const filter = new Filter();
 	filter.removeWords('shit', 'damn', 'sadist');
 	let prevMessageCount = $state(0);
+	let initialLoadCompleted = $state(false);
 
 	function getDateLabel(dateStr: string) {
 		const date = new Date(dateStr);
@@ -47,14 +48,30 @@
 	}
 
 	async function fetchMessages(initial = false) {
-		if (loadingMore) return;
-		loadingMore = true;
+		if (!initial && loadingMore) return; // Prevent concurrent "load more" calls
+
+		if (initial) {
+			loading = true; // Show "Loading messages..." text
+		}
+		loadingMore = true; // Indicate an active fetch operation
+
 		if (initial) {
 			page = 0;
 			hasMore = true;
+			messages = []; // Clear messages for initial load
 		}
+
 		const from = page * pageSize;
 		const to = from + pageSize - 1;
+
+		let previousScrollHeight = 0;
+		let previousScrollTop = 0;
+
+		if (!initial && scrollContainer) {
+			previousScrollHeight = scrollContainer.scrollHeight;
+			previousScrollTop = scrollContainer.scrollTop;
+		}
+
 		const {
 			data,
 			error: fetchError,
@@ -65,20 +82,51 @@
 			.eq('relationship_id', orderId)
 			.order('created_at', { ascending: false })
 			.range(from, to);
+
 		if (fetchError) {
 			error = fetchError.message;
-			if (initial) messages = [];
+			if (initial) messages = []; // Ensure messages is empty on initial fetch error
 		} else {
+			const newMessagesData = (data || []).reverse();
 			if (initial) {
-				messages = (data || []).reverse();
+				messages = newMessagesData;
 			} else {
-				messages = [...(data || []).reverse(), ...messages];
+				if (newMessagesData.length > 0) {
+					messages = [...newMessagesData, ...messages];
+				}
 			}
 			hasMore = (data?.length || 0) === pageSize;
 		}
-		loading = false;
-		loadingMore = false;
+
+		await tick(); // Wait for Svelte to update the DOM with new messages
+
+		if (initial) {
+			loading = false; // Set loading to false; the $effect will handle the scroll
+			// We can keep the tick if other logic might depend on it, or remove if solely for the removed scroll
+			await tick();
+		} else {
+			// Only adjust scroll if new messages were actually added and scrollContainer exists
+			if (scrollContainer && data && data.length > 0) {
+				const currentScrollHeight = scrollContainer.scrollHeight;
+				scrollContainer.scrollTop = previousScrollTop + (currentScrollHeight - previousScrollHeight);
+			}
+		}
+		loadingMore = false; // Fetch operation complete
 	}
+
+	$effect(() => {
+		// Handles the very first scroll to bottom after initial messages are loaded.
+		if (!initialLoadCompleted && !loading && messages.length > 0 && scrollContainer && !loadingMore) {
+			// Ensure all conditions are met:
+			// - Initial load hasn't completed its scroll yet.
+			// - Main loading indicator is off.
+			// - Messages are present.
+			// - Scroll container exists.
+			// - The "loadingMore" phase (entire fetchMessages async op) is also complete.
+			scrollContainer.scrollTop = scrollContainer.scrollHeight;
+			initialLoadCompleted = true; // Prevent this from running again
+		}
+	});
 
 	function handleScroll() {
 		if (!scrollContainer) return;
@@ -88,22 +136,32 @@
 		}
 	}
 
-	$effect(() => {
-		if (scrollContainer && !loadingMore) {
-			scrollContainer.scrollTop = scrollContainer.scrollHeight;
-		}
-	});
+	// Removed the problematic $effect that unconditionally scrolled to bottom
 
 	$effect(() => {
-		// Only scroll to bottom if a new message is added at the end
-		if (scrollContainer && messages.length > prevMessageCount) {
-			// Check if the last message is newer than the previous last message
+		// Only scroll to bottom if a new message is added at the end (appended)
+		// and not during a "load more" operation (which fetchMessages handles).
+		if (scrollContainer && messages.length > prevMessageCount && !loadingMore) {
+			const lastMessage = messages[messages.length - 1];
+			const secondLastMessage = messages[messages.length - 2]; // Could be undefined if messages.length < 2
+
+			// Condition to check if a new message was truly appended and is the latest
 			if (
-				messages.length === 1 ||
-				(prevMessageCount > 0 &&
-					messages[messages.length - 1]?.created_at > messages[messages.length - 2]?.created_at)
+				(messages.length === 1 && prevMessageCount === 0) || // It's the very first message
+				(prevMessageCount > 0 && // There were previous messages
+					lastMessage && // The last message exists
+					(!secondLastMessage || // Either there's no second to last (meaning one was added to a list of 1)
+						new Date(lastMessage.created_at).getTime() >
+							new Date(secondLastMessage.created_at).getTime())) // Or it's newer
 			) {
-				scrollContainer.scrollTop = scrollContainer.scrollHeight;
+				const isOwnMessage = lastMessage?.sender_id === session?.data?.user?.id;
+				// Check if scroll container is scrolled near the bottom (e.g., within 100px)
+				const nearBottom =
+					scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 100;
+
+				if (isOwnMessage || nearBottom) {
+					scrollContainer.scrollTop = scrollContainer.scrollHeight;
+				}
 			}
 		}
 		prevMessageCount = messages.length;
