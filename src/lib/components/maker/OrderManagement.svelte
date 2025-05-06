@@ -1,25 +1,18 @@
 <script lang="ts">
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import Icon from '@iconify/svelte';
-	import {
-		Drawer as DrawerRoot,
-		DrawerContent,
-		DrawerHeader,
-		DrawerTitle,
-		DrawerDescription,
-		DrawerFooter,
-		DrawerClose,
-		DrawerTrigger
-	} from '../ui/drawer';
+	import * as Drawer from '$lib/components/ui/drawer';
 	import MessageBoard from './MessageBoard.svelte';
 	import {
 		Root as CollapsibleRoot,
 		Trigger as CollapsibleTrigger,
 		Content as CollapsibleContent
 	} from '$lib/components/ui/collapsible';
-	import { fade, scale } from 'svelte/transition';
+	import { fade, scale, slide } from 'svelte/transition';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { toastStore } from '$lib/client/toastStore';
+	import { onMount } from 'svelte';
 
 	let {
 		supabase_lt,
@@ -34,6 +27,15 @@
 		quote: number | null;
 		user_id: string | null;
 		username?: string | null;
+		model_metadata: any;
+		model_data: {
+			color: string;
+			scale: string;
+			material: string;
+			quality: string;
+			infill: string;
+			walls: string;
+		};
 		events?: {
 			type: string;
 			reason: string;
@@ -51,8 +53,145 @@
 	let drawerOpen = $state(false);
 	let selectedOrder = $state<PrintRequest | null>(null);
 	let collapsibleOpen = $state(false);
-	let dialogOpen = $state(false);
+	let cancelDialogOpen = $state(false);
 	let cancelReason = $state('');
+	let downloading = $state(false);
+	let downloadProgress = $state(0);
+
+  //quote dialog 
+  let quoteDialogOpen = $state(false);
+  let quoteBreakdown = $state('');
+  let quote = $state(null);
+  let quoteLoading = $state(false);
+
+  let orderUnreadCounts = $state<Record<string, number>>({});
+  let chatSubscription: any = null;
+
+  async function onSendQuote() {
+    if (!quote) {
+      toastStore.show('Please enter a quote', 'error');
+      return;
+    }
+    if(!selectedOrder) {
+      toastStore.show('No valid order selected', 'error');
+      return;
+    }
+    //fetch updated order
+    const updatedOrderRes = await supabase_lt.from('printrequests').select('*').eq('id', selectedOrder.id).single();
+    if (updatedOrderRes.error) {
+      toastStore.show('Error fetching updated order', 'error');
+      return;
+    }
+    const updatedOrder = updatedOrderRes.data;
+
+    quoteLoading = true;
+    //update request_stage to 'quoted' && update "events"
+    const updateQuote = await supabase_lt.from('printrequests').update({
+      request_stage: 'quoted',
+      events: [
+        ...(updatedOrder?.events || []),
+        { type: 'quoted', reason: quoteBreakdown, timestamp: new Date().toISOString(), by: 'maker', extra: { quote: quote } }
+      ]
+    }).eq('id', updatedOrder.id);
+    if (updateQuote.error) {
+      toastStore.show('Error updating quote', 'error');
+      quoteLoading = false;
+      return;
+    }
+    //send chat message of type 'quote'
+    const chatInsert = await supabase_lt.from('Chat').insert([
+      {
+        sender_id: session?.data?.user?.id ?? '',
+        recipient_id: updatedOrder.user_id ?? '',
+  			message: JSON.stringify({ action: 'quoted', reason: quoteBreakdown, quote: quote }),
+        relationship_id: updatedOrder.id,
+        message_type: 'quote',
+        status: 'sent'
+      }
+    ]);
+    if (chatInsert.error) {
+      toastStore.show('Error sending quote', 'error');
+      quoteLoading = false;
+      return;
+    }
+    toastStore.show('Quote sent', 'success');
+    quoteLoading = false;
+    quoteDialogOpen = false;
+  }
+
+	async function downloadModel(path: string) {
+		let modelName: any = path.split('/').pop()?.split('.');
+		let modelName2 = modelName?.[modelName.length - 2]?.split('_');
+		modelName = `${modelName2?.[modelName2.length - 1]}.${modelName?.[modelName.length - 1]}`;
+		if (!path) return;
+		const { data: userRes, error: userErr } = await supabase_lt.auth.getSession();
+		if (userErr || !userRes?.session?.access_token) {
+			toastStore.show('You must be logged in to request a quote', 'error');
+			return;
+		}
+		const jwt = userRes.session.access_token;
+		if (!jwt) {
+			alert('Session expired or not found. Please log in again.');
+			downloading = false;
+			return;
+		}
+		downloading = true;
+		downloadProgress = 0;
+		try {
+			const res = await fetch(
+				'https://pfeewicqoxkuwnbuxnoz.supabase.co/functions/v1/download-model-request',
+				{
+					method: 'POST',
+					headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+					body: JSON.stringify({ model_url: path })
+				}
+			);
+			const result = await res.json();
+			if (result?.url) {
+				// Use XMLHttpRequest for progress tracking
+				const xhr = new XMLHttpRequest();
+				xhr.open('GET', result.url, true);
+				xhr.responseType = 'blob';
+				xhr.onprogress = (event) => {
+					if (event.lengthComputable) {
+						downloadProgress = Math.round((event.loaded / event.total) * 100);
+					}
+				};
+				xhr.onload = function () {
+					if (xhr.status === 200) {
+						const url = window.URL.createObjectURL(xhr.response);
+						const a = document.createElement('a');
+						a.href = url;
+						a.download = modelName;
+						document.body.appendChild(a);
+						a.click();
+						setTimeout(() => {
+							window.URL.revokeObjectURL(url);
+							document.body.removeChild(a);
+						}, 100);
+					} else {
+						alert('Failed to download file');
+					}
+					downloading = false;
+					downloadProgress = 0;
+				};
+				xhr.onerror = function () {
+					alert('Error downloading model');
+					downloading = false;
+					downloadProgress = 0;
+				};
+				xhr.send();
+			} else {
+				alert(result?.error || 'Failed to get download link');
+				downloading = false;
+				downloadProgress = 0;
+			}
+		} catch (e) {
+			alert('Error downloading model');
+		} finally {
+			// Only reset if not downloading (handled in xhr events)
+		}
+	}
 
 	async function fetchOrders(newPage = 1) {
 		if (!session?.data?.user?.id) {
@@ -124,6 +263,7 @@
 		'in dispute': 'bg-orange-500 text-white'
 	};
 
+	//it either has to be a url or a file path
 	function isUrl(str: string | null): boolean {
 		if (!str) return false;
 		try {
@@ -135,9 +275,10 @@
 	}
 
 	function openOrderDrawer(order: PrintRequest) {
-		console.log('openOrderDrawer', order);
 		drawerOpen = true;
 		selectedOrder = order;
+    //set unread count to 0
+    orderUnreadCounts[order.id] = 0;
 	}
 	function closeOrderDrawer() {
 		drawerOpen = false;
@@ -191,16 +332,16 @@
 
 	function cancelOrder(e: MouseEvent) {
 		e.preventDefault();
-		dialogOpen = true;
+		cancelDialogOpen = true;
 	}
 
-	async function onCancel(e: MouseEvent) {
+	async function onCancelCancel(e: MouseEvent) {
 		e.preventDefault();
-		dialogOpen = false;
+		cancelDialogOpen = false;
 		cancelReason = '';
 	}
 
-	async function onConfirm(e: MouseEvent) {
+	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
 		if (!selectedOrder || !session?.data?.user?.id || !cancelReason.trim()) return;
 		const prevSelectedId = selectedOrder.id;
@@ -240,12 +381,12 @@
 				]
 			})
 			.eq('id', selectedOrder.id);
-    if (updatedOrder.error) {
-      console.error('Error updating order', updatedOrder.error);
-      return;
-    }
+		if (updatedOrder.error) {
+			console.error('Error updating order', updatedOrder.error);
+			return;
+		}
 		// 3. Close dialog and clear reason
-		dialogOpen = false;
+		cancelDialogOpen = false;
 		cancelReason = '';
 		// 4. Refresh orders and selected order
 		await fetchOrders(page);
@@ -255,8 +396,7 @@
 
 	function quoteOrder(e: MouseEvent) {
 		e.preventDefault();
-		// TODO: Implement quote logic
-		alert('Quote order (not implemented)');
+		quoteDialogOpen = true;
 	}
 	function markAsShipped(e: MouseEvent) {
 		e.preventDefault();
@@ -274,36 +414,64 @@
 		alert('No payment received (not implemented)');
 	}
 
-	function fadeScale(node: Element, params: any) {
-		return {
-			...fade(node, params),
-			...scale(node, params)
-		};
+	async function fetchOrderUnreadCounts() {
+		if (!session?.data?.user?.id) {
+			orderUnreadCounts = {};
+			return;
+		}
+		// Get all order IDs
+		const orderIds = orders.map(o => o.id);
+		if (orderIds.length === 0) {
+			orderUnreadCounts = {};
+			return;
+		}
+		// Query all unread messages for these orders
+		const { data, error } = await supabase_lt
+			.from('Chat')
+			.select('relationship_id')
+			.in('relationship_id', orderIds)
+			.eq('recipient_id', session.data.user.id)
+			.eq('status', 'sent');
+		// Count per order
+		const counts: Record<string, number> = {};
+		if (Array.isArray(data)) {
+			for (const row of data) {
+				counts[row.relationship_id] = (counts[row.relationship_id] || 0) + 1;
+			}
+		}
+		orderUnreadCounts = counts;
 	}
 
-	// Custom slideY transition for animating height
-	function slideY(node: Element, { duration = 250, baseScale = 0.98 } = {}) {
-		const style = getComputedStyle(node);
-		const height = parseFloat(style.height);
-		return {
-			duration,
-			css: (t: number) => `
-				opacity: ${t};
-				height: ${t * height}px;
-				transform: scaleY(${baseScale + (1 - baseScale) * t});
-			`
-		};
+	function subscribeToChat() {
+		if (!session?.data?.user?.id) return;
+		chatSubscription = supabase_lt
+			.channel('realtime-chat-global')
+			.on(
+				'postgres_changes',
+				{ event: 'INSERT', schema: 'public', table: 'Chat', filter: `recipient_id=eq.${session.data.user.id}` },
+				(payload) => {
+          if(payload.new.message_type === 'action'){
+            //update orders
+            fetchOrders(page);
+          }
+					if (payload.new?.sender_id !== session.data.user.id) {
+						toastStore.show('New chat message received!', 'info');
+						fetchOrderUnreadCounts();
+					}
+				}
+			)
+			.subscribe();
 	}
 
 	$effect(() => {
-		function setInitialCollapsible() {
-			if (typeof window !== 'undefined') {
-				collapsibleOpen = window.innerWidth >= 768;
-			}
-		}
-		setInitialCollapsible();
-		window.addEventListener('resize', setInitialCollapsible);
-		return () => window.removeEventListener('resize', setInitialCollapsible);
+		fetchOrderUnreadCounts();
+	});
+
+	onMount(() => {
+		subscribeToChat();
+		return () => {
+			if (chatSubscription) supabase_lt.removeChannel(chatSubscription);
+		};
 	});
 </script>
 
@@ -342,22 +510,52 @@
 						<tr
 							class="hover:bg-[#1f1f1f]/50 transition-colors cursor-pointer"
 							onclick={() => openOrderDrawer(order)}>
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300 flex items-center gap-2">
 								{#if isUrl(order.model)}
 									<a
 										href={order.model}
 										target="_blank"
 										rel="noopener noreferrer"
 										class="inline-flex items-center gap-1 px-3 py-1 rounded bg-accent/20 text-accent hover:bg-accent/40 transition-colors font-medium text-xs border border-accent/30 shadow"
-										download
-										onclick={(e) => {
-											e.stopPropagation();
-										}}>
+										download>
 										<Icon icon="ph:download-bold" class="text-accent text-base" />
 										{order.id.slice(order.id.length - 10, order.id.length)}
 									</a>
+								{:else if order.model?.endsWith('.stl')}
+									<div class="relative w-fit">
+										<button
+											class="inline-flex items-center gap-1 px-3 py-1 {downloading
+												? 'opacity-60 rounded-t'
+												: 'rounded'} bg-accent/20 text-accent hover:bg-accent/40 transition-colors font-medium text-xs border border-accent/30 shadow"
+											disabled={downloading}
+											onclick={(e) => {
+												e.stopPropagation();
+												//download the file
+												downloadModel(order.model ?? '');
+											}}>
+											<Icon icon="ph:download-bold" class="text-accent text-base" />
+											{!downloading
+												? order.id.slice(order.id.length - 10, order.id.length)
+												: 'Downloading...'}
+										</button>
+										<!-- progress bar -->
+										{#if downloading && downloadProgress > 0}
+											<div class="absolute left-0 rounded-b right-0 bg-accent/20 h-1">
+												<div
+													class="bg-accent h-1 transition-all duration-200"
+													style={`width: ${downloadProgress}%`}>
+												</div>
+											</div>
+										{/if}
+									</div>
 								{:else}
 									{order.id.slice(order.id.length - 10, order.id.length)}
+								{/if}
+								{#if orderUnreadCounts[order.id] > 0}
+									<span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white animate-pulse">
+										<Icon icon="ph:chat-circle-dots" class="text-white text-xs mr-0.5" />
+										{orderUnreadCounts[order.id]}
+									</span>
 								{/if}
 							</td>
 							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300"
@@ -393,11 +591,11 @@
 </div>
 
 {#if drawerOpen && selectedOrder}
-	<DrawerRoot bind:open={drawerOpen}>
-		<DrawerTrigger style="display:none" />
-		<DrawerContent
-			class="max-w-2xl mx-auto h-[100vh] sm:h-[80vh] transition-all duration-200 {dialogOpen
-				? 'pointer-events-none opacity-60'
+	<Drawer.Root bind:open={drawerOpen}>
+		<Drawer.Trigger style="display:none" />
+		<Drawer.Content
+			class="max-w-3xl mx-auto h-[100vh] sm:h-[80vh] transition-all duration-200 {cancelDialogOpen || quoteDialogOpen
+				? 'pointer-events-none opacity-40 blur-[2px]'
 				: ''}">
 			<div class="w-full flex">
 				<span class="px-4 pt-2"
@@ -438,8 +636,10 @@
 							</div>
 							<div class="ml-auto">
 								<Icon
-									icon={collapsibleOpen ? 'ph:caret-up-bold' : 'ph:caret-down-bold'}
-									class="text-gray-400 text-xl transition-transform duration-200" />
+									icon="ph:caret-down-bold"
+									class="text-accent text-xl transition-transform duration-200 animate-pulse {collapsibleOpen
+										? 'rotate-180'
+										: ''}" />
 							</div>
 						</div>
 					</CollapsibleTrigger>
@@ -450,7 +650,8 @@
 								class="flex flex-col gap-y-4 mt-4"
 								tabindex="0"
 								onblur={() => (collapsibleOpen = false)}
-								transition:slideY={{ duration: 100, baseScale: 0.98 }}>
+								in:slide={{ axis: 'y', duration: 100 }}
+								out:slide={{ axis: 'y', duration: 100 }}>
 								{#if selectedOrder}
 									{@const { msg, turn } = getStageExplanation(
 										selectedOrder.request_stage,
@@ -479,10 +680,51 @@
 													? selectedOrder.user_id.slice(0, 8) + '...'
 													: 'N/A'}</span>
 									</div>
-									{#if isUrl(selectedOrder.model)}
-										<div class="flex flex-col gap-1 w-fit">
-											<span class="text-xs text-gray-400">Actions</span>
-											<div class="flex flex-row gap-2 items-center">
+									<!-- model data-->
+									<div class="flex flex-col gap-1">
+										<span class="text-xs text-gray-400">Model Data</span>
+										<div class="flex flex-wrap gap-x-2 gap-y-2">
+											<div class="flex flex-col bg-accent/5 border border-accent/10 rounded-md p-2">
+												<span class="text-xs text-gray-400">Color</span>
+												<span class="flex gap-x-2 mt-1">
+													<!-- show color in a small cube-->
+													<span
+														class="w-4 h-4 rounded"
+														style="background-color:{selectedOrder.model_data?.color ?? '#fff'}"
+														></span>
+													<span
+														class="text-sm font-mono"
+														style="color:{selectedOrder.model_data?.color ?? '#fff'}"
+														>{selectedOrder.model_data?.color ?? 'N/A'}</span
+													>
+                        </span>
+											</div>
+											<div class="flex flex-col bg-accent/5 border border-accent/10 rounded-md p-2">
+												<span class="text-xs text-gray-400">Scale</span>
+												<span>{selectedOrder.model_data?.scale ?? '1'}x</span>
+											</div>
+											<div class="flex flex-col bg-accent/5 border border-accent/10 rounded-md p-2">
+												<span class="text-xs text-gray-400">Material</span>
+												<span>{selectedOrder.model_data?.material ?? 'N/A'}</span>
+											</div>
+											<div class="flex flex-col bg-accent/5 border border-accent/10 rounded-md p-2">
+												<span class="text-xs text-gray-400">Quality</span>
+												<span>{selectedOrder.model_data?.quality ?? 'N/A'}</span>
+											</div>
+											<div class="flex flex-col bg-accent/5 border border-accent/10 rounded-md p-2">
+												<span class="text-xs text-gray-400">Infill</span>
+												<span>{selectedOrder.model_data?.infill ?? 'N/A'}</span>
+											</div>
+											<div class="flex flex-col bg-accent/5 border border-accent/10 rounded-md p-2">
+												<span class="text-xs text-gray-400">Walls</span>
+												<span>{selectedOrder.model_data?.walls ?? 'N/A'}</span>
+											</div>
+										</div>
+									</div>
+									<div class="flex flex-col gap-1 w-fit">
+										<span class="text-xs text-gray-400">Actions</span>
+										<div class="flex flex-row gap-2 items-center">
+											{#if isUrl(selectedOrder.model)}
 												<a
 													href={selectedOrder.model}
 													target="_blank"
@@ -492,48 +734,69 @@
 													<Icon icon="ph:download-bold" class="text-accent text-base" />
 													STL
 												</a>
-												{#if (() => {
-													const { turn } = getStageExplanation(selectedOrder.request_stage, selectedOrder.username ?? 'A User');
-													return turn === 'maker';
-												})()}
-													{#if selectedOrder.request_stage === 'requested'}
-														<button
-															class="px-3 py-1 rounded bg-red-600/20 text-red-500 hover:bg-red-600/40 border border-red-600/30 text-xs font-medium transition-colors"
-															onclick={cancelOrder}>Cancel</button>
-														<button
-															class="px-3 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 border border-blue-500/30 text-xs font-medium transition-colors"
-															onclick={quoteOrder}>Quote</button>
-													{:else if selectedOrder.request_stage === 'paid'}
-														<button
-															class="px-3 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/40 border border-green-500/30 text-xs font-medium transition-colors"
-															onclick={markAsShipped}>Mark as Shipped</button>
-														<button
-															class="px-3 py-1 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/40 border border-yellow-500/30 text-xs font-medium transition-colors"
-															onclick={markAsDelivered}>Mark as Delivered</button>
-													{:else if selectedOrder.request_stage === 'paid_externally'}
-														<button
-															class="px-3 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 border border-red-500/30 text-xs font-medium transition-colors"
-															onclick={noPaymentReceived}>No Payment Rcvd</button>
-														<button
-															class="px-3 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/40 border border-green-500/30 text-xs font-medium transition-colors"
-															onclick={markAsShipped}>Mark as Shipped</button>
-														<button
-															class="px-3 py-1 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/40 border border-yellow-500/30 text-xs font-medium transition-colors"
-															onclick={markAsDelivered}>Mark as Delivered</button>
+											{:else if selectedOrder?.model?.endsWith('.stl')}
+												<div class="relative">
+													<button
+														class="inline-flex items-center gap-1 px-3 py-1 rounded bg-accent/20 text-accent hover:bg-accent/40 transition-colors font-medium text-xs border border-accent/30 shadow"
+														disabled={downloading}
+														onclick={(e) => {
+															e.stopPropagation();
+															//download the file
+															downloadModel(selectedOrder?.model ?? '');
+														}}>
+														<Icon icon="ph:download-bold" class="text-accent text-base" />
+														{!downloading ? 'STL' : 'Downloading...'}
+													</button>
+													{#if downloading && downloadProgress > 0}
+														<div class="absolute left-0 rounded-b right-0 bg-accent/20 h-1">
+															<div
+																class="bg-accent h-1 transition-all duration-200"
+																style={`width: ${downloadProgress}%`}>
+															</div>
+														</div>
 													{/if}
+												</div>
+											{/if}
+												{#if selectedOrder.request_stage === 'requested'}
+													<button
+														class="px-3 py-1 rounded bg-red-600/20 text-red-500 hover:bg-red-600/40 border border-red-600/30 text-xs font-medium transition-colors"
+														onclick={cancelOrder}>Cancel</button>
+													<button
+														class="px-3 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 border border-blue-500/30 text-xs font-medium transition-colors"
+														onclick={quoteOrder}>Quote</button>
+												{:else if selectedOrder.request_stage === 'quoted'}
+													<button
+														class="px-3 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 border border-blue-500/30 text-xs font-medium transition-colors"
+														onclick={quoteOrder}>Re-Quote</button>
+												{:else if selectedOrder.request_stage === 'paid'}
+													<button
+														class="px-3 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/40 border border-green-500/30 text-xs font-medium transition-colors"
+														onclick={markAsShipped}>Mark as Shipped</button>
+													<button
+														class="px-3 py-1 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/40 border border-yellow-500/30 text-xs font-medium transition-colors"
+														onclick={markAsDelivered}>Mark as Delivered</button>
+												{:else if selectedOrder.request_stage === 'paid_externally'}
+													<button
+														class="px-3 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 border border-red-500/30 text-xs font-medium transition-colors"
+														onclick={noPaymentReceived}>No Payment Rcvd</button>
+													<button
+														class="px-3 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/40 border border-green-500/30 text-xs font-medium transition-colors"
+														onclick={markAsShipped}>Mark as Shipped</button>
+													<button
+														class="px-3 py-1 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/40 border border-yellow-500/30 text-xs font-medium transition-colors"
+														onclick={markAsDelivered}>Mark as Delivered</button>
 												{/if}
-												<a
-													href="https://discord.gg/k6CC6GTR4g"
-													target="_blank"
-													rel="noopener noreferrer"
-													class="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 border border-red-500/30 text-xs font-medium transition-colors"
-													title="Get help on Discord">
-													<Icon icon="ph:discord-logo-duotone" class="text-red-400 text-base" />
-													Help
-												</a>
-											</div>
+											<a
+												href="https://discord.gg/k6CC6GTR4g"
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 border border-red-500/30 text-xs font-medium transition-colors"
+												title="Get help on Discord">
+												<Icon icon="ph:discord-logo-duotone" class="text-red-400 text-base" />
+												Help
+											</a>
 										</div>
-									{/if}
+									</div>
 								{/if}
 							</div>
 						{/if}
@@ -547,11 +810,47 @@
 				receiverId={selectedOrder.user_id ?? ''}
 				disabled={selectedOrder.request_stage === 'cancelled' ||
 					selectedOrder.request_stage === 'completed'} />
-		</DrawerContent>
-	</DrawerRoot>
+		</Drawer.Content>
+	</Drawer.Root>
 {/if}
 
-<Dialog.Root bind:open={dialogOpen}>
+<Dialog.Root bind:open={quoteDialogOpen}>
+	<Dialog.Content class="z-[1050]">
+		<Dialog.Header>
+			<Dialog.Title>Quote Order</Dialog.Title>
+			<Dialog.Description>
+				Please provide a quote for the order.
+			</Dialog.Description>
+		</Dialog.Header>
+		<Textarea disabled={quoteLoading} bind:value={quoteBreakdown} class="w-full mt-4" placeholder="Enter quote breakdown (optional)" />
+    <!-- quote inr floating input-->
+    <div class="flex flex-col gap-2">
+      <span class="text-xs text-gray-400">Quote - Final Price (₹)</span>
+      <div class="flex flex-row gap-2 items-center">
+        <span class="text-sm text-gray-400">₹</span>
+        <input disabled={quoteLoading} type="number" bind:value={quote} class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50" placeholder="Enter price like : 249.99" />
+      </div>
+    </div>
+		<Dialog.Footer class="flex justify-end gap-3 mt-6">
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+				onclick={onCancelCancel}>Cancel</button>
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-accent-dark/30 hover:bg-accent-dark/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+				onclick={onSendQuote}
+				disabled={!quote || quoteLoading}>
+				<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
+				Send Quote
+			{#if quoteLoading}
+				<Icon icon="line-md:loading-twotone-loop" class="text-base animate-spin" />
+			{/if}
+			</button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+
+<Dialog.Root bind:open={cancelDialogOpen}>
 	<Dialog.Content class="z-[1050]">
 		<Dialog.Header>
 			<Dialog.Title>Cancel Order</Dialog.Title>
@@ -563,10 +862,10 @@
 		<Dialog.Footer>
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors mr-2"
-				onclick={onCancel}>Cancel</button>
+				onclick={onCancelCancel}>Cancel</button>
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
-				onclick={onConfirm}
+				onclick={onConfirmCancel}
 				disabled={!cancelReason.trim()}>Confirm</button>
 		</Dialog.Footer>
 	</Dialog.Content>

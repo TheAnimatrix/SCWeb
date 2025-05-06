@@ -3,6 +3,7 @@
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import { onMount, onDestroy } from 'svelte';
 	import { Filter } from 'bad-words';
+	import { toastStore } from '$lib/client/toastStore';
 
 	let {
 		orderId,
@@ -110,16 +111,20 @@
 
 	// Subscribe to realtime updates
 	function subscribeToMessages() {
-		console.log('subscribing to messages');
 		subscription = supabase_lt
 			.channel('realtime-chat-channel')
 			.on(
 				'postgres_changes',
 				{ event: '*', schema: 'public', table: 'Chat', filter: `relationship_id=eq.${orderId}` }, //might need to change to filter: `relationship_id=eq.${orderId}`
 				(payload) => {
-					console.log('payload', payload);
 					if (payload.eventType === 'INSERT') {
 						messages = [...messages, payload.new];
+					}
+					if (payload.eventType === 'UPDATE') {
+						messages = messages.map((msg) => {
+							if (msg.chat_id === payload.new.chat_id) return payload.new;
+							return msg;
+						});
 					}
 				}
 			)
@@ -129,6 +134,17 @@
 	onMount(() => {
 		fetchMessages(true);
 		subscribeToMessages();
+		// Mark all messages as read for this order
+		if (session?.data?.user?.id) {
+			supabase_lt
+				.from('Chat')
+				.update({ status: 'read' })
+				.eq('relationship_id', orderId)
+				.eq('recipient_id', session.data.user.id)
+				.eq('status', 'sent')
+				.then((res) => {
+				});
+		}
 		return () => {
 			if (subscription) supabase_lt.removeChannel(subscription);
 		};
@@ -136,8 +152,6 @@
 
 	async function sendMessage(e: Event) {
 		e.preventDefault();
-		console.log('sending message', newMessage);
-		console.log('session', session);
 		if (!newMessage.trim() || !session?.data?.user?.id) return;
 		const { error: sendError } = await supabase_lt.from('Chat').insert([
 			{
@@ -152,7 +166,27 @@
 		if (!sendError) {
 			newMessage = '';
 		}
+		if (sendError) {
+			toastStore.show(`Unable to send message: ${sendError.message}`, 'error');
+		}
 	}
+
+	$effect(() => {
+		if (session?.data?.user?.id && messages.length > 0) {
+			// Find messages sent to the current user that are still 'sent'
+			const unread = messages.filter(
+				(msg) => msg.recipient_id === session.data.user.id && msg.status === 'sent'
+			);
+			if (unread.length > 0) {
+				supabase_lt
+					.from('Chat')
+					.update({ status: 'read' })
+					.eq('relationship_id', orderId)
+					.eq('recipient_id', session.data.user.id)
+					.eq('status', 'sent');
+			}
+		}
+	});
 </script>
 
 <div class="relative h-full flex flex-col">
@@ -164,77 +198,108 @@
 	{/if}
 	<div class="flex flex-col gap-1 pl-4 pb-2">
 		<span class="text-xs text-gray-400">Message Board</span>
-		<div class="text-xs text-gray-400 mb-2 flex items-center gap-1">
-			<Icon icon="ph:info-duotone" class="text-yellow-500" />
-			<span
-				>File sharing is not available due to hosting costs. We apologize for any inconvenience.</span>
-		</div>
 	</div>
-	<div
-		class="flex flex-1 flex-col bg-gray-900/50 rounded-lg p-4 h-full overflow-y-auto"
-		bind:this={scrollContainer}
-		onscroll={handleScroll}>
-		{#if loading}
-			<div class="text-gray-400 text-center py-4">Loading messages...</div>
-		{:else if error}
-			<div class="text-red-400 text-center py-4">{error}</div>
-		{:else if messages.length === 0}
-			<div class="text-gray-400 text-center py-4">No messages yet.</div>
-		{:else}
-			<div class="flex-1 space-y-4">
-				{#each messages as msg, i}
-					{#if i === 0 || getDateLabel(msg.created_at) !== getDateLabel(messages[i - 1].created_at)}
-						<div class="flex justify-center my-2">
-							<span class="bg-gray-700 text-xs text-gray-200 px-3 py-1 rounded-full">
-								{getDateLabel(msg.created_at)}
-							</span>
-						</div>
-					{/if}
-					<div
-						class="flex flex-col {msg.sender_id === session?.data?.user?.id
-							? 'items-end'
-							: 'items-start'}">
-						{#if msg.message_type === 'action'}
-							{@const actionObj = JSON.parse(msg.message)}
-							<div
-								class="px-3 py-2 rounded-lg max-w-xs break-words bg-red-500/20 border border-red-400  text-red-200 {msg.sender_id === session?.data?.user?.id ? 'self-end' : 'self-start'} flex flex-col items-center ">
-								<div class="font-semibold text-sm flex items-center gap-1">
-									<Icon icon="ph:warning-circle-bold" class="text-lg" />
-									{actionObj?.action
-										? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
-										: 'Action'}
-								</div>
-								{#if actionObj?.reason}
-									<div class="text-xs mt-1 text-red-200 italic">Reason: {actionObj.reason}</div>
-								{/if}
-							</div>
-						{:else}
-							<div
-								class="px-3 py-2 rounded-lg max-w-xs break-words {msg.sender_id ===
-								session?.data?.user?.id
-									? 'bg-sky-400/65 text-white self-end'
-									: 'bg-gray-800 text-gray-100 self-start'}">
-								{@html filter.clean(msg.message)}
+	<div class="flex flex-1 relative">
+		<div
+			class="absolute inset-0 flex-1 flex flex-col bg-accent/7 rounded-lg p-4 overflow-y-auto"
+			bind:this={scrollContainer}
+			onscroll={handleScroll}>
+			<div class="text-xs text-gray-400 mb-2 flex items-center gap-1">
+				<Icon icon="ph:info-duotone" class="text-yellow-500" />
+				<span
+					>File sharing is not available due to hosting costs. We apologize for any inconvenience.</span>
+			</div>
+			{#if loading}
+				<div class="text-gray-400 text-center py-4">Loading messages...</div>
+			{:else if error}
+				<div class="text-red-400 text-center py-4">{error}</div>
+			{:else if messages.length === 0}
+				<div class="text-gray-400 text-center py-4">No messages yet.</div>
+			{:else}
+				<div class="flex-1 space-y-4">
+					{#each messages as msg, i}
+						{#if i === 0 || getDateLabel(msg.created_at) !== getDateLabel(messages[i - 1].created_at)}
+							<div class="flex justify-center my-2">
+								<span class="bg-accent-dark/20 text-xs text-gray-200 px-3 py-1 rounded-full">
+									{getDateLabel(msg.created_at)}
+								</span>
 							</div>
 						{/if}
 						<div
-							class="text-xs text-gray-500 mt-1 {msg.sender_id === session?.data?.user?.id
-								? 'text-right'
-								: ''}">
-							{new Date(msg.created_at).toLocaleTimeString([], {
-								hour: '2-digit',
-								minute: '2-digit'
-							})}
+							class="flex flex-col {msg.sender_id === session?.data?.user?.id
+								? 'items-end'
+								: 'items-start'}">
+							{#if msg.message_type === 'action'}
+								{@const actionObj = JSON.parse(msg.message)}
+								<div
+									class="px-3 py-2 rounded-lg max-w-xs break-words bg-red-500/20 border border-red-400 text-red-200 {msg.sender_id ===
+									session?.data?.user?.id
+										? 'self-end'
+										: 'self-start'} flex flex-col items-center">
+									<div class="font-semibold text-sm flex items-center gap-1">
+										<Icon icon="ph:warning-circle-bold" class="text-lg" />
+										{actionObj?.action
+											? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
+											: 'Action'}
+									</div>
+									{#if actionObj?.reason}
+										<div class="text-xs mt-1 text-red-200 italic">Reason: {actionObj.reason}</div>
+									{/if}
+								</div>
+							{:else if msg.message_type === 'quote'}
+								{@const actionObj = JSON.parse(msg.message)}
+								<div
+									class="px-3 py-2 rounded-lg max-w-xs break-words bg-blue-500/20 border border-blue-400 text-blue-200 {msg.sender_id ===
+									session?.data?.user?.id
+										? 'self-end'
+										: 'self-start'} flex flex-col items-start">
+									<div class="font-semibold text-sm flex items-center gap-1">
+										<Icon icon="ph:warning-circle-bold" class="text-lg" />
+										{msg.sender_id === session?.data?.user?.id ? 'Quote Sent' : 'Quote Received'}
+									</div>
+									<div class="text-sm text-blue-200">{actionObj.reason}</div>
+									<div class="text-2xl font-semibold mt-1 text-blue-200">{actionObj.quote}₹</div>
+									<!-- show a button to accept the quote-->
+									<button
+										class="bg-blue-500/20 text-blue-200 px-3 py-2 rounded-lg text-sm mt-2 w-full hover:bg-blue-500/50 transition-colors duration-200"
+										>Pay Now</button>
+								</div>
+							{:else}
+								<div
+									class="px-3 py-2 rounded-lg max-w-xs break-words {msg.sender_id ===
+									session?.data?.user?.id
+										? 'bg-sky-400/65 text-white self-end'
+										: 'bg-gray-800 text-gray-100 self-start'}">
+									{@html filter.clean(msg.message)}
+								</div>
+							{/if}
+							<div class="flex gap-x-0.5 mt-1">
+								{#if msg.sender_id === session?.data?.user?.id}
+									<div class="text-xs text-right">
+										<span class={msg.status === 'read' ? 'text-green-400' : 'text-gray-400'}>
+											<Icon icon={msg.status === 'read' ? 'mdi:check-all' : 'mdi:check'} class="w-3 h-3" />
+										</span>
+									</div>
+								{/if}
+								<div
+									class="text-xs text-gray-500 {msg.sender_id === session?.data?.user?.id
+										? 'text-right'
+										: ''}">
+									{new Date(msg.created_at).toLocaleTimeString([], {
+										hour: '2-digit',
+										minute: '2-digit'
+									})}
+								</div>
+							</div>
 						</div>
-					</div>
-				{/each}
-			</div>
-		{/if}
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</div>
-	<div class="border-t border-gray-700/50 p-4">
-		<form
-			class="flex items-center gap-2 bg-gray-800/50 rounded-lg px-4 py-2"
-			onsubmit={sendMessage}>
+	<!-- send message form-->
+	<div class="border-t border-gray-700/50 p-4 h-fit">
+		<form class="flex items-center gap-2 bg-accent/7 rounded-lg px-4 py-2" onsubmit={sendMessage}>
 			<input
 				type="text"
 				class="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-400"

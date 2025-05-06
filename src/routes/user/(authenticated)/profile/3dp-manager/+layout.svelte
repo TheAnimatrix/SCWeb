@@ -21,9 +21,10 @@
 
 <div class="w-full">
 	<!-- Navigation resembling tabs -->
-	<div class="flex flex-wrap justify-center gap-3 mb-8">
-		{#each navItems as { href, label, icon }}
-			<a
+	 {#if activeRoute != '[id]'}
+		<div class="flex flex-wrap justify-center gap-3 mb-8">
+			{#each navItems as { href, label, icon }}
+				<a
 				href="/user/profile/3dp-manager/{href}"
 				class="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2 {activeRoute === href
 					? 'bg-accent/10 text-accent'
@@ -34,6 +35,7 @@
 			</a>
 		{/each}
 	</div>
+	{/if}
 
 	<!-- Render the active sub-route's content -->
 	<div class="mt-6">

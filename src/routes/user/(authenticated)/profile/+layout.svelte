@@ -12,6 +12,14 @@
 		return x[x.length - 1];
 	}
 
+	// Determine the active sub-route
+	function getLastSegment(path: string) {
+		const segments = path.split('/');
+		return segments[segments.length - 1];
+	}
+
+	let activeRoute = $derived(getLastSegment(page.route.id ?? ''));
+
 	const navItems = [
 		{ href: '/user/profile/orders', label: 'Orders', icon: 'ph:shopping-bag-bold' },
 		{ href: '/user/profile/addresses', label: 'Address', icon: 'ph:map-pin-bold' },
@@ -23,8 +31,9 @@
 	let { data, children } = $props();
 </script>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white py-12">
+<div class="min-h-screen bg-[#0c0c0c] text-white py-12 {activeRoute === '[id]' ? '-mt-16' : 'pt-12'}">
 	<div class="mx-auto px-4">
+		{#if activeRoute != '[id]'}
 		<!-- Header -->
 		<div class="text-center mb-12">
 			<div class="inline-flex items-center justify-center mb-4">
@@ -51,6 +60,7 @@
 				</a>
 			{/each}
 		</div>
+		{/if}
 
 		<!-- Content -->
 		{#key data.url}

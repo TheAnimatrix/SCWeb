@@ -50,7 +50,7 @@
 	];
 
 	// Slider position to strength level mapping
-	let sliderPosition = 4; // Default to 'Strong' (40%)
+	let sliderPosition = $state(4); // Default to 'Strong' (40%)
 
 	// Map slider position to actual infill percentage
 	function updateInfillFromSlider() {
@@ -385,13 +385,11 @@
 		// Get today's printrequests count
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		console.log(`Today: ${today.toISOString()}`);
 		const { count, error: countErr } = await data.supabase_lt
 			.from('printrequests')
 			.select('id', { count: 'exact', head: true })
 			.eq('user_id', user_id)
 			.gte('created_at', today.toISOString());
-		console.log(`Count: ${count} ${quoteDailyLimit} ${requestsLeft}`);
 		requestsLeft = (quoteDailyLimit ?? 0) - (count ?? 0);
 		loadingRequests = false;
 	}

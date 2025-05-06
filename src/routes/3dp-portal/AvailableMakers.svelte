@@ -156,7 +156,6 @@
 			const { data: user } = await supabase_lt.auth.getUser();
 			const response = await supabase_lt.rpc('get_creator_full_profile');
 
-			console.log(response);
 			if (response.error) {
 				error = 'Failed to load makers.';
 				loading = false;
@@ -180,7 +179,6 @@
 						maker.filaments = filamentObj;
 					}
 				});
-				console.log(makers[0].filaments);
 			}
 
 			loading = false;
@@ -308,27 +306,27 @@
 								{#each Object.keys(maker.filaments) as mat}
 									<div class="flex gap-1">
 										<span
-											class="bg-accent/10 text-accent text-sm font-semibold px-2 py-0.5 rounded w-fit"
+											class="bg-accent/10 text-accent text-sm font-semibold px-2 py-0.5 rounded-lg w-fit"
 											>{mat}</span>
 										<div class="flex flex-wrap gap-2 ml-2">
 											{#each maker.filaments[mat] as filament}
 												<!-- show color as a circle -->
 												<button
-													class="w-6 h-6 rounded-full border-2 transition-transform duration-200 hover:scale-110 hover:shadow-lg hover:shadow-accent/20 relative {color ===
+													class="w-6 h-6 rounded-lg border-2 transition-transform duration-200 hover:scale-110 hover:shadow-lg hover:shadow-accent/20 relative {color ===
 														filament.color && material === mat
 														? 'border-accent scale-110 shadow-lg shadow-accent/20'
-														: 'border-white/50 hover:border-white'}"
+														: 'hover:border-white'}"
 													onclick={() => {
 														color = filament.color;
 														material = mat;
 													}}
 													aria-label={filament.color}>
 													<div
-														class="w-full h-full rounded-full"
+														class="w-full h-full rounded-lg"
 														style="background-color: {filament.color};">
 													</div>
 													{#if color === filament.color}
-														<div class="absolute inset-0 rounded-full bg-accent/20 animate-pulse">
+														<div class="absolute inset-0 rounded-lg bg-accent/20 animate-pulse">
 														</div>
 													{/if}
 												</button>

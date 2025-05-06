@@ -18,7 +18,7 @@ export const GET = async ({ url, locals: { supabase, supabaseServer } }) => {
   // Fetch printrequests with user info (username)
   const { data, error } = await supabaseServer
     .from('printrequests')
-    .select('id, created_at, model, request_stage, quote, user_id, users: user_id (username)')
+    .select('id, created_at, model, request_stage, quote, model_metadata, model_data, user_id, users: user_id (username)')
     .eq('creator_id', userId)
     .order('created_at', { ascending: false })
     .range(from, to);
