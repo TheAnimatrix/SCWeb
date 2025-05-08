@@ -1,0 +1,36 @@
+DONE:
+-----------------
+- /cart : check for stock before proceeding to checkout
+- /checkout : stock check in /createOrder route as well - more robust
+- /summary/success-failure : copy doesn't work (it doesn't work on http so not an issue)
+- 3dp manager user portal : cannot download model if request is cancelled
+- 3dp manager maker portal : fix issue which shows "downloading" for all orders
+- 3dp manager maker portal - filament management : added disclaimer to filament management (4th point in the list)
+- 3dp manager maker portal : disallow download for cancelled orders
+- Moved the 3dp manager user portal & maker portal to /3dp-portal
+
+
+TODO:
+-----------------
+- event history for makers
+- disallow download for cancelled orders
+- can add to cart even if no actual stock (minor issue) [race condition]
+- show user portal and maker portal tabs but show toast to sign in
+
+---------------------------------------------------------------------------
+- payment processing for 3d print request
+- on quote, make a section available for user to select address and click pay now
+- upon clicking pay :
+    - requisites : [amount, request id, delivery address]
+    - create a new razorpay order (instance.orders.create)
+    - Reads the "PrintRequest" table to validate the request stage / amount and updates it with order id + delivery address
+    - return orderid and amount to client
+- on client side :
+    - upon receiving orderid and amount :
+        - Launch razorpay payment dialog
+        - upon successful payment :
+            - update the PrintRequest table with the order_id (same as previous step), payment_id, payment_signature
+            - add purchase record to purchases table (status, method, id, signature, billing_address, shipping_address, client_id, print_request_id, amount)
+            - redirect to user portal and show a success section on top of the page
+        - upon failure :
+            - redirect to user portal and show a failure section on top of the page ('/summary/failure/{print_request_id}/{response.error.metadata.order_id}')

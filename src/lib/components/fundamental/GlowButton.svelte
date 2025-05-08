@@ -1,34 +1,44 @@
 <!-- @migration-task Error while migrating Svelte code: $$props is used together with named props in a way that cannot be automatically migrated. -->
 <script lang="ts">
-    import { createEventDispatcher } from 'svelte'
     import { spring } from 'svelte/motion'
     import { cubicOut } from 'svelte/easing'
-    
-    let checkoutHover = false;
-    let hoverable = true;
-    let isPressed = false;
-    
-    // More responsive spring animation
+
+    interface Props {
+        buttonBgColor?: string;
+        borderColor?: string;
+        hoverCheckout?: string;
+        glowCheckout?: string;
+        pulseEffect?: boolean;
+        rippleColor?: string;
+        hoverScale?: number;
+        pressScale?: number;
+        disabled?: boolean;
+        class?: string;
+    }
+    let {
+        buttonBgColor = 'bg-scblued3',
+        borderColor = 'border-scblue',
+        hoverCheckout = '[box-shadow:0px_12px_40px_8px_hsla(196.33,_100%,_73.14%,_0.75)]',
+        glowCheckout = '[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.4)]',
+        pulseEffect = true,
+        rippleColor = 'rgba(255,255,255,0.3)',
+        hoverScale = 1.02,
+        pressScale = 0.97,
+        disabled = false,
+        class: className = '',
+        ...rest
+    }: Props & Record<string, any> = $props();
+
+    // State
+    let checkoutHover = $state(false);
+    let hoverable = $derived(!disabled);
+    let isPressed = $state(false);
     let scale = spring(1, {
         stiffness: 0.3,
         damping: 0.5,
         precision: 0.001
     });
-
-    // Enhanced ripple effect
-    let ripples: {x: number, y: number, size: number}[] = [];
-    
-    export let buttonBgColor = "bg-scblued3";
-    export let borderColor = "border-scblue"; 
-    export let hoverCheckout = `[box-shadow:0px_12px_40px_8px_hsla(196.33,_100%,_73.14%,_0.75)]`;
-    export let glowCheckout = `[box-shadow:0px_9px_34px_6px_hsla(196.33,_100%,_73.14%,_0.4)]`;
-    export let pulseEffect = true;
-    export let rippleColor = "rgba(255,255,255,0.3)";
-    export let hoverScale = 1.02;
-    export let pressScale = 0.97;
-    
-    $: hoverable = !$$props.disabled;
-    const dispatch = createEventDispatcher();
+    let ripples = $state<{x: number, y: number, size: number}[]>([]);
 
     function createRipple(e: MouseEvent) {
         const button = e.currentTarget as HTMLButtonElement;
@@ -36,41 +46,47 @@
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         const size = Math.max(rect.width, rect.height) * 2;
-        
         ripples = [...ripples, {x, y, size}];
         setTimeout(() => {
             ripples = ripples.slice(1);
         }, 1000);
     }
-</script>
 
-<button
-    {...$$props}
-    onclick={(e) => {
-        dispatch('click');
+    function handleClick(e: MouseEvent) {
         createRipple(e);
         scale.set(pressScale);
         isPressed = true;
         setTimeout(() => {
-            scale.set(hoverable && checkoutHover ? hoverScale : 1);
+            scale.set(hoverable ? hoverScale : 1);
             isPressed = false;
         }, 150);
-    }}
-    onfocus={() => {}}
-    onmouseover={() => {
+        // Call parent onclick if provided
+        rest.onclick?.(e);
+    }
+    function handleMouseOver() {
         if (hoverable && !isPressed) {
             checkoutHover = true;
             scale.set(hoverScale);
         }
-    }}
-    onmouseleave={() => {
+    }
+    function handleMouseLeave() {
         checkoutHover = false;
         if (!isPressed) scale.set(1);
-    }}
-    style="transform: scale({$scale})"
-    class="relative font-bold text-xl overflow-hidden {buttonBgColor} rounded-lg shadow-none hover:shadow-lg transition-all duration-300 disabled:opacity-30 {pulseEffect ? 'animate-pulse' : ''} {$$props.class}"
+    }
+</script>
+
+<button
+    disabled={disabled}
+    onclick={handleClick}
+    onfocus={() => {}}
+    onmouseover={handleMouseOver}
+    onmouseleave={handleMouseLeave}
+    style={`transform: scale(${scale})`}
+    class={`relative font-bold text-xl overflow-hidden ${buttonBgColor} rounded-lg shadow-none hover:shadow-lg transition-all duration-300 disabled:opacity-30 ${pulseEffect ? 'animate-pulse' : ''} ${className}`}
+    {...rest}
 >
     {#each ripples as ripple}
+        <!-- svelte-ignore element_invalid_self_closing_tag -->
         <span
             class="absolute rounded-full pointer-events-none"
             style="
@@ -84,10 +100,9 @@
             "
         />
     {/each}
-    
     <hr
         id="checkoutGlow"
-        class="animate_base mx-4 {borderColor} {checkoutHover ? hoverCheckout : glowCheckout} transition-all duration-300"
+        class={`animate_base mx-4 ${borderColor} ${checkoutHover ? hoverCheckout : glowCheckout} transition-all duration-300`}
     />
     <slot/>
 </button>

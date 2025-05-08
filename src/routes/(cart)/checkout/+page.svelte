@@ -17,24 +17,28 @@
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '@iconify/svelte';
-	
+	import { toastStore } from '$lib/client/toastStore.js';
+
 	let { data } = $props();
 	// Removed $state declarations for derived values
 	// let cartData: Cart = $state();
 	// let subtotal = $state(0);
 
 	let validAddress: Address | undefined = $state();
-	
+
 	// Cache for product details to avoid repeated lookups
 	let productDetailsCache: Record<string, any> = {};
-	
+
 	async function getProductDetails(productId: string) {
 		// Use cached data if available
 		if (productDetailsCache[productId]) {
 			return productDetailsCache[productId];
 		}
-		
-		const result = await data.supabase_lt.from('products').select('name,images,price,author').eq('id', productId);
+
+		const result = await data.supabase_lt
+			.from('products')
+			.select('name,images,price,author')
+			.eq('id', productId);
 		if (result.data && result.data[0]) {
 			// Cache the result
 			productDetailsCache[productId] = result.data[0];
@@ -43,7 +47,7 @@
 			return null;
 		}
 	}
-	
+
 	// Updated function to accept cart argument
 	function calcSubTotal(cart: Cart | undefined) {
 		let total = 0;
@@ -52,16 +56,15 @@
 		});
 		return total;
 	}
-	
+
 	// Updated function to accept cart argument
 	function debugPaymentCalculation(cart: Cart | undefined) {
-		
 		let calculatedTotal = 0;
 		cart?.list?.forEach((item, index) => {
 			const itemTotal = item.price * item.qty;
 			calculatedTotal += itemTotal;
 		});
-		
+
 		return calculatedTotal;
 	}
 
@@ -79,22 +82,25 @@
 			}
 		}
 	});
-	
+
 	let addressValid: boolean = $state(false);
 	if (data.userExists && data.addresses && data.addresses.length > 0) {
 		const firstAddress = data.addresses[0];
-		if (validateAddress(firstAddress)) {
+		if (validateAddress(firstAddress) == null) {
 			addressValid = true;
 			validAddress = firstAddress;
+		} else {
+			addressValid = false;
+			validAddress = newAddress();
 		}
-	}else {
+	} else {
 		addressValid = false;
 		validAddress = newAddress();
 	}
 
 	let cart_store = getContext<Writable<CartG>>('userCartStatus');
 	let load_store = getContext<Writable<boolean>>('loading');
-	
+
 	async function payNow() {
 		// Add check to ensure cartData is defined
 		if (!cartData) {
@@ -119,9 +125,13 @@
 		const result = await fetch('/checkout/createOrder', { method: 'POST', body: formData });
 		try {
 			const dataResult = await result.json();
-			if (!result.ok || !dataResult || dataResult.error) { // Check result.ok as well
+			if (!result.ok || !dataResult || dataResult.error) {
+				// Check result.ok as well
 				console.error('Error creating Razorpay order:', dataResult?.error || result.statusText);
-				alert('Failed to create payment order. Please check your details and try again.');
+				toastStore.show(
+					`${dataResult?.message ?? 'Failed to create payment order. Please check your details and try again.'}`,
+					'error'
+				);
 				setLoading(load_store, false); // Stop loading on error
 				return;
 			}
@@ -144,18 +154,21 @@
 					formData2.append('payment_id_a', response.razorpay_order_id);
 					formData2.append('payment_id_b', response.razorpay_payment_id);
 					formData2.append('payment_signature', response.razorpay_signature);
-					const patchResult = await fetch('/checkout/createOrder', { method: 'PATCH', body: formData2 }); // Use a different variable name
+					const patchResult = await fetch('/checkout/createOrder', {
+						method: 'PATCH',
+						body: formData2
+					}); // Use a different variable name
 					if (!patchResult.ok) {
 						console.error('Failed to update order status after payment.');
 						// Potentially redirect to a different summary page or show an error
 						// Still set loading false and navigate, maybe to an error page?
 						setLoading(load_store, false); // Stop loading even if PATCH fails
 						// Decide on navigation for PATCH failure, e.g., goto('/summary/error');
-						return; 
+						return;
 					}
 					cart_store.set({ valid: false, itemCount: 0 });
 					// Explicitly set loading to false *before* navigating
-					setLoading(load_store, false); 
+					setLoading(load_store, false);
 					goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
 				},
 				modal: {
@@ -183,7 +196,7 @@
 					setLoading(load_store, false);
 					rzp1.close();
 					// Maybe redirect to a generic failure page
-					goto('/summary/failure'); 
+					goto('/summary/failure');
 					return;
 				}
 				setLoading(load_store, false);
@@ -195,10 +208,14 @@
 			// rzp1.on('payment.success', function (response: any) {
 			// 	goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
 			// });
-		} catch (e: unknown) { // Explicitly type caught error as unknown
+		} catch (e: unknown) {
+			// Explicitly type caught error as unknown
 			console.error('Error during payment process:', e);
 			// Provide more specific error feedback if possible
-			alert(`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`);
+			toastStore.show(
+				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
+				'error'
+			);
 			setLoading(load_store, false); // Ensure loading stops on catch
 			return;
 		}
@@ -213,31 +230,36 @@
 <div class="min-h-screen bg-[#0c0c0c] text-white">
 	<div class="container mx-auto px-4 py-12">
 		<!-- Page Header -->
-		<div class="text-center mb-10" in:fly="{{ y: -20, duration: 600, delay: 200, easing: cubicOut }}">
+		<div class="text-center mb-10" in:fly={{ y: -20, duration: 600, delay: 200, easing: cubicOut }}>
 			<div class="inline-flex items-center justify-center mb-4">
 				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">Checkout</span>
 			</div>
-			<h1 class="text-4xl font-bold mb-2">Complete Your Order</h1>
+			<div class="text-4xl font-bold mb-2">Complete Your Order</div>
 			<p class="text-gray-400">Almost there! Add your shipping details to complete your purchase</p>
 		</div>
 
 		<!-- Main Content -->
-		<div class="flex flex-col lg:flex-row gap-8 mb-16" in:fly="{{ y: 20, duration: 400, delay: 300, easing: cubicOut }}">
+		<div
+			class="flex flex-col lg:flex-row gap-8 mb-16"
+			in:fly={{ y: 20, duration: 400, delay: 300, easing: cubicOut }}>
 			<!-- Checkout Form -->
 			<div class="lg:w-2/3 space-y-6 flex-1">
-				<div class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] p-6 transition-all duration-300 hover:shadow-glow">
-					{#if !data.userExists}
+				{#if !data.userExists}
+					<div
+						class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] p-6 transition-all duration-300 hover:shadow-glow">
 						<div id="loginOption" class="flex flex-col mb-6">
 							<div class="flex items-center gap-2 mb-3">
 								<Icon icon="ph:user-circle-bold" class="text-accent text-xl" />
 								<span class="text-white font-medium">Account Benefits</span>
 							</div>
-							<p class="text-gray-400 mb-4">Sign in for faster checkout, detailed order tracking, saved addresses, and exclusive offers!</p>
+							<p class="text-gray-400 mb-4">
+								Sign in for faster checkout, detailed order tracking, saved addresses, and exclusive
+								offers!
+							</p>
 							<button
 								class="w-fit mb-2 px-5 py-2 flex items-center gap-2 bg-accent hover:bg-accent/80 text-black font-medium rounded-lg transition-all duration-200"
-								onclick={() => goto('/user/sign')}
-							>
+								onclick={() => goto('/user/sign')}>
 								<Icon icon="ph:sign-in-bold" />
 								<span>Login or Register</span>
 							</button>
@@ -250,71 +272,66 @@
 								<span class="bg-[#151515] px-4 text-sm text-gray-400">Continue as guest</span>
 							</div>
 						</div>
-					{/if}
-					
+					</div>
+				{:else}
 					<!-- Address Section with Title -->
-					<div class="mb-4">
-						<div class="flex items-center gap-2 mb-4">
-							<Icon icon="ph:map-pin-bold" class="text-accent text-xl" />
-							<h2 class="text-lg font-medium">Shipping Address</h2>
-						</div>
 						<AddressInputSelector
 							email={data.email}
 							userExists={data.userExists}
 							addresses={data.addresses}
 							bind:address={validAddress}
 							bind:addressValid />
-					</div>
-				</div>
-				
-	
+				{/if}
 			</div>
 
 			<!-- Order Summary -->
 			<div class="lg:w-1/3">
-				<div class="relative bg-[#151515]/30 backdrop-blur-md rounded-2xl border border-[#252525] overflow-hidden sticky top-4 transition-all duration-300 hover:shadow-glow"
+				<div
+					class="relative bg-[#151515]/30 backdrop-blur-md rounded-2xl border border-[#252525] overflow-hidden sticky top-4 transition-all duration-300 hover:shadow-glow"
 					in:fade={{ duration: 200, delay: 300 }}>
 					<div class="p-5 border-b border-[#252525]">
-						<h2 class="text-xl font-bold flex items-center">
+						<div class="text-xl font-bold flex items-center">
 							<Icon icon="ph:receipt-bold" class="mr-2 text-accent" />
 							Order Summary
-						</h2>
+						</div>
 					</div>
-					
+
 					<div class="p-5 space-y-4">
 						{#if cartData?.list && cartData.list.length > 0}
 							<div class="max-h-60 overflow-y-auto pr-2 scrollbar mb-4">
 								{#each cartData.list as item}
 									{#await getProductDetails(item.product_id)}
-										<div class="flex items-center justify-between py-2 border-b border-[#252525]/50">
+										<div
+											class="flex items-center justify-between py-2 border-b border-[#252525]/50">
 											<div class="flex items-center gap-3">
-												<div class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
+												<div
+													class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
 													{item.qty}
 												</div>
 												<div class="w-6 h-6 bg-[#252525] rounded-md animate-pulse"></div>
-												<div class="text-sm truncate max-w-[180px] text-gray-400">
-													Loading...
-												</div>
+												<div class="text-sm truncate max-w-[180px] text-gray-400">Loading...</div>
 											</div>
 											<div class="font-medium">₹{item.price * item.qty}</div>
 										</div>
 									{:then product}
-										<div class="flex items-center justify-between py-2 border-b border-[#252525]/50">
+										<div
+											class="flex items-center justify-between py-2 border-b border-[#252525]/50">
 											<div class="flex items-center gap-3 flex-1">
-												<div class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
+												<div
+													class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
 													{item.qty}
 												</div>
 												{#if product && product.images && product.images.length > 0}
 													<div class="w-8 h-8 overflow-hidden rounded-md">
-														<img 
-															src={product.images[0].url} 
+														<img
+															src={product.images[0].url}
 															alt={product.name}
 															class="w-full h-full object-cover"
-															loading="lazy"
-														/>
+															loading="lazy" />
 													</div>
 												{:else}
-													<div class="w-8 h-8 bg-[#252525] rounded-md flex items-center justify-center">
+													<div
+														class="w-8 h-8 bg-[#252525] rounded-md flex items-center justify-center">
 														<Icon icon="ph:cube-bold" class="text-xs text-accent/50" />
 													</div>
 												{/if}
@@ -336,12 +353,12 @@
 								{/each}
 							</div>
 						{/if}
-						
+
 						<div class="flex justify-between items-center">
 							<span class="text-gray-400">Subtotal</span>
 							<span class="font-medium">₹{subtotal.toFixed(2)}</span>
 						</div>
-						
+
 						<div class="flex justify-between items-center pb-4 border-b border-[#252525]">
 							<div>
 								<span class="text-gray-400">Shipping</span>
@@ -349,42 +366,45 @@
 							</div>
 							<span class="font-medium">₹{DELIVERY_FLAT_FEE}</span>
 						</div>
-						
+
 						<div class="flex justify-between items-center pt-1">
 							<span class="text-lg font-bold">Total</span>
 							<span class="text-2xl font-bold text-accent">
 								₹{(subtotal + DELIVERY_FLAT_FEE).toFixed(2)}
 							</span>
 						</div>
-						
+
 						<button
-							class={`w-full mt-5 relative group/button overflow-hidden ${(!addressValid || (cartData?.list ?? []).length <= 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+							class={`w-full mt-5 relative group/button overflow-hidden ${!addressValid || (cartData?.list ?? []).length <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
 							disabled={(cartData?.list ?? []).length <= 0 || !addressValid}
-							onclick={payNow}
-						>
-							<div class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300"></div>
-							
-							<div class="relative flex items-center justify-center gap-2 bg-transparent border border-accent/30 rounded-xl px-5 py-3 font-medium text-accent">
+							onclick={payNow}>
+							<div
+								class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300">
+							</div>
+
+							<div
+								class="relative flex items-center justify-center gap-2 bg-transparent border border-accent/30 rounded-xl px-5 py-3 font-medium text-accent">
 								<Icon icon="ph:credit-card-bold" />
 								<span>Proceed to Payment</span>
-								
-								<div class="absolute right-4 opacity-0 group-hover/button:opacity-100 transform group-hover/button:translate-x-1 transition-all duration-300">
+
+								<div
+									class="absolute right-4 opacity-0 group-hover/button:opacity-100 transform group-hover/button:translate-x-1 transition-all duration-300">
 									<Icon icon="ph:arrow-right-bold" />
 								</div>
 							</div>
 						</button>
-						
+
 						<div class="text-center mt-3">
-							<button 
+							<button
 								class="text-sm text-gray-400 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
-								onclick={() => goto('/cart')}
-							>
+								onclick={() => goto('/cart')}>
 								<Icon icon="ph:arrow-left-bold" />
 								Return to Cart
 							</button>
 						</div>
-						
-						<div class="pt-4 border-t border-[#252525] flex items-center justify-center gap-3 text-gray-500">
+
+						<div
+							class="pt-4 border-t border-[#252525] flex items-center justify-center gap-3 text-gray-500">
 							<Icon icon="ph:shield-check-bold" class="text-accent opacity-50" />
 							<span class="text-xs">Secure Checkout</span>
 							<Icon icon="ph:lock-simple-bold" class="text-accent opacity-50" />
@@ -405,18 +425,18 @@
 	.scrollbar::-webkit-scrollbar {
 		width: 4px;
 	}
-	
+
 	.scrollbar::-webkit-scrollbar-track {
 		background: #252525;
 		border-radius: 10px;
 	}
-	
+
 	.scrollbar::-webkit-scrollbar-thumb {
 		background: var(--color-accent);
 		border-radius: 10px;
 		opacity: 0.5;
 	}
-	
+
 	.scrollbar::-webkit-scrollbar-thumb:hover {
 		background: var(--color-accent);
 		opacity: 0.7;

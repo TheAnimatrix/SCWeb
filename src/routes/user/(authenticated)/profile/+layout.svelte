@@ -24,8 +24,7 @@
 		{ href: '/user/profile/orders', label: 'Orders', icon: 'ph:shopping-bag-bold' },
 		{ href: '/user/profile/addresses', label: 'Address', icon: 'ph:map-pin-bold' },
 		{ href: '/user/profile/account', label: 'Account', icon: 'ph:user-bold' },
-		{ href: '/user/profile/crafts', label: 'Crafts', icon: 'ph:palette-bold' },
-		{ href: '/user/profile/3dp-manager', label: '3DP Manager', icon: 'ph:printer-bold' }
+		{ href: '/user/profile/crafts', label: 'Crafts', icon: 'ph:palette-bold' }
 	];
 
 	let { data, children } = $props();
@@ -40,7 +39,7 @@
 				<span class="w-3 h-3 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">Profile Settings</span>
 			</div>
-			<h1 class="text-4xl font-bold mb-3">Your Profile</h1>
+			<div class="text-4xl font-bold mb-3">Your Profile</div>
 			<p class="text-gray-400 max-w-2xl mx-auto">Manage your account settings, addresses, orders and crafts.</p>
 		</div>
 

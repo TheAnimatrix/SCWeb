@@ -276,10 +276,10 @@
 				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">Start Crafting</span>
 			</div>
-			<h1 class="text-4xl md:text-5xl font-bold mb-6">
+			<div class="text-4xl md:text-5xl font-bold mb-6">
 				Turn Your Creation Into
 				<span class="text-accent">Reality</span>
-			</h1>
+			</div>
 			<p class="text-gray-400 text-lg max-w-2xl mx-auto">
 				Join a community of makers transforming hobbies into successful products.
 				We provide the platform, tools, and support—you bring the innovation.
@@ -304,9 +304,9 @@
 							<div class="w-14 h-14 rounded-xl flex items-center justify-center mb-4 border border-accent/30 group-hover:border-accent/50 transition-all duration-300 bg-accent/5">
 								<Icon icon={step.icon} class="text-3xl text-accent" />
 							</div>
-							<h3 class="text-xl font-bold mb-2 text-accent group-hover:translate-y-[-2px] transition-all duration-300">
+							<div class="text-xl font-bold mb-2 text-accent group-hover:translate-y-[-2px] transition-all duration-300">
 								{step.title}
-							</h3>
+							</div>
 							<p class="text-gray-400 group-hover:text-gray-300 transition-colors duration-300 mb-2">
 								{step.description}
 							</p>
@@ -324,7 +324,7 @@
 	<section class="py-16 px-4 relative bg-[#0a0a0a]">
 		<div class="max-w-6xl mx-auto">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl font-bold mb-4">Scale With Support</h2>
+				<div class="text-3xl font-bold mb-4">Scale With Support</div>
 				<p class="text-gray-400">
 					5% platform fee* gets you access to comprehensive scaling services
 				</p>

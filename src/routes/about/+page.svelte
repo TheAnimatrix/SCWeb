@@ -77,17 +77,17 @@
 				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">What we're doing</span>
 			</div>
-			<h1 class="text-4xl md:text-5xl font-bold max-w-4xl mx-auto leading-tight">
+			<div class="text-4xl md:text-5xl font-bold max-w-4xl mx-auto leading-tight">
 				Kickstarting the indie
 				<span class="block">maker economy.</span>
-			</h1>
+			</div>
 		</div>
 		
 		<!-- Benefits Grid -->
 		<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
 			<!-- Maker Marketplace Card -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
-				<h3 class="text-accent text-xl font-bold mb-4">Maker Marketplace</h3>
+				<div class="text-accent text-xl font-bold mb-4">Maker Marketplace</div>
 				<div class="text-lg font-medium mt-4">
 					Buy and sell both finished products and critical components
 				</div>
@@ -102,13 +102,13 @@
 				</div>
 				
 				
-				<h3 class="text-xl font-bold mb-3">Local Sourcing</h3>
+				<div class="text-xl font-bold mb-3">Local Sourcing</div>
 				<p class="text-gray-400">Reduce dependency on expensive imports by connecting with local component makers.</p>
 			</div>
 			
 			<!-- Maker Community Card -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
-				<h3 class="text-xl font-bold mb-4">Maker Community</h3>
+				<div class="text-xl font-bold mb-4">Maker Community</div>
 				<p class="text-gray-400 mt-4">
 					Join a network of indie creators solving common sourcing and scaling challenges together.
 				</p>
@@ -119,7 +119,7 @@
 		<div class="max-w-7xl mx-auto mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
 			<!-- Creator Tools -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
-				<h3 class="text-xl font-bold mb-3">Creator Tools</h3>
+				<div class="text-xl font-bold mb-3">Creator Tools</div>
 				<p class="text-gray-400 mb-4">Explore and learn about specialized resources to design, manufacture, and market your innovations with our connections.</p>
 				
 				<div class="flex space-x-3 mt-8">
@@ -137,7 +137,7 @@
 			
 			<!-- Gamified Experience -->
 			<div class="bg-[#151515] rounded-2xl p-6 border border-[#252525] hover:border-[#353535] transition-all">
-				<h3 class="text-xl font-bold mb-3">Gamified Experience</h3>
+				<div class="text-xl font-bold mb-3">Gamified Experience</div>
 				<p class="text-gray-400 mb-4">Earn recognition and unlock benefits as you grow your maker business.</p>
 				
 				<div class="flex mt-8 relative">
@@ -202,10 +202,10 @@
 				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">How it works</span>
 			</div>
-			<h2 class="text-4xl font-bold max-w-4xl mx-auto leading-tight">
+			<div class="text-4xl font-bold max-w-4xl mx-auto leading-tight">
 				Your journey from hobbyist
 				<span class="block">to established creator.</span>
-			</h2>
+			</div>
 		</div>
 		
 		<!-- Tier Cards -->
@@ -216,7 +216,7 @@
 						<div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl mb-4 border border-{tier.color}30" style="background-color: {tier.color}15;">
 							{tier.icon}
 						</div>
-						<h3 class="text-2xl font-bold mb-2" style="color: {tier.color};">{tier.name}</h3>
+						<div class="text-2xl font-bold mb-2" style="color: {tier.color};">{tier.name}</div>
 						<p class="text-gray-400 mb-6">{tier.desc}</p>
 						
 						<ul class="space-y-2">
@@ -237,7 +237,7 @@
 						<div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl mb-4 border border-[#0000030]" style="background-color: #0000015;">
 							{tier.icon}
 						</div>
-						<h3 class="text-2xl font-bold mb-2" style="color: {tier.color};">{tier.name}</h3>
+						<div class="text-2xl font-bold mb-2" style="color: {tier.color};">{tier.name}</div>
 						<p class="text-gray-400 mb-6">{tier.desc}</p>
 						
 						<ul class="space-y-2">
@@ -255,7 +255,7 @@
 		
 		<!-- CTA -->
 		<div class="max-w-5xl mx-auto mt-20 text-center">
-			<h3 class="text-2xl font-bold mb-6">Ready to join the maker revolution?</h3>
+			<div class="text-2xl font-bold mb-6">Ready to join the maker revolution?</div>
 			<button class="bg-accent text-black px-8 py-3 rounded-lg font-bold hover:bg-white transition-colors">
 				<a href="/crafting">Become a Crafter Today</a>
 			</button>

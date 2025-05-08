@@ -117,7 +117,7 @@
 		if (postLoginPath) {
 			// You might want to decode the path if it's URL encoded
 			const decodedPath = decodeURIComponent(postLoginPath); // Decode for better display
-			if (decodedPath === '/user/profile/3dp-manager/maker') {
+			if (decodedPath === '/3dp-portal/maker') {
 				toastStore.show('Ready to join our 3D Printer Network? Log in to apply!', 'info', 20000);
 			} else {
 				toastStore.show(`Please log in to access: ${decodedPath}`, 'info');
@@ -152,7 +152,7 @@
 				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">Welcome Back</span>
 			</div>
-			<h1 class="text-4xl font-bold mb-2">Sign in to SelfCrafted</h1>
+			<div class="text-4xl font-bold mb-2">Sign in to SelfCrafted</div>
 			<p class="text-gray-400">Join our community of makers and creators</p>
 		</div>
 

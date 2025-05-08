@@ -289,7 +289,7 @@
 			<!-- Top Row: Product Image and Details Side by Side -->
 			<div class="grid grid-cols-1 md:grid-cols-4 gap-3 w-full mb-3">
 				<!-- Product Image Box (Larger) - Takes 2/3 on desktop -->
-				<div class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525]">
+				<div class="md:col-span-2 bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-4 border border-accent/10">
 					<div class="relative group">
 						<div class="aspect-4/3 overflow-hidden rounded-xl">
 							<img
@@ -320,7 +320,7 @@
 				</div>
 				<!-- Product Info Box - Takes 1/3 on desktop -->
 				<div
-					class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525] flex flex-col">
+					class="md:col-span-2 bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-4 border border-accent/10 flex flex-col">
 					<!-- Product title and author -->
 					<div class="mb-3">
 						<div class="inline-flex items-center justify-start mb-1">
@@ -329,7 +329,7 @@
 							<span class="text-accent text-xs uppercase tracking-wider font-medium"
 								>{productItem.tags[0].tag}</span>
 						</div>
-						<h1 class="text-2xl font-bold text-white">{productItem.name}</h1>
+						<div class="text-2xl font-bold text-white">{productItem.name}</div>
 						<div class="text-accent font-medium flex">
 							<span>By {productItem.author}</span>
 							<div class="ml-2 flex w-fit items-center gap-1 bg-[#1a1a1a] px-2 py-1 rounded-full">
@@ -422,36 +422,19 @@
 					<!-- Cart Controls -->
 					<div class="mt-auto">
 						<div class="flex items-center">
-							<div class="flex items-center bg-[#252525] rounded-l-lg overflow-hidden">
-								<button class="p-2 hover:bg-[#353535] transition-colors" onclick={dec_cart}>
-									<svg
-										class="w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="none"
-										xmlns="http://www.w3.org/2000/svg">
-										<path
-											d="M6 12H18"
-											stroke="currentColor"
-											stroke-width="2.5"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-dasharray="0 0" />
-									</svg>
+							<div class="flex items-center bg-[#151515]/50 backdrop-blur-sm border-accent/10 border-1 p-0.5 border-r-0 rounded-l-lg overflow-hidden">
+								<button 
+									class="p-2 hover:bg-accent/20 active:bg-[#454545] transition-all duration-200 hover:scale-105 active:scale-95" 
+									onclick={dec_cart}
+								>
+									<Icon icon="material-symbols:remove" class="w-3.5 h-4" />
 								</button>
 								<div class="px-4 py-1 border-x border-[#353535] font-medium">{cart_qty}</div>
-								<button class="p-2 hover:bg-[#353535] transition-colors" onclick={inc_cart}>
-									<svg
-										class="w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="none"
-										xmlns="http://www.w3.org/2000/svg">
-										<path
-											d="M12 6V18M6 12H18"
-											stroke="currentColor"
-											stroke-width="2.5"
-											stroke-linecap="round"
-											stroke-linejoin="round" />
-									</svg>
+								<button 
+									class="p-2 hover:bg-accent/20 active:bg-[#454545] transition-all duration-200 hover:scale-105 active:scale-95" 
+									onclick={inc_cart}
+								>
+									<Icon icon="material-symbols:add" class="w-4 h-4" />
 								</button>
 							</div>
 							<button
@@ -501,7 +484,7 @@
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
 				<!-- Description Panel - Takes 2/3 width on desktop -->
 				<div
-					class="md:col-span-2 bg-[#151515] rounded-2xl p-4 border border-[#252525] max-h-[800px] overflow-y-auto">
+					class="md:col-span-2 bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-4 border border-accent/10 max-h-[800px] overflow-y-auto">
 					<div class="inline-flex items-center mb-3">
 						<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
 						<span class="text-accent text-xs uppercase tracking-wider font-medium"
@@ -535,10 +518,10 @@
 				<!-- FAQ and Related Products Column - 1/3 width on desktop -->
 				<div class="md:col-span-1 flex flex-col gap-3">
 					<!-- Tabs Panel - FAQ -->
-					<div class="bg-[#151515] rounded-2xl overflow-hidden border border-[#252525]">
+					<div class="bg-[#151515]/50 backdrop-blur-sm rounded-2xl overflow-hidden border border-accent/10">
 						<Tabs.Root value="faq" class="w-full h-full">
 							<Tabs.List
-								class="bg-[#151515] w-full justify-between p-1 h-fit border-b border-[#252525] flex p-2">
+								class="bg-[#151515]/50 backdrop-blur-sm w-full justify-between p-1 h-fit border-b border-accent/10 flex p-2">
 								<Tabs.Trigger
 									class="data-[state=active]:bg-accent data-[state=active]:text-black px-3 py-1 text-sm text-gray-100 rounded-lg hover:bg-[#151515]"
 									value="faq">FAQ</Tabs.Trigger>
@@ -643,7 +626,7 @@
 							.eq('rel', productItem.id) then result}
 							{#if result.data && !result.error && result.data.length > 0}
 								<div
-									class="bg-[#151515] rounded-2xl p-3 border border-[#252525] h-full max-h-[170px]">
+									class="bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-3 border border-accent/10 h-full max-h-[170px]">
 									<div class="inline-flex items-center mb-2">
 										<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
 										<span class="text-accent text-xs uppercase tracking-wider font-medium"
@@ -675,7 +658,7 @@
 									</div>
 								</div>
 							{:else}
-								<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525]">
+								<div class="bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-3 border border-accent/10">
 									<div class="inline-flex items-center mb-2">
 										<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
 										<span class="text-accent text-xs uppercase tracking-wider font-medium"
@@ -692,7 +675,7 @@
 							.eq('id', productItem.rel) then result}
 							{#if result.data && !result.error && result.data.length > 0}
 								<div
-									class="bg-[#151515] rounded-2xl p-3 border border-[#252525] h-full max-h-[170px]">
+									class="bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-3 border border-accent/10 h-full max-h-[170px]">
 									<div class="inline-flex items-center mb-2">
 										<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
 										<span class="text-accent text-xs uppercase tracking-wider font-medium"
@@ -724,7 +707,7 @@
 									</div>
 								</div>
 							{:else}
-								<div class="bg-[#151515] rounded-2xl p-3 border border-[#252525]">
+								<div class="bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-3 border border-accent/10">
 									<div class="inline-flex items-center mb-2">
 										<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
 										<span class="text-accent text-xs uppercase tracking-wider font-medium"
@@ -740,7 +723,7 @@
 
 			<!-- Reviews Section -->
 			<div class="w-full mt-3">
-				<div class="bg-[#151515] rounded-2xl p-4 border border-[#252525]">
+				<div class="bg-[#151515]/50 backdrop-blur-sm rounded-2xl p-4 border border-accent/10">
 					<div
 						class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
 						<div class="inline-flex items-center">
@@ -895,9 +878,9 @@
 							<Icon icon="iconamoon:close" class="text-xl" />
 						</button>
 
-						<h3 class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 pr-6">
+						<div class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 pr-6">
 							{isEditingReview ? 'Edit Your Review' : 'Write a Review'}
-						</h3>
+						</div>
 
 						<!-- Larger touch targets for star rating -->
 						<div class="mb-3 sm:mb-4">
@@ -960,7 +943,7 @@
 					class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-0">
 					<div
 						class="bg-[#151515] rounded-2xl p-4 sm:p-6 w-full max-w-md border border-[#252525] relative">
-						<h3 class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Delete Your Review</h3>
+						<div class="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Delete Your Review</div>
 
 						<p class="text-gray-300 text-sm mb-4">
 							Are you sure you want to delete your review? This action cannot be undone.

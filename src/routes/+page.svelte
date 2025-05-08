@@ -90,7 +90,7 @@
 				<path d="M2 7h20v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7Z" fill="url(#storefront-gradient)" stroke="#ffffff" stroke-width="1.5" class="storefront-base" />
 				
 				<!-- Stylized roof -->
-				<path d="M1 7l2-4h18l2 4" fill="url(#roof-gradient)" stroke="#ffffff" stroke-width="1.5" class="storefront-roof" />
+				<path d="M1 7l2-4div8l2 4" fill="url(#roof-gradient)" stroke="#ffffff" stroke-width="1.5" class="storefront-roof" />
 				
 				<!-- Modern glass door -->
 				<path d="M9 13h6v8h-6v-8" fill="#E3F2FD" stroke="#ffffff" stroke-width="1.5" class="storefront-door" />
@@ -103,7 +103,7 @@
 				<rect x="18" y="9" width="2" height="2" rx="0.5" fill="#FFE0B2" stroke="#ffffff" stroke-width="1" class="product-item item-4" />
 				
 				<!-- Circuit board design -->
-				<path d="M4 13h2m1 0h1m4 4h1m1 0h2" stroke="url(#tech-gradient)" stroke-width="1.5" class="circuit-trace" />
+				<path d="M4 13h2m1 0divm4 4divm1 0h2" stroke="url(#tech-gradient)" stroke-width="1.5" class="circuit-trace" />
 				<circle cx="18" cy="15" r="1" fill="#00BCD4" stroke="#ffffff" stroke-width="0.5" class="circuit-node node-1" />
 				<circle cx="5" cy="15" r="1" fill="#00BCD4" stroke="#ffffff" stroke-width="0.5" class="circuit-node node-2" />
 				
@@ -245,10 +245,10 @@
 				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">Welcome to SelfCrafted</span>
 			</div>
-			<h1 class="text-3xl md:text-4xl font-bold max-w-4xl mx-auto leading-tight">
+			<div class="text-3xl md:text-4xl font-bold max-w-4xl mx-auto leading-tight">
 				Where indie makers connect with
 				<span class="block">parts, products, and people.</span>
-			</h1>
+			</div>
 		</div>
 		
 		<!-- Features Grid -->
@@ -258,7 +258,7 @@
 					<div class="w-16 h-16 rounded-xl flex items-center justify-center mb-4 border border-accent/30 icon-container transition-all duration-300 group-hover:shadow-glow-sm group-hover:border-accent/50 bg-accent/5">
 						{@html feature.icon}
 					</div>
-					<h3 class="text-xl font-bold mb-2 text-accent group-hover:translate-y-[-2px] transition-all duration-300">{feature.title}</h3>
+					<div class="text-xl font-bold mb-2 text-accent group-hover:translate-y-[-2px] transition-all duration-300">{feature.title}</div>
 					<p class="text-gray-400 group-hover:text-gray-300 transition-colors duration-300">{feature.desc}</p>
 				</div>
 			{/each}
@@ -286,7 +286,7 @@
 						<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 						<span class="text-accent text-sm uppercase tracking-wider font-medium">Featured Creations</span>
 					</div>
-					<h2 class="text-2xl md:text-3xl font-bold">Discover Exceptional Crafts</h2>
+					<div class="text-2xl md:text-3xl font-bold">Discover Exceptional Crafts</div>
 				</div>
 			</div>
 		</div>
@@ -315,9 +315,9 @@
 											<div class="px-3 py-1 bg-accent text-black text-xs font-bold uppercase rounded-full mb-4 shadow-elevation-1 transform-gpu hover:shadow-elevation-2 hover:translate-z-[5px] transition-all">
 												Featured
 											</div>
-											<h3 class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:text-accent transition-colors transform-gpu group-hover:translate-z-[10px]">
+											<div class="text-3xl md:text-4xl font-bold text-white mb-2 group-hover:text-accent transition-colors transform-gpu group-hover:translate-z-[10px]">
 												{data.banners[indicator_cur].name}
-											</h3>
+											</div>
 											<div class="flex items-center mt-2 transform-gpu group-hover:translate-z-[8px]">
 												<div class="w-8 h-8 rounded-full bg-[#252525] flex items-center justify-center mr-3 shadow-elevation-1">
 													<Icon icon="ph:user-bold" class="text-accent" />
@@ -419,7 +419,7 @@
 						<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
 						<span class="text-accent text-sm uppercase tracking-wider font-medium">Browse Creations</span>
 					</div>
-					<h2 class="text-2xl md:text-3xl font-bold mb-4 md:mb-0">Find Your Perfect Match</h2>
+					<div class="text-2xl md:text-3xl font-bold mb-4 md:mb-0">Find Your Perfect Match</div>
 				</div>
 				
 				<div class="flex flex-wrap gap-3 items-center">

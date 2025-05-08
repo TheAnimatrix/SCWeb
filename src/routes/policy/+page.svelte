@@ -23,7 +23,7 @@
 				<span class="w-3 h-3 rounded-full bg-accent mr-2"></span>
 				<span class="text-accent text-sm uppercase tracking-wider font-medium">Legal & Policies</span>
 			</div>
-			<h1 class="text-4xl font-bold mb-3">Our Policies</h1>
+			<div class="text-4xl font-bold mb-3">Our Policies</div>
 			<p class="text-gray-400 max-w-2xl mx-auto">Everything you need to know about our terms, policies, and procedures.</p>
 		</div>
 
@@ -147,7 +147,7 @@
 		max-width: none;
 	}
 
-	:global(.prose h1, .prose h2, .prose h3, .prose h4) {
+	:global(.prose div, .prose h2, .prose h3, .prose h4) {
 		color: white;
 		margin-top: 2em;
 		margin-bottom: 1em;

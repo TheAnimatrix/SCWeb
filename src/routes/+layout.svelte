@@ -228,7 +228,7 @@
 							{#snippet content(handleClose)}
 								<div class="p-6 h-full w-full overflow-y-auto flex flex-col">
 									<div class="flex justify-between items-center mb-8">
-										<h2 class="text-xl font-medium text-accent">Menu</h2>
+										<div class="text-xl font-medium text-accent">Menu</div>
 										<button
 											onclick={handleClose}
 											class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg">
@@ -318,7 +318,7 @@
 
 				<!-- Links Column 1 -->
 				<div>
-					<h3 class="text-lg font-medium mb-4">Policies</h3>
+					<div class="text-lg font-medium mb-4">Policies</div>
 					<ul class="space-y-2 text-gray-400">
 						<li>
 							<a href="/policy#privacy" class="hover:text-accent transition-colors"
@@ -337,7 +337,7 @@
 
 				<!-- Links Column 2 -->
 				<div>
-					<h3 class="text-lg font-medium mb-4">Support</h3>
+					<div class="text-lg font-medium mb-4">Support</div>
 					<ul class="space-y-2 text-gray-400">
 						<li>
 							<a href="/policy#cancellation" class="hover:text-accent transition-colors"

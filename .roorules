@@ -1,0 +1,9 @@
+Keep in mind that I am using SvelteKit, Svelte5 and TailwindCSS.
+Please use tailwindcss for styling as much as possible.
+Svelte5 use only runes mode, so no export let and stuff.
+Svelte5 doesn't alow on:<event> syntax like on:mousedown or on:click they are instead replaced with onmousedown or onclick, if you need to use
+stuff like preventDefault you can use the e.preventDefault() function within the function thats called on the event.
+Just declaring a variable with let or const doesn't make it reactive, you need to use $state(<value>) syntax to make it reactive.
+You can use context7 mcp if you need any docs of any kind only when required! (If you are unsure about svelte5)
+You can use supabase mcp to access supabase directly for any database needs only when required!
+pfeewicqoxkuwnbuxnoz is the supabase project id and Selfcrafted is the project name.

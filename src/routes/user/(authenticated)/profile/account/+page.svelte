@@ -57,10 +57,10 @@
 <div class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] overflow-hidden">
 	<!-- Profile Info Section -->
 	<div class="p-6 border-b border-[#252525]">
-		<h2 class="text-2xl font-bold flex items-center gap-3 mb-6">
+		<div class="text-2xl font-bold flex items-center gap-3 mb-6">
 			<Icon icon="ph:user-circle-bold" class="text-accent opacity-80" />
 			Profile Information
-		</h2>
+		</div>
 		
 		<div class="grid md:grid-cols-2 gap-8">
 			<!-- User Details -->
@@ -108,10 +108,10 @@
 
 	<!-- Security Section -->
 	<div class="p-6">
-		<h2 class="text-2xl font-bold flex items-center gap-3 mb-6">
+		<div class="text-2xl font-bold flex items-center gap-3 mb-6">
 			<Icon icon="ph:shield-check-bold" class="text-accent opacity-80" />
 			Security Settings
-		</h2>
+		</div>
 
 		{#if error_msg}
 			<div class="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">

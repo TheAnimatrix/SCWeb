@@ -465,21 +465,10 @@
 	}
 </script>
 
-<div class="w-full flex justify-center min-h-screen gradient-background">
-	<div class="gradient-overlay"></div>
-	<div class="ambient-orbs">
-		<div class="orb orb-1"></div>
-		<div class="orb orb-2"></div>
-		<div class="orb orb-3"></div>
-	</div>
+<div class="w-full flex justify-center min-h-screen">
 	<div class="w-full max-w-7xl px-4 relative z-10">
-		<div class="text-center mb-8 mt-12">
-			<div class="inline-flex items-center justify-center mb-3">
-				<span class="w-2 h-2 rounded-full bg-accent mr-2"></span>
-				<span class="text-accent text-sm uppercase tracking-wider font-medium"
-					><span class="font-bold">Fabbly</span></span>
-			</div>
-			<h1 class="text-3xl font-bold mb-2">Community 3D Printing</h1>
+		<div class="text-center mb-8">
+			<div class="text-3xl font-bold mb-2">Community 3D Printing</div>
 			<p class="text-gray-400 max-w-2xl mx-auto text-sm">
 				Upload your 3D model and connect with skilled makers in our community who will bring your
 				design to life.
@@ -668,6 +657,7 @@
 			<!-- Right panel: Available Makers -->
 			<div class="lg:col-span-5">
 				<!-- Quote Requests Available Section -->
+				{#if data.session}
 				<div class="bg-gradient-to-r from-accent/5 via-black/40 to-accent/5 border border-accent/10 rounded-lg p-4 mb-4 flex items-center gap-4 shadow-glow-subtle">
 					<div class="flex items-center justify-center w-12 h-12 rounded-full bg-accent/20">
 						<Icon icon="material-symbols:request-quote" class="text-3xl text-accent icon-glow" />
@@ -687,6 +677,7 @@
 						<div class="text-xs text-gray-400 mt-1">We are a very small unfunded team, so please be frugal with your requests. Thank you!</div>
 					</div>
 				</div>
+				{/if}
 				<AvailableMakers supabase_lt={data.supabase_lt} model={modelFile} bind:color={selectedColor} bind:material={selectedMaterial} quality={selectedQuality} {scale} {infill} walls={walls} requestQuoteCompleter={requestQuoteCompleter} />
 				<!-- FAQ Section -->
 				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle border border-accent/15">
@@ -795,7 +786,7 @@
 												let isLoggedIn = data.session?.user.id;
 												if (!isLoggedIn)
 													toastStore.show('You need to login/signup first', 'warning', 5000);
-												else goto('/user/profile/3dp-manager/maker');
+												else goto('/3dp-portal/maker');
 											}}>
 											<Icon icon="material-symbols:handyman" />
 											I want to be part of Fabbly!

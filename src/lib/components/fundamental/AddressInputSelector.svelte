@@ -120,7 +120,10 @@
 				}}
 			>
 				<span class="text-lg font-medium group-hover:text-accent transition-colors">
-					Shipping Address
+					<div class="flex items-center gap-2">
+						<Icon icon="ph:map-pin-bold" class="text-accent text-xl" />
+						Shipping Address
+					</div>
 				</span>
 				
 				{#if userExists && addressCount}

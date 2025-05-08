@@ -238,7 +238,6 @@
 				(payload) => {
 					if (payload.new.message_type == 'quote' || payload.new.message_type == 'action') {
 						//update quote & event history
-						console.log('invalidating printrequest');
 						invalidate('3dp-portal:printrequest');
 					}
 					//update unread count
@@ -254,7 +253,7 @@
 
 <div class="p-2 sm:p-4 max-w-3xl mx-auto h-full flex flex-col">
 	<button
-		onclick={() => goto('/user/profile/3dp-manager/user')}
+		onclick={() => goto('/3dp-portal/user')}
 		class="mb-4 text-accent text-sm font-medium flex items-center gap-1"
 		><span>&larr;</span> Back</button>
 	{#if !req}
@@ -338,9 +337,9 @@
 		<div class="flex flex-col h-full mt-4 w-full">
 			<div class="text-sm text-gray-400 font-semibold">Actions</div>
 			<!-- chat button that opens drawer with message board-->
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
 				<button
-					class="relative mt-2 bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex justify-center items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40"
+					class="relative bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex justify-center items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40"
 					onclick={() => (messageBoardOpen = true)}>
 					<Icon icon="mdi:message" class="w-5 h-5" />
 					<span class="font-medium text-sm">Message</span>
@@ -351,8 +350,9 @@
 						</span>
 					{/if}
 				</button>
+				{#if req.request_stage !== 'cancelled'}
 				<button
-					class="mt-2 bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40 flex-col"
+					class="bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40 flex-col"
 					onclick={(e) => {
 						e.stopPropagation();
 						downloadModel();
@@ -376,6 +376,7 @@
 						</div>
 					{/if}
 				</button>
+				{/if}
 				<!-- help button that redirects to discord#help channel-->
 				<a
 					href="https://discord.gg/k6CC6GTR4g"

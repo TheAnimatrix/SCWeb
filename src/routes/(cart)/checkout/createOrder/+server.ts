@@ -11,6 +11,26 @@ const instance = new Razorpay({
 	key_secret: RAZORPAY_KEY
 });
 
+/**
+ * Handles payment confirmation and order finalization.
+ *
+ * PATCH endpoint expects form data with payment_id_a, payment_id_b, and payment_signature.
+ *
+ * Supabase tables accessed:
+ * - cart: Updates payment details and status to 'paid' for the order.
+ * - products: Reads and updates stock for each product in the cart.
+ * - purchases: Inserts a new purchase record after successful payment.
+ *
+ * Reasons:
+ * - 'cart' is updated to reflect payment and order status.
+ * - 'products' is read to get current stock and updated to decrement stock based on purchase.
+ * - 'purchases' records the completed transaction for order history and tracking.
+ *
+ * @param {Object} context - SvelteKit request context
+ * @param {import('@sveltejs/kit').RequestEvent} context.locals - Contains supabase and supabaseServer clients
+ * @param {Request} context.request - The incoming request object
+ * @returns {Response} JSON response indicating success or error
+ */
 export const PATCH: RequestHandler = async ({ locals, request }) => {
 	if (!locals.supabase || !locals.supabaseServer || !instance)
 		return json({ error: true, message: 'Internal server error' }, { status: 500 });
@@ -43,6 +63,8 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 			.eq('payment_id_a', paymentIdA)
 			.select();
 		if (result.error) return json({ error: true, message: result.error.message }, { status: 400 });
+
+		let cartSnapshot: (CartItem & { product_name: string })[] = result.data[0].list;
 		if (!result.error && result.data.length > 0) {
 			const cartData = result.data[0];
 			// reduce qty from stock
@@ -52,6 +74,10 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 					.from('products')
 					.select()
 					.eq('id', item.product_id);
+				const foundItem = cartSnapshot.find(i => i.product_id === item.product_id);
+				if (foundItem && result_get_stock.data?.[0]?.name) {
+					foundItem.product_name = result_get_stock.data[0].name;
+				}
 				//change stock
 				if (result_get_stock && result_get_stock.data && result_get_stock.data.length > 0) {
 					await locals.supabaseServer
@@ -70,7 +96,8 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 				shipping_address: cartData.address,
 				client_id: cartData.client_id,
 				cart_id: cartData.id,
-				amount: cartData.price
+				amount: cartData.price,
+				item_snapshot: cartSnapshot
 			});
 		}
 		return json({ error: false, message: 'ok' });
@@ -79,6 +106,24 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 	}
 };
 
+/**
+ * Creates a new Razorpay order for the cart and updates the cart with payment/order details.
+ *
+ * POST endpoint expects form data with orderId and address.
+ *
+ * Supabase tables accessed:
+ * - cart: Reads the cart to validate the order and updates it with payment/order details.
+ * - products: Reads each product in the cart to calculate the total price.
+ *
+ * Reasons:
+ * - 'cart' is read to validate the order and updated to store payment/order details.
+ * - 'products' is read to get the latest price for each product in the cart.
+ *
+ * @param {Object} context - SvelteKit request context
+ * @param {import('@sveltejs/kit').RequestEvent} context.locals - Contains supabase and supabaseServer clients
+ * @param {Request} context.request - The incoming request object
+ * @returns {Response} JSON response with order/payment details or error
+ */
 export const POST: RequestHandler = async ({ locals, request }) => {
 	if (!locals.supabase || !locals.supabaseServer || !instance)
 		return json({ error: true, message: 'Internal server error' }, { status: 500 });
@@ -113,6 +158,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 					{ error: true, message: 'One ore more products in the cart are invalid' },
 					{ status: 400 }
 				);
+			if (productResult.data[0].stock.count < item.qty)
+				return json({ error: true, message: 'Unable to checkout. One ore more products in the cart are out of stock.' }, { status: 400 });
 			const product: Product = productResult.data[0];
 			totalPrice += product.price.new * item.qty;
 		}

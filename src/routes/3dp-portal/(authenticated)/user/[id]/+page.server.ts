@@ -1,8 +1,7 @@
 import type { PageServerLoad } from './$types';
-
+import { error } from '@sveltejs/kit';
 export const load: PageServerLoad = async ({ params, depends, locals: { supabase, supabaseServer } }) => {
   depends('3dp-portal:printrequest');
-  console.log('loading printrequest');
   const { id } = params;
   // Get current user
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -19,7 +18,10 @@ export const load: PageServerLoad = async ({ params, depends, locals: { supabase
     .single();
 
   if (prError || !printRequest) {
-    return { printRequest: null, error: prError?.message ?? 'Not found' };
+    //throw error
+    throw error(404, {
+      message: prError?.message ?? 'Not found'
+    });
   }
 
   // Fetch maker info if assigned

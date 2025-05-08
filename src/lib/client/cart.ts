@@ -35,6 +35,10 @@ export const initCartG = (): Writable<CartG> => {
 };
 
 /**
+ * 
+ */
+
+/**
  * Changes the quantity of an item in the cart.
  * @param supabase - Supabase client
  * @param changed - The item to change in the cart, containing the product id and the new quantity
@@ -87,7 +91,7 @@ export async function changeCart(
 		cart.list?.forEach((item) => {
 			itemCount += item.qty;
 		});
-		cart_store.set({ valid: false, itemCount: itemCount });
+		cart_store.set({ valid: true, itemCount: itemCount });
 		return { error: false, data: 'updated cart' };
 	} else {
 		return { error: true, data: error.message };

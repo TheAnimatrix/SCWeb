@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '@iconify/svelte';
+	import { toastStore } from '$lib/client/toastStore';
 </script>
 
 <div class="min-h-screen bg-[#0c0c0c] text-white">
@@ -13,24 +14,32 @@
 				<span class="w-4 h-4 rounded-full bg-red-500 mr-2"></span>
 				<span class="text-red-500 text-sm uppercase tracking-wider font-medium">Payment Failed</span>
 			</div>
-			<h1 class="text-4xl font-bold mb-4">Payment Unsuccessful</h1>
+			<div class="text-4xl font-bold mb-4">Payment Unsuccessful</div>
 			<p class="text-gray-400">We were unable to process your payment</p>
 		</div>
 
 		<!-- Order Details -->
 		<div class="max-w-2xl mx-auto">
 			<div class="bg-[#1c1c1c] rounded-lg p-6 mb-6" in:fly="{{ y: 20, duration: 600, delay: 400, easing: cubicOut }}">
-				<h2 class="text-xl font-semibold mb-4 flex items-center">
+				<div class="text-xl font-semibold mb-4 flex items-center">
 					<Icon icon="mdi:information-outline" class="mr-2 text-red-500" width="24" />
 					Transaction Details
-				</h2>
+				</div>
 				
 				<div class="space-y-4">
 					<div class="flex justify-between items-center py-2 border-b border-gray-700">
 						<span class="text-gray-400">Order ID</span>
 						<button
 							class="text-blue-400 hover:text-blue-300 transition-colors flex items-center"
-							onclick={() => {navigator.clipboard.writeText($page.params.cart_id); alert('copied to clipboard');}}>
+							onclick={() => {
+								//doesn't work without https
+								if(navigator.clipboard){
+									navigator.clipboard.writeText($page.params.cart_id);
+									toastStore.show('copied to clipboard', 'info');
+								}else{
+									toastStore.show('clipboard not supported on http', 'error');
+								}
+							}}>
 							#{$page.params.cart_id}
 							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
 						</button>
@@ -40,7 +49,15 @@
 						<span class="text-gray-400">Payment ID</span>
 						<button
 							class="text-blue-400 hover:text-blue-300 transition-colors flex items-center"
-							onclick={() => {navigator.clipboard.writeText($page.params.order_id); alert('copied to clipboard');}}>
+							onclick={() => {
+								//doesn't work without https
+								if(navigator.clipboard){
+									navigator.clipboard.writeText($page.params.order_id);
+									toastStore.show('copied to clipboard', 'info');
+								}else{
+									toastStore.show('clipboard not supported on http', 'error');
+								}
+							}}>
 							#{$page.params.order_id}
 							<Icon icon="mdi:content-copy" class="ml-2" width="16" />
 						</button>
@@ -49,10 +66,10 @@
 			</div>
 
 			<div class="bg-[#1c1c1c] rounded-lg p-6" in:fly="{{ y: 20, duration: 600, delay: 600, easing: cubicOut }}">
-				<h2 class="text-xl font-semibold mb-4 flex items-center">
+				<div class="text-xl font-semibold mb-4 flex items-center">
 					<Icon icon="mdi:help-circle-outline" class="mr-2 text-red-500" width="24" />
 					Need Help?
-				</h2>
+				</div>
 				
 				<p class="text-gray-400 mb-4">
 					If any money was deducted from your account, please contact our support team with a screenshot 

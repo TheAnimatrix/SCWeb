@@ -54,6 +54,7 @@ export interface Order {
 	id: number;
 	amount: number;
 	cart_id: string | null;
+	item_snapshot: {product_name: string, product_id: string, qty: number, price: number}[];
 }
 export const compareAddress = (a: Address, b: Address) => {
 	if (a.id != b.id) return false;

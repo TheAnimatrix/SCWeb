@@ -14,8 +14,33 @@
 		warning: 'ph:warning-bold'
 	};
 
-	// Get the correct icon based on the store's type
-	$: icon = typeIcons[$toastStore.type] || typeIcons.info;
+	// Map toast types to Tailwind classes for background, border, and icon
+	const typeClasses = {
+		info: {
+			bg: 'bg-[hsl(var(--info)/0.1)]',
+			border: 'border-[hsl(var(--info))]',
+			icon: 'text-[hsl(var(--info))]'
+		},
+		success: {
+			bg: 'bg-[hsl(var(--success)/0.1)]',
+			border: 'border-[hsl(var(--success))]',
+			icon: 'text-[hsl(var(--success))]'
+		},
+		error: {
+			bg: 'bg-[hsl(var(--error)/0.1)]',
+			border: 'border-[hsl(var(--error))]',
+			icon: 'text-[hsl(var(--error))]'
+		},
+		warning: {
+			bg: 'bg-[hsl(var(--warning)/0.1)]',
+			border: 'border-[hsl(var(--warning))]',
+			icon: 'text-[hsl(var(--warning))]'
+		}
+	};
+
+	let icon = $derived(typeIcons[$toastStore.type] || typeIcons.info);
+	let toastType = $derived($toastStore.type || 'info');
+	let toastClasses = $derived(typeClasses[toastType] || typeClasses.info);
 </script>
 
 {#if $toastStore.visible}
@@ -25,21 +50,18 @@
 		class="fixed bottom-5 right-5 z-[100] max-w-sm w-full rounded-2xl overflow-hidden"
 	>
 		<!-- Main toast container with styling matching the site theme -->
-		<div class="bg-[#000000]/50 backdrop-blur-xl border border-[#252525] rounded-2xl p-4 shadow-glow transition-all duration-300 hover:shadow-glow-lg">
+		<div class={`backdrop-blur-xl rounded-2xl p-4 shadow-glow transition-all duration-300 hover:shadow-glow-lg border ${toastClasses.bg} ${toastClasses.border}`}>
 			<div class="flex items-center">
-				
-				<!-- Icon with accent color -->
-				<Icon icon={icon} class="text-xl text-accent mr-2 flex-shrink-0" />
-				
+				<!-- Icon with type color -->
+				<Icon icon={icon} class={`text-xl mr-2 flex-shrink-0 ${toastClasses.icon}`} />
 				<!-- Message text -->
 				<span class="text-sm font-medium text-white">{$toastStore.message}</span>
-				
 				<!-- Close button -->
 				<button
 					type="button"
-					class="ml-auto -mx-1.5 -my-1.5 p-1.5 rounded-lg inline-flex h-8 w-8 text-gray-400 hover:text-accent hover:bg-white/5 transition-all duration-300"
+					class="ml-auto -mx-1.5 -my-1.5 p-1.5 rounded-lg inline-flex h-8 w-8 text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-300"
 					aria-label="Close"
-					on:click={toastStore.hide}
+					onclick={toastStore.hide}
 				>
 					<span class="sr-only">Close</span>
 					<Icon icon="ph:x-bold" class="text-lg" />

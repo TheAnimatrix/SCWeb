@@ -168,9 +168,12 @@
 <div class="mt-8">
 	<div class="text-xl font-semibold text-white/60 mb-2 text-left pl-1 tracking-wide" style="backdrop-filter: blur(2px);">Filament inventory</div>
 	<p class="text-sm text-red-400 pl-1">Disclaimer:</p>
-	<p class="text-sm text-gray-500 pl-1">1. You will not be displayed on the marketplace if you have no filaments in your inventory</p>
-	<p class="text-sm text-gray-500 pl-1">2. Only the colors you have in your inventory will be displayed in the marketplace</p>
-	<p class="text-sm text-gray-500 pl-1 mb-2">3. Only the material types you have in your inventory will be displayed in the marketplace</p>
+	<div class="flex flex-col gap-y-1">
+		<p class="text-sm text-yellow-600 pl-1">1. You will not be displayed on the marketplace if you have no filaments in your inventory</p>
+		<p class="text-sm text-yellow-700 pl-1">2. Only the colors you have in your inventory will be displayed in the marketplace</p>
+		<p class="text-sm text-yellow-600 pl-1">3. Only the material types you have in your inventory will be displayed in the marketplace</p>
+		<p class="text-sm text-yellow-700 pl-1 mb-2">4. Please keep your inventory updated to avoid wasting customer's time</p>
+	</div>
 	<!-- Glassmorphism container -->
 	<div class="overflow-x-auto bg-[#151515]/60 rounded-lg sm:p-4 xs:px-0 xs:pt-0 border border-gray-700/50">
 		<table class="min-w-full divide-y divide-gray-700 text-left">

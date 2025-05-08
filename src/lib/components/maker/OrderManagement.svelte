@@ -55,7 +55,7 @@
 	let collapsibleOpen = $state(false);
 	let cancelDialogOpen = $state(false);
 	let cancelReason = $state('');
-	let downloading = $state(false);
+	let downloading = $state(-1);
 	let downloadProgress = $state(0);
 
   //quote dialog 
@@ -119,7 +119,7 @@
     quoteDialogOpen = false;
   }
 
-	async function downloadModel(path: string) {
+	async function downloadModel(path: string,index: number) {
 		let modelName: any = path.split('/').pop()?.split('.');
 		let modelName2 = modelName?.[modelName.length - 2]?.split('_');
 		modelName = `${modelName2?.[modelName2.length - 1]}.${modelName?.[modelName.length - 1]}`;
@@ -132,10 +132,10 @@
 		const jwt = userRes.session.access_token;
 		if (!jwt) {
 			alert('Session expired or not found. Please log in again.');
-			downloading = false;
+			downloading = -1;
 			return;
 		}
-		downloading = true;
+		downloading = index;
 		downloadProgress = 0;
 		try {
 			const res = await fetch(
@@ -172,18 +172,18 @@
 					} else {
 						alert('Failed to download file');
 					}
-					downloading = false;
+					downloading = -1;
 					downloadProgress = 0;
 				};
 				xhr.onerror = function () {
 					alert('Error downloading model');
-					downloading = false;
+					downloading = -1;
 					downloadProgress = 0;
 				};
 				xhr.send();
 			} else {
 				alert(result?.error || 'Failed to get download link');
-				downloading = false;
+				downloading = -1;
 				downloadProgress = 0;
 			}
 		} catch (e) {
@@ -212,6 +212,7 @@
 				return;
 			}
 			const result = await res.json();
+			console.log(result);
 			orders = result.orders || [];
 			page = result.page || 1;
 		} catch (e: any) {
@@ -506,7 +507,7 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-gray-700/50">
-					{#each orders as order}
+					{#each orders as order,index}
 						<tr
 							class="hover:bg-[#1f1f1f]/50 transition-colors cursor-pointer"
 							onclick={() => openOrderDrawer(order)}>
@@ -523,23 +524,27 @@
 									</a>
 								{:else if order.model?.endsWith('.stl')}
 									<div class="relative w-fit">
+										{#if order.request_stage !== 'cancelled'}
 										<button
-											class="inline-flex items-center gap-1 px-3 py-1 {downloading
+											class="inline-flex items-center gap-1 px-3 py-1 {downloading==index
 												? 'opacity-60 rounded-t'
-												: 'rounded'} bg-accent/20 text-accent hover:bg-accent/40 transition-colors font-medium text-xs border border-accent/30 shadow"
-											disabled={downloading}
+												: 'rounded'} bg-accent/20 text-accent hover:bg-accent/40 transition-colors font-medium text-xs border border-accent/30 shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent/20"
+											disabled={downloading==index || order.request_stage === 'cancelled'}
 											onclick={(e) => {
 												e.stopPropagation();
 												//download the file
-												downloadModel(order.model ?? '');
+												downloadModel(order.model ?? '',index);
 											}}>
 											<Icon icon="ph:download-bold" class="text-accent text-base" />
-											{!downloading
+											{downloading!=index
 												? order.id.slice(order.id.length - 10, order.id.length)
-												: 'Downloading...'}
+												: 'Downloading... ' + (downloadProgress/100).toFixed(2) + '%'}
 										</button>
+										{:else}
+											<span class="text-gray-400">{order.id.slice(order.id.length - 10, order.id.length)}</span>
+										{/if}
 										<!-- progress bar -->
-										{#if downloading && downloadProgress > 0}
+										{#if downloading && downloadProgress > 0 && downloading==index}
 											<div class="absolute left-0 rounded-b right-0 bg-accent/20 h-1">
 												<div
 													class="bg-accent h-1 transition-all duration-200"
@@ -734,18 +739,18 @@
 													<Icon icon="ph:download-bold" class="text-accent text-base" />
 													STL
 												</a>
-											{:else if selectedOrder?.model?.endsWith('.stl')}
+											{:else if selectedOrder?.model?.endsWith('.stl') && selectedOrder.request_stage !== 'cancelled'}
 												<div class="relative">
 													<button
-														class="inline-flex items-center gap-1 px-3 py-1 rounded bg-accent/20 text-accent hover:bg-accent/40 transition-colors font-medium text-xs border border-accent/30 shadow"
-														disabled={downloading}
+														class="inline-flex items-center gap-1 px-3 py-1 rounded bg-accent/20 text-accent hover:bg-accent/40 transition-colors font-medium text-xs border border-accent/30 shadow disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent/20"
+														disabled={downloading!=-1 || selectedOrder.request_stage === 'cancelled'}
 														onclick={(e) => {
 															e.stopPropagation();
 															//download the file
-															downloadModel(selectedOrder?.model ?? '');
+															downloadModel(selectedOrder?.model ?? '',99999999);
 														}}>
 														<Icon icon="ph:download-bold" class="text-accent text-base" />
-														{!downloading ? 'STL' : 'Downloading...'}
+														{downloading==-1 ? 'STL' : 'Downloading...'}
 													</button>
 													{#if downloading && downloadProgress > 0}
 														<div class="absolute left-0 rounded-b right-0 bg-accent/20 h-1">

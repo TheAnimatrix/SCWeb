@@ -9,6 +9,7 @@ export const GET = async ({ url, locals: { supabase, supabaseServer } }) => {
   const userId = session.session.user.id;
 
 
+
   // Pagination params
   const page = parseInt(url.searchParams.get('page') || '1', 10);
   const pageSize = Math.min(parseInt(url.searchParams.get('pageSize') || '50', 10), 50); // max 50

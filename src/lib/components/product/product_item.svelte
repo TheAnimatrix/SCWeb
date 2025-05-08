@@ -59,9 +59,9 @@
 	<div class="p-5 flex flex-col grow">
 		<!-- Title and author -->
 		<div>
-			<h3 class="text-xl font-bold text-white group-hover:text-accent transition-colors">
+			<div class="text-xl font-bold text-white group-hover:text-accent transition-colors">
 				{product.name}
-			</h3>
+			</div>
 			<p class="text-gray-400 text-sm mt-1">by {product.author}</p>
 		</div>
 		

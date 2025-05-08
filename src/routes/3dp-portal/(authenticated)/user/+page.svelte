@@ -77,7 +77,7 @@
         {@const modelName = req.model?.split('/').pop().split('.')}
         {@const modelName2 = modelName[modelName.length - 2].split('_')}
         <li>
-          <a href={`/user/profile/3dp-manager/user/${req.id}`} class="block bg-accent/4 hover:bg-accent/8 rounded-lg p-4 shadow-glow-subtle border border-accent/10 hover:border-accent/40 transition-all">
+          <a href={`/3dp-portal/user/${req.id}`} class="block bg-accent/4 hover:bg-accent/8 rounded-lg p-4 shadow-glow-subtle border border-accent/10 hover:border-accent/40 transition-all">
             <div class="flex items-center justify-between mb-1">
               <div class="font-semibold text-white truncate max-w-[60%]">{modelName ? `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}` : 'Model'}</div>
               <div class="flex gap-x-2">

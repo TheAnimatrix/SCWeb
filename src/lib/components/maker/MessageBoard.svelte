@@ -294,14 +294,14 @@
 									session?.data?.user?.id
 										? 'self-end'
 										: 'self-start'} flex flex-col items-center">
-									<div class="font-semibold text-sm flex items-center gap-1">
+									<div class="font-semibold text-sm w-full flex items-start gap-1">
 										<Icon icon="ph:warning-circle-bold" class="text-lg" />
 										{actionObj?.action
 											? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
 											: 'Action'}
 									</div>
 									{#if actionObj?.reason}
-										<div class="text-xs mt-1 text-red-200 italic">Reason: {actionObj.reason}</div>
+										<div class="text-sm mt-1 text-red-200 flex flex-col"><span class="opacity-50">Reason </span> <span>{actionObj.reason}</span></div>
 									{/if}
 								</div>
 							{:else if msg.message_type === 'quote'}
@@ -318,9 +318,11 @@
 									<div class="text-sm text-blue-200">{actionObj.reason}</div>
 									<div class="text-2xl font-semibold mt-1 text-blue-200">{actionObj.quote}₹</div>
 									<!-- show a button to accept the quote-->
-									<button
-										class="bg-blue-500/20 text-blue-200 px-3 py-2 rounded-lg text-sm mt-2 w-full hover:bg-blue-500/50 transition-colors duration-200"
-										>Pay Now</button>
+									 {#if msg.recipient_id === session?.data?.user?.id}
+										<button
+											class="bg-blue-500/20 text-blue-200 px-3 py-2 rounded-lg text-sm mt-2 w-full hover:bg-blue-500/50 transition-colors duration-200"
+											>Pay Now</button>
+									 {/if}
 								</div>
 							{:else}
 								<div
