@@ -418,7 +418,7 @@
 		</div>
 
 		<!-- Event history header-->
-		{#if sortedEvents}
+		{#if sortedEvents && sortedEvents.length > 0}
 			<div class="flex flex-col h-full mt-4 w-full">
 				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
 				<div class="flex flex-col gap-2">
@@ -449,6 +449,11 @@
 					{/each}
 				</div>
 			</div>
+		{:else}
+			<div class="flex flex-col h-full mt-4 w-full">
+			<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
+				<div class="text-gray-400 text-start py-2 text-sm italic opacity-60 text-wrap">So empty.... <br/>If any notable events (quotes,cancellations,payments,etc) happen,<br/> they will be shown here.</div>
+		</div>
 		{/if}
 	{/if}
 </div>
