@@ -166,6 +166,28 @@
 		}
 		prevMessageCount = messages.length;
 	});
+	
+
+	// Debounce chat read updates
+	let newChatIds = $state<string[]>([]);
+	let debounceChatReadTimer: NodeJS.Timeout | null = null;
+	$effect(() => {
+		if(newChatIds.length > 0){
+			if(debounceChatReadTimer){
+				clearTimeout(debounceChatReadTimer);
+			}
+			debounceChatReadTimer = setTimeout(() => {
+				supabase_lt
+					.from('Chat')
+					.update({ status: 'read' })
+					.eq('relationship_id', orderId)
+					.in('chat_id', newChatIds)
+					.eq('status', 'sent')
+					.then(() => {});
+				newChatIds = [];
+			}, 1500);
+		}
+	});
 
 	// Subscribe to realtime updates
 	function subscribeToMessages() {
@@ -177,6 +199,9 @@
 				(payload) => {
 					if (payload.eventType === 'INSERT') {
 						messages = [...messages, payload.new];
+						//mark message as read
+						//TODO: debounce multiple updates.
+						newChatIds.push(payload.new.chat_id);
 					}
 					if (payload.eventType === 'UPDATE') {
 						messages = messages.map((msg) => {

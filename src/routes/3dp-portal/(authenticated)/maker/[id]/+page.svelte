@@ -1,10 +1,7 @@
 <script lang="ts">
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
 	import Icon from '@iconify/svelte';
-	import { page } from '$app/state';
-	import { elasticInOut, expoInOut } from 'svelte/easing';
 	import { toastStore } from '$lib/client/toastStore';
-	import { fade, slide } from 'svelte/transition';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -24,7 +21,6 @@
 		req = data.printRequest;
 	});
 
-	const maker = data.maker;
 	let downloading = $state(false);
 	let messageBoardOpen = $state(false);
 	let cancelDialogOpen = $state(false);
@@ -61,17 +57,25 @@
 
 	const STAGE_DESCRIPTIONS: { [key: string]: string } = {
 		cancelled: 'The request has been cancelled.',
-		requested: 'You have requested a quote for a 3D print. Please wait for the maker to quote you.',
-		quoted: 'A maker has quoted you. Please review the quote and accept or reject it.',
-		actionable: 'Maker has requested an action from you. Please take action on the request.',
-		paid: 'You have paid for the 3D print. Please wait for the maker to complete the print.',
-		paid_externally:
-			'You have paid for the 3D print externally. Please wait for the maker to complete the print.',
+		requested: 'The user has requested a quote for a 3D print. Please provide a quote.',
+		quoted: 'You have quoted the user. Please wait for them to review and accept or reject it.',
+		actionable: 'You have requested an action from the user. Please wait for their response.',
+		paid: 'The user has paid for the 3D print. Please complete the print.',
+		paid_externally: 'The user has paid for the 3D print externally. Please complete the print.',
 		completed:
-			'You have acknowledged the receipt of the 3D print. Please leave a review for the maker.',
+			'The user has acknowledged the receipt of the 3D print. Please wait for their review.',
 		'in dispute': 'The request is in dispute. Our Team will intervene to resolve the dispute.',
 		default: 'The request is in default.'
 	};
+
+	async function quoteOrder() {
+		quoteDialogOpen = true;
+	}
+
+	async function markAsShipped() {
+		//update request_stage to 'completed'
+		//await data.supabase_lt.from('printrequests').update({ request_stage: 'completed' }).eq('id', req.id);
+	}
 
 	async function downloadModel() {
 		if (!req?.model) return;
@@ -144,6 +148,76 @@
 		}
 	}
 
+	let quoteLoading = $state(false);
+	let quoteDialogOpen = $state(false);
+	let quote = $state('');
+	let quoteBreakdown = $state('');
+	async function onSendQuote() {
+		if (!quote) {
+			toastStore.show('Please enter a quote', 'error');
+			return;
+		}
+		if (!req.id) {
+			toastStore.show('No valid order selected', 'error');
+			return;
+		}
+		//fetch updated order
+		const updatedOrderRes = await data.supabase_lt
+			.from('printrequests')
+			.select('*')
+			.eq('id', req.id)
+			.single();
+		if (updatedOrderRes.error) {
+			toastStore.show('Error fetching updated order', 'error');
+			return;
+		}
+		const updatedOrder = updatedOrderRes.data;
+
+		quoteLoading = true;
+		//update request_stage to 'quoted' && update "events"
+		const updateQuote = await data.supabase_lt
+			.from('printrequests')
+			.update({
+				request_stage: 'quoted',
+				events: [
+					...(updatedOrder?.events || []),
+					{
+						type: 'quoted',
+						reason: quoteBreakdown,
+						timestamp: new Date().toISOString(),
+						by: 'maker',
+						extra: { quote: quote }
+					}
+				]
+			})
+			.eq('id', updatedOrder.id);
+		if (updateQuote.error) {
+			toastStore.show('Error updating quote', 'error');
+			quoteLoading = false;
+			return;
+		}
+		//send chat message of type 'quote'
+		const chatInsert = await data.supabase_lt.from('Chat').insert([
+			{
+				sender_id: data.session?.data?.user?.id ?? '',
+				recipient_id: updatedOrder.user_id ?? '',
+				message: JSON.stringify({ action: 'quoted', reason: quoteBreakdown, quote: quote }),
+				relationship_id: updatedOrder.id,
+				message_type: 'quote',
+				status: 'sent'
+			}
+		]);
+		if (chatInsert.error) {
+			toastStore.show('Error sending quote', 'error');
+			quoteLoading = false;
+			return;
+		}
+		invalidate('3dp-portal:printrequest');
+		toastStore.show('Quote sent', 'success');
+		quoteLoading = false;
+		quoteDialogOpen = false;
+	}
+
 	async function onCancelCancel(e: MouseEvent) {
 		e.preventDefault();
 		cancelDialogOpen = false;
@@ -152,7 +226,7 @@
 
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
-		if (!req || !data.session?.data?.user?.id || !cancelReason.trim()) return;
+		if (!req.id || !data.session?.data?.user?.id || !cancelReason.trim()) return;
 		const prevSelectedId = req.id;
 		//repull the order data
 		const updatedOrder = await data.supabase_lt
@@ -165,9 +239,9 @@
 		await data.supabase_lt.from('Chat').insert([
 			{
 				sender_id: data.session.data.user.id,
-				recipient_id: req.creator_id ?? '',
+				recipient_id: updatedOrder.data.user_id ?? '',
 				message: JSON.stringify({ action: 'cancelled', reason: cancelReason }),
-				relationship_id: req.id,
+				relationship_id: updatedOrder.data.id,
 				message_type: 'action',
 				status: 'sent'
 			}
@@ -185,11 +259,11 @@
 						type: 'cancelled',
 						reason: cancelReason,
 						timestamp: new Date().toISOString(),
-						by: 'user'
+						by: 'maker'
 					}
 				]
 			})
-			.eq('id', req.id);
+			.eq('id', updatedOrder.data.id);
 		if (updatedOrder.error) {
 			console.error('Error updating order', updatedOrder.error);
 			return;
@@ -198,7 +272,52 @@
 		cancelDialogOpen = false;
 		cancelReason = '';
 		// 4. Refresh page
-		window.location.reload();
+		invalidate('3dp-portal:printrequest');
+	}
+
+	function getStageExplanation(
+		stage: string | null,
+		username: string | null
+	): { msg: string; turn: string } {
+		if (!stage) return { msg: 'No stage information.', turn: 'maker' };
+		switch (stage) {
+			case 'cancelled':
+				return { msg: 'This order was cancelled and requires no further action.', turn: 'closed' };
+			case 'requested':
+				return {
+					msg: `${username} has requested a print. Please review and provide a quote.`,
+					turn: 'maker'
+				};
+			case 'quoted':
+				return { msg: 'Quote has been provided. Awaiting user action.', turn: 'user' };
+			case 'actionable':
+				return { msg: 'Order is actionable. Proceed with the next steps.', turn: 'user' };
+			case 'paid':
+				return { msg: 'Order has been paid. Begin processing the order.', turn: 'maker' };
+			case 'paid_externally':
+				return { msg: 'Order was paid externally. Confirm and proceed.', turn: 'maker' };
+			case 'completed':
+				return { msg: 'Order is completed. No further action needed.', turn: 'closed' };
+			case 'in dispute':
+				return { msg: 'Order is in dispute. Await resolution.', turn: 'SC Team' };
+			default:
+				return { msg: 'Unknown stage.', turn: 'SC Team' };
+		}
+	}
+
+	function getTurn(turn: string): { msg: string; color: string } {
+		switch (turn) {
+			case 'maker':
+				return { msg: 'Your turn', color: 'text-green-500 bg-green-500/10' };
+			case 'user':
+				return { msg: "The customer's turn", color: 'text-blue-500 bg-blue-500/10' };
+			case 'SC Team':
+				return { msg: "SC Team's review pending", color: 'text-yellow-500 bg-yellow-500/10' };
+			case 'closed':
+				return { msg: 'Closed', color: 'text-gray-500 bg-gray-500/10' };
+			default:
+				return { msg: 'Unknown turn', color: 'text-gray-500' };
+		}
 	}
 
 	$effect(() => {
@@ -252,7 +371,7 @@
 
 <div class="p-2 sm:p-4 max-w-3xl mx-auto h-full flex flex-col">
 	<button
-		onclick={() => goto('/3dp-portal/user')}
+		onclick={() => goto('/3dp-portal/maker#orderManagement')}
 		class="mb-4 text-accent text-sm font-medium flex items-center gap-1"
 		><span>&larr;</span> Back</button>
 	{#if !req}
@@ -267,19 +386,6 @@
 					{modelName ?? 'Model'}
 				</div>
 				<div class="text-xs text-gray-400">{new Date(req.created_at).toLocaleString()}</div>
-			</div>
-		</div>
-		<!-- Other details header -->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Other Details</div>
-			<div class="flex flex-col mt-2">
-				{#if maker}
-					<div
-						class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex flex-col text-sm">
-						<span>Maker: <span class="font-semibold">{maker.name}</span></span>
-						<span class="text-gray-400">({maker.email}, {maker.contact_number})</span>
-					</div>
-				{/if}
 			</div>
 		</div>
 		<!-- Model details header -->
@@ -328,8 +434,16 @@
 				</div>
 			</div>
 			<!-- show the stage description -->
-			<div class="text-sm text-gray-400">
-				{STAGE_DESCRIPTIONS[String(req.request_stage)] || 'No description available'}
+			<div class="text-sm text-gray-400 flex flex-wrap items-center gap-x-2 mt-1">
+				<!-- show the stage turn -->
+				{#if req.request_stage}
+					{@const turn = getStageExplanation(req.request_stage, '').turn}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs w-fit {getTurn(turn).color} rounded-full px-2 py-1"
+							>{getTurn(turn).msg}</span>
+					</div>
+				{/if}
+				<span>{STAGE_DESCRIPTIONS[String(req.request_stage)] || 'No description available'}</span>
 			</div>
 		</div>
 
@@ -377,6 +491,29 @@
 						{/if}
 					</button>
 				{/if}
+				<!-- other actions -->
+				{#if req.request_stage === 'requested'}
+					<button
+						class="bg-blue-400/10 hover:bg-blue-500/20 text-blue-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-blue-400/20 hover:border-blue-400/40"
+						onclick={quoteOrder}>
+						<Icon icon="mdi:currency-inr" class="w-5 h-5" />
+						<span class="font-medium text-sm">Quote</span>
+					</button>
+				{:else if req.request_stage === 'quoted'}
+					<button
+						class="bg-blue-400/10 hover:bg-blue-500/20 text-blue-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-blue-400/20 hover:border-blue-400/40"
+						onclick={quoteOrder}>
+						<Icon icon="mdi:currency-inr" class="w-5 h-5" />
+						<span class="font-medium text-sm">Re-Quote</span>
+					</button>
+				{:else if req.request_stage === 'paid'}
+					<button
+						class="bg-green-400/10 hover:bg-green-500/20 text-green-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-green-400/20 hover:border-green-400/40"
+						onclick={markAsShipped}>
+						<Icon icon="mdi:truck-delivery" class="w-5 h-5" />
+						<span class="font-medium text-sm">Mark as Shipped</span>
+					</button>
+				{/if}
 				<!-- help button that redirects to discord#help channel-->
 				<a
 					href="https://discord.gg/k6CC6GTR4g"
@@ -394,25 +531,6 @@
 						<Icon icon="mdi:cancel" class="w-5 h-5" />
 						<span class="font-medium text-sm">Cancel</span>
 					</button>
-				{/if}
-				<!-- if the current stage is quoted, show a button to pay the quote-->
-				{#if req.request_stage === 'quoted'}
-					<button
-						class="bg-emerald-400/10 hover:bg-emerald-500/20 text-emerald-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-emerald-400/20 hover:border-emerald-400/40">
-						<span class="font-medium text-sm"
-							>Pay {req.events
-								.filter((e: any) => e.type === 'quoted')
-								.sort(
-									(a: any, b: any) =>
-										new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-								)[0]?.extra.quote}₹</span>
-					</button>
-					<!-- reject quote button that opens a dialog to reject the quote
-					<button
-						class="bg-red-400/10 hover:bg-red-500/20 text-red-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-red-400/20 hover:border-red-400/40"
-						onclick={() => (rejectQuoteDialogOpen = true)}>
-						<span class="font-medium text-sm">Reject Quote</span>
-					</button> -->
 				{/if}
 			</div>
 		</div>
@@ -443,7 +561,7 @@
 								<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
 							{/if}
 							<div class="text-accent/80 text-xs mt-1">
-								by <span class="capitalize">{event.by == 'user' ? 'you' : 'maker'}</span>
+								by <span class="capitalize">{event.by == 'user' ? 'user' : 'you'}</span>
 							</div>
 						</div>
 					{/each}
@@ -469,7 +587,7 @@
 				orderId={req.id}
 				supabase_lt={data.supabase_lt}
 				session={data.session}
-				receiverId={req.creator_id ?? ''}
+				receiverId={req.user_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'} />
 		</Drawer.Content>
 	</Drawer.Root>
@@ -492,6 +610,48 @@
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
 				onclick={onConfirmCancel}
 				disabled={!cancelReason.trim()}>Confirm</button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={quoteDialogOpen}>
+	<Dialog.Content class="z-[1050]">
+		<Dialog.Header>
+			<Dialog.Title>Quote Order</Dialog.Title>
+			<Dialog.Description>Please provide a quote for the order.</Dialog.Description>
+		</Dialog.Header>
+		<Textarea
+			disabled={quoteLoading}
+			bind:value={quoteBreakdown}
+			class="w-full mt-4"
+			placeholder="Enter quote breakdown (optional)" />
+		<!-- quote inr floating input-->
+		<div class="flex flex-col gap-2">
+			<span class="text-xs text-gray-400">Quote - Final Price (₹)</span>
+			<div class="flex flex-row gap-2 items-center">
+				<span class="text-sm text-gray-400">₹</span>
+				<input
+					disabled={quoteLoading}
+					type="number"
+					bind:value={quote}
+					class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
+					placeholder="Enter price like : 249.99" />
+			</div>
+		</div>
+		<Dialog.Footer class="flex justify-end gap-3 mt-6">
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+				onclick={onCancelCancel}>Cancel</button>
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-accent-dark/30 hover:bg-accent-dark/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+				onclick={onSendQuote}
+				disabled={!quote || quoteLoading}>
+				<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
+				Send Quote
+				{#if quoteLoading}
+					<Icon icon="line-md:loading-twotone-loop" class="text-base animate-spin" />
+				{/if}
+			</button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

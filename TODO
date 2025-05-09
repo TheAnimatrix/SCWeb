@@ -1,13 +1,15 @@
 DONE:
 -----------------
-- show user portal and maker portal tabs but show toast to sign in
-- improved event history for users
-- improved tab navigation for 3dp-portal (highlight the active tab)
+- user-portal/clicked-order : remove expanding title order card and show details outside the card
+- maker-portal/clicked-order : remove expanding title order card and show details outside the card
+- maker-portal/clicked-order : migrated away from drawer to separate page
+- maker-portal/clicked-order : event history for makers
+- maker-portal/clicked-order : stage details for makers
+- when both users chat is open, read receipts dont work
+
 
 TODO:
 -----------------
-- event history for makers
-- user-portal/clicked-order : remove expanding title order card and show details outside the card
 - payment processing for 3d print request
 
 minor issues:
