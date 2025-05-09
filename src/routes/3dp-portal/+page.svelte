@@ -781,11 +781,9 @@
 										</div>
 										<button
 											class="bg-accent-dark/60 hover:bg-accent/60 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white font-medium px-6 py-2 rounded text-sm flex items-center gap-2 transition-colors"
-											disabled={!user.data.user}
 											onclick={() => {
 												let isLoggedIn = data.session?.user.id;
-												if (!isLoggedIn)
-													toastStore.show('You need to login/signup first', 'warning', 5000);
+												if (!isLoggedIn) goto('/user/sign?postLogin=/3dp-portal/maker');
 												else goto('/3dp-portal/maker');
 											}}>
 											<Icon icon="material-symbols:handyman" />

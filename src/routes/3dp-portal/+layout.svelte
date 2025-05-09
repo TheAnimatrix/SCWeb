@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Icon from '@iconify/svelte';
 	import { onMount } from 'svelte';
@@ -28,15 +29,21 @@
 	<!-- Navigation resembling tabs -->
 	<div class="flex flex-wrap justify-center gap-3 mb-8">
 		{#each navItems as { href, label, icon }}
-			<a
-				href="/3dp-portal{href}"
+			<button
+				onclick={() => {
+					if ((href == '/user' || href == '/maker') && !data.session?.user) {
+						goto('/user/sign?postLogin=/3dp-portal' + href);
+					} else {
+						goto('/3dp-portal' + href);
+					}
+				}}
 				class="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2 {activeRoute ===
 				href
 					? 'bg-accent/10 text-accent'
 					: 'bg-[#151515]/40 text-gray-400 hover:bg-[#252525]/60'}">
 				<Icon {icon} class="text-lg" />
 				<span class="font-bold text-sm">{label}</span>
-			</a>
+			</button>
 		{/each}
 	</div>
 
