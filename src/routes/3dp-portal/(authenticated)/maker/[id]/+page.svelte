@@ -12,7 +12,7 @@
 	let req = $state(data.printRequest);
 	let sortedEvents = $derived(
 		req.events
-			? [...req.events].sort(
+			? [...req.events].filter((event: any) => event.type !== 'order_created').sort(
 					(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
 				)
 			: []
@@ -60,8 +60,8 @@
 		requested: 'The user has requested a quote for a 3D print. Please provide a quote.',
 		quoted: 'You have quoted the user. Please wait for them to review and accept or reject it.',
 		actionable: 'You have requested an action from the user. Please wait for their response.',
-		paid: 'The user has paid for the 3D print. Please complete the print.',
-		paid_externally: 'The user has paid for the 3D print externally. Please complete the print.',
+		paid: 'The user has paid for the 3D print. Please complete the print and ship it.',
+		paid_externally: 'The user has paid for the 3D print externally. Please complete the print and ship it.',
 		completed:
 			'The user has acknowledged the receipt of the 3D print. Please wait for their review.',
 		'in dispute': 'The request is in dispute. Our Team will intervene to resolve the dispute.',
@@ -72,9 +72,125 @@
 		quoteDialogOpen = true;
 	}
 
-	async function markAsShipped() {
-		//update request_stage to 'completed'
-		//await data.supabase_lt.from('printrequests').update({ request_stage: 'completed' }).eq('id', req.id);
+	let shippedDialogOpen = $state(false);
+	let courierName = $state('');
+	let trackingId = $state('');
+	let trackingLink = $state('');
+	let shippedLoading = $state(false);
+	let shippedError = $state('');
+
+	async function onOpenShippedDialog() {
+		courierName = '';
+		trackingId = '';
+		trackingLink = '';
+		shippedError = '';
+		shippedDialogOpen = true;
+	}
+
+	async function onCancelShipped(e: MouseEvent) {
+		e.preventDefault();
+		shippedDialogOpen = false;
+		courierName = '';
+		trackingId = '';
+		trackingLink = '';
+		shippedError = '';
+	}
+
+	async function onConfirmShipped(e: MouseEvent) {
+		e.preventDefault();
+		shippedError = '';
+		if (!courierName.trim()) {
+			shippedError = 'Courier Name is required.';
+			return;
+		}
+		if (!trackingId.trim() && !trackingLink.trim()) {
+			shippedError = 'Please provide either Tracking ID or Tracking Link.';
+			return;
+		}
+		
+		if (trackingLink.trim() && !isValidUrl(trackingLink)) {
+			shippedError = 'Please provide a valid tracking link.';
+			return;
+		}
+		
+		function isValidUrl(string: string) {
+			try {
+				new URL(string);
+				return true;
+			} catch (_) {
+				return false;
+			}
+		}
+		if (!req.id || !data.session?.data?.user?.id) {
+			shippedError = 'Order/session missing.';
+			return;
+		}
+		shippedLoading = true;
+		// Fetch updated order
+		const updatedOrderRes = await data.supabase_lt
+			.from('printrequests')
+			.select('*')
+			.eq('id', req.id)
+			.single();
+		if (updatedOrderRes.error || !updatedOrderRes.data) {
+			shippedError = 'Error fetching updated order.';
+			shippedLoading = false;
+			return;
+		}
+		const updatedOrder = updatedOrderRes.data;
+		// 1. Send chat message of type 'action'
+		const chatInsert = await data.supabase_lt.from('Chat').insert([
+			{
+				sender_id: data.session.data.user.id,
+				recipient_id: updatedOrder.user_id ?? '',
+				message: JSON.stringify({
+					action: 'shipped',
+					courier: courierName,
+					tracking_id: trackingId,
+					tracking_link: trackingLink
+				}),
+				relationship_id: updatedOrder.id,
+				message_type: 'action',
+				status: 'sent'
+			}
+		]);
+		if (chatInsert.error) {
+			shippedError = 'Error sending shipped message.';
+			shippedLoading = false;
+			return;
+		}
+		// 2. Update print request's request_stage and events
+		const updateRes = await data.supabase_lt
+			.from('printrequests')
+			.update({
+				request_stage: 'shipped',
+				last_updated: new Date().toISOString(),
+				update_count: (updatedOrder?.update_count || 0) + 1,
+				events: [
+					...(updatedOrder?.events || []),
+					{
+						type: 'shipped',
+						reason: `Courier: ${courierName}, Tracking ID: ${trackingId}, Tracking Link: ${trackingLink}`,
+						timestamp: new Date().toISOString(),
+						by: 'maker',
+						extra: { courier: courierName, tracking_id: trackingId, tracking_link: trackingLink }
+					}
+				]
+			})
+			.eq('id', updatedOrder.id);
+		if (updateRes.error) {
+			shippedError = 'Error updating print request.';
+			shippedLoading = false;
+			return;
+		}
+		shippedDialogOpen = false;
+		shippedLoading = false;
+		courierName = '';
+		trackingId = '';
+		trackingLink = '';
+		shippedError = '';
+		invalidate('3dp-portal:printrequest');
+		toastStore.show('Order marked as shipped!', 'success');
 	}
 
 	async function downloadModel() {
@@ -296,10 +412,12 @@
 				return { msg: 'Order has been paid. Begin processing the order.', turn: 'maker' };
 			case 'paid_externally':
 				return { msg: 'Order was paid externally. Confirm and proceed.', turn: 'maker' };
-			case 'completed':
-				return { msg: 'Order is completed. No further action needed.', turn: 'closed' };
+			case 'shipped':
+				return { msg: 'Order is shipped. No further action needed. This order will be closed when user marks it delivered or in 21 days, whichever comes first.', turn: 'user' };
 			case 'in dispute':
 				return { msg: 'Order is in dispute. Await resolution.', turn: 'SC Team' };
+			case 'completed':
+				return { msg: 'Order is completed.', turn: 'closed' };
 			default:
 				return { msg: 'Unknown stage.', turn: 'SC Team' };
 		}
@@ -443,7 +561,7 @@
 							>{getTurn(turn).msg}</span>
 					</div>
 				{/if}
-				<span>{STAGE_DESCRIPTIONS[String(req.request_stage)] || 'No description available'}</span>
+				<span>{getStageExplanation(req.request_stage, '').msg}</span>
 			</div>
 		</div>
 
@@ -509,7 +627,7 @@
 				{:else if req.request_stage === 'paid'}
 					<button
 						class="bg-green-400/10 hover:bg-green-500/20 text-green-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-green-400/20 hover:border-green-400/40"
-						onclick={markAsShipped}>
+						onclick={onOpenShippedDialog}>
 						<Icon icon="mdi:truck-delivery" class="w-5 h-5" />
 						<span class="font-medium text-sm">Mark as Shipped</span>
 					</button>
@@ -537,36 +655,47 @@
 
 		<!-- Event history header-->
 		{#if sortedEvents && sortedEvents.length > 0}
-			<div class="flex flex-col h-full mt-4 w-full">
-				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
-				<div class="flex flex-col gap-2">
-					{#each sortedEvents as event}
-						<div class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm">
-							<div class="flex items-center justify-between text-white/80">
-								<span class="font-medium"
-									>Event : <span class="capitalize">{event.type}</span></span>
-								<span class="text-gray-400 text-xs"
-									>{new Date(event.timestamp).toLocaleString(undefined, {
-										hour: '2-digit',
-										minute: '2-digit',
-										year: 'numeric',
-										month: 'short',
-										day: 'numeric'
-									})}</span>
-							</div>
-							{#if event.reason}
-								<div class="text-gray-400 mt-1 text-xs">Message : {event.reason}</div>
-							{/if}
-							{#if event.extra}
+		<div class="flex flex-col h-full mt-4 w-full">
+			<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
+			<div class="flex flex-col gap-2">
+				{#each sortedEvents as event}
+					<div class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm {event.type === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-400/20' : ''} {event.type == 'paid' ? 'bg-green-500/10 text-green-400 border-green-400/20' : ''}">
+						<div class="flex items-center justify-between text-white/80">
+							<span class="font-medium"
+								>Event : <span class="capitalize">{event.type}</span></span>
+							<span class="text-gray-400 text-xs"
+								>{new Date(event.timestamp).toLocaleString(undefined, {
+									hour: '2-digit',
+									minute: '2-digit',
+									year: 'numeric',
+									month: 'short',
+									day: 'numeric'
+								})}</span>
+						</div>
+						{#if event.reason}
+							<div class="text-gray-400 mt-1 text-xs">Message : {event.reason}</div>
+						{/if}
+						{#if event.extra}
+							{#if event.extra.quote}
 								<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
 							{/if}
-							<div class="text-accent/80 text-xs mt-1">
-								by <span class="capitalize">{event.by == 'user' ? 'user' : 'you'}</span>
-							</div>
+							{#if event.extra.payment_id_a}
+								<div class="text-gray-400 mt-1 font-semibold">Order ID : {event.extra.payment_id_a}</div>
+							{/if}
+							{#if event.extra.payment_id_b}
+								<div class="text-gray-400 mt-1 font-semibold">Payment ID : {event.extra.payment_id_b}</div>
+							{/if}
+							{#if event.extra.amount}
+								<div class="text-gray-400 mt-1 font-semibold">Amount : {(event.extra.amount/100).toFixed(2)}₹</div>
+							{/if}
+						{/if}
+						<div class="text-accent/80 text-xs mt-1">
+							by <span class="capitalize">{event.by == 'user' ? 'user' : 'you'}</span>
 						</div>
-					{/each}
-				</div>
+					</div>
+				{/each}
 			</div>
+		</div>
 		{:else}
 			<div class="flex flex-col h-full mt-4 w-full">
 				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
@@ -649,6 +778,64 @@
 				<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
 				Send Quote
 				{#if quoteLoading}
+					<Icon icon="line-md:loading-twotone-loop" class="text-base animate-spin" />
+				{/if}
+			</button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={shippedDialogOpen}>
+	<Dialog.Content class="z-[1050]">
+		<Dialog.Header>
+			<Dialog.Title>Mark as Shipped</Dialog.Title>
+			<Dialog.Description>
+				Please provide the shipping details. <span class="text-yellow-400">Either Tracking ID or Tracking Link is required.</span>
+			</Dialog.Description>
+		</Dialog.Header>
+		<div class="flex flex-col gap-3 mt-4">
+			<label class="text-sm text-gray-300 font-medium">Courier Name<span class="text-red-400">*</span></label>
+			<input
+				type="text"
+				bind:value={courierName}
+				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
+				placeholder="e.g. Bluedart, Delhivery, etc."
+				disabled={shippedLoading}
+			/>
+			<label class="text-sm text-gray-300 font-medium">Tracking ID</label>
+			<input
+				type="text"
+				bind:value={trackingId}
+				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
+				placeholder="e.g. 1234567890"
+				disabled={shippedLoading}
+			/>
+			<label class="text-sm text-gray-300 font-medium">Tracking Link</label>
+			<input
+				type="url"
+				bind:value={trackingLink}
+				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
+				placeholder="e.g. https://courier.com/track/123456"
+				disabled={shippedLoading}
+			/>
+			{#if shippedError}
+				<div class="text-red-400 text-xs mt-1">{shippedError}</div>
+			{/if}
+		</div>
+		<Dialog.Footer class="flex justify-end gap-3 mt-6">
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+				onclick={onCancelShipped}
+				disabled={shippedLoading}
+			>Cancel</button>
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+				onclick={onConfirmShipped}
+				disabled={shippedLoading}
+			>
+				<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
+				Mark as Shipped
+				{#if shippedLoading}
 					<Icon icon="line-md:loading-twotone-loop" class="text-base animate-spin" />
 				{/if}
 			</button>

@@ -1,3 +1,4 @@
+import type { Address } from '$lib/types/product';
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 export const load: PageServerLoad = async ({ params, depends, locals: { supabase, supabaseServer } }) => {
@@ -35,8 +36,17 @@ export const load: PageServerLoad = async ({ params, depends, locals: { supabase
     maker = makerData;
   }
 
+  //fetch addresses
+  const { data: addresses } = await supabaseServer
+    .from('addresses')
+    .select('*')
+    .eq('uid', user.id);
+
+  
+
   return {
     printRequest,
-    maker
+    maker,
+    addresses: addresses as Address[]
   };
 }; 

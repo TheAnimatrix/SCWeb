@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
 	import Icon from '@iconify/svelte';
+	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 	import { page } from '$app/state';
 	import { elasticInOut, expoInOut } from 'svelte/easing';
 	import { toastStore } from '$lib/client/toastStore';
@@ -9,13 +10,19 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { goto, invalidate } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
+	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
+	import { newAddress, validateAddress, type Address } from '$lib/types/product';
+	import type { Writable } from 'svelte/store';
+	import { setLoading } from '$lib/client/loading';
 	let { data } = $props();
 
 	let req = $state(data.printRequest);
 	let sortedEvents = $derived(
 		req.events
-			? [...req.events].sort(
+			? [...req.events]
+				.filter((event: any) => event.type !== 'order_created')
+				.sort(
 					(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
 				)
 			: []
@@ -25,12 +32,28 @@
 	});
 
 	const maker = data.maker;
+	let load_store = getContext<Writable<boolean>>('loading');
 	let downloading = $state(false);
 	let messageBoardOpen = $state(false);
 	let cancelDialogOpen = $state(false);
 	let cancelReason = $state('');
 	let downloadProgress = $state(0);
 	let unreadCount = $state(0);
+	let validAddress = $state<Address>({});
+	let addressValid: boolean = $state(false);
+	if (data.session.data.user && data.addresses && data.addresses.length > 0) {
+		const firstAddress = data.addresses[0];
+		if (validateAddress(firstAddress) == null) {
+			addressValid = true;
+			validAddress = firstAddress;
+		} else {
+			addressValid = false;
+			validAddress = newAddress();
+		}
+	} else {
+		addressValid = false;
+		validAddress = newAddress();
+	}
 
 	let modelName = req.model?.split('/').pop().split('.');
 	let modelName2 = modelName[modelName.length - 2].split('_');
@@ -64,6 +87,7 @@
 		requested: 'You have requested a quote for a 3D print. Please wait for the maker to quote you.',
 		quoted: 'A maker has quoted you. Please review the quote and accept or reject it.',
 		actionable: 'Maker has requested an action from you. Please take action on the request.',
+		shipped: 'The maker has shipped the 3D print. Please wait for it to be delivered and then mark it as delivered. We kindly request you to leave a review for the maker after the delivery.',
 		paid: 'You have paid for the 3D print. Please wait for the maker to complete the print.',
 		paid_externally:
 			'You have paid for the 3D print externally. Please wait for the maker to complete the print.',
@@ -72,6 +96,132 @@
 		'in dispute': 'The request is in dispute. Our Team will intervene to resolve the dispute.',
 		default: 'The request is in default.'
 	};
+
+	let payLoading = $state(false);
+
+	$effect(() => {
+		if (payLoading) {
+			setLoading(load_store, true);
+		} else {
+			setLoading(load_store, false);
+		}
+	});
+
+	async function payQuote(amount: number) {
+		if (payLoading) return;
+		if (!req?.model) return;
+		payLoading = true;
+		//check for address validity
+		let addressValidity = validateAddress(validAddress);
+		if (addressValidity) {
+			highlightAddressSelector();
+			toastStore.show(addressValidity, 'error');
+			payLoading = false;
+			return;
+		}
+		//check for user session
+		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
+		if (userErr || !userRes?.session?.access_token) {
+			toastStore.show('Invalid session, please reload the page or login again', 'error');
+			payLoading = false;
+			return;
+		}
+		//POST request to create a new order ('/3dp-portal/user/[id]')
+		const res = await fetch(`/3dp-portal/user/${req.id}`, {
+			method: 'POST',
+			body: JSON.stringify({ address: validAddress, amount: amount })
+		});
+		if (res.ok) {
+			const data = await res.json();
+			if (data.success) {
+				//Order created successfully now open rzp dialog
+				openRazorpayDialog(data.order_id, data.amount);
+				payLoading = false;
+				return;
+			} else {
+				toastStore.show(data.error, 'error');
+			}
+		} else {
+			toastStore.show('Failed to create order', 'error');
+		}
+		payLoading = false;
+	}
+
+	async function openRazorpayDialog(order_id: string, amount: number) {
+		try{
+			var options = {
+				key: PUBLIC_RAZORPAY_ID, // Enter the Key ID generated from the Dashboard
+				amount: amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+				currency: 'INR',
+				name: 'SelfCrafted',
+				image:
+					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
+				order_id: order_id, //This is a sample Order ID. Pass the `id` obtained in the response of Step 1
+				handler: async function (response: any) {
+					// Add check for cartData inside handler as well, just in case
+					if (!req) {
+						console.error('Print request data became unavailable during payment processing.');
+						return;
+					}
+					const formData2 = new FormData();
+					formData2.append('payment_id_a', response.razorpay_order_id);
+					formData2.append('payment_id_b', response.razorpay_payment_id);
+					formData2.append('payment_signature', response.razorpay_signature);
+					formData2.append('amount', amount.toString());
+					const patchResult = await fetch(`/3dp-portal/user/${req.id}`, {
+						method: 'PATCH',
+						body: formData2
+					}); // Use a different variable name
+					if (!patchResult.ok) {
+						console.error('Failed to update order status after payment.');
+						return;
+					}
+					goto(`/summary/success/${req.id}/${response.razorpay_payment_id}`);
+				},
+				modal: {
+					ondismiss: async function () {
+						//remove order_created event from print request
+						// await data.supabase_lt.from('printrequests').update({
+						// 	order_id: null,
+						// 	events: data.printRequest.events.filter((event: any) => event.type !== 'order_created')
+						// }).eq('id', req.id);
+						invalidate('3dp-portal:printrequest');
+						toastStore.show('Payment cancelled by User', 'warning');
+						return;
+					}
+				},
+				prefill: {},
+				theme: {
+					color: '#2084fe'
+				}
+			};
+			// @ts-ignore - Razorpay is loaded from external script
+			var rzp1 = new Razorpay(options);
+			if (!rzp1) {
+				alert('Issue with Payment Provider, try again');
+				return;
+			}
+			// @ts-ignore - Razorpay is loaded from external script
+			rzp1.open();
+			// @ts-ignore - Razorpay is loaded from external script
+			rzp1.on('payment.failed', function (response: any) {
+				toastStore.show('Payment failed, please try again', 'error');
+				// @ts-ignore - Razorpay is loaded from external script
+				rzp1.close();
+				window.location.href = `/summary/failure/${req.id}/${response.error.metadata.order_id}`;
+				return;
+			});
+		}catch(e){
+			// Explicitly type caught error as unknown
+			console.error('Error during payment process:', e);
+			// Provide more specific error feedback if possible
+			toastStore.show(
+				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
+				'error'
+			);
+			return;
+		}
+	}
 
 	async function downloadModel() {
 		if (!req?.model) return;
@@ -248,9 +398,211 @@
 			data.supabase_lt.removeChannel(chatSubscription);
 		};
 	});
+
+	// --- Highlight/Scroll helpers ---
+	let addressSelectorRef : HTMLDivElement | null = $state(null);
+	let payButtonRef : HTMLButtonElement | null = $state(null);
+	let highlightAddress = $state(false);
+	let highlightPay = $state(false);
+
+	function highlightAddressSelector() {
+		if (addressSelectorRef) {
+			addressSelectorRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			highlightAddress = true;
+			setTimeout(() => (highlightAddress = false), 1200);
+		}
+	}
+
+	function highlightPayButton() {
+		if (payButtonRef) {
+			payButtonRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			highlightPay = true;
+			setTimeout(() => (highlightPay = false), 1200);
+		}
+	}
+
+	let completeDialogOpen = $state(false);
+	let completeReason = $state('');
+
+	async function onCancelComplete(e: MouseEvent) {
+		e.preventDefault();
+		completeDialogOpen = false;
+		completeReason = '';
+	}
+
+	async function onConfirmComplete(e: MouseEvent) {
+		e.preventDefault();
+		if (!req || !data.session?.data?.user?.id) return;
+		const updatedOrder = await data.supabase_lt
+			.from('printrequests')
+			.select('*')
+			.eq('id', req.id)
+			.single();
+		if (!updatedOrder.data) return;
+		// 1. Send chat message of type 'action' (optional: can add a message for completion)
+		await data.supabase_lt.from('Chat').insert([
+			{
+				sender_id: data.session.data.user.id,
+				recipient_id: req.creator_id ?? '',
+				message: JSON.stringify({ action: 'completed', reason: completeReason }),
+				relationship_id: req.id,
+				message_type: 'action',
+				status: 'sent'
+			}
+		]);
+		// 2. Update print request's request_stage
+		await data.supabase_lt
+			.from('printrequests')
+			.update({
+				request_stage: 'completed',
+				last_updated: new Date().toISOString(),
+				update_count: (updatedOrder.data?.update_count || 0) + 1,
+				events: [
+					...(updatedOrder.data?.events || []),
+					{
+						type: 'completed',
+						reason: completeReason,
+						timestamp: new Date().toISOString(),
+						by: 'user'
+					}
+				]
+			})
+			.eq('id', req.id);
+		// 3. Invoke creator stats update
+		await fetch('/3dp-portal/maker/' + req.creator_id + '/statsUpdate', {
+			method: 'POST'
+		});
+
+		if (updatedOrder.error) {
+			console.error('Error updating order', updatedOrder.error);
+			return;
+		}
+		completeDialogOpen = false;
+		completeReason = '';
+		window.location.reload();
+	}
+
+	// --- Review Maker State ---
+	let reviewDialogOpen = $state(false);
+	let reviewDeleteDialogOpen = $state(false);
+	let reviewRating = $state(5);
+	let reviewComment = $state('');
+	let reviewLoading = $state(false);
+	let reviewError = $state('');
+	let userReview: any = $state(null);
+
+	// Fetch review for this user, maker, and print request
+	async function fetchUserReview() {
+		if (!data.session?.data?.user?.id || !req?.id || !req?.creator_id) return;
+		reviewLoading = true;
+		reviewError = '';
+		const { data: review, error } = await data.supabase_lt
+			.from('CreatorReviews')
+			.select('*')
+			.eq('user_id', data.session.data.user.id)
+			.eq('maker_id', req.creator_id)
+			.eq('print_request_id', req.id)
+			.single();
+		if (error && error.code !== 'PGRST116') reviewError = error.message;
+		userReview = review || null;
+		reviewLoading = false;
+		if (userReview) {
+			reviewRating = userReview.rating;
+			reviewComment = userReview.comment;
+		}
+	}
+
+	$effect(() => {
+		if (req?.request_stage === 'completed') fetchUserReview();
+	});
+
+	async function openReviewDialog() {
+		reviewError = '';
+		reviewDialogOpen = true;
+		if (userReview) {
+			reviewRating = userReview.rating;
+			reviewComment = userReview.comment;
+		} else {
+			reviewRating = 5;
+			reviewComment = '';
+		}
+	}
+
+	async function submitReview() {
+		if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
+			reviewError = 'Please select a rating.';
+			return;
+		}
+		if (!reviewComment.trim()) {
+			reviewError = 'Please enter a review.';
+			return;
+		}
+		reviewLoading = true;
+		const payload = {
+			user_id: data.session.data.user.id,
+			maker_id: req.creator_id,
+			print_request_id: req.id,
+			rating: reviewRating,
+			comment: reviewComment.trim()
+		};
+		let result;
+		if (userReview) {
+			result = await data.supabase_lt
+				.from('CreatorReviews')
+				.update(payload)
+				.eq('id', userReview.id)
+				.select('*');
+		} else {
+			result = await data.supabase_lt
+				.from('CreatorReviews')
+				.insert(payload)
+				.select('*');
+		}
+		if (result.error) {
+			reviewError = result.error.message;
+			reviewLoading = false;
+			return;
+		}
+		userReview = result.data?.[0] || userReview;
+		reviewDialogOpen = false;
+		reviewLoading = false;
+		toastStore.show(userReview ? 'Review updated!' : 'Review added!', 'success');
+	}
+
+	async function deleteReview() {
+		if (!userReview) return;
+		reviewLoading = true;
+		const { error } = await data.supabase_lt
+			.from('CreatorReviews')
+			.delete()
+			.eq('id', userReview.id);
+		if (error) {
+			reviewError = error.message;
+			reviewLoading = false;
+			return;
+		}
+		userReview = null;
+		reviewDeleteDialogOpen = false;
+		reviewDialogOpen = false;
+		reviewLoading = false;
+		reviewRating = 5;
+		reviewComment = '';
+		toastStore.show('Review deleted.', 'success');
+	}
 </script>
 
+<svelte:head>
+	<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</svelte:head>
+
+
 <div class="p-2 sm:p-4 max-w-3xl mx-auto h-full flex flex-col">
+	<!-- <button onclick={()=>{
+		// 3. Invoke creator stats update
+		fetch('/3dp-portal/maker/' + req.creator_id + '/statsUpdate', {
+			method: 'POST'
+		});
+	}}>Invoke stats update</button> -->
 	<button
 		onclick={() => goto('/3dp-portal/user')}
 		class="mb-4 text-accent text-sm font-medium flex items-center gap-1"
@@ -281,6 +633,40 @@
 					</div>
 				{/if}
 			</div>
+		</div>
+		<!-- Review Maker Section -->
+		<div class="flex flex-col h-full mt-2 w-full">
+			{#if req.request_stage === 'completed'}
+				<div class="text-sm text-gray-400 font-semibold mb-2">Review Maker</div>
+				{#if reviewLoading}
+					<div class="text-gray-400 text-sm">Loading review...</div>
+				{:else}
+					{#if userReview}
+						<div class="flex items-center gap-2 mb-2">
+							{#each Array(5) as _, i}
+								<Icon icon="iconamoon:star-duotone" class={i < userReview.rating ? 'text-yellow-400' : 'text-gray-600'} />
+							{/each}
+							<span class="text-gray-300 text-sm">{userReview.comment}</span>
+						</div>
+						<div class="flex gap-2">
+							<button 
+								onclick={openReviewDialog} 
+								class="bg-black/20 text-accent border border-accent/20 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-accent/10 transition-all flex items-center gap-1">
+								<Icon icon="material-symbols:edit-outline" class="text-sm" />
+								Edit Review
+							</button>
+							<button 
+								onclick={() => (reviewDeleteDialogOpen = true)} 
+								class="bg-black/20 text-red-400 border border-red-400/20 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-500/10 transition-all flex items-center gap-1">
+								<Icon icon="material-symbols:delete-outline" class="text-sm" />
+								Delete
+							</button>
+						</div>
+					{:else}
+						<button onclick={openReviewDialog} class="bg-accent text-black px-3 py-1.5 rounded-lg text-xs font-medium hover:brightness-110 transition-all">Add Review</button>
+					{/if}
+				{/if}
+			{/if}
 		</div>
 		<!-- Model details header -->
 		<div class="flex flex-col h-full mt-4 w-full">
@@ -395,10 +781,54 @@
 						<span class="font-medium text-sm">Cancel</span>
 					</button>
 				{/if}
-				<!-- if the current stage is quoted, show a button to pay the quote-->
-				{#if req.request_stage === 'quoted'}
+				<!-- if the current stage is shipped, show a button to mark as completed -->
+				{#if req.request_stage === 'shipped'}
 					<button
-						class="bg-emerald-400/10 hover:bg-emerald-500/20 text-emerald-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-emerald-400/20 hover:border-emerald-400/40">
+						class="bg-emerald-400/10 hover:bg-emerald-500/20 text-emerald-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-emerald-400/20 hover:border-emerald-400/40"
+						onclick={() => (completeDialogOpen = true)}>
+						<Icon icon="mdi:check-circle" class="w-5 h-5" />
+						<span class="font-medium text-sm">Mark as Delivered</span>
+					</button>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Payment details header-->
+		{#if req.request_stage === 'quoted'}
+			<div class="flex flex-col h-full mt-4 w-full">
+				<div class="text-sm text-gray-400 font-semibold">Payment Details</div>
+
+				<div
+					bind:this={addressSelectorRef}
+					class="mt-2 rounded-xl"
+					class:highlight-animation={highlightAddress}>
+					<AddressInputSelector
+						email={data.session.data.user.email}
+						userExists={true}
+						addresses={data.addresses}
+						bind:address={validAddress}
+						bind:addressValid />
+				</div>
+				<!-- if the current stage is quoted, show a button to pay the quote-->
+				<button
+					class="mt-2 bg-emerald-400/10 hover:bg-emerald-500/20 text-emerald-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-emerald-400/20 hover:border-emerald-400/40"
+					class:!ring-4={highlightPay}
+					class:!ring-emerald-400={highlightPay}
+					class:!ring-offset-2={highlightPay}
+					class:!transition-all={highlightPay}
+					class:!duration-500={highlightPay}
+					disabled={payLoading}
+					bind:this={payButtonRef}
+					onclick={() => {
+						const amount = req.events
+								.filter((e: any) => e.type === 'quoted')
+								.sort(
+									(a: any, b: any) =>
+										new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+								)[0]?.extra.quote;
+						payQuote(amount);
+					}}>
+					{#if !payLoading}
 						<span class="font-medium text-sm"
 							>Pay {req.events
 								.filter((e: any) => e.type === 'quoted')
@@ -406,16 +836,12 @@
 									(a: any, b: any) =>
 										new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
 								)[0]?.extra.quote}₹</span>
-					</button>
-					<!-- reject quote button that opens a dialog to reject the quote
-					<button
-						class="bg-red-400/10 hover:bg-red-500/20 text-red-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-red-400/20 hover:border-red-400/40"
-						onclick={() => (rejectQuoteDialogOpen = true)}>
-						<span class="font-medium text-sm">Reject Quote</span>
-					</button> -->
-				{/if}
+					{:else}
+						<span class="font-medium text-sm">Processing...</span>
+					{/if}
+				</button>
 			</div>
-		</div>
+		{/if}
 
 		<!-- Event history header-->
 		{#if sortedEvents && sortedEvents.length > 0}
@@ -423,7 +849,7 @@
 				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
 				<div class="flex flex-col gap-2">
 					{#each sortedEvents as event}
-						<div class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm">
+						<div class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm {event.type === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-400/20' : ''} {event.type == 'paid' ? 'bg-green-500/10 text-green-400 border-green-400/20' : ''}">
 							<div class="flex items-center justify-between text-white/80">
 								<span class="font-medium"
 									>Event : <span class="capitalize">{event.type}</span></span>
@@ -440,7 +866,18 @@
 								<div class="text-gray-400 mt-1 text-xs">Message : {event.reason}</div>
 							{/if}
 							{#if event.extra}
-								<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
+								{#if event.extra.quote}
+									<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
+								{/if}
+								{#if event.extra.payment_id_a}
+									<div class="text-gray-400 mt-1 font-semibold">Order ID : {event.extra.payment_id_a}</div>
+								{/if}
+								{#if event.extra.payment_id_b}
+									<div class="text-gray-400 mt-1 font-semibold">Payment ID : {event.extra.payment_id_b}</div>
+								{/if}
+								{#if event.extra.amount}
+									<div class="text-gray-400 mt-1 font-semibold">Amount : {(event.extra.amount/100).toFixed(2)}₹</div>
+								{/if}
 							{/if}
 							<div class="text-accent/80 text-xs mt-1">
 								by <span class="capitalize">{event.by == 'user' ? 'you' : 'maker'}</span>
@@ -458,6 +895,8 @@
 				</div>
 			</div>
 		{/if}
+
+		
 	{/if}
 </div>
 
@@ -470,7 +909,14 @@
 				supabase_lt={data.supabase_lt}
 				session={data.session}
 				receiverId={req.creator_id ?? ''}
-				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'} />
+				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'}
+				paynow={() => {
+					//close drawer
+					messageBoardOpen = false;
+					//highlight pay button
+					highlightPayButton();
+					toastStore.show('Select address and click pay now', 'info');
+				}} />
 		</Drawer.Content>
 	</Drawer.Root>
 {/if}
@@ -495,3 +941,84 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+
+<Dialog.Root bind:open={completeDialogOpen}>
+	<Dialog.Content class="z-[1050]">
+		<Dialog.Header>
+			<Dialog.Title>Mark as Completed</Dialog.Title>
+			<Dialog.Description>
+				Are you sure you want to mark this order as completed? This action cannot be undone.
+			</Dialog.Description>
+		</Dialog.Header>
+		<Textarea bind:value={completeReason} class="w-full mt-4" placeholder="(Optional) Add a note..." />
+		<Dialog.Footer>
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors mr-2"
+				onclick={onCancelComplete}>Cancel</button>
+			<button
+				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+				onclick={onConfirmComplete}>Confirm</button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Review Maker Dialogs -->
+{#if reviewDialogOpen}
+	<div class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+		<div class="bg-[#151515] rounded-2xl p-6 w-full max-w-md border border-[#252525] relative">
+			<button onclick={() => (reviewDialogOpen = false)} class="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors p-1">
+				<Icon icon="iconamoon:close" class="text-xl" />
+			</button>
+			<div class="text-lg font-bold text-white mb-4">{userReview ? 'Edit Your Review' : 'Write a Review'}</div>
+			<div class="mb-4">
+				<label class="block text-sm font-medium text-gray-300 mb-2">Rating</label>
+				<div class="flex gap-1">
+					{#each Array(5) as _, i}
+						<button onclick={() => (reviewRating = i + 1)} class="text-2xl p-1.5 -mx-1 transition-colors">
+							<Icon icon="iconamoon:star-duotone" class={i < reviewRating ? 'text-yellow-400' : 'text-gray-600'} />
+						</button>
+					{/each}
+				</div>
+			</div>
+			<div class="mb-4">
+				<label class="block text-sm font-medium text-gray-300 mb-2">Your Review</label>
+				<Textarea bind:value={reviewComment} class="w-full h-24 bg-[#0c0c0c] border border-[#252525] rounded-lg p-3 text-white text-sm focus:outline-hidden focus:border-accent transition-colors resize-none" placeholder="Share your experience..." />
+			</div>
+			{#if reviewError}
+				<div class="text-red-400 text-sm mb-4">{reviewError}</div>
+			{/if}
+			<div class="flex gap-3">
+				<button onclick={() => (reviewDialogOpen = false)} class="flex-1 py-2 px-4 bg-[#252525] text-white rounded-lg hover:bg-[#353535] transition-colors">Cancel</button>
+				<button onclick={submitReview} disabled={reviewLoading} class="flex-1 py-2 px-4 bg-accent text-black rounded-lg hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{reviewLoading ? 'Submitting...' : (userReview ? 'Update Review' : 'Submit Review')}</button>
+			</div>
+		</div>
+	</div>
+{/if}
+{#if reviewDeleteDialogOpen}
+	<div class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+		<div class="bg-[#151515] rounded-2xl p-6 w-full max-w-md border border-[#252525] relative">
+			<div class="text-lg font-bold text-white mb-4">Delete Your Review</div>
+			<p class="text-gray-300 text-sm mb-4">Are you sure you want to delete your review? This action cannot be undone.</p>
+			<div class="flex gap-3">
+				<button onclick={() => (reviewDeleteDialogOpen = false)} class="flex-1 py-2 px-4 bg-[#252525] text-white rounded-lg hover:bg-[#353535] transition-colors">Cancel</button>
+				<button onclick={deleteReview} class="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2">Delete Review</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<style>
+	/* Animation for price changes */
+	@keyframes highlight {
+		0% {
+			background-color: hsl(var(--accent) / 0.5);
+		}
+		100% {
+			background-color: transparent;
+		}
+	}
+
+	.highlight-animation {
+		animation: highlight 1.5s ease-out;
+	}
+</style>

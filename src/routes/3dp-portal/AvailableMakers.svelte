@@ -56,9 +56,13 @@
 				material_type: string;
 			}>
 		>;
+		reviews : Array<{
+			rating: number;
+			comment: string;
+			created_at: string;
+		}>;
 		max_printer_size: string;
 		number_of_printers: number;
-		reviews: any | null;
 		tier: string;
 	}
 
@@ -230,7 +234,7 @@
 							{#if maker.reviews?.length > 0}
 								<div class="flex items-center gap-1">
 									<Icon icon="material-symbols:star" class="text-yellow-400 text-sm" />
-									<span class="text-white text-sm">{maker.avg_rating ?? 0}</span>
+									<span class="text-white text-sm">{maker.reviews.reduce((acc, review) => acc + review.rating, 0) / maker.reviews.length} ({maker.reviews.length})</span>
 								</div>
 							{:else}
 								<div class="flex items-center gap-1">
@@ -250,7 +254,7 @@
 					<!-- Expanded maker details -->
 					{#if expandedMaker === maker.maker_id}
 						<div class="px-3 pb-3">
-							<div class="flex items-center gap-4 text-xs text-white/70 mb-2">
+							<div class="flex items-center gap-4 text-xs text-white/70 mb-2 flex-wrap">
 								<div class="flex items-center">
 									<Icon icon="mdi:printer" class="text-accent mr-1 text-lg" />
 									<span
@@ -269,7 +273,7 @@
 								</div>
 							</div>
 
-							<div class="flex items-center gap-y-4 gap-x-2 text-xs text-white/70 mb-2">
+							<div class="flex flex-wrap items-center gap-y-2 gap-x-2 text-xs text-white/70 mb-2">
 								<!-- Max printer size -->
 								<div class="flex items-center bg-accent/20 text-accent rounded-sm p-1">
 									<!-- Area icon -->
@@ -301,6 +305,31 @@
 										Delivery Speed: {maker.delivery_rank}/5
 									</div>
 								</div>
+								<!-- Response time-->
+								 
+
+								{#if maker.avg_quote_time}
+								{@const hh = parseInt(maker.avg_quote_time.toString().split(':')[0])}
+								{@const mm = parseInt(maker.avg_quote_time.toString().split(':')[1])}
+								{@const ss = parseInt(maker.avg_quote_time.toString().split(':')[2])}
+								<div class="flex items-center bg-accent/20 rounded-md px-2 py-1">
+									<Icon
+										icon="material-symbols:timer-outline"
+										class="text-accent mr-1.5 text-lg" />
+									<span class="text-accent font-medium">Response time:</span>
+									<span class="ml-1 text-white/80">
+										{#if hh > 24}
+											~{Math.ceil(hh / 24)} days
+										{:else if hh > 1}
+											~{hh}.{(mm/60).toFixed(1).split('.')[1]} hours
+										{:else if mm > 15}
+											~{mm}.{(ss/60).toFixed(1).split('.')[1]} minutes
+										{:else}
+											~15 minutes
+										{/if}
+									</span>
+								</div>
+								{/if}
 							</div>
 							<div class="flex flex-col gap-2 mt-2">
 								{#each Object.keys(maker.filaments) as mat}

@@ -10,13 +10,15 @@
 		supabase_lt,
 		session,
 		receiverId,
-		disabled
+		disabled,
+		paynow
 	}: {
 		orderId: string;
 		supabase_lt: SupabaseClient;
 		session: { data: { user: { id: string } } } | null;
 		receiverId: string;
 		disabled: boolean;
+		paynow?: () => void;
 	} = $props();
 
 	let messages = $state<any[]>([]);
@@ -108,7 +110,8 @@
 			// Only adjust scroll if new messages were actually added and scrollContainer exists
 			if (scrollContainer && data && data.length > 0) {
 				const currentScrollHeight = scrollContainer.scrollHeight;
-				scrollContainer.scrollTop = previousScrollTop + (currentScrollHeight - previousScrollHeight);
+				scrollContainer.scrollTop =
+					previousScrollTop + (currentScrollHeight - previousScrollHeight);
 			}
 		}
 		loadingMore = false; // Fetch operation complete
@@ -116,7 +119,13 @@
 
 	$effect(() => {
 		// Handles the very first scroll to bottom after initial messages are loaded.
-		if (!initialLoadCompleted && !loading && messages.length > 0 && scrollContainer && !loadingMore) {
+		if (
+			!initialLoadCompleted &&
+			!loading &&
+			messages.length > 0 &&
+			scrollContainer &&
+			!loadingMore
+		) {
 			// Ensure all conditions are met:
 			// - Initial load hasn't completed its scroll yet.
 			// - Main loading indicator is off.
@@ -157,7 +166,8 @@
 				const isOwnMessage = lastMessage?.sender_id === session?.data?.user?.id;
 				// Check if scroll container is scrolled near the bottom (e.g., within 100px)
 				const nearBottom =
-					scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 100;
+					scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight <
+					100;
 
 				if (isOwnMessage || nearBottom) {
 					scrollContainer.scrollTop = scrollContainer.scrollHeight;
@@ -166,14 +176,13 @@
 		}
 		prevMessageCount = messages.length;
 	});
-	
 
 	// Debounce chat read updates
 	let newChatIds = $state<string[]>([]);
 	let debounceChatReadTimer: NodeJS.Timeout | null = null;
 	$effect(() => {
-		if(newChatIds.length > 0){
-			if(debounceChatReadTimer){
+		if (newChatIds.length > 0) {
+			if (debounceChatReadTimer) {
 				clearTimeout(debounceChatReadTimer);
 			}
 			debounceChatReadTimer = setTimeout(() => {
@@ -225,8 +234,7 @@
 				.eq('relationship_id', orderId)
 				.eq('recipient_id', session.data.user.id)
 				.eq('status', 'sent')
-				.then((res) => {
-				});
+				.then((res) => {});
 		}
 		return () => {
 			if (subscription) supabase_lt.removeChannel(subscription);
@@ -314,21 +322,60 @@
 								: 'items-start'}">
 							{#if msg.message_type === 'action'}
 								{@const actionObj = JSON.parse(msg.message)}
-								<div
-									class="px-3 py-2 rounded-lg max-w-xs break-words bg-red-500/20 border border-red-400 text-red-200 {msg.sender_id ===
-									session?.data?.user?.id
-										? 'self-end'
-										: 'self-start'} flex flex-col items-center">
-									<div class="font-semibold text-sm w-full flex items-start gap-1">
-										<Icon icon="ph:warning-circle-bold" class="text-lg" />
-										{actionObj?.action
-											? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
-											: 'Action'}
+								{#if actionObj.action === 'shipped'}
+									{@const shippedObj = JSON.parse(msg.message)}
+									<div
+										class="px-4 py-3 rounded-lg max-w-xs break-words bg-gradient-to-br from-amber-500/20 to-yellow-500/30 border border-yellow-400/70 text-yellow-100 shadow-lg backdrop-blur-sm {msg.sender_id ===
+										session?.data?.user?.id
+											? 'self-end'
+											: 'self-start'} flex flex-col items-start">
+										<div class="font-semibold text-sm flex items-center gap-2">
+											<div class="bg-yellow-400/30 p-1.5 rounded-full">
+												<Icon icon="ph:truck-bold" class="text-lg text-yellow-200" />
+											</div>
+											<span class="text-yellow-50">Shipped via {shippedObj.courier}</span>
+										</div>
+										{#if shippedObj.tracking_id}
+											<div class="text-sm mt-2 bg-black/20 px-3 py-1.5 rounded-md w-full">
+												<span class="font-medium text-yellow-200">Tracking ID:</span>
+												<span class="ml-1">{shippedObj.tracking_id}</span>
+											</div>
+										{/if}
+										{#if shippedObj.tracking_link}
+											<div class="text-sm mt-2 w-full">
+												<a
+													href={shippedObj.tracking_link}
+													target="_blank"
+													class="flex items-center justify-center gap-1 bg-yellow-500/30 hover:bg-yellow-500/50 text-yellow-50 px-3 py-2 rounded-md w-full transition-all duration-200 border border-yellow-400/50 hover:border-yellow-400">
+													<Icon icon="ph:package-bold" class="text-lg" />
+													Track your package
+													<Icon icon="ph:arrow-up-right-bold" class="text-xs" />
+												</a>
+											</div>
+										{/if}
+										{#if shippedObj.reason}
+											<div class="text-xs mt-2 text-yellow-200/70 bg-black/10 px-2 py-1 rounded w-full">{shippedObj.reason}</div>
+										{/if}
 									</div>
-									{#if actionObj?.reason}
-										<div class="text-sm mt-1 text-red-200 flex flex-col"><span class="opacity-50">Reason </span> <span>{actionObj.reason}</span></div>
-									{/if}
-								</div>
+								{:else}
+									<div
+										class="px-3 py-2 rounded-lg max-w-xs break-words bg-red-500/20 border border-red-400 text-red-200 {msg.sender_id ===
+										session?.data?.user?.id
+											? 'self-end'
+											: 'self-start'} flex flex-col items-center">
+										<div class="font-semibold text-sm w-full flex items-start gap-1">
+											<Icon icon="ph:warning-circle-bold" class="text-lg" />
+											{actionObj?.action
+												? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
+												: 'Action'}
+										</div>
+										{#if actionObj?.reason}
+											<div class="text-sm mt-1 text-red-200 flex flex-col">
+												<span class="opacity-50">Reason </span> <span>{actionObj.reason}</span>
+											</div>
+										{/if}
+									</div>
+								{/if}
 							{:else if msg.message_type === 'quote'}
 								{@const actionObj = JSON.parse(msg.message)}
 								<div
@@ -342,12 +389,31 @@
 									</div>
 									<div class="text-sm text-blue-200">{actionObj.reason}</div>
 									<div class="text-2xl font-semibold mt-1 text-blue-200">{actionObj.quote}₹</div>
-									<!-- show a button to accept the quote-->
-									 {#if msg.recipient_id === session?.data?.user?.id}
+									<!-- show a button to accept the quote only for the latest quote message for the current user -->
+									{#if msg.recipient_id === session?.data?.user?.id && (() => {
+											// Find the last quote message for the current user
+											let lastIndex = -1;
+											for (let j = messages.length - 1; j >= 0; j--) {
+												if (messages[j].message_type === 'quote' && messages[j].recipient_id === session?.data?.user?.id) {
+													lastIndex = j;
+													break;
+												}
+											}
+											return i === lastIndex;
+										})()}
 										<button
 											class="bg-blue-500/20 text-blue-200 px-3 py-2 rounded-lg text-sm mt-2 w-full hover:bg-blue-500/50 transition-colors duration-200"
-											>Pay Now</button>
-									 {/if}
+											onclick={paynow
+												? () => {
+														paynow();
+													}
+												: () => {
+														toastStore.show(
+															'Close the chat, select address and click pay now',
+															'info'
+														);
+													}}>Pay Now</button>
+									{/if}
 								</div>
 							{:else}
 								<div
@@ -362,7 +428,9 @@
 								{#if msg.sender_id === session?.data?.user?.id}
 									<div class="text-xs text-right">
 										<span class={msg.status === 'read' ? 'text-green-400' : 'text-gray-400'}>
-											<Icon icon={msg.status === 'read' ? 'mdi:check-all' : 'mdi:check'} class="w-3 h-3" />
+											<Icon
+												icon={msg.status === 'read' ? 'mdi:check-all' : 'mdi:check'}
+												class="w-3 h-3" />
 										</span>
 									</div>
 								{/if}

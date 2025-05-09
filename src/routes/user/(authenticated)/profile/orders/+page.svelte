@@ -74,8 +74,8 @@
 		</div>
 	{:else}
 		{#each orders as order, i}
-			{@const shipping_address = JSON.parse(order.shipping_address ?? '{}')}
-			{@const billing_address = JSON.parse(order.billing_address ?? '{}')}
+			{@const shipping_address = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address ?? '{}') : (order.shipping_address ?? {})}
+			{@const billing_address = typeof order.billing_address === 'string' ? JSON.parse(order.billing_address ?? '{}') : (order.billing_address ?? {})}
 			<div class="bg-[#151515] rounded-xl overflow-hidden">
 				<button
 					class="w-full p-3 md:p-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 items-start text-left hover:bg-white/5 transition-all"
@@ -197,6 +197,92 @@
 							</div>
 						{/if}
 						<!--Items-->
+						{#if order.payment_method.includes('PrintRequest')}
+							<div class="p-4 text-gray-400">
+								{#await data.supabase_lt.from('printrequests').select('*').eq('id', order.cart_id).single()}
+									<div class="flex justify-center items-center py-8">
+										<div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent"></div>
+										<span class="ml-3 text-accent">Loading request details...</span>
+									</div>
+								{:then printRequest}
+									{#if printRequest.data}
+										<div class="flex flex-col gap-2">
+											<div class="flex justify-between items-center">
+												<span class="font-medium text-accent">3D Print Request Details:</span>
+												<span class="text-sm px-2 py-1 rounded-md {printRequest.data.request_stage === 'paid' ? 'bg-green-500/10 text-green-400 border border-green-400/20' : printRequest.data.request_stage === 'completed' ? 'bg-gray-500/10 text-gray-300 border border-gray-400/20' : 'bg-accent/10 text-accent border border-accent/20'}">
+													{printRequest.data.request_stage}
+												</span>
+											</div>
+											{#if printRequest.data.model}
+												<div class="text-sm">
+													<span class="font-medium text-accent">Model:</span>
+													{#if !(printRequest.data.model.startsWith('https://') || printRequest.data.model.startsWith('http://'))}
+														{@const modelName = printRequest.data.model?.split('/').pop().split('.')}
+														{@const modelName2 = modelName[modelName.length - 2].split('_')}
+														<a href="/3dp-portal/user/{printRequest.data.id}" class="underline text-sky-300">{modelName ? `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}` : 'Model'}</a>
+													{:else}
+														<span class="text-gray-300">{printRequest.data.model}</span>
+													{/if}
+												</div>
+											{/if}
+											<!-- show model_data if exists -->
+											{#if printRequest.data.model_data}
+												<div class="text-sm">
+													<span class="font-medium text-accent">Model Data:</span>
+													<div class="flex flex-wrap gap-2 text-xs text-white/80 mt-1">
+														{#if printRequest.data.model_data.color}
+															<span class="bg-accent/10 px-2 py-0.5 rounded flex items-center gap-1.5">Color: <div class="w-3 h-3 rounded-sm" style={`background-color:${printRequest.data.model_data.color}`}></div></span>
+														{/if}
+														{#if printRequest.data.model_data.quality}
+															<span class="bg-accent/10 px-2 py-0.5 rounded">Quality: {printRequest.data.model_data.quality}</span>
+														{/if}
+														{#if printRequest.data.model_data.scale}
+															<span class="bg-accent/10 px-2 py-0.5 rounded">Scale: {printRequest.data.model_data.scale}x</span>
+														{/if}
+														{#if printRequest.data.model_data.infill}
+															<span class="bg-accent/10 px-2 py-0.5 rounded">Infill: {printRequest.data.model_data.infill}%</span>
+														{/if}
+														{#if printRequest.data.model_data.walls}
+															<span class="bg-accent/10 px-2 py-0.5 rounded">Walls: {printRequest.data.model_data.walls}</span>
+														{/if}
+														{#if printRequest.data.material}
+															<span class="bg-accent/10 px-2 py-0.5 rounded">Material: {printRequest.data.material}</span>
+														{/if}
+														{#each Object.entries(printRequest.data.model_data) as [key, value]}
+															{#if !['color', 'quality', 'scale', 'infill', 'walls'].includes(key) && value}
+																<span class="bg-accent/10 px-2 py-0.5 rounded">{key}: {value}</span>
+															{/if}
+														{/each}
+													</div>
+												</div>
+											{/if}
+											{#if printRequest.data.events && printRequest.data.events.length > 0}
+												<div class="text-sm mt-2">
+													<span class="font-medium text-accent">Event history:</span>
+													<div class="mt-1 space-y-1">
+														{#each printRequest.data.events.filter((e: any) => e.type !== 'order_created').sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 3) as event}
+															<div class="bg-black/10 px-3 py-2 rounded-lg border border-accent/10 text-xs">
+																<div class="flex items-center justify-between">
+																	<span class="font-medium"><span class="capitalize">{event.type} {event.extra?.amount ? `(₹${(parseInt(event.extra?.amount)/100).toFixed(2)})` : ''} {event.extra?.quote ? `(₹${event.extra?.quote})` : ''}</span></span>
+																	<span class="text-gray-400 text-xs">{new Date(event.timestamp).toLocaleString()}</span>
+																</div>
+																{#if event.reason}
+																	<div class="text-gray-400 mt-1">{event.reason}</div>
+																{/if}
+															</div>
+														{/each}
+													</div>
+												</div>
+											{/if}
+										</div>
+									{:else}
+										<div class="text-center">Unable to fetch 3D print request details</div>
+									{/if}
+								{:catch}
+									<div class="text-center">Error loading 3D print request details</div>
+								{/await}
+							</div>
+						{:else}
 						{#if !order.item_snapshot || order.item_snapshot.length <= 0}
 							<div class="p-4 text-center text-gray-400">Unable to fetch order information</div>
 						{:else}
@@ -238,6 +324,7 @@
 									<div class="text-right">₹{order.amount}</div>
 								</div>
 							</div>
+						{/if}
 						{/if}
 					</div>
 				{/if}

@@ -130,7 +130,7 @@
 <div class="min-h-screen bg-[#0c0c0c] text-white w-full max-w-full overflow-x-hidden">
 	<!-- Loading Overlay -->
 	<div
-		class="h-screen bg-[rgba(0,0,0,0.8)] z-50 inset-0 fixed justify-center flex flex-col items-center"
+		class="h-screen bg-[rgba(0,0,0,0.8)] z-50 inset-0 fixed justify-center flex flex-col items-center pointer-events-auto"
 		class:hidden={!$navigating && !$load_store}>
 		<Loader />
 		<div class="text-white text-center text-xl mt-4 mx-auto">Loading</div>

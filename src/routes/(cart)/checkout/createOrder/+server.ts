@@ -91,6 +91,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 				payment_status: 'paid',
 				payment_method: 'razorpay',
 				payment_id: paymentIdA,
+				payment_id_b: paymentIdB,
 				payment_signature: paymentSignature,
 				billing_address: cartData.address,
 				shipping_address: cartData.address,

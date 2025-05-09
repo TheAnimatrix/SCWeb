@@ -6,11 +6,18 @@ DONE:
 - maker-portal/clicked-order : event history for makers
 - maker-portal/clicked-order : stage details for makers
 - when both users chat is open, read receipts dont work
-
+- payment details section added to user-portal/clicked-order w/ address selector
+- highlighting animations for chat pay button (closes drawer)
+- PAYMENT PROCESSING for 3d print request
+- Order page now shows 3d print request specific order expansion details
+- maker-portal/clicked-order : mark as shipped
+- user-portal/clicked-order : mark as delivered
+- user-portal/clicked-order : added section for review
+- CREATOR STATS updated on order completion
+- 3dp-portal/available-makers : added response time to maker card & rating+review count
 
 TODO:
 -----------------
-- payment processing for 3d print request
 
 minor issues:
 -----------------
@@ -19,7 +26,6 @@ minor issues:
 PLANNING AREA:
 ---------------------------------------------------------------------------
 - payment processing for 3d print request
-- on quote, make a section available for user to select address and click pay now
 - upon clicking pay :
     - requisites : [amount, request id, delivery address]
     - create a new razorpay order (instance.orders.create)
