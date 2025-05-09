@@ -47,10 +47,10 @@
 	<div
 		in:fly={{ y: 20, duration: 400, easing: cubicOut }}
 		out:fade={{ duration: 200 }}
-		class="fixed bottom-5 right-5 z-[100] max-w-sm w-full rounded-2xl overflow-hidden"
+		class="fixed bottom-5  z-[100] max-w-sm w-full rounded-2xl overflow-hidden"
 	>
 		<!-- Main toast container with styling matching the site theme -->
-		<div class={`backdrop-blur-xl rounded-2xl p-4 shadow-glow transition-all duration-300 hover:shadow-glow-lg border ${toastClasses.bg} ${toastClasses.border}`}>
+		<div class={`mr-5 ml-5 backdrop-blur-xl rounded-2xl p-4 shadow-glow transition-all duration-300 hover:shadow-glow-lg border ${toastClasses.bg} ${toastClasses.border}`}>
 			<div class="flex items-center">
 				<!-- Icon with type color -->
 				<Icon icon={icon} class={`text-xl mr-2 flex-shrink-0 ${toastClasses.icon}`} />

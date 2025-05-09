@@ -1,42 +1,12 @@
 DONE:
 -----------------
-- user-portal/clicked-order : remove expanding title order card and show details outside the card
-- maker-portal/clicked-order : remove expanding title order card and show details outside the card
-- maker-portal/clicked-order : migrated away from drawer to separate page
-- maker-portal/clicked-order : event history for makers
-- maker-portal/clicked-order : stage details for makers
-- when both users chat is open, read receipts dont work
-- payment details section added to user-portal/clicked-order w/ address selector
-- highlighting animations for chat pay button (closes drawer)
-- PAYMENT PROCESSING for 3d print request
-- Order page now shows 3d print request specific order expansion details
-- maker-portal/clicked-order : mark as shipped
-- user-portal/clicked-order : mark as delivered
-- user-portal/clicked-order : added section for review
-- CREATOR STATS updated on order completion
-- 3dp-portal/available-makers : added response time to maker card & rating+review count
 
 TODO:
 -----------------
+- add dragging color selection
+- infill dragger shows 15% 3 but on change 20% 3
 
 minor issues:
 -----------------
 - can add to cart even if no actual stock [race condition]
 
-PLANNING AREA:
----------------------------------------------------------------------------
-- payment processing for 3d print request
-- upon clicking pay :
-    - requisites : [amount, request id, delivery address]
-    - create a new razorpay order (instance.orders.create)
-    - Reads the "PrintRequest" table to validate the request stage / amount and updates it with order id + delivery address
-    - return orderid and amount to client
-- on client side :
-    - upon receiving orderid and amount :
-        - Launch razorpay payment dialog
-        - upon successful payment :
-            - update the PrintRequest table with the order_id (same as previous step), payment_id, payment_signature
-            - add purchase record to purchases table (status, method, id, signature, billing_address, shipping_address, client_id, print_request_id, amount)
-            - redirect to user portal and show a success section on top of the page
-        - upon failure :
-            - redirect to user portal and show a failure section on top of the page ('/summary/failure/{print_request_id}/{response.error.metadata.order_id}')

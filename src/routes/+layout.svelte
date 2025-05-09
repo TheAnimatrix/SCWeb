@@ -14,11 +14,11 @@
 	import { get, writable, type Writable } from 'svelte/store';
 	import { onMount, setContext, getContext } from 'svelte';
 	import Loader from '$lib/components/fundamental/Loader.svelte';
-	import Drawer from '$lib/components/ui/Drawer.svelte';
+	import * as Drawer from '$lib/components/ui/drawer';
 	import Toast from '$lib/components/common/Toast.svelte'; // Import custom Toast
 
 	// Mobile menu state
-	const mobileMenuOpen = writable(false);
+	let mobileMenuOpen = $state(false);
 
 	// Maintain primary colors for different sections but simplify
 	let primaryColor: string = $state('');
@@ -217,68 +217,13 @@
 
 					<!-- Mobile Menu Button -->
 					<div class="md:hidden h-full">
-						<Drawer open={$mobileMenuOpen} position="bottom">
-							{#snippet trigger(open, handleClose)}
-								<button
-									onclick={() => ($mobileMenuOpen = !$mobileMenuOpen)}
-									class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg transition-all">
-									<Icon icon="mdi:menu" class="text-2xl" />
-								</button>
-							{/snippet}
-							{#snippet content(handleClose)}
-								<div class="p-6 h-full w-full overflow-y-auto flex flex-col">
-									<div class="flex justify-between items-center mb-8">
-										<div class="text-xl font-medium text-accent">Menu</div>
-										<button
-											onclick={handleClose}
-											class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg">
-											<Icon icon="mdi:close" class="text-xl" />
-										</button>
-									</div>
+						<button
+							onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
+							class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg transition-all">
+							<Icon icon="mdi:menu" class="text-2xl" />
+						</button>
 
-									<nav class="flex flex-col space-y-4">
-										<a
-											href="/"
-											onclick={handleClose}
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id === '/'
-												? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium'
-												: 'text-gray-300'}">
-											Crafts
-										</a>
-										<a
-											href="/about"
-											onclick={handleClose}
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith(
-												'/about'
-											)
-												? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium'
-												: 'text-gray-300'}">
-											About
-										</a>
-										<a
-											href="/crafting"
-											onclick={handleClose}
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith(
-												'/crafting'
-											)
-												? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium'
-												: 'text-gray-300'}">
-											Start Crafting
-										</a>
-										<a
-											href="/3dp-portal"
-											onclick={handleClose}
-											class="px-4 py-3 rounded-lg transition-all {$page.route.id?.startsWith(
-												'/3dp-portal'
-											)
-												? 'bg-[#090909]/50 backdrop-blur-sm border-l-4 border-accent font-medium'
-												: 'text-gray-300'}">
-											3DP Portal
-										</a>
-									</nav>
-								</div>
-							{/snippet}
-						</Drawer>
+						
 					</div>
 				</div>
 			</nav>
@@ -289,6 +234,103 @@
 	<main class="pt-16 md:pt-20">
 		{@render children?.()}
 	</main>
+
+	<div class="md:hidden absolute inset-0 h-full w-full {mobileMenuOpen ? 'block' : 'hidden'}">
+		<div class="relative w-full h-full">
+			<div class="md:hidden absolute inset-0 h-full w-full bg-black/10 backdrop-blur-sm z-[50] {mobileMenuOpen ? 'block' : 'hidden'}"></div>
+			<div class="h-full w-full">
+				<Drawer.Root bind:open={mobileMenuOpen}>
+					<Drawer.Trigger style="display:none" />
+					<Drawer.Content class="max-w-3xl mx-auto h-[75%] sm:h-[80%] transition-all duration-200 border border-[#252525]/30 rounded-t-2xl shadow-xl">
+						<div class="p-6 h-full w-full overflow-y-auto flex flex-col">
+							<div class="flex justify-between items-center mb-6">
+								<div class="text-xl font-medium text-accent flex items-center">
+									<Icon icon="ph:list-bold" class="mr-2 text-2xl" />
+									<span>Navigation</span>
+								</div>
+								<button
+									onclick={() => (mobileMenuOpen = false)}
+									class="p-2 text-gray-300 hover:bg-[#151515] rounded-lg transition-all">
+									<Icon icon="mdi:close" class="text-xl" />
+								</button>
+							</div>
+							<nav class="flex flex-col space-y-3">
+								<button
+									onclick={() => {
+										goto('/');
+										mobileMenuOpen = false;
+									}}
+									class="text-left px-4 py-3 rounded-lg transition-all w-full flex items-center {$page.route.id === '/'
+										? 'bg-accent/10 border-1 border-accent font-medium'
+										: 'text-gray-300 hover:bg-[#151515]/50'}">
+									<Icon icon="ph:stack-duotone" class="mr-3 text-xl {$page.route.id === '/' ? 'text-accent' : ''}" />
+									<span>Crafts</span>
+								</button>
+								<button
+									onclick={() => {
+										goto('/about');
+										mobileMenuOpen = false;
+									}}
+									class="text-left px-4 py-3 rounded-lg transition-all w-full flex items-center {$page.route.id?.startsWith(
+										'/about'
+									)
+										? 'bg-accent/10 border-1 border-accent font-medium'
+										: 'text-gray-300 hover:bg-[#151515]/50'}">
+									<Icon icon="ph:info-duotone" class="mr-3 text-xl {$page.route.id?.startsWith('/about') ? 'text-accent' : ''}" />
+									<span>About</span>
+								</button>
+								<button
+									onclick={() => {
+										goto('/crafting');
+										mobileMenuOpen = false;
+									}}
+									class="text-left px-4 py-3 rounded-lg transition-all w-full flex items-center {$page.route.id?.startsWith(
+										'/crafting'
+									)
+										? 'bg-accent/10 border-1 border-accent font-medium'
+										: 'text-gray-300 hover:bg-[#151515]/50'}">
+									<Icon icon="ph:hammer-duotone" class="mr-3 text-xl {$page.route.id?.startsWith('/crafting') ? 'text-accent' : ''}" />
+									<span>Start Crafting</span>
+								</button>
+								<button
+									onclick={() => {
+										goto('/3dp-portal');
+										mobileMenuOpen = false;
+									}}
+									class="text-left px-4 py-3 rounded-lg transition-all w-full flex items-center {$page.route.id?.startsWith(
+										'/3dp-portal'
+									)
+										? 'bg-accent/10 border-1 border-accent font-medium'
+										: 'text-gray-300 hover:bg-[#151515]/50'}">
+									<Icon icon="ph:cube-duotone" class="mr-3 text-xl {$page.route.id?.startsWith('/3dp-portal') ? 'text-accent' : ''}" />
+									<span>3DP Portal</span>
+								</button>
+							</nav>
+							<div class="mt-auto pt-6 border-t border-[#252525]/50 mt-6">
+								<div class="flex justify-center space-x-4 text-gray-400">
+									<a
+										href="https://discord.gg/UQ74TQfMqM"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="p-2 hover:text-accent transition-colors">
+										<Icon icon="ph:discord-logo-duotone" class="text-2xl" />
+									</a>
+									<a
+										href="https://github.com/TheAnimatrix/SCWeb"
+										target="_blank"
+										rel="noopener noreferrer"
+										class="p-2 hover:text-accent transition-colors">
+										<Icon icon="ph:github-logo-duotone" class="text-2xl" />
+									</a>
+								</div>
+							</div>
+						</div>
+					</Drawer.Content>
+				</Drawer.Root>
+			</div>
+		</div>
+		
+	</div>
 
 	<!-- Footer -->
 	<footer
