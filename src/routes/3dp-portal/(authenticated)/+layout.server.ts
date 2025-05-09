@@ -9,7 +9,7 @@ export const load: LayoutServerLoad = async ({locals: {supabaseServer, supabase}
 	if (session.error || !session.data.user) {
         // Construct the redirect URL with the current path as postLogin query parameter
         const postLoginRedirect = `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`;
-		redirect(302, postLoginRedirect); // Redirect if not logged in
+		return redirect(302, postLoginRedirect); // Redirect if not logged in
 	}
 	let makerData = null;
 
