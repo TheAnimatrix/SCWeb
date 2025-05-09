@@ -10,6 +10,7 @@
     import Icon from '@iconify/svelte';
     import { createEventDispatcher } from 'svelte';
     import { estimateWeight } from '$lib/helper/modelWeightCalculator';
+	import { toastStore } from '$lib/client/toastStore';
 
     // Material densities in g/cm³
     // const MATERIAL_DENSITIES = {
@@ -29,6 +30,7 @@
         selectedWalls?: number;
         selectedQuality?: string;
         quantity?: number; // Add new quantity parameter
+        onFailedLoad?: () => void;
     }
 
     let {
@@ -39,7 +41,8 @@
         selectedInfill = 20,
         selectedWalls = 4,
         selectedQuality = 'Standard (0.20mm)',
-        quantity = 1
+        quantity = 1,
+        onFailedLoad = () => {}
     }: Props = $props();
     
     let container: HTMLDivElement = $state();
@@ -679,7 +682,7 @@
                 controls.update();
             }
         } catch (error) {
-            console.error("Error loading STL:", error);
+            onFailedLoad();
         }
     }
 

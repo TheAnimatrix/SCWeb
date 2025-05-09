@@ -311,7 +311,6 @@
 			handleFiles(target.files);
 		}
 	}
-
 	function handleFiles(files: FileList) {
 		// Filter for 3D model files
 		const supportedFormats = ['.stl'];
@@ -320,16 +319,23 @@
 		if (file) {
 			const fileName = file.name.toLowerCase();
 			const isSupported = supportedFormats.some((format) => fileName.endsWith(format));
+			const fileSizeMB = file.size / (1024 * 1024);
 
-			if (isSupported) {
-				modelFile = file;
-				modelLoaded = true;
-				// Reset file input so same file can be uploaded again
-				const fileInput = document.getElementById('fileInput') as HTMLInputElement;
-				if (fileInput) fileInput.value = '';
-			} else {
-				alert('Please upload a supported 3D model file (STL)');
+			if (!isSupported) {
+				toastStore.show('Please upload a supported 3D model file (STL)', 'error');
+				return;
 			}
+
+			if (fileSizeMB > 50) {
+				toastStore.show('File size exceeds 50MB limit. Please upload a smaller file.', 'error');
+				return;
+			}
+
+			modelFile = file;
+			modelLoaded = true;
+			// Reset file input so same file can be uploaded again
+			const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+			if (fileInput) fileInput.value = '';
 		}
 	}
 
@@ -414,6 +420,15 @@
 			if (onProgress) onProgress(null);
 			return;
 		}
+
+		//check if provided file is <50MB and an actual STL file
+		if (model && model.size > 50 * 1024 * 1024) {
+			toastStore.show('Model file must be less than 50MB', 'error');
+			loading = false;
+			if (onProgress) onProgress(null);
+			return;
+		}
+		
 		const jwt = userRes.session.access_token;
 
 		// Build FormData for edge function
@@ -492,7 +507,12 @@
 								selectedScale={scale}
 								selectedInfill={infill}
 								{selectedQuality}
-								selectedWalls={parseInt(strengthLevels[sliderPosition].walls.split(' ')[0])} />
+								selectedWalls={parseInt(strengthLevels[sliderPosition].walls.split(' ')[0])}
+								onFailedLoad={() => {
+									toastStore.show('Sorry, this STL is not compatible with our portal. Please try a different model.', 'error');
+									modelFile = null;
+									modelLoaded = false;
+								}} />
 						</div>
 					{:else}
 						<div class="flex flex-col items-center justify-center h-full">
