@@ -3,6 +3,16 @@ DONE:
 
 TODO:
 -----------------
+- Username (auto) for google login
+- Change Username
+- Upload profile picture
+- Fabbly/AvailableMakers : same color picked different material circles animate
+- Material : <none> in user portal list
+- on registration as a maker, autosend email to maker for verification
+- describe strength selection below picker
+- fix picker on mobile
+- on error downloading model, download button stuck at loading...
+- handle error download model properly in portal
 - no cube renders on STL failure
 - add Z area constraint to max printer volume
 - allow makers to adjust area constraints in portal
@@ -15,3 +25,6 @@ minor issues:
 -----------------
 - can add to cart even if no actual stock [race condition]
 
+PLANNING:
+-----------------
+- how to handle micro transactions and split them to the maker ? I dont want my bank account to receive all these small transactions. What are the options ?
