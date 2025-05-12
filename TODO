@@ -3,6 +3,10 @@ DONE:
 
 TODO:
 -----------------
+- no cube renders on STL failure
+- add Z area constraint to max printer volume
+- allow makers to adjust area constraints in portal
+- model area check before requesting quote
 - add dragging color selection
 - infill dragger shows 15% 3 but on change 20% 3
 - remove material option from left hand side and add a filter option in available makers

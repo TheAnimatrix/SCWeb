@@ -18,7 +18,7 @@
 	}
 
 	// Props expected from the parent component
-	let { supabase_lt, session }: { supabase_lt: SupabaseClient, session: { data: { user: { id: string } } } | null } = $props();
+	let { supabase_lt, session, onUpdate }: { supabase_lt: SupabaseClient, session: { data: { user: { id: string } } } | null, onUpdate: () => void } = $props();
 
 	// State for filament inventory
 	let filamentInventory = $state<Filament[]>([]);
@@ -70,6 +70,8 @@
 			isLoadingFilaments = false;
 			filamentError = null;
 		}
+
+		onUpdate();
 	}
 
 	$effect(() => {

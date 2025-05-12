@@ -72,6 +72,7 @@
 	let expandedMaker = $state('');
 	let loadingQuote = $state<string>('');
 	let uploadProgress = $state<Record<string, number | null>>({});
+	let currentUserId = $state('');
 
 	function getIcon(tier: string) {
 		const icons = [
@@ -158,6 +159,7 @@
 		loading = true;
 		try {
 			const { data: user } = await supabase_lt.auth.getUser();
+			currentUserId = user.user?.id ?? '';
 			const response = await supabase_lt.rpc('get_creator_full_profile');
 
 			if (response.error) {
@@ -166,8 +168,7 @@
 				return;
 			} else {
 				makers = response.data.filter(
-					(maker: any) =>
-						maker.filaments && maker.filaments.length > 0 && maker.maker_id != user.user?.id
+					(maker: any) => maker.filaments && maker.filaments.length > 0
 				);
 				// Group filaments by material_type
 				makers.forEach((maker: Maker) => {
@@ -215,10 +216,11 @@
 		<div class="space-y-3">
 			{#each makers as maker, i}
 				{@const icon = getIcon(maker.tier)}
-				<div class="bg-black/50 rounded-lg overflow-hidden border border-zinc-800">
+				{@const isSelf = maker.maker_id === currentUserId}
+				<div class="bg-black/50 rounded-lg overflow-hidden border border-zinc-800 {isSelf ? 'opacity-50 relative' : ''}">
 					<!-- Maker header -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div
 						class="p-3 flex items-center justify-between cursor-pointer hover:bg-black/70 transition-colors"
 						onclick={() => toggleMaker(maker.maker_id)}>
@@ -249,11 +251,16 @@
 										: 'material-symbols:expand-more'} />
 							</button>
 						</div>
+						{#if isSelf}
+							<div class="absolute top-2 right-2 bg-black/80 text-white text-xs px-3 py-1 rounded shadow-glow-subtle border border-accent/30 z-10">
+								You cant order from yourself
+							</div>
+						{/if}
 					</div>
 
 					<!-- Expanded maker details -->
 					{#if expandedMaker === maker.maker_id}
-						<div class="px-3 pb-3">
+						<div class="px-3 pb-3 {isSelf ? 'cursor-not-allowed pointer-events-none' : ''}">
 							<div class="flex items-center gap-4 text-xs text-white/70 mb-2 flex-wrap">
 								<div class="flex items-center">
 									<Icon icon="mdi:printer" class="text-accent mr-1 text-lg" />
