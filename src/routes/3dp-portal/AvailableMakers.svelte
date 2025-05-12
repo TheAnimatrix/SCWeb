@@ -4,6 +4,8 @@
 	import Icon from '@iconify/svelte';
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import { onMount } from 'svelte';
+	import { cubicOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 
 	//color is bindable
 	let {
@@ -260,7 +262,7 @@
 
 					<!-- Expanded maker details -->
 					{#if expandedMaker === maker.maker_id}
-						<div class="px-3 pb-3 {isSelf ? 'cursor-not-allowed pointer-events-none' : ''}">
+						<div class="px-3 pb-3 {isSelf ? 'cursor-not-allowed pointer-events-none' : ''}" in:slide={{duration: 200, easing: cubicOut}} out:slide={{duration: 200, easing: cubicOut}}>
 							<div class="flex items-center gap-4 text-xs text-white/70 mb-2 flex-wrap">
 								<div class="flex items-center">
 									<Icon icon="mdi:printer" class="text-accent mr-1 text-lg" />
