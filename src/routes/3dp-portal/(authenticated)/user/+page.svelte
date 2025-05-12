@@ -92,7 +92,7 @@
             </div>
             <div class="text-xs text-gray-400 mb-2">{new Date(req.created_at).toLocaleString()}</div>
             <div class="flex flex-wrap gap-2 text-xs text-white/80">
-              <span class="bg-accent/10 px-2 py-0.5 rounded">Material: {req.material}</span>
+              <span class="bg-accent/10 px-2 py-0.5 rounded">Material: {req.model_data.material}</span>
               <!-- show color in a rounded cube-->
               <span class="bg-accent/10 px-2 py-0.5 rounded flex items-center gap-1.5">Color: <div class="w-3 h-3 rounded-sm" style={`background-color:${req.model_data.color}`}></div></span>
               <span class="bg-accent/10 px-2 py-0.5 rounded">Quality: {req.model_data.quality}</span>
