@@ -81,7 +81,7 @@
 		};
 	};
 </script>
-<div class="max-w-3xl mx-auto">
+<div class="max-w-4xl mx-auto">
 	
 	{#if makerStatus === 'approved'}
 		<!-- Render the ApprovedMakerPortal component, passing Supabase client, session, and maker name -->
