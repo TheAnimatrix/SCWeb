@@ -1,6 +1,6 @@
 # Selfcrafted Web Application
 
-![Selfcrafted Logo](static/images/favicon.png)
+![Selfcrafted Logo](static/favicon.png)
 
 ## Overview
 
