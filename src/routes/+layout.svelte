@@ -16,6 +16,7 @@
 	import Loader from '$lib/components/fundamental/Loader.svelte';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import Toast from '$lib/components/common/Toast.svelte'; // Import custom Toast
+	import { removePostLoginURL } from '$lib/client/postLogin';
 
 	// Mobile menu state
 	let mobileMenuOpen = $state(false);
@@ -97,8 +98,6 @@
 					// document.cookie = `my-access-token=${session.access_token}; path=/; max-age=${maxAge}; SameSite=Lax; secure`;
 					// document.cookie = `my-refresh-token=${session.refresh_token}; path=/; max-age=${maxAge}; SameSite=Lax; secure`;
 				}
-				if (event === 'SIGNED_IN' && $page.route.id == '/user/sign')
-					goto('/user/profile/account', { replaceState: true });
 				userRoute = '/user/profile/account';
 			}
 		});
@@ -123,6 +122,13 @@
 			// Force scroll body to top
 			document.body.scrollTop = 0;
 			document.documentElement.scrollTop = 0; // For Safari
+		}
+	});
+
+	$effect.pre(() => {
+		if(localStorage.getItem("postLoginURL")){
+			goto(localStorage.getItem("postLoginURL") ?? '', { replaceState: true });
+			removePostLoginURL();
 		}
 	});
 </script>

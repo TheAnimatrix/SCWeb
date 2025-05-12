@@ -16,12 +16,11 @@ export const GET = async (event) => {
 
 	const token_hash = url.searchParams.get('token_hash') as string;
 	const type = url.searchParams.get('type') as string;
-	const next = url.searchParams.get('next') ?? '/';
 
   if (token_hash && type) {
     const { error } = await supabase.auth.getUser()
     if (!error) {
-      throw redirect(303, `/${next.slice(1)}`);
+      throw redirect(303, `/`);
     }
   }
 

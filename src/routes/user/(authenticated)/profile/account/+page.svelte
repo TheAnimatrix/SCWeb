@@ -23,6 +23,10 @@
 	let load_store = getContext<Writable<boolean>>('loading');
 	let error_msg: string | undefined = $state();
 	let isUpdatingPassword = $state(false);
+	let isEditingUsername = $state(false);
+	let newUsername = $state('');
+	let isUpdatingUsername = $state(false);
+	let username_error: string | undefined = $state();
 
 	async function changePassword() {
 		if (isUpdatingPassword) return;
@@ -51,6 +55,73 @@
 
 	async function logout() {
 		await supabase_lt.auth.signOut({ scope: 'global' });
+		goto('/user/sign', { replaceState: true });
+	}
+
+	function validateUsername(username: string): { error: boolean; msg?: string } {
+		if (!username || username.length < 3 || username.length > 20) {
+			return { error: true, msg: 'Username must be 3-20 characters long' };
+		}
+		if (!/^\w+$/.test(username)) {
+			return { error: true, msg: 'Username can only contain letters, numbers, and underscores' };
+		}
+		return { error: false };
+	}
+
+	async function startEditUsername() {
+		newUsername = username || '';
+		error_msg = undefined;
+		username_error = undefined;
+		isEditingUsername = true;
+	}
+
+	function cancelEditUsername() {
+		isEditingUsername = false;
+		error_msg = undefined;
+		username_error = undefined;
+	}
+
+	async function saveUsername() {
+		if (isUpdatingUsername) return;
+		isUpdatingUsername = true;
+		const v = validateUsername(newUsername);
+		if (v.error) {
+			username_error = v.msg;
+			isUpdatingUsername = false;
+			return;
+		}
+		if (!data.user || !data.user.id) {
+			username_error = 'User not found.';
+			isUpdatingUsername = false;
+			return;
+		}
+		setLoading(load_store, true);
+		try {
+			const { data: usernameCheck, error: usernameCheckError } = await supabase_lt.rpc('check_username', { desired_username: newUsername });
+			if (usernameCheck) {
+				username_error = 'Username not available';
+				isUpdatingUsername = false;
+				setLoading(load_store, false);
+				return;
+			}
+			const { data: userData, error: updateError } = await supabase_lt
+				.from('users')
+				.update({ username: newUsername })
+				.eq('id', data.user.id)
+				.select();
+			if (updateError) {
+				username_error = updateError.message || 'Failed to update username.';
+			} else {
+				username = newUsername;
+				isEditingUsername = false;
+				username_error = undefined;
+			}
+		} catch (err) {
+			username_error = 'Failed to update username. Please try again.';
+		} finally {
+			setLoading(load_store, false);
+			isUpdatingUsername = false;
+		}
 	}
 </script>
 
@@ -66,10 +137,38 @@
 			<!-- User Details -->
 			<div class="space-y-4">
 				<div>
+					<!-- svelte-ignore a11y_label_has_associated_control -->
 					<label class="text-sm text-gray-400">Username</label>
-					<div class="mt-1 p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525]">
-						<span class="text-gray-500">/crafts/</span>{username}
-					</div>
+					{#if isEditingUsername}
+						<div class="mt-1 flex gap-2 items-center w-full">
+							<input
+								type="text"
+								bind:value={newUsername}
+								placeholder="Enter new username"
+								class="p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] focus:outline-hidden focus:ring-1 focus:ring-accent/50 w-48 text-white flex-1"
+								maxlength="20"
+							/>
+							<button onclick={saveUsername} class="px-3 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded-xl transition-all duration-200 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent/10" disabled={isUpdatingUsername || newUsername === username}>
+								<Icon icon="ph:check-bold" />
+							</button>
+							<button onclick={cancelEditUsername} class="px-3 py-2 bg-gray-700/30 hover:bg-gray-700/50 text-gray-400 rounded-xl transition-all duration-200 flex items-center gap-1">
+								<Icon icon="ph:x-bold" />
+							</button>
+						</div>
+						{#if username_error}
+							<div class="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs w-fit">
+								{username_error}
+							</div>
+						{/if}
+					{/if}
+					{#if !isEditingUsername}
+						<div class="mt-1 p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] flex justify-between gap-2">
+							<span><span class="text-gray-500">/crafts/</span>{username}</span>
+							<button onclick={startEditUsername} class="ml-2 px-2 py-1 bg-accent/10 hover:bg-accent/20 text-accent rounded transition-all duration-200 flex items-center" title="Edit Username">
+								<Icon icon="ph:pencil-bold" class="text-lg" />
+							</button>
+						</div>
+					{/if}
 				</div>
 				
 				<div>
@@ -83,11 +182,11 @@
 					<label class="text-sm text-gray-400">Tier</label>
 					<div class="mt-1 p-3 bg-[#0c0c0c]/60 rounded-xl border border-[#252525] flex items-center gap-2">
 						<Icon 
-							icon={tier?.toLowerCase() === 'osprey' ? 'fluent-emoji:eagle' :
-								  tier?.toLowerCase() === 'rhino' ? 'fluent-emoji:rhinoceros' :
-								  tier?.toLowerCase() === 'tiger' ? 'fluent-emoji:tiger-face' :
-								  tier?.toLowerCase() === 'peacock' ? 'fluent-emoji:peacock' :
-								  tier?.toLowerCase() === 'bee' ? 'fluent-emoji:honeybee' :
+							icon={tier?.toLowerCase() === 'osprey' ? 'fluent-emoji-high-contrast:eagle' :
+								  tier?.toLowerCase() === 'rhino' ? 'fluent-emoji-high-contrast:rhinoceros' :
+								  tier?.toLowerCase() === 'tiger' ? 'fluent-emoji-high-contrast:tiger-face' :
+								  tier?.toLowerCase() === 'peacock' ? 'fluent-emoji-high-contrast:peacock' :
+								  tier?.toLowerCase() === 'bee' ? 'fluent-emoji-high-contrast:honeybee' :
 								  'ph:star-bold'}
 							class="text-accent text-5xl" />
 						{tier}
