@@ -399,11 +399,21 @@
 					<!-- Status Tags -->
 					<div class="flex flex-wrap gap-2 mb-3">
 						<!-- Verified Tag -->
-						<div
-							class="inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1 rounded-lg text-sm relative before:absolute before:inset-0 before:rounded-lg before:border-2 before:border-dotted before:border-accent/50 before:animate-[border-dance_4s_linear_infinite]">
-							<Icon icon="material-symbols:verified" class="text-accent" />
-							<span>15 day SC Guarantee</span>
-						</div>
+						 {#if productItem.guarantee}
+							{#if productItem.guarantee.includes('Guarantee')}
+							<div
+								class="inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1 rounded-lg text-sm relative before:absolute before:inset-0 before:rounded-lg before:border-2 before:border-dotted before:border-accent/50 before:animate-[border-dance_4s_linear_infinite]">
+								<Icon icon="material-symbols:verified" class="text-accent" />
+								<span>{productItem.guarantee}</span>
+							</div>
+							{:else}
+							<div
+								class="inline-flex items-center gap-1.5 bg-[#252525] text-white px-3 py-1 rounded-lg text-sm relative before:absolute before:inset-0 before:rounded-lg before:border-2 before:border-dotted before:border-accent/50 before:animate-[border-dance_4s_linear_infinite]">
+								<!-- <Icon icon="material-symbols:verified" class="text-accent" /> -->
+								<span>{productItem.guarantee}</span>
+							</div>
+							{/if}
+						{/if}
 
 						<!-- Sale Info Tag -->
 						{#if productItem.stock.status}
