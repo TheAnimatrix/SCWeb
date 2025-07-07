@@ -13,13 +13,13 @@
 </script>
 
 <a
-	href={product.stock.count > 0 ? href : '#'}
+	href={href}
 	class="group bg-[#151515] border border-[#252525] hover:border-[#353535] rounded-2xl overflow-hidden transition-all duration-300 flex flex-col h-full relative {product.stock.count <= 0 ? 'opacity-70' : ''}"
-	onclick={product.stock.count > 0 ? onClick : null}>
+	onclick={onClick}>
 	
 	<!-- Out of stock overlay -->
 	{#if product.stock.count <= 0}
-		<div class="absolute inset-0 bg-black/60 backdrop-blur-xs z-20 flex items-center justify-center">
+		<div class="absolute inset-0 bg-black/50 z-20 flex items-center justify-center">
 			<div class="bg-black/80 text-white px-4 py-2 rounded-lg font-medium">
 				Out of Stock
 			</div>

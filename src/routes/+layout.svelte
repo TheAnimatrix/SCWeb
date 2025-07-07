@@ -233,11 +233,22 @@
 					</div>
 				</div>
 			</nav>
+		</div>	<!-- Hiatus Banner: sticky below navbar -->
+		<div class="sticky top-16 md:top-20 w-full bg-red-900 text-white text-center py-3 font-semibold text-base md:text-lg shadow-lg z-30">
+			<span class="inline-block align-middle">
+				🚨 <span class="font-bold">Notice:</span> SelfCrafted is currently on an indefinite hiatus. If you are interested in learning about the project or want to help take it forward, please reach out at <a href="mailto:creo@selfcrafted.in" class="underline text-yellow-300 hover:text-yellow-400 transition-colors">creo@selfcrafted.in</a>.
+				<br />
+				<span class="font-normal text-sm md:text-base block mt-1">
+					We also have some stock of each item listed. If you'd like to purchase, you can do so by directly reaching out to us.
+				</span>
+			</span>
 		</div>
 	</header>
 
+
+
 	<!-- Main Content -->
-	<main class="pt-16 md:pt-20">
+	<main class="pt-36 md:pt-36">
 		{@render children?.()}
 	</main>
 
