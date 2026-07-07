@@ -1,5 +1,5 @@
 <script lang="ts">
-	import no_img from '$lib/svg/no_img.svg';
+	import { PlaceholderImage } from '$lib/components/sc';
 	import Icon from '@iconify/svelte';
 	import type { Product } from '$lib/types/product';
 	import { HSLToHex, HexToHSL } from '$lib/types/helper';
@@ -28,10 +28,11 @@
 	
 	<!-- Product image with hover effect -->
 	<div class="relative h-[220px] overflow-hidden">
-		<img
-			class="h-full w-full object-cover transition-transform duration-700 ease-in-out group-hover:scale-110"
-			src={product.images?.at(0)?.url ?? no_img}
-			alt={product.name} />
+		<PlaceholderImage
+			src={product.images?.at(0)?.url}
+			alt={product.name}
+			class="transition-transform duration-700 ease-in-out group-hover:scale-110"
+		/>
 			
 		<!-- Price badge -->
 		<div class="absolute top-4 right-4 z-10 flex items-center">
