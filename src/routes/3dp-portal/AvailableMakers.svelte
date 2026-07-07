@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { toastStore } from '$lib/client/toastStore';
-	import { ScButton, Skeleton, TierBadge } from '$lib/components/sc';
+	import { ScButton, MakerRowSkeleton, TierBadge } from '$lib/components/sc';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
+	import { getTierStyle } from '$lib/types/tiers';
 	import { cn } from '$lib/utils';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronUp from '@lucide/svelte/icons/chevron-up';
@@ -216,9 +217,9 @@
 			<div>
 				<div class="mb-1 flex items-center gap-2">
 					<Users class="size-4 text-muted-foreground" strokeWidth={1.5} />
-					<span class="font-mono text-sm text-foreground">available_makers</span>
+					<span class="text-sm font-medium text-foreground">Available makers</span>
 					{#if !loading}
-						<span class="font-mono text-xs text-muted-foreground">({makers.length})</span>
+						<span class="text-xs text-muted-foreground">({makers.length})</span>
 					{/if}
 				</div>
 				<p class="text-sm text-muted-foreground">
@@ -239,10 +240,8 @@
 		{/if}
 
 		{#if loading}
-			<div class="mt-6 space-y-3" aria-hidden="true">
-				{#each Array(3) as _, i (i)}
-					<Skeleton class="h-16 rounded-md border border-border" />
-				{/each}
+			<div class="mt-6" aria-hidden="true">
+				<MakerRowSkeleton count={3} />
 			</div>
 		{:else if error}
 			<div class="mt-6 py-8 text-center text-sm text-destructive">{error}</div>
@@ -256,16 +255,20 @@
 					{@const isSelf = maker.maker_id === currentUserId}
 					{@const isExpanded = expandedMaker === maker.maker_id}
 					{@const rating = averageRating(maker.reviews)}
+					{@const tierStyle = getTierStyle(maker.tier)}
 					<div
 						class={cn(
-							'overflow-hidden rounded-lg border transition-colors',
-							isExpanded ? 'border-foreground/25 bg-card shadow-sm' : 'border-border bg-card',
+							'overflow-hidden rounded-lg border bg-card transition-colors',
+							isExpanded ? cn('shadow-sm', tierStyle.cardExpanded) : tierStyle.card,
 							isSelf && 'opacity-60'
 						)}
 					>
 						<button
 							type="button"
-							class="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/30"
+							class={cn(
+								'flex w-full items-center justify-between gap-4 p-4 text-left transition-colors',
+								tierStyle.buttonHover
+							)}
 							onclick={() => toggleMaker(maker.maker_id)}
 							aria-expanded={isExpanded}
 						>
@@ -273,7 +276,7 @@
 								<TierBadge tier={maker.tier} iconOnly class="size-10" />
 								<div class="min-w-0">
 									<div class="truncate font-medium text-foreground">{maker.crafter_name}</div>
-									<div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-muted-foreground">
+									<div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
 										<span>{maker.number_of_printers ?? 0} printer{maker.number_of_printers === 1 ? '' : 's'}</span>
 										<span>{maker.completed_orders ?? 0} orders</span>
 										{#if maker.max_printer_size}
@@ -291,7 +294,7 @@
 										<span class="text-muted-foreground">({maker.reviews.length})</span>
 									</div>
 								{:else}
-									<span class="font-mono text-xs text-muted-foreground">unrated</span>
+									<span class="text-xs text-muted-foreground">No ratings</span>
 								{/if}
 								{#if isExpanded}
 									<ChevronUp class="size-4 text-muted-foreground" strokeWidth={1.5} />
@@ -302,8 +305,8 @@
 						</button>
 
 						{#if isSelf}
-							<div class="border-t border-border bg-muted/30 px-4 py-2 font-mono text-xs text-muted-foreground">
-								cannot_order_from_self
+							<div class="border-t border-border bg-muted/30 px-4 py-2 text-sm text-muted-foreground">
+								You can't request a quote from yourself.
 							</div>
 						{/if}
 
@@ -314,32 +317,32 @@
 								out:slide={{ duration: 200, easing: cubicOut }}
 							>
 								<div class="mb-4 flex flex-wrap gap-2">
-									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-xs">
-										affordability {maker.price_rank}/5
+									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
+										Affordability {maker.price_rank}/5
 									</span>
-									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-xs">
-										delivery {maker.delivery_rank}/5
+									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
+										Delivery {maker.delivery_rank}/5
 									</span>
 									{#if maker.avg_quote_time}
 										{@const response = formatResponseTime(maker.avg_quote_time)}
 										{#if response}
 											<span
-												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-xs"
+												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs"
 											>
 												<Timer class="size-3" strokeWidth={1.5} />
-												response {response}
+												Response {response}
 											</span>
 										{/if}
 									{/if}
 								</div>
 
-								<PortalSectionLabel label="filament_color" />
+								<PortalSectionLabel label="Filament color" />
 								<div class="mt-2 space-y-3">
 									{#each Object.keys(maker.filaments) as mat}
 										<div class="rounded-md border border-border bg-muted/20 p-3">
 											<div class="mb-2 flex items-center gap-2">
 												<Printer class="size-3.5 text-muted-foreground" strokeWidth={1.5} />
-												<span class="font-mono text-xs text-foreground">{mat}</span>
+												<span class="text-xs font-medium text-foreground">{mat}</span>
 											</div>
 											<div class="flex flex-wrap gap-2">
 												{#each maker.filaments[mat] as filament}
@@ -389,14 +392,14 @@
 									>
 										{#if loadingQuote === maker.maker_id}
 											{#if uploadProgress[maker.maker_id] != null}
-												request_quote… {uploadProgress[maker.maker_id]}%
+												Requesting quote… {uploadProgress[maker.maker_id]}%
 											{:else}
-												request_quote…
+												Requesting quote…
 											{/if}
 										{:else if !hasModel}
-											upload_model_first
+											Upload a model first
 										{:else}
-											request_quote →
+											Request quote →
 										{/if}
 									</ScButton>
 

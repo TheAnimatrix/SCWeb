@@ -14,8 +14,24 @@ export const load: PageServerLoad = async ({ locals: { supabase, supabaseServer 
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+    const requests = printRequests ?? [];
+    const creatorIds = [...new Set(requests.map((r) => r.creator_id).filter(Boolean))];
+    let makerNames: Record<string, string> = {};
+
+    if (creatorIds.length > 0) {
+        const { data: makers } = await supabaseServer
+            .from('PrintingCrafters')
+            .select('maker_id, name')
+            .in('maker_id', creatorIds);
+
+        if (makers) {
+            makerNames = Object.fromEntries(makers.map((m) => [m.maker_id, m.name]));
+        }
+    }
+
     return {
-        printRequests: printRequests ?? [],
+        printRequests: requests,
+        makerNames,
         error: prError?.message ?? null
     };
 }; 

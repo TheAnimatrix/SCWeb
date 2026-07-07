@@ -5,7 +5,7 @@
 	import Wrench from '@lucide/svelte/icons/wrench';
 	import { toastStore } from '$lib/client/toastStore';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
-	import { ScButton, TagBadge } from '$lib/components/sc';
+	import { ScButton, TagBadge, Skeleton } from '$lib/components/sc';
 	import {
 		PortalCard,
 		PortalSectionLabel,
@@ -144,9 +144,9 @@
 	let modelViewer: ModelViewer;
 
 	const portalSteps = $derived([
-		{ id: 'upload', label: 'upload', done: modelLoaded },
-		{ id: 'configure', label: 'configure', done: modelLoaded },
-		{ id: 'quote', label: 'request_quote', done: false }
+		{ id: 'upload', label: 'Upload', done: modelLoaded },
+		{ id: 'configure', label: 'Configure', done: modelLoaded },
+		{ id: 'quote', label: 'Request quote', done: false }
 	]);
 
 	const currentStep = $derived(modelLoaded ? 'configure' : 'upload');
@@ -445,7 +445,7 @@
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-7xl px-4 pb-16">
 		<header class="mb-8 border-b border-border pb-8">
-			<TagBadge label="3dp_portal" class="mb-3" />
+			<TagBadge label="3D Portal" class="mb-3" />
 			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Community 3D Printing</h1>
 			<p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
 				Upload a model, tune your print settings, then request a quote from a maker near you.
@@ -457,7 +457,10 @@
 			<PortalCard class="mb-4">
 				<PortalSectionLabel label="quote_requests" />
 				{#if loadingRequests}
-					<p class="text-sm text-muted-foreground">Loading your daily limit…</p>
+					<div class="space-y-2" aria-hidden="true">
+						<Skeleton class="h-9 w-16 rounded-sm" />
+						<Skeleton class="h-3 w-48 rounded-sm" />
+					</div>
 				{:else if requestsLeft !== null && quoteDailyLimit !== null}
 					<div class="flex items-baseline gap-2">
 						<span class="text-3xl font-semibold tabular-nums text-foreground">{requestsLeft}</span>
@@ -511,7 +514,7 @@
 					<div class="mb-4 flex items-center justify-between gap-3">
 						<div class="flex items-center gap-2">
 							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
-							<span class="font-mono text-sm text-foreground">print_parameters</span>
+							<span class="text-sm font-medium text-foreground">Print parameters</span>
 						</div>
 					</div>
 
@@ -559,7 +562,7 @@
 					<div class="mb-5">
 						<div class="mb-2 flex items-center justify-between gap-2">
 							<PortalSectionLabel label="scale" class="mb-0" />
-							<div class="flex items-center gap-1.5 font-mono text-xs">
+							<div class="flex items-center gap-1.5 text-xs tabular-nums">
 								{#each [0.5, 1, 1.5, 2] as preset}
 									<button
 										type="button"
@@ -590,7 +593,7 @@
 					<div>
 						<div class="mb-2 flex items-center justify-between gap-2">
 							<PortalSectionLabel label="strength" class="mb-0" />
-							<span class="font-mono text-xs text-muted-foreground">
+							<span class="text-xs tabular-nums text-muted-foreground">
 								{strengthLevels[sliderPosition].label} · {infill}%
 							</span>
 						</div>
@@ -607,7 +610,7 @@
 							class="portal-range w-full"
 						/>
 						<div
-							class="pointer-events-none mt-2 flex justify-between font-mono text-[10px] text-muted-foreground"
+							class="pointer-events-none mt-2 flex justify-between text-[11px] text-muted-foreground"
 						>
 							{#each strengthLevels as level}
 								<span class="truncate px-0.5">{level.label}</span>
@@ -636,7 +639,7 @@
 			<PortalCard>
 				<div class="mb-4 flex items-center gap-2">
 					<CircleHelp class="size-4 text-muted-foreground" strokeWidth={1.5} />
-					<span class="font-mono text-sm text-foreground">faq</span>
+					<span class="text-sm font-medium text-foreground">FAQ</span>
 				</div>
 
 				<Accordion.Root class="w-full" type="multiple">
@@ -694,7 +697,7 @@
 					<PortalCard>
 						<div class="mb-4 flex items-center gap-2">
 							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
-							<span class="font-mono text-sm text-foreground">join_fabbly</span>
+							<span class="text-sm font-medium text-foreground">Join Fabbly</span>
 						</div>
 
 						<div class="space-y-4">
@@ -705,7 +708,7 @@
 							</p>
 
 							<div class="rounded-md border border-border bg-muted/30 p-4">
-								<div class="mb-2 font-mono text-xs text-foreground">// requirements</div>
+								<div class="mb-2 text-xs font-medium text-foreground">Requirements</div>
 								<ul class="space-y-2 text-sm text-muted-foreground">
 									<li>Active Selfcrafted Account</li>
 									<li>Verified ownership of operational 3D printer(s)</li>
@@ -715,8 +718,8 @@
 							{#await data.supabase_lt.auth.getUser() then user}
 								<div class="flex flex-wrap items-center justify-between gap-3">
 									{#if !user.data.user}
-										<span class="font-mono text-xs text-muted-foreground">
-											login_required_to_apply
+										<span class="text-xs text-muted-foreground">
+											Sign in to apply
 										</span>
 									{:else}
 										<span></span>

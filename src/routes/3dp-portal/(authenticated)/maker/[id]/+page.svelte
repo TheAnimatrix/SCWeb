@@ -775,11 +775,10 @@
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-accent-dark/30 hover:bg-accent-dark/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 				onclick={onSendQuote}
 				disabled={!quote || quoteLoading}>
-				<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
-				Send Quote
-				{#if quoteLoading}
-					<Icon icon="line-md:loading-twotone-loop" class="text-base animate-spin" />
+				{#if !quoteLoading}
+					<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
 				{/if}
+				{quoteLoading ? 'Sending…' : 'Send Quote'}
 			</button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -833,11 +832,10 @@
 				onclick={onConfirmShipped}
 				disabled={shippedLoading}
 			>
-				<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
-				Mark as Shipped
-				{#if shippedLoading}
-					<Icon icon="line-md:loading-twotone-loop" class="text-base animate-spin" />
+				{#if !shippedLoading}
+					<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
 				{/if}
+				{shippedLoading ? 'Saving…' : 'Mark as Shipped'}
 			</button>
 		</Dialog.Footer>
 	</Dialog.Content>

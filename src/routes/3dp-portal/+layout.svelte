@@ -4,6 +4,7 @@
 	import Box from '@lucide/svelte/icons/box';
 	import Printer from '@lucide/svelte/icons/printer';
 	import User from '@lucide/svelte/icons/user';
+	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
 	import { cn } from '$lib/utils';
 
 	let rawRoute = $derived(page.route.id?.split('3dp-portal')[1]);
@@ -12,9 +13,9 @@
 	);
 
 	const navItems = [
-		{ href: '', label: 'fabbly', Icon: Box },
-		{ href: '/user', label: 'user_portal', Icon: User },
-		{ href: '/maker', label: 'maker_portal', Icon: Printer }
+		{ href: '', label: 'Fabbly', Icon: Box },
+		{ href: '/user', label: 'User portal', Icon: User },
+		{ href: '/maker', label: 'Maker portal', Icon: Printer }
 	];
 
 	let { children, data } = $props();
@@ -36,9 +37,9 @@
 					}
 				}}
 				class={cn(
-					'flex items-center gap-2 rounded-md border px-4 py-2 font-mono text-xs uppercase tracking-wide transition-colors',
+					'flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors',
 					activeRoute === href
-						? 'border-black bg-black text-white'
+						? 'border-black bg-black text-white shadow-sm'
 						: 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
 				)}
 			>
@@ -49,6 +50,8 @@
 	</nav>
 
 	<div class="mx-auto">
-		{@render children()}
+		<TabPanelTransition tabKey={activeRoute ?? ''}>
+			{@render children()}
+		</TabPanelTransition>
 	</div>
 </div>

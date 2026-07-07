@@ -1,20 +1,22 @@
 <script lang="ts">
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
-	import Icon from '@iconify/svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import CheckCircle from '@lucide/svelte/icons/circle-check';
+	import Download from '@lucide/svelte/icons/download';
+	import MessageSquare from '@lucide/svelte/icons/message-square';
+	import Star from '@lucide/svelte/icons/star';
 	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
-	import { page } from '$app/state';
-	import { elasticInOut, expoInOut } from 'svelte/easing';
 	import { toastStore } from '$lib/client/toastStore';
-	import { fade, slide } from 'svelte/transition';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { goto, invalidate } from '$app/navigation';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
+	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
+	import { MetaChip, ReviewCardSkeleton, ScButton, TagBadge } from '$lib/components/sc';
 	import { newAddress, validateAddress, type Address } from '$lib/types/product';
-	import type { Writable } from 'svelte/store';
-	import { setLoading } from '$lib/client/loading';
+	import { cn } from '$lib/utils';
 	let { data } = $props();
 
 	let req = $state(data.printRequest);
@@ -32,7 +34,6 @@
 	});
 
 	const maker = data.maker;
-	let load_store = getContext<Writable<boolean>>('loading');
 	let downloading = $state(false);
 	let messageBoardOpen = $state(false);
 	let cancelDialogOpen = $state(false);
@@ -55,9 +56,22 @@
 		validAddress = newAddress();
 	}
 
-	let modelName = req.model?.split('/').pop().split('.');
-	let modelName2 = modelName[modelName.length - 2].split('_');
-	modelName = `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}`;
+	const displayModelName = $derived.by(() => {
+		const parts = req.model?.split('/').pop()?.split('.') ?? [];
+		if (parts.length < 2) return 'Model';
+		const nameParts = parts[parts.length - 2]?.split('_') ?? [];
+		return `${nameParts[nameParts.length - 1] ?? 'model'}.${parts[parts.length - 1]}`;
+	});
+
+	const latestQuote = $derived(
+		req.events
+			?.filter((e: { type: string }) => e.type === 'quoted')
+			.sort(
+				(a: { timestamp: string }, b: { timestamp: string }) =>
+					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+			)[0]?.extra?.quote
+	);
+
 	const STAGES = [
 		'cancelled',
 		'requested',
@@ -69,18 +83,21 @@
 		'in dispute'
 	];
 
-	// Add a mapping for stage colors
-	const STAGE_COLORS: { [key: string]: string } = {
-		cancelled: 'bg-red-500/10 text-red-400 border-red-400/20',
-		requested: 'bg-accent/10 text-accent border-accent/20',
-		quoted: 'bg-purple-500/10 text-purple-400 border-purple-400/20',
-		actionable: 'bg-orange-500/10 text-orange-400 border-orange-400/20',
-		paid: 'bg-green-500/10 text-green-400 border-green-400/20',
-		paid_externally: 'bg-green-500/10 text-green-400 border-green-400/20',
-		completed: 'bg-gray-500/10 text-gray-300 border-gray-400/20',
-		'in dispute': 'bg-yellow-500/10 text-yellow-400 border-yellow-400/20',
-		default: 'bg-accent/10 text-accent border-accent/10'
+	const STAGE_STYLES: Record<string, string> = {
+		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
+		requested: 'border-border bg-muted/40 text-foreground',
+		quoted: 'border-border bg-muted/40 text-foreground',
+		actionable: 'border-foreground/20 bg-foreground/5 text-foreground',
+		paid: 'border-border bg-muted text-foreground',
+		paid_externally: 'border-border bg-muted text-foreground',
+		completed: 'border-border bg-muted/30 text-muted-foreground',
+		'in dispute': 'border-warning/30 bg-warning/5 text-warning',
+		default: 'border-border bg-muted/40 text-muted-foreground'
 	};
+
+	function stageStyle(stage: string | null) {
+		return STAGE_STYLES[String(stage)] ?? STAGE_STYLES.default;
+	}
 
 	const STAGE_DESCRIPTIONS: { [key: string]: string } = {
 		cancelled: 'The request has been cancelled.',
@@ -98,14 +115,6 @@
 	};
 
 	let payLoading = $state(false);
-
-	$effect(() => {
-		if (payLoading) {
-			setLoading(load_store, true);
-		} else {
-			setLoading(load_store, false);
-		}
-	});
 
 	async function payQuote(amount: number) {
 		if (payLoading) return;
@@ -263,7 +272,7 @@
 						const url = window.URL.createObjectURL(xhr.response);
 						const a = document.createElement('a');
 						a.href = url;
-						a.download = modelName;
+						a.download = displayModelName;
 						document.body.appendChild(a);
 						a.click();
 						setTimeout(() => {
@@ -595,315 +604,295 @@
 	<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </svelte:head>
 
-
-<div class="p-2 sm:p-4 max-w-3xl mx-auto h-full flex flex-col">
-	<!-- <button onclick={()=>{
-		// 3. Invoke creator stats update
-		fetch('/3dp-portal/maker/' + req.creator_id + '/statsUpdate', {
-			method: 'POST'
-		});
-	}}>Invoke stats update</button> -->
+<div class="mx-auto max-w-7xl px-4 pb-16">
 	<button
+		type="button"
 		onclick={() => goto('/3dp-portal/user')}
-		class="mb-4 text-accent text-sm font-medium flex items-center gap-1"
-		><span>&larr;</span> Back</button>
+		class="mb-6 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+	>
+		<ArrowLeft class="size-3.5" strokeWidth={1.5} />
+		back_to_requests
+	</button>
+
 	{#if !req}
-		<div class="text-red-400 text-center py-12">Print request not found.</div>
+		<PortalCard class="py-16 text-center">
+			<p class="text-sm text-destructive">Print request not found.</p>
+		</PortalCard>
 	{:else}
-		<div
-			class="bg-black/60 rounded-lg p-4 flex flex-col items-start shadow-glow-subtle border border-accent/10 cursor-pointer select-none">
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="flex flex-col items-start justify-between w-full">
-				<div class="font-semibold text-white text-lg truncate">
-					{modelName ?? 'Model'}
-				</div>
-				<div class="text-xs text-gray-400">{new Date(req.created_at).toLocaleString()}</div>
-			</div>
-		</div>
-		<!-- Other details header -->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Other Details</div>
-			<div class="flex flex-col mt-2">
-				{#if maker}
-					<div
-						class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex flex-col text-sm">
-						<span>Maker: <span class="font-semibold">{maker.name}</span></span>
-						<span class="text-gray-400">({maker.email}, {maker.contact_number})</span>
+		<header class="mb-8 border-b border-border pb-8">
+			<TagBadge label="print_request" class="mb-3" />
+			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">{displayModelName}</h1>
+			<p class="mt-2 font-mono text-xs text-muted-foreground">
+				{new Date(req.created_at).toLocaleString()}
+			</p>
+		</header>
+
+		<div class="grid gap-4">
+			{#if maker}
+				<PortalCard>
+					<PortalSectionLabel label="maker" />
+					<div class="mt-2 space-y-1">
+						<p class="font-medium text-foreground">{maker.name}</p>
+						<p class="font-mono text-xs text-muted-foreground">
+							{maker.email} · {maker.contact_number}
+						</p>
 					</div>
-				{/if}
-			</div>
-		</div>
-		<!-- Review Maker Section -->
-		<div class="flex flex-col h-full mt-2 w-full">
+				</PortalCard>
+			{/if}
+
+			<PortalCard>
+				<PortalSectionLabel label="model_details" />
+				<div class="mt-2 flex flex-wrap gap-1.5">
+					<MetaChip>
+						<span class="inline-flex items-center gap-1.5">
+							color:
+							<span
+								class="inline-block size-3 rounded-sm border border-border"
+								style={`background-color:${req.model_data.color}`}
+							></span>
+						</span>
+					</MetaChip>
+					<MetaChip>material: {req.model_data.material}</MetaChip>
+					<MetaChip tone="muted">quality: {req.model_data.quality}</MetaChip>
+					<MetaChip tone="muted">scale: {req.model_data.scale}x</MetaChip>
+					<MetaChip tone="muted">infill: {req.model_data.infill}%</MetaChip>
+					<MetaChip tone="muted">walls: {req.model_data.walls}</MetaChip>
+				</div>
+			</PortalCard>
+
+			<PortalCard>
+				<PortalSectionLabel label="stage" />
+				<div class="mt-2 space-y-2">
+					<span
+						class={cn(
+							'inline-flex items-center rounded-md border px-2.5 py-1 font-mono text-xs capitalize',
+							stageStyle(req.request_stage)
+						)}
+					>
+						{req.request_stage?.replaceAll('_', ' ') ?? 'pending'}
+					</span>
+					<p class="text-sm leading-relaxed text-muted-foreground">
+						{STAGE_DESCRIPTIONS[String(req.request_stage)] || 'No description available'}
+					</p>
+				</div>
+			</PortalCard>
+
 			{#if req.request_stage === 'completed'}
-				<div class="text-sm text-gray-400 font-semibold mb-2">Review Maker</div>
-				{#if reviewLoading}
-					<div class="text-gray-400 text-sm">Loading review...</div>
-				{:else}
-					{#if userReview}
-						<div class="flex items-center gap-2 mb-2">
-							{#each Array(5) as _, i}
-								<Icon icon="iconamoon:star-duotone" class={i < userReview.rating ? 'text-yellow-400' : 'text-gray-600'} />
-							{/each}
-							<span class="text-gray-300 text-sm">{userReview.comment}</span>
-						</div>
-						<div class="flex gap-2">
-							<button 
-								onclick={openReviewDialog} 
-								class="bg-black/20 text-accent border border-accent/20 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-accent/10 transition-all flex items-center gap-1">
-								<Icon icon="material-symbols:edit-outline" class="text-sm" />
-								Edit Review
-							</button>
-							<button 
-								onclick={() => (reviewDeleteDialogOpen = true)} 
-								class="bg-black/20 text-red-400 border border-red-400/20 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-500/10 transition-all flex items-center gap-1">
-								<Icon icon="material-symbols:delete-outline" class="text-sm" />
-								Delete
-							</button>
+				<PortalCard>
+					<PortalSectionLabel label="review_maker" />
+					{#if reviewLoading}
+						<ReviewCardSkeleton />
+					{:else if userReview}
+						<div class="mt-2 space-y-3">
+							<div class="flex items-center gap-1">
+								{#each Array(5) as _, i (i)}
+									<Star
+										class={cn(
+											'size-4',
+											i < userReview.rating
+												? 'fill-foreground text-foreground'
+												: 'text-muted-foreground/40'
+										)}
+										strokeWidth={1.5}
+									/>
+								{/each}
+							</div>
+							<p class="text-sm text-foreground">{userReview.comment}</p>
+							<div class="flex flex-wrap gap-2">
+								<ScButton variant="secondary" onclick={openReviewDialog}>Edit review</ScButton>
+								<ScButton variant="secondary" onclick={() => (reviewDeleteDialogOpen = true)}>
+									Delete
+								</ScButton>
+							</div>
 						</div>
 					{:else}
-						<button onclick={openReviewDialog} class="bg-accent text-black px-3 py-1.5 rounded-lg text-xs font-medium hover:brightness-110 transition-all">Add Review</button>
-					{/if}
-				{/if}
-			{/if}
-		</div>
-		<!-- Model details header -->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Model Details</div>
-			<div class="flex flex-wrap gap-x-2 mt-2">
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Model color:</div>
-					<div class="w-5 h-5 rounded-sm" style={`background-color:${req.model_data.color}`}></div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Material:</div>
-					<div>{req.model_data.material}</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Quality:</div>
-					<div>{req.model_data.quality}</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Scale:</div>
-					<div>{req.model_data.scale}x</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Infill:</div>
-					<div>{req.model_data.infill}%</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Walls:</div>
-					<div>{req.model_data.walls}</div>
-				</div>
-			</div>
-		</div>
-		<!-- Stage details header-->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Stage Details</div>
-			<div class="flex flex-col mt-2">
-				<div
-					class={`mb-2 px-4 py-2 rounded-lg border w-fit flex gap-2 items-center text-sm font-semibold transition-all duration-200 ${STAGE_COLORS[String(req.request_stage)] || STAGE_COLORS.default}`}>
-					<span class="capitalize">{req.request_stage}</span>
-				</div>
-			</div>
-			<!-- show the stage description -->
-			<div class="text-sm text-gray-400">
-				{STAGE_DESCRIPTIONS[String(req.request_stage)] || 'No description available'}
-			</div>
-		</div>
-
-		<!-- Actions header -->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Actions</div>
-			<!-- chat button that opens drawer with message board-->
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-				<button
-					class="relative bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex justify-center items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40"
-					onclick={() => (messageBoardOpen = true)}>
-					<Icon icon="mdi:message" class="w-5 h-5" />
-					<span class="font-medium text-sm">Message</span>
-					{#if unreadCount > 0}
-						<span
-							class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white animate-pulse">
-							{unreadCount}
-						</span>
-					{/if}
-				</button>
-				{#if req.request_stage !== 'cancelled'}
-					<button
-						class="bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40 flex-col"
-						onclick={(e) => {
-							e.stopPropagation();
-							downloadModel();
-						}}
-						disabled={downloading}>
-						<div class="flex">
-							<Icon icon="mdi:download" class="w-5 h-5" />
-							<span class="font-medium text-sm"
-								>{downloading
-									? downloadProgress > 0
-										? `Downloading... ${downloadProgress}%`
-										: 'Downloading...'
-									: 'Download Model'}</span>
+						<div class="mt-2">
+							<ScButton onclick={openReviewDialog}>Add review</ScButton>
 						</div>
-						{#if downloading && downloadProgress > 0}
-							<div class="w-full bg-gray-700 rounded h-2">
-								<div
-									class="bg-accent h-2 rounded transition-all duration-200"
-									style={`width: ${downloadProgress}%`}>
-								</div>
-							</div>
+					{/if}
+				</PortalCard>
+			{/if}
+
+			<PortalCard>
+				<PortalSectionLabel label="actions" />
+				<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+					<button
+						type="button"
+						class="relative inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+						onclick={() => (messageBoardOpen = true)}
+					>
+						<MessageSquare class="size-4" strokeWidth={1.5} />
+						Message
+						{#if unreadCount > 0}
+							<span
+								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-[10px] text-destructive-foreground"
+							>
+								{unreadCount}
+							</span>
 						{/if}
 					</button>
-				{/if}
-				<!-- help button that redirects to discord#help channel-->
-				<a
-					href="https://discord.gg/k6CC6GTR4g"
-					class=" bg-yellow-400/10 hover:bg-yellow-500/20 text-yellow-300 justify-center px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-yellow-400/20 hover:border-yellow-400/40"
-					target="_blank"
-					rel="noopener noreferrer">
-					<Icon icon="ph:discord-logo-duotone" class="w-5 h-5" />
-					<span class="font-medium text-sm">Help</span>
-				</a>
-				<!-- if the current stage is requested, show a button to cancel the request-->
-				{#if req.request_stage === 'requested' || req.request_stage === 'quoted'}
-					<button
-						class="bg-red-400/10 hover:bg-red-500/20 text-red-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-red-400/20 hover:border-red-400/40"
-						onclick={() => (cancelDialogOpen = true)}>
-						<Icon icon="mdi:cancel" class="w-5 h-5" />
-						<span class="font-medium text-sm">Cancel</span>
-					</button>
-				{/if}
-				<!-- if the current stage is shipped, show a button to mark as completed -->
-				{#if req.request_stage === 'shipped'}
-					<button
-						class="bg-emerald-400/10 hover:bg-emerald-500/20 text-emerald-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-emerald-400/20 hover:border-emerald-400/40"
-						onclick={() => (completeDialogOpen = true)}>
-						<Icon icon="mdi:check-circle" class="w-5 h-5" />
-						<span class="font-medium text-sm">Mark as Delivered</span>
-					</button>
-				{/if}
-			</div>
-		</div>
 
-		<!-- Payment details header-->
-		{#if req.request_stage === 'quoted'}
-			<div class="flex flex-col h-full mt-4 w-full">
-				<div class="text-sm text-gray-400 font-semibold">Payment Details</div>
-
-				<div
-					bind:this={addressSelectorRef}
-					class="mt-2 rounded-xl"
-					class:highlight-animation={highlightAddress}>
-					<AddressInputSelector
-						email={data.session.data.user.email}
-						userExists={true}
-						addresses={data.addresses}
-						bind:address={validAddress}
-						bind:addressValid />
-				</div>
-				<!-- if the current stage is quoted, show a button to pay the quote-->
-				<button
-					class="mt-2 bg-emerald-400/10 hover:bg-emerald-500/20 text-emerald-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-emerald-400/20 hover:border-emerald-400/40"
-					class:!ring-4={highlightPay}
-					class:!ring-emerald-400={highlightPay}
-					class:!ring-offset-2={highlightPay}
-					class:!transition-all={highlightPay}
-					class:!duration-500={highlightPay}
-					disabled={payLoading}
-					bind:this={payButtonRef}
-					onclick={() => {
-						const amount = req.events
-								.filter((e: any) => e.type === 'quoted')
-								.sort(
-									(a: any, b: any) =>
-										new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-								)[0]?.extra.quote;
-						payQuote(amount);
-					}}>
-					{#if !payLoading}
-						<span class="font-medium text-sm"
-							>Pay {req.events
-								.filter((e: any) => e.type === 'quoted')
-								.sort(
-									(a: any, b: any) =>
-										new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-								)[0]?.extra.quote}₹</span>
-					{:else}
-						<span class="font-medium text-sm">Processing...</span>
+					{#if req.request_stage !== 'cancelled'}
+						<button
+							type="button"
+							class="inline-flex flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+							onclick={(e) => {
+								e.stopPropagation();
+								downloadModel();
+							}}
+							disabled={downloading}
+						>
+							<span class="inline-flex items-center gap-2">
+								<Download class="size-4" strokeWidth={1.5} />
+								{downloading
+									? downloadProgress > 0
+										? `Downloading… ${downloadProgress}%`
+										: 'Downloading…'
+									: 'Download model'}
+							</span>
+							{#if downloading && downloadProgress > 0}
+								<div class="h-1 w-full overflow-hidden rounded-full bg-border">
+									<div
+										class="h-full rounded-full bg-foreground transition-all duration-200"
+										style={`width: ${downloadProgress}%`}
+									></div>
+								</div>
+							{/if}
+						</button>
 					{/if}
-				</button>
-			</div>
-		{/if}
 
-		<!-- Event history header-->
-		{#if sortedEvents && sortedEvents.length > 0}
-			<div class="flex flex-col h-full mt-4 w-full">
-				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
-				<div class="flex flex-col gap-2">
-					{#each sortedEvents as event}
-						<div class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm {event.type === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-400/20' : ''} {event.type == 'paid' ? 'bg-green-500/10 text-green-400 border-green-400/20' : ''}">
-							<div class="flex items-center justify-between text-white/80">
-								<span class="font-medium"
-									>Event : <span class="capitalize">{event.type}</span></span>
-								<span class="text-gray-400 text-xs"
-									>{new Date(event.timestamp).toLocaleString(undefined, {
-										hour: '2-digit',
-										minute: '2-digit',
-										year: 'numeric',
-										month: 'short',
-										day: 'numeric'
-									})}</span>
-							</div>
-							{#if event.reason}
-								<div class="text-gray-400 mt-1 text-xs">Message : {event.reason}</div>
-							{/if}
-							{#if event.extra}
-								{#if event.extra.quote}
-									<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
-								{/if}
-								{#if event.extra.payment_id_a}
-									<div class="text-gray-400 mt-1 font-semibold">Order ID : {event.extra.payment_id_a}</div>
-								{/if}
-								{#if event.extra.payment_id_b}
-									<div class="text-gray-400 mt-1 font-semibold">Payment ID : {event.extra.payment_id_b}</div>
-								{/if}
-								{#if event.extra.amount}
-									<div class="text-gray-400 mt-1 font-semibold">Amount : {(event.extra.amount/100).toFixed(2)}₹</div>
-								{/if}
-							{/if}
-							<div class="text-accent/80 text-xs mt-1">
-								by <span class="capitalize">{event.by == 'user' ? 'you' : 'maker'}</span>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{:else}
-			<div class="flex flex-col h-full mt-4 w-full">
-				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
-				<div class="text-gray-400 text-start py-2 text-sm italic opacity-60 text-wrap">
-					So empty.... <br />If any notable events (quotes,cancellations,payments,etc) happen,<br />
-					they will be shown here.
-				</div>
-			</div>
-		{/if}
+					<ScButton
+						variant="discord"
+						href="https://discord.gg/k6CC6GTR4g"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="justify-center"
+					>
+						Help on Discord
+					</ScButton>
 
-		
+					{#if req.request_stage === 'requested' || req.request_stage === 'quoted'}
+						<ScButton
+							variant="secondary"
+							class="justify-center border-destructive/30 text-destructive hover:bg-destructive/5"
+							onclick={() => (cancelDialogOpen = true)}
+						>
+							Cancel request
+						</ScButton>
+					{/if}
+
+					{#if req.request_stage === 'shipped'}
+						<ScButton variant="secondary" class="justify-center" onclick={() => (completeDialogOpen = true)}>
+							<CheckCircle class="mr-1.5 size-4" strokeWidth={1.5} />
+							Mark as delivered
+						</ScButton>
+					{/if}
+				</div>
+			</PortalCard>
+
+			{#if req.request_stage === 'quoted'}
+				<PortalCard>
+					<PortalSectionLabel label="payment" />
+					<div
+						bind:this={addressSelectorRef}
+						class="mt-2 rounded-md"
+						class:highlight-animation={highlightAddress}
+					>
+						<AddressInputSelector
+							email={data.session.data.user.email}
+							userExists={true}
+							addresses={data.addresses}
+							bind:address={validAddress}
+							bind:addressValid
+						/>
+					</div>
+					<button
+						type="button"
+						class="mt-4 inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+						class:ring-2={highlightPay}
+						class:ring-foreground={highlightPay}
+						class:ring-offset-2={highlightPay}
+						disabled={payLoading}
+						bind:this={payButtonRef}
+						onclick={() => payQuote(latestQuote)}
+					>
+						{payLoading ? 'Processing…' : `Pay ${latestQuote}₹`}
+					</button>
+				</PortalCard>
+			{/if}
+
+			<PortalCard>
+				<PortalSectionLabel label="event_history" />
+				{#if sortedEvents && sortedEvents.length > 0}
+					<div class="mt-3 flex flex-col gap-2">
+						{#each sortedEvents as event (event.timestamp + event.type)}
+							<div
+								class={cn(
+									'rounded-md border px-4 py-3 text-sm',
+									event.type === 'cancelled'
+										? 'border-destructive/30 bg-destructive/5'
+										: event.type === 'paid'
+											? 'border-border bg-muted/30'
+											: 'border-border bg-card'
+								)}
+							>
+								<div class="flex items-center justify-between gap-3">
+									<span class="font-mono text-xs text-foreground capitalize">
+										{event.type.replaceAll('_', ' ')}
+									</span>
+									<span class="font-mono text-[10px] text-muted-foreground">
+										{new Date(event.timestamp).toLocaleString(undefined, {
+											hour: '2-digit',
+											minute: '2-digit',
+											year: 'numeric',
+											month: 'short',
+											day: 'numeric'
+										})}
+									</span>
+								</div>
+								{#if event.reason}
+									<p class="mt-1 text-xs text-muted-foreground">{event.reason}</p>
+								{/if}
+								{#if event.extra}
+									{#if event.extra.quote}
+										<p class="mt-1 font-mono text-xs text-foreground">quote: {event.extra.quote}₹</p>
+									{/if}
+									{#if event.extra.payment_id_a}
+										<p class="mt-1 font-mono text-xs text-muted-foreground">
+											order_id: {event.extra.payment_id_a}
+										</p>
+									{/if}
+									{#if event.extra.payment_id_b}
+										<p class="mt-1 font-mono text-xs text-muted-foreground">
+											payment_id: {event.extra.payment_id_b}
+										</p>
+									{/if}
+									{#if event.extra.amount}
+										<p class="mt-1 font-mono text-xs text-muted-foreground">
+											amount: {(event.extra.amount / 100).toFixed(2)}₹
+										</p>
+									{/if}
+								{/if}
+								<p class="mt-1 font-mono text-[10px] text-muted-foreground">
+									by {event.by === 'user' ? 'you' : event.by}
+								</p>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="mt-3 text-sm italic text-muted-foreground">
+						No notable events yet. Quotes, cancellations, and payments will appear here.
+					</p>
+				{/if}
+			</PortalCard>
+		</div>
 	{/if}
 </div>
 
 {#if messageBoardOpen}
 	<Drawer.Root bind:open={messageBoardOpen}>
-		<Drawer.Trigger style="display:none" />
-		<Drawer.Content class="max-w-3xl mx-auto h-[100vh] sm:h-[80vh] transition-all duration-200">
+		<Drawer.Trigger class="hidden" />
+		<Drawer.Content class="mx-auto flex h-[100vh] max-w-3xl flex-col border-border bg-background sm:h-[80vh]">
 			<MessageBoard
 				orderId={req.id}
 				supabase_lt={data.supabase_lt}
@@ -911,107 +900,124 @@
 				receiverId={req.creator_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'}
 				paynow={() => {
-					//close drawer
 					messageBoardOpen = false;
-					//highlight pay button
 					highlightPayButton();
 					toastStore.show('Select address and click pay now', 'info');
-				}} />
+				}}
+			/>
 		</Drawer.Content>
 	</Drawer.Root>
 {/if}
 
 <Dialog.Root bind:open={cancelDialogOpen}>
-	<Dialog.Content class="z-[1050]">
+	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Cancel Order</Dialog.Title>
+			<Dialog.Title>Cancel order</Dialog.Title>
 			<Dialog.Description>
 				Please provide a reason for cancellation. This action cannot be undone.
 			</Dialog.Description>
 		</Dialog.Header>
-		<Textarea bind:value={cancelReason} class="w-full mt-4" placeholder="Enter reason..." />
-		<Dialog.Footer>
+		<Textarea bind:value={cancelReason} class="mt-4 w-full" placeholder="Enter reason…" />
+		<Dialog.Footer class="gap-2">
+			<ScButton variant="secondary" onclick={onCancelCancel}>Cancel</ScButton>
 			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors mr-2"
-				onclick={onCancelCancel}>Cancel</button>
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+				type="button"
+				class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
 				onclick={onConfirmCancel}
-				disabled={!cancelReason.trim()}>Confirm</button>
+				disabled={!cancelReason.trim()}
+			>
+				Confirm
+			</button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
 
 <Dialog.Root bind:open={completeDialogOpen}>
-	<Dialog.Content class="z-[1050]">
+	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Mark as Completed</Dialog.Title>
+			<Dialog.Title>Mark as delivered</Dialog.Title>
 			<Dialog.Description>
 				Are you sure you want to mark this order as completed? This action cannot be undone.
 			</Dialog.Description>
 		</Dialog.Header>
-		<Textarea bind:value={completeReason} class="w-full mt-4" placeholder="(Optional) Add a note..." />
-		<Dialog.Footer>
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors mr-2"
-				onclick={onCancelComplete}>Cancel</button>
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
-				onclick={onConfirmComplete}>Confirm</button>
+		<Textarea bind:value={completeReason} class="mt-4 w-full" placeholder="(Optional) Add a note…" />
+		<Dialog.Footer class="gap-2">
+			<ScButton variant="secondary" onclick={onCancelComplete}>Cancel</ScButton>
+			<ScButton onclick={onConfirmComplete}>Confirm</ScButton>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
 
-<!-- Review Maker Dialogs -->
-{#if reviewDialogOpen}
-	<div class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-		<div class="bg-[#151515] rounded-2xl p-6 w-full max-w-md border border-[#252525] relative">
-			<button onclick={() => (reviewDialogOpen = false)} class="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors p-1">
-				<Icon icon="iconamoon:close" class="text-xl" />
-			</button>
-			<div class="text-lg font-bold text-white mb-4">{userReview ? 'Edit Your Review' : 'Write a Review'}</div>
-			<div class="mb-4">
-				<label class="block text-sm font-medium text-gray-300 mb-2">Rating</label>
+<Dialog.Root bind:open={reviewDialogOpen}>
+	<Dialog.Content class="z-[1050] border-border bg-card">
+		<Dialog.Header>
+			<Dialog.Title>{userReview ? 'Edit your review' : 'Write a review'}</Dialog.Title>
+		</Dialog.Header>
+		<div class="space-y-4 py-2">
+			<div>
+				<p class="mb-2 font-mono text-xs text-muted-foreground">rating</p>
 				<div class="flex gap-1">
-					{#each Array(5) as _, i}
-						<button onclick={() => (reviewRating = i + 1)} class="text-2xl p-1.5 -mx-1 transition-colors">
-							<Icon icon="iconamoon:star-duotone" class={i < reviewRating ? 'text-yellow-400' : 'text-gray-600'} />
+					{#each Array(5) as _, i (i)}
+						<button type="button" onclick={() => (reviewRating = i + 1)} class="p-1">
+							<Star
+								class={cn(
+									'size-5',
+									i < reviewRating ? 'fill-foreground text-foreground' : 'text-muted-foreground/40'
+								)}
+								strokeWidth={1.5}
+							/>
 						</button>
 					{/each}
 				</div>
 			</div>
-			<div class="mb-4">
-				<label class="block text-sm font-medium text-gray-300 mb-2">Your Review</label>
-				<Textarea bind:value={reviewComment} class="w-full h-24 bg-[#0c0c0c] border border-[#252525] rounded-lg p-3 text-white text-sm focus:outline-hidden focus:border-accent transition-colors resize-none" placeholder="Share your experience..." />
+			<div>
+				<p class="mb-2 font-mono text-xs text-muted-foreground">your_review</p>
+				<Textarea
+					bind:value={reviewComment}
+					class="min-h-24 w-full"
+					placeholder="Share your experience…"
+				/>
 			</div>
 			{#if reviewError}
-				<div class="text-red-400 text-sm mb-4">{reviewError}</div>
+				<p class="text-sm text-destructive">{reviewError}</p>
 			{/if}
-			<div class="flex gap-3">
-				<button onclick={() => (reviewDialogOpen = false)} class="flex-1 py-2 px-4 bg-[#252525] text-white rounded-lg hover:bg-[#353535] transition-colors">Cancel</button>
-				<button onclick={submitReview} disabled={reviewLoading} class="flex-1 py-2 px-4 bg-accent text-black rounded-lg hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{reviewLoading ? 'Submitting...' : (userReview ? 'Update Review' : 'Submit Review')}</button>
-			</div>
 		</div>
-	</div>
-{/if}
-{#if reviewDeleteDialogOpen}
-	<div class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-		<div class="bg-[#151515] rounded-2xl p-6 w-full max-w-md border border-[#252525] relative">
-			<div class="text-lg font-bold text-white mb-4">Delete Your Review</div>
-			<p class="text-gray-300 text-sm mb-4">Are you sure you want to delete your review? This action cannot be undone.</p>
-			<div class="flex gap-3">
-				<button onclick={() => (reviewDeleteDialogOpen = false)} class="flex-1 py-2 px-4 bg-[#252525] text-white rounded-lg hover:bg-[#353535] transition-colors">Cancel</button>
-				<button onclick={deleteReview} class="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2">Delete Review</button>
-			</div>
-		</div>
-	</div>
-{/if}
+		<Dialog.Footer class="gap-2">
+			<ScButton variant="secondary" onclick={() => (reviewDialogOpen = false)}>Cancel</ScButton>
+			<ScButton onclick={submitReview}>
+				{reviewLoading ? 'Submitting…' : userReview ? 'Update review' : 'Submit review'}
+			</ScButton>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={reviewDeleteDialogOpen}>
+	<Dialog.Content class="z-[1050] border-border bg-card">
+		<Dialog.Header>
+			<Dialog.Title>Delete your review</Dialog.Title>
+			<Dialog.Description>
+				Are you sure you want to delete your review? This action cannot be undone.
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer class="gap-2">
+			<ScButton variant="secondary" onclick={() => (reviewDeleteDialogOpen = false)}>
+				Cancel
+			</ScButton>
+			<button
+				type="button"
+				class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+				onclick={deleteReview}
+			>
+				Delete review
+			</button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
 
 <style>
-	/* Animation for price changes */
 	@keyframes highlight {
 		0% {
-			background-color: hsl(var(--accent) / 0.5);
+			background-color: hsl(var(--muted));
 		}
 		100% {
 			background-color: transparent;
