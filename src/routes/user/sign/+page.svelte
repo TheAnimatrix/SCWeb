@@ -1,27 +1,29 @@
 <script lang="ts">
-	import { createBubbler, preventDefault } from 'svelte/legacy';
-
-	const bubble = createBubbler();
 	import { writable, type Writable } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
-	const PUBLIC_SITE_URL = env.PUBLIC_SITE_URL == undefined ? null : env.PUBLIC_SITE_URL;
-	const PUBLIC_VERCEL_URL = env.PUBLIC_VERCEL_URL == undefined ? null : env.PUBLIC_VERCEL_URL;
 	import { getContext, onMount } from 'svelte';
-	import Icon from '@iconify/svelte';
-	import { goto, invalidate, replaceState } from '$app/navigation';
-	import { page } from '$app/stores'; // Import page store
-	import { toastStore } from '$lib/client/toastStore'; // Import custom toast store
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { toastStore } from '$lib/client/toastStore';
 	import { setLoading } from '$lib/client/loading.js';
-	import GlowleftInput from '$lib/components/fundamental/glowleft_input.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { validatePassword } from '$lib/types/helper.js';
-	import { fade, fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import Smoke from '$lib/components/effects/Smoke.svelte';
 	import { removePostLoginURL, setPostLoginURL } from '$lib/client/postLogin.js';
+	import { DotGrid } from '$lib/components/sc';
+	import DriftParticles from '$lib/components/effects/DriftParticles.svelte';
+	import { Breadcrumbs, ScLogo } from '$lib/components/shell';
+	import { theme } from '$lib/client/theme';
+	import { ScButton } from '$lib/components/sc';
+	import Mail from '@lucide/svelte/icons/mail';
+	import Lock from '@lucide/svelte/icons/lock';
+	import User from '@lucide/svelte/icons/user';
+
+	const PUBLIC_SITE_URL = env.PUBLIC_SITE_URL == undefined ? null : env.PUBLIC_SITE_URL;
+	const PUBLIC_VERCEL_URL = env.PUBLIC_VERCEL_URL == undefined ? null : env.PUBLIC_VERCEL_URL;
 
 	const postLoginPath = $page.url.searchParams.get('postLogin');
+
 	$effect(() => {
 		if (postLoginPath) {
 			setPostLoginURL(postLoginPath);
@@ -29,11 +31,8 @@
 			removePostLoginURL();
 		}
 	});
-	const triggerTabStyle =
-		'data-[state=active]:bg-transparent data-[state=active]:shadow-glow data-[state=active]:text-accent px-6 py-3 text-2xl text-gray-500 rounded-xl hover:bg-[#151515] text-gray-400 font-bold transition-all duration-300';
 
 	let { data } = $props();
-	let { supabase_lt } = data;
 
 	const getURL = () => {
 		let url = PUBLIC_SITE_URL ?? PUBLIC_VERCEL_URL ?? 'http://192.168.0.208:5173/auth/callback';
@@ -42,11 +41,11 @@
 	};
 
 	let load_store = getContext<Writable<boolean>>('loading');
+
 	async function signWithGoogle(register: boolean) {
 		setLoading(load_store, true);
 		try {
-			console.log('getURL: ', getURL());
-			const { data, error } = await supabase_lt.auth.signInWithOAuth({
+			const { error } = await data.supabase_lt.auth.signInWithOAuth({
 				provider: 'google',
 				options: {
 					redirectTo: getURL()
@@ -66,7 +65,7 @@
 
 	async function signInWithEmail() {
 		setLoading(load_store, true);
-		const { data, error } = await supabase_lt.auth.signInWithPassword({
+		const { error } = await data.supabase_lt.auth.signInWithPassword({
 			email: emailLogin,
 			password: passwordLogin
 		});
@@ -81,320 +80,355 @@
 	}
 
 	async function signUpNewUser() {
-		let k = validatePassword(passwordRegister ?? '', passwordRegister ?? '');
+		const k = validatePassword(passwordRegister ?? '', passwordRegister ?? '');
 
 		if (k.error) {
 			errorShow = 2;
-			errorText = k.msg ?? 'yoyo';
+			errorText = k.msg ?? 'Invalid password';
 			return;
 		}
 		setLoading(load_store, true);
 
-		//check if username is available first
-		const { data: usernameCheck, error: usernameCheckError } = await supabase_lt
-			.rpc('check_username', { desired_username: usernameRegister });
+		const { data: usernameCheck } = await data.supabase_lt.rpc('check_username', {
+			desired_username: usernameRegister
+		});
 		if (usernameCheck) {
 			errorShow = 2;
 			errorText = 'Username not available';
 			setLoading(load_store, false);
 			return;
-		}	
-		//
-		const { data, error } = await supabase_lt.auth.signUp({
+		}
+
+		const { data: signUpData, error } = await data.supabase_lt.auth.signUp({
 			email: emailRegister,
 			password: passwordRegister,
 			options: {
 				emailRedirectTo: `http://localhost:5173/user/profile`
 			}
 		});
-		let userNameUpdate = await supabase_lt
+		await data.supabase_lt
 			.from('users')
 			.update({ username: usernameRegister })
-			.eq('id', data.user?.id)
+			.eq('id', signUpData.user?.id)
 			.select();
 		setLoading(load_store, false);
 		if (error) {
 			errorShow = 2;
 			errorText = error.message;
-		} else if (data && !data.session) {
+		} else if (signUpData && !signUpData.session) {
 			goto(postLoginPath ?? '/', { replaceState: true });
 			removePostLoginURL();
 		}
 	}
 
-	let emailLogin: string = $state('');
-	let emailRegister: string = $state('');
-	let usernameRegister: string = $state('');
-	let passwordRegister: string = $state('');
-	let passwordLogin: string = $state('');
-	let errorText: string = $state('');
-	let errorShow: number = $state(0);
+	let emailLogin = $state('');
+	let emailRegister = $state('');
+	let usernameRegister = $state('');
+	let passwordRegister = $state('');
+	let passwordLogin = $state('');
+	let errorText = $state('');
+	let errorShow = $state(0);
+
+	const inputClass =
+		'h-10 w-full rounded-md border border-border bg-card pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10';
 
 	onMount(() => {
-		// Access the reactive page store value with $page
 		if (postLoginPath) {
-			// You might want to decode the path if it's URL encoded
-			const decodedPath = decodeURIComponent(postLoginPath); // Decode for better display
+			const decodedPath = decodeURIComponent(postLoginPath);
 			if (decodedPath === '/3dp-portal/maker') {
 				toastStore.show('Ready to join our 3D Printer Network? Log in to apply!', 'info', 20000);
 			} else {
 				toastStore.show(`Please log in to access: ${decodedPath}`, 'info');
 			}
-
-			// Optionally remove the query param from the URL without reloading
-			// const url = new URL(window.location.href);
-			// url.searchParams.delete('postLogin');
-			// replaceState(url, {});
 		}
 	});
 </script>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white relative overflow-hidden">
-	<!-- Animated Background -->
-	<div class="absolute inset-0 bg-[#0a0a0a] z-0"></div>
+<div class="min-h-screen bg-background text-foreground">
+	<DotGrid class="relative overflow-hidden border-b border-border">
+		<DriftParticles />
+		<div class="relative z-10 mx-auto flex max-w-lg flex-col items-center gap-6 px-4 py-12 text-center">
+			<a href="/" class="inline-flex">
+				<ScLogo variant={$theme === 'light' ? 'light' : 'dark'} />
+			</a>
 
-	<!-- Animated Green Smoke Plumes -->
-	<div class="absolute inset-0 z-0">
-		<!-- Using default accent color -->
-		<Smoke opacity={0.4} particleCount={40} />
-	</div>
-
-	<!-- Glowing accents -->
-	<div
-		class="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-accent opacity-5 blur-[150px] rounded-full">
-	</div>
-	<div
-		class="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-accent opacity-5 blur-[150px] rounded-full">
-	</div>
-
-	<div
-		class="relative z-10 container mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-screen">
-		<!-- Logo/Brand -->
-		<div class="text-center mb-12" in:fly={{ y: -20, duration: 800, delay: 200, easing: cubicOut }}>
-			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
-				<span class="text-accent text-sm uppercase tracking-wider font-medium">Welcome Back</span>
+			<div class="space-y-2">
+				<p class="font-mono text-xs uppercase tracking-wider text-muted-foreground">account</p>
+				<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Sign in to SelfCrafted</h1>
+				<p class="text-sm leading-relaxed text-muted-foreground">
+					Join our community of makers and creators.
+				</p>
 			</div>
-			<div class="text-4xl font-bold mb-2">Sign in to SelfCrafted</div>
-			<p class="text-gray-400">Join our community of makers and creators</p>
+
+			<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'sign_in' }]} />
 		</div>
+	</DotGrid>
 
-		<!-- Auth Container -->
-		<div class="w-full max-w-md" in:fly={{ y: 20, duration: 800, delay: 400, easing: cubicOut }}>
-			<Tabs.Root value="Login" class="w-full flex flex-col items-center">
-				<Tabs.List
-					class="flex p-8 gap-1 rounded-2xl bg-[#000000]/50 backdrop-blur-xl mb-8 border border-[#252525]">
-					<Tabs.Trigger
-						class="flex-1 flex items-center justify-center gap-2 px-8 py-2 rounded-xl font-bold text-xl transition-all duration-300 data-[state=active]:bg-accent/10 data-[state=active]:text-accent text-gray-400 hover:bg-white/5"
-						value="Login">
-						<Icon icon="ph:sign-in-bold" class="text-2xl" />
-						Login
-					</Tabs.Trigger>
-					<Tabs.Trigger
-						class="flex-1 flex items-center justify-center gap-2 px-8 py-2 rounded-xl font-bold text-xl transition-all duration-300 data-[state=active]:bg-accent/10 data-[state=active]:text-accent text-gray-400 hover:bg-white/5"
-						value="Register">
-						<Icon icon="ph:user-plus-bold" class="text-2xl" />
-						Register
-					</Tabs.Trigger>
-				</Tabs.List>
+	<div class="mx-auto max-w-md px-4 py-10">
+		<Tabs.Root value="Login" class="w-full">
+			<Tabs.List class="mb-6 grid h-auto w-full grid-cols-2 gap-1 p-1">
+				<Tabs.Trigger value="Login" class="font-mono text-xs uppercase tracking-wide">
+					login
+				</Tabs.Trigger>
+				<Tabs.Trigger value="Register" class="font-mono text-xs uppercase tracking-wide">
+					register
+				</Tabs.Trigger>
+			</Tabs.List>
 
-				<Tabs.Content value="Login" class="w-full">
-					<div
-						class="bg-[#000000]/50 backdrop-blur-xl rounded-2xl p-8 border border-[#252525] transition-all duration-300 hover:shadow-glow-lg"
-						in:fly={{ y: 20, duration: 500, delay: 600, easing: cubicOut }}>
-						<form onsubmit={preventDefault(bubble('submit'))} class="space-y-6">
-							<div>
-								<GlowleftInput
-									placeholder="E-Mail"
+			<Tabs.Content value="Login">
+				<div class="rounded-md border border-border bg-card p-6">
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							signInWithEmail();
+						}}
+						class="space-y-4"
+					>
+						<div class="space-y-1.5">
+							<label for="login-email" class="font-mono text-xs text-muted-foreground">
+								email
+							</label>
+							<div class="relative">
+								<Mail
+									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+									aria-hidden="true"
+								/>
+								<input
+									id="login-email"
+									type="email"
 									bind:value={emailLogin}
-									icon="ph:envelope-simple-bold"
-									iconPosition="left"
-									pulseOnFocus={true} />
+									placeholder="you@example.com"
+									autocomplete="email"
+									required
+									class="peer {inputClass}"
+								/>
+								<div
+									class="pointer-events-none absolute inset-x-1 bottom-0 h-px bg-gradient-to-r from-orange-400 via-fuchsia-500 to-blue-500 opacity-60 transition-opacity duration-300 peer-focus:opacity-100"
+									aria-hidden="true"
+								></div>
+								<div
+									class="pointer-events-none absolute inset-x-2 -bottom-1.5 h-3 bg-gradient-to-r from-orange-500 via-fuchsia-500 to-blue-500 opacity-30 blur-md transition-opacity duration-300 peer-focus:opacity-60"
+									aria-hidden="true"
+								></div>
+								<div
+									class="pointer-events-none absolute inset-x-6 -bottom-3 h-5 bg-gradient-to-r from-orange-500 via-purple-500 to-blue-600 opacity-15 blur-xl transition-opacity duration-300 peer-focus:opacity-30"
+									aria-hidden="true"
+								></div>
 							</div>
-							<div>
-								<GlowleftInput
-									placeholder="Password"
+						</div>
+
+						<div class="space-y-1.5">
+							<label for="login-password" class="font-mono text-xs text-muted-foreground">
+								password
+							</label>
+							<div class="relative">
+								<Lock
+									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+									aria-hidden="true"
+								/>
+								<input
+									id="login-password"
 									type="password"
 									bind:value={passwordLogin}
-									icon="ph:lock-simple-bold"
-									iconPosition="left"
-									pulseOnFocus={true} />
+									placeholder="••••••••"
+									autocomplete="current-password"
+									required
+									class={inputClass}
+								/>
 							</div>
+						</div>
 
-							{#if errorShow === 1}
-								<div
-									class="text-red-500 text-sm font-medium p-3 rounded bg-red-500/10 border border-red-500/20">
-									{errorText}
-								</div>
-							{/if}
+						{#if errorShow === 1}
+							<p
+								class="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+								role="alert"
+							>
+								{errorText}
+							</p>
+						{/if}
 
-							<button
-								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
-								type="submit"
-								onclick={signInWithEmail}>
-								<Icon icon="ph:sign-in-bold" class="text-2xl" />
-								<span class="text-white font-medium">Sign In</span>
-							</button>
+						<ScButton
+							class="w-full justify-center"
+							onclick={(e) => {
+								e.preventDefault();
+								signInWithEmail();
+							}}
+						>
+							Sign in
+						</ScButton>
 
+						<div class="relative py-2">
+							<div class="absolute inset-0 flex items-center" aria-hidden="true">
+								<div class="w-full border-t border-border"></div>
+							</div>
+							<div class="relative flex justify-center">
+								<span class="bg-card px-2 font-mono text-xs text-muted-foreground">
+									or continue with
+								</span>
+							</div>
+						</div>
+
+						<Button
+							type="button"
+							variant="outline"
+							class="w-full font-mono text-xs"
+							onclick={() => signWithGoogle(false)}
+						>
+							<svg class="size-4" viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									fill="#4285F4"
+									d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+								/>
+								<path
+									fill="#34A853"
+									d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+								/>
+								<path
+									fill="#FBBC05"
+									d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+								/>
+								<path
+									fill="#EA4335"
+									d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+								/>
+							</svg>
+							Google
+						</Button>
+					</form>
+				</div>
+			</Tabs.Content>
+
+			<Tabs.Content value="Register">
+				<div class="rounded-md border border-border bg-card p-6">
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							signUpNewUser();
+						}}
+						class="space-y-4"
+					>
+						<div class="space-y-1.5">
+							<label for="register-email" class="font-mono text-xs text-muted-foreground">
+								email
+							</label>
 							<div class="relative">
-								<div class="absolute inset-0 flex items-center">
-									<div class="w-full border-t border-[#252525]"></div>
-								</div>
-								<div class="relative flex justify-center text-sm">
-									<span class="px-2 bg-[#151515] text-gray-400">Or continue with</span>
-								</div>
-							</div>
-
-							<button
-								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
-								onclick={() => signWithGoogle(false)}>
-								<Icon icon="logos:google-icon" class="text-2xl" />
-								<span class="text-white font-medium">Google</span>
-							</button>
-						</form>
-					</div>
-				</Tabs.Content>
-
-				<Tabs.Content value="Register" class="w-full">
-					<div
-						class="bg-[#000000]/50 backdrop-blur-xl rounded-2xl p-8 border border-[#252525] shadow-glow transition-all duration-300 hover:shadow-glow-lg">
-						<form onsubmit={preventDefault(bubble('submit'))} class="space-y-6">
-							<div>
-								<GlowleftInput
-									placeholder="E-Mail"
+								<Mail
+									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+									aria-hidden="true"
+								/>
+								<input
+									id="register-email"
+									type="email"
 									bind:value={emailRegister}
-									icon="ph:envelope-simple-bold"
-									iconPosition="left"
-									pulseOnFocus={true} />
+									placeholder="you@example.com"
+									autocomplete="email"
+									required
+									class={inputClass}
+								/>
 							</div>
-							<div>
-								<GlowleftInput
-									placeholder="Username"
+						</div>
+
+						<div class="space-y-1.5">
+							<label for="register-username" class="font-mono text-xs text-muted-foreground">
+								username
+							</label>
+							<div class="relative">
+								<User
+									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+									aria-hidden="true"
+								/>
+								<input
+									id="register-username"
+									type="text"
 									bind:value={usernameRegister}
-									icon="ph:user-bold"
-									iconPosition="left"
-									pulseOnFocus={true} />
+									placeholder="your_handle"
+									autocomplete="username"
+									required
+									class={inputClass}
+								/>
 							</div>
-							<div>
-								<GlowleftInput
-									placeholder="Password"
+						</div>
+
+						<div class="space-y-1.5">
+							<label for="register-password" class="font-mono text-xs text-muted-foreground">
+								password
+							</label>
+							<div class="relative">
+								<Lock
+									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+									aria-hidden="true"
+								/>
+								<input
+									id="register-password"
 									type="password"
 									bind:value={passwordRegister}
-									icon="ph:lock-simple-bold"
-									iconPosition="left"
-									pulseOnFocus={true} />
+									placeholder="••••••••"
+									autocomplete="new-password"
+									required
+									class={inputClass}
+								/>
 							</div>
+						</div>
 
-							{#if errorShow === 2}
-								<div
-									class="text-red-500 text-sm font-medium p-3 rounded bg-red-500/10 border border-red-500/20">
-									{errorText}
-								</div>
-							{/if}
+						{#if errorShow === 2}
+							<p
+								class="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+								role="alert"
+							>
+								{errorText}
+							</p>
+						{/if}
 
-							<button
-								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
-								onclick={signUpNewUser}>
-								<Icon icon="ph:user-plus-bold" class="text-2xl" />
-								<span class="text-white font-medium">Create Account</span>
-							</button>
+						<ScButton
+							class="w-full justify-center"
+							onclick={(e) => {
+								e.preventDefault();
+								signUpNewUser();
+							}}
+						>
+							Create account
+						</ScButton>
 
-							<div class="relative">
-								<div class="absolute inset-0 flex items-center">
-									<div class="w-full border-t border-[#252525]"></div>
-								</div>
-								<div class="relative flex justify-center text-sm">
-									<span class="px-2 bg-[#151515] text-gray-400">Or continue with</span>
-								</div>
+						<div class="relative py-2">
+							<div class="absolute inset-0 flex items-center" aria-hidden="true">
+								<div class="w-full border-t border-border"></div>
 							</div>
+							<div class="relative flex justify-center">
+								<span class="bg-card px-2 font-mono text-xs text-muted-foreground">
+									or continue with
+								</span>
+							</div>
+						</div>
 
-							<button
-								class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300 hover:shadow-glow"
-								onclick={() => signWithGoogle(true)}>
-								<Icon icon="logos:google-icon" class="text-2xl" />
-								<span class="text-white font-medium">Google</span>
-							</button>
-						</form>
-					</div>
-				</Tabs.Content>
-			</Tabs.Root>
-		</div>
+						<Button
+							type="button"
+							variant="outline"
+							class="w-full font-mono text-xs"
+							onclick={() => signWithGoogle(true)}
+						>
+							<svg class="size-4" viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									fill="#4285F4"
+									d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+								/>
+								<path
+									fill="#34A853"
+									d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+								/>
+								<path
+									fill="#FBBC05"
+									d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+								/>
+								<path
+									fill="#EA4335"
+									d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+								/>
+							</svg>
+							Google
+						</Button>
+					</form>
+				</div>
+			</Tabs.Content>
+		</Tabs.Root>
 	</div>
 </div>
-
-<style>
-	.shadow-glow {
-		box-shadow: 0 4px 20px -5px rgba(194, 255, 0, 0.1);
-	}
-
-	.shadow-glow-lg {
-		box-shadow: 0 8px 30px -5px rgba(194, 255, 0, 0.2);
-	}
-
-	/* Animation keyframes */
-	@keyframes pulse {
-		0% {
-			opacity: 0.6;
-		}
-		100% {
-			opacity: 1;
-		}
-	}
-
-	@keyframes float {
-		0% {
-			transform: translateY(0px);
-		}
-		50% {
-			transform: translateY(-20px);
-		}
-		100% {
-			transform: translateY(0px);
-		}
-	}
-
-	/* Transitions */
-	.transition-all {
-		transition-property: all;
-		transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-		transition-duration: 300ms;
-	}
-
-	/* Input focus styles */
-	input:focus {
-		outline: none;
-		box-shadow: 0 0 0 2px rgba(194, 255, 0, 0.2);
-	}
-
-	/* Button hover effects */
-	button:hover {
-		transform: translateY(-1px);
-	}
-
-	button:active {
-		transform: translateY(0px);
-	}
-
-	/* Tab switching animation */
-	:global(.tab-content-enter) {
-		transform: translateY(10px);
-		opacity: 0;
-	}
-
-	:global(.tab-content-enter-active) {
-		transform: translateY(0);
-		opacity: 1;
-		transition: all 0.3s ease-out;
-	}
-
-	:global(.tab-content-exit) {
-		transform: translateY(0);
-		opacity: 1;
-	}
-
-	:global(.tab-content-exit-active) {
-		transform: translateY(-10px);
-		opacity: 0;
-		transition: all 0.3s ease-in;
-	}
-</style>

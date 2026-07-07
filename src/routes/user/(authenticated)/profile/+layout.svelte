@@ -1,75 +1,59 @@
 <script lang="ts">
-	import { fly } from 'svelte/transition';
 	import { page } from '$app/state';
-	import { navigating } from '$app/stores';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import Icon from '@iconify/svelte';
-
-	function getLastRoute(v: string | null) {
-		if (!v) return 'Address';
-		let x = v.split('/');
-		return x[x.length - 1];
-	}
-
-	// Determine the active sub-route
-	function getLastSegment(path: string) {
-		const segments = path.split('/');
-		return segments[segments.length - 1];
-	}
-
-	let activeRoute = $derived(getLastSegment(page.route.id ?? ''));
-
-	const navItems = [
-		{ href: '/user/profile/orders', label: 'Orders', icon: 'ph:shopping-bag-bold' },
-		{ href: '/user/profile/addresses', label: 'Address', icon: 'ph:map-pin-bold' },
-		{ href: '/user/profile/account', label: 'Account', icon: 'ph:user-bold' },
-		{ href: '/user/profile/crafts', label: 'Crafts', icon: 'ph:palette-bold' }
-	];
+	import { Breadcrumbs } from '$lib/components/shell';
+	import { cn } from '$lib/utils';
 
 	let { data, children } = $props();
+
+	const navItems = [
+		{ href: '/user/profile/account', label: 'account' },
+		{ href: '/user/profile/orders', label: 'orders' },
+		{ href: '/user/profile/addresses', label: 'addresses' },
+		{ href: '/user/profile/crafts', label: 'crafts' }
+	];
+
+	const activePath = $derived(page.url.pathname);
+
+	const activeLabel = $derived(
+		navItems.find((item) => activePath === item.href || activePath.startsWith(item.href + '/'))
+			?.label ?? 'profile'
+	);
 </script>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white py-12 {activeRoute === '[id]' ? '-mt-16' : 'pt-12'}">
-	<div class="mx-auto px-4">
-		{#if activeRoute != '[id]'}
-		<!-- Header -->
-		<div class="text-center mb-12">
-			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-3 h-3 rounded-full bg-accent mr-2"></span>
-				<span class="text-accent text-sm uppercase tracking-wider font-medium">Profile Settings</span>
-			</div>
-			<div class="text-4xl font-bold mb-3">Your Profile</div>
-			<p class="text-gray-400 max-w-2xl mx-auto">Manage your account settings, addresses, orders and crafts.</p>
+<div class="min-h-screen bg-background text-foreground">
+	<div class="mx-auto max-w-2xl px-4 py-6 md:py-8">
+		<Breadcrumbs
+			items={[
+				{ label: 'home', href: '/' },
+				{ label: 'profile', href: '/user/profile/account' },
+				{ label: activeLabel }
+			]}
+		/>
+
+		<div class="mt-4 flex items-baseline justify-between gap-4">
+			<h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
 		</div>
 
-		<!-- Navigation -->
-		<div class="flex flex-wrap justify-center gap-3 mb-12">
-			{#each navItems as { href, label, icon }, i}
+		<nav aria-label="Profile sections" class="mt-4 flex gap-1 overflow-x-auto border-b border-border">
+			{#each navItems as { href, label } (href)}
 				<a
 					{href}
-					class="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2 {
-						getLastRoute(page.route.id) === href 
-							? 'bg-accent/10 text-accent' 
-							: 'bg-[#151515]/40 text-gray-400'
-					}"
+					class={cn(
+						'whitespace-nowrap border-b-2 px-3 py-2 font-mono text-xs uppercase tracking-wide transition-colors',
+						activePath === href
+							? 'border-foreground text-foreground'
+							: 'border-transparent text-muted-foreground hover:text-foreground'
+					)}
 				>
-					<Icon {icon} class="text-lg" />
-					<span>{label}</span>
+					{label}
 				</a>
 			{/each}
-		</div>
-		{/if}
+		</nav>
 
-		<!-- Content -->
-		{#key data.url}
-			<div
-				in:fly={{ y: 20, duration: 300, delay: 150 }}
-				out:fly={{ y: -20, duration: 200 }}
-				class="max-w-4xl mx-auto"
-			>
+		<div class="mt-6">
+			{#key data.url}
 				{@render children?.()}
-			</div>
-		{/key}
+			{/key}
+		</div>
 	</div>
 </div>

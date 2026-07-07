@@ -2,7 +2,12 @@
 	import type { Order, Orders, Product } from '$lib/types/product.js';
 	import {} from '$lib/client/loading.js';
 	import type { CartItem } from '$lib/client/cart.js';
-	import Icon from '@iconify/svelte';
+	import { ScButton } from '$lib/components/sc';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronUp from '@lucide/svelte/icons/chevron-up';
+	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import CheckCircle from '@lucide/svelte/icons/circle-check';
+	import Clock from '@lucide/svelte/icons/clock';
 
 	let { data } = $props();
 	let supabase_lt = data.supabase_lt;
@@ -46,97 +51,92 @@
 	function getStatusColor(status: string) {
 		switch (status.toLowerCase()) {
 			case 'completed':
-				return 'text-green-400';
+				return 'text-green-600';
 			case 'pending':
-				return 'text-yellow-400';
+				return 'text-amber-600';
 			case 'failed':
-				return 'text-red-400';
+				return 'text-destructive';
 			default:
-				return 'text-gray-400';
+				return 'text-muted-foreground';
 		}
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-3">
 	{#if orders == undefined || orders.length <= 0 || subload}
-		<div class="bg-[#151515] rounded-xl p-8 text-center">
-			<Icon icon="ph:shopping-bag-bold" class="text-4xl text-gray-400 mx-auto mb-4" />
+		<div class="rounded-md border border-border bg-card px-4 py-8 text-center">
+			<ShoppingBag class="mx-auto mb-3 size-8 text-muted-foreground" />
 			{#if subload}
-				<p class="text-gray-400">Loading your orders...</p>
+				<p class="text-sm text-muted-foreground">Loading orders…</p>
 			{:else}
-				<p class="text-gray-400">No orders placed yet</p>
-				<a
-					href="/shop"
-					class="inline-block mt-4 px-6 py-2 bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-all">
-					Start Shopping
-				</a>
+				<p class="text-sm text-muted-foreground">No orders yet.</p>
+				<ScButton href="/crafts" variant="secondary" class="mt-3">Browse crafts</ScButton>
 			{/if}
 		</div>
 	{:else}
 		{#each orders as order, i}
 			{@const shipping_address = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address ?? '{}') : (order.shipping_address ?? {})}
 			{@const billing_address = typeof order.billing_address === 'string' ? JSON.parse(order.billing_address ?? '{}') : (order.billing_address ?? {})}
-			<div class="bg-[#151515] rounded-xl overflow-hidden">
+			<div class="overflow-hidden rounded-md border border-border bg-card">
 				<button
-					class="w-full p-3 md:p-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 items-start text-left hover:bg-white/5 transition-all"
+					class="grid w-full grid-cols-2 items-start gap-3 p-3 text-left transition-colors hover:bg-secondary/50 md:grid-cols-4 md:gap-4"
 					onclick={() => {
 						visible = visible.with(i, !visible[i]);
 					}}>
-					<div class="space-y-1 md:col-span-1">
-						<div class="text-xs md:text-sm text-gray-400">Order ID</div>
-						<div class="font-medium text-sm md:text-base break-all">{order.id}</div>
+					<div class="space-y-0.5 md:col-span-1">
+						<div class="font-mono text-xs text-muted-foreground">id</div>
+						<div class="break-all text-sm font-medium">{order.id}</div>
 					</div>
 
-					<div class="space-y-1">
-						<div class="text-xs md:text-sm text-gray-400">Status</div>
-						<div
-							class="font-medium text-sm md:text-base capitalize {getStatusColor(
-								order.payment_status
-							)}">
-							<span class="flex items-center gap-1.5 md:gap-2">
-								<Icon
-									icon={order.payment_status.toLowerCase() === 'completed'
-										? 'ph:check-circle'
-										: 'ph:clock'} />
-								{order.payment_status}
-							</span>
+					<div class="space-y-0.5">
+						<div class="font-mono text-xs text-muted-foreground">status</div>
+						<div class="flex items-center gap-1.5 text-sm font-medium capitalize {getStatusColor(order.payment_status)}">
+							{#if order.payment_status.toLowerCase() === 'completed'}
+								<CheckCircle class="size-3.5" />
+							{:else}
+								<Clock class="size-3.5" />
+							{/if}
+							{order.payment_status}
 						</div>
 					</div>
 
-					<div class="space-y-1">
-						<div class="text-xs md:text-sm text-gray-400">Date</div>
-						<div class="font-medium text-sm md:text-base">{getDate(order.created_at)}</div>
-						<div class="text-xs text-gray-400">{getTime(order.created_at)}</div>
+					<div class="space-y-0.5">
+						<div class="font-mono text-xs text-muted-foreground">date</div>
+						<div class="text-sm font-medium">{getDate(order.created_at)}</div>
+						<div class="text-xs text-muted-foreground">{getTime(order.created_at)}</div>
 					</div>
 
-					<div class="space-y-1 md:text-left">
-						<div class="text-xs md:text-sm text-gray-400">Amount</div>
-						<div class="font-medium text-sm md:text-base">₹{order.amount}</div>
+					<div class="space-y-0.5">
+						<div class="font-mono text-xs text-muted-foreground">amount</div>
+						<div class="text-sm font-medium">₹{order.amount}</div>
 					</div>
 
-					<div class="col-span-2 md:col-span-4 flex justify-center text-gray-400 pt-2 md:hidden">
-						<Icon icon={visible[i] ? 'ph:caret-up-bold' : 'ph:caret-down-bold'} class="text-lg" />
+					<div class="col-span-2 flex justify-center pt-1 text-muted-foreground md:col-span-4 md:hidden">
+						{#if visible[i]}
+							<ChevronUp class="size-4" />
+						{:else}
+							<ChevronDown class="size-4" />
+						{/if}
 					</div>
 				</button>
 
 				{#if visible[i]}
-					<div class="border-t border-white/10">
-						<!--Addresses-->
-						<div class="p-4 text-left text-gray-400 flex xs:flex-col sm:flex-row gap-x-8 bg-accent/5 w-full">
-							<div class="flex flex-col flex-1">
-								<span class="font-medium text-accent">Shipping Address:</span>
-								<div class="flex flex-col space-y-1 text-sm">
+					<div class="border-t border-border">
+						<div class="flex gap-6 bg-secondary/30 p-3 text-sm sm:flex-row">
+							<div class="flex-1">
+								<span class="font-mono text-xs text-muted-foreground">shipping</span>
+								<div class="mt-1 space-y-0.5">
 									{#if shipping_address?.name}
 										<span class="font-medium">{shipping_address.name}</span>
 									{/if}
 									{#if shipping_address?.line1}
-										<span class="text-gray-300">{shipping_address.line1}</span>
+										<span class="text-muted-foreground">{shipping_address.line1}</span>
 									{/if}
 									{#if shipping_address?.line2}
-										<span class="text-gray-300">{shipping_address.line2}</span>
+										<span class="text-muted-foreground">{shipping_address.line2}</span>
 									{/if}
 									{#if shipping_address?.city || shipping_address?.state || shipping_address?.pincode}
-										<span class="text-gray-300">
+										<span class="text-muted-foreground">
 											{shipping_address.city}
 											{#if shipping_address.city && (shipping_address.state || shipping_address.pincode)},
 											{/if}
@@ -148,24 +148,24 @@
 										</span>
 									{/if}
 									{#if shipping_address?.phone}
-										<span class="text-gray-300">Phone: {shipping_address.phone}</span>
+										<span class="text-muted-foreground">{shipping_address.phone}</span>
 									{/if}
 								</div>
 							</div>
-							<div class="flex flex-col flex-1">
-								<span class="font-medium text-accent">Billing Address:</span>
-								<div class="flex flex-col space-y-1 text-sm">
+							<div class="flex-1">
+								<span class="font-mono text-xs text-muted-foreground">billing</span>
+								<div class="mt-1 space-y-0.5">
 									{#if billing_address?.name}
 										<span class="font-medium">{billing_address.name}</span>
 									{/if}
 									{#if billing_address?.line1}
-										<span class="text-gray-300">{billing_address.line1}</span>
+										<span class="text-muted-foreground">{billing_address.line1}</span>
 									{/if}
 									{#if billing_address?.line2}
-										<span class="text-gray-300">{billing_address.line2}</span>
+										<span class="text-muted-foreground">{billing_address.line2}</span>
 									{/if}
 									{#if shipping_address?.city || shipping_address?.state || shipping_address?.pincode}
-										<span class="text-gray-300">
+										<span class="text-muted-foreground">
 											{billing_address.city}
 											{#if billing_address.city && (billing_address.state || billing_address.pincode)},
 											{/if}
@@ -177,97 +177,93 @@
 										</span>
 									{/if}
 									{#if billing_address?.phone}
-										<span class="text-gray-300">Phone: {billing_address.phone}</span>
+										<span class="text-muted-foreground">{billing_address.phone}</span>
 									{/if}
 								</div>
 							</div>
 						</div>
 						<!--Tracking if exists-->
 						{#if (order.trackingId && order.trackingCourier) || (order.trackingUrl && order.trackingCourier)}
-							<div class="p-4 text-left text-gray-400 flex gap-2 flex-wrap bg-accent/2">
-								<span class="font-medium text-accent">Tracking Details:</span>
-								<div>
-									<span class="text-gray-300">{order.trackingId}</span>
-									{#if order.trackingUrl}
-										<a href={order.trackingUrl} class="text-sky-400 underline">{order.trackingCourier}</a>
-									{:else}
-										<span class="text-gray-300">{order.trackingCourier}</span>
-									{/if}
-								</div>
+							<div class="flex flex-wrap gap-2 border-t border-border p-3 text-sm">
+								<span class="font-mono text-xs text-muted-foreground">tracking</span>
+								<span>{order.trackingId}</span>
+								{#if order.trackingUrl}
+									<a href={order.trackingUrl} class="underline">{order.trackingCourier}</a>
+								{:else}
+									<span class="text-muted-foreground">{order.trackingCourier}</span>
+								{/if}
 							</div>
 						{/if}
 						<!--Items-->
 						{#if order.payment_method.includes('PrintRequest')}
-							<div class="p-4 text-gray-400">
+							<div class="border-t border-border p-3 text-sm">
 								{#await data.supabase_lt.from('printrequests').select('*').eq('id', order.cart_id).single()}
-									<div class="flex justify-center items-center py-8">
-										<div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent"></div>
-										<span class="ml-3 text-accent">Loading request details...</span>
+									<div class="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+										<div class="size-5 animate-spin rounded-full border-2 border-border border-t-foreground"></div>
+										Loading…
 									</div>
 								{:then printRequest}
 									{#if printRequest.data}
-										<div class="flex flex-col gap-2">
-											<div class="flex justify-between items-center">
-												<span class="font-medium text-accent">3D Print Request Details:</span>
-												<span class="text-sm px-2 py-1 rounded-md {printRequest.data.request_stage === 'paid' ? 'bg-green-500/10 text-green-400 border border-green-400/20' : printRequest.data.request_stage === 'completed' ? 'bg-gray-500/10 text-gray-300 border border-gray-400/20' : 'bg-accent/10 text-accent border border-accent/20'}">
-													{printRequest.data.request_stage}
-												</span>
+										<div class="space-y-2">
+											<div class="flex items-center justify-between">
+												<span class="font-mono text-xs text-muted-foreground">3d print</span>
+												<span class="rounded-md border border-border px-2 py-0.5 font-mono text-xs capitalize">{printRequest.data.request_stage}</span>
 											</div>
 											{#if printRequest.data.model}
 												<div class="text-sm">
-													<span class="font-medium text-accent">Model:</span>
+													<span class="text-muted-foreground">model: </span>
 													{#if !(printRequest.data.model.startsWith('https://') || printRequest.data.model.startsWith('http://'))}
 														{@const modelName = printRequest.data.model?.split('/').pop().split('.')}
 														{@const modelName2 = modelName[modelName.length - 2].split('_')}
-														<a href="/3dp-portal/user/{printRequest.data.id}" class="underline text-sky-300">{modelName ? `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}` : 'Model'}</a>
+														<a href="/3dp-portal/user/{printRequest.data.id}" class="underline">{modelName ? `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}` : 'Model'}</a>
 													{:else}
-														<span class="text-gray-300">{printRequest.data.model}</span>
+														<span class="text-muted-foreground">{printRequest.data.model}</span>
 													{/if}
 												</div>
 											{/if}
 											<!-- show model_data if exists -->
 											{#if printRequest.data.model_data}
 												<div class="text-sm">
-													<span class="font-medium text-accent">Model Data:</span>
-													<div class="flex flex-wrap gap-2 text-xs text-white/80 mt-1">
+													<span class="text-muted-foreground">specs: </span>
+													<div class="mt-1 flex flex-wrap gap-1.5 text-xs">
 														{#if printRequest.data.model_data.color}
-															<span class="bg-accent/10 px-2 py-0.5 rounded flex items-center gap-1.5">Color: <div class="w-3 h-3 rounded-sm" style={`background-color:${printRequest.data.model_data.color}`}></div></span>
+															<span class="flex items-center gap-1 rounded border border-border px-1.5 py-0.5">color <span class="inline-block size-2.5 rounded-sm" style={`background-color:${printRequest.data.model_data.color}`}></span></span>
 														{/if}
 														{#if printRequest.data.model_data.quality}
-															<span class="bg-accent/10 px-2 py-0.5 rounded">Quality: {printRequest.data.model_data.quality}</span>
+															<span class="rounded border border-border px-1.5 py-0.5">{printRequest.data.model_data.quality}</span>
 														{/if}
 														{#if printRequest.data.model_data.scale}
-															<span class="bg-accent/10 px-2 py-0.5 rounded">Scale: {printRequest.data.model_data.scale}x</span>
+															<span class="rounded border border-border px-1.5 py-0.5">{printRequest.data.model_data.scale}x</span>
 														{/if}
 														{#if printRequest.data.model_data.infill}
-															<span class="bg-accent/10 px-2 py-0.5 rounded">Infill: {printRequest.data.model_data.infill}%</span>
+															<span class="rounded border border-border px-1.5 py-0.5">{printRequest.data.model_data.infill}%</span>
 														{/if}
 														{#if printRequest.data.model_data.walls}
-															<span class="bg-accent/10 px-2 py-0.5 rounded">Walls: {printRequest.data.model_data.walls}</span>
+															<span class="rounded border border-border px-1.5 py-0.5">{printRequest.data.model_data.walls} walls</span>
 														{/if}
 														{#if printRequest.data.material}
-															<span class="bg-accent/10 px-2 py-0.5 rounded">Material: {printRequest.data.material}</span>
+															<span class="rounded border border-border px-1.5 py-0.5">{printRequest.data.material}</span>
 														{/if}
 														{#each Object.entries(printRequest.data.model_data) as [key, value]}
 															{#if !['color', 'quality', 'scale', 'infill', 'walls'].includes(key) && value}
-																<span class="bg-accent/10 px-2 py-0.5 rounded">{key}: {value}</span>
+																<span class="rounded border border-border px-1.5 py-0.5">{key}: {value}</span>
 															{/if}
 														{/each}
 													</div>
 												</div>
 											{/if}
 											{#if printRequest.data.events && printRequest.data.events.length > 0}
-												<div class="text-sm mt-2">
-													<span class="font-medium text-accent">Event history:</span>
+												<div class="text-sm">
+													<span class="font-mono text-xs text-muted-foreground">events</span>
 													<div class="mt-1 space-y-1">
 														{#each printRequest.data.events.filter((e: any) => e.type !== 'order_created').sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 3) as event}
-															<div class="bg-black/10 px-3 py-2 rounded-lg border border-accent/10 text-xs">
-																<div class="flex items-center justify-between">
-																	<span class="font-medium"><span class="capitalize">{event.type} {event.extra?.amount ? `(₹${(parseInt(event.extra?.amount)/100).toFixed(2)})` : ''} {event.extra?.quote ? `(₹${event.extra?.quote})` : ''}</span></span>
-																	<span class="text-gray-400 text-xs">{new Date(event.timestamp).toLocaleString()}</span>
+															<div class="rounded-md border border-border px-2 py-1.5 text-xs">
+																<div class="flex items-center justify-between gap-2">
+																	<span class="capitalize">{event.type}{event.extra?.amount ? ` (₹${(parseInt(event.extra?.amount)/100).toFixed(2)})` : ''}{event.extra?.quote ? ` (₹${event.extra?.quote})` : ''}</span>
+																	<span class="text-muted-foreground">{new Date(event.timestamp).toLocaleString()}</span>
 																</div>
 																{#if event.reason}
-																	<div class="text-gray-400 mt-1">{event.reason}</div>
+																	<div class="mt-0.5 text-muted-foreground">{event.reason}</div>
 																{/if}
 															</div>
 														{/each}
@@ -284,32 +280,30 @@
 							</div>
 						{:else}
 						{#if !order.item_snapshot || order.item_snapshot.length <= 0}
-							<div class="p-4 text-center text-gray-400">Unable to fetch order information</div>
+							<div class="p-3 text-center text-sm text-muted-foreground">Unable to fetch order information</div>
 						{:else}
-							<div class="divide-y divide-white/10">
-								{#each order.item_snapshot as item, j}
+							<div class="divide-y divide-border">
+								{#each order.item_snapshot as item}
 									<a
 										href={`/${order.cart_id}/craft/item=${item.product_id}`}
-										class="block md:grid md:grid-cols-3 gap-4 p-3 md:p-4 hover:bg-white/5 transition-all text-sm">
-										<div
-											class="font-medium text-accent mb-1 md:mb-0 flex justify-between items-center">
+										class="grid gap-2 p-3 text-sm transition-colors hover:bg-secondary/50 md:grid-cols-3 md:gap-4">
+										<div class="flex items-center justify-between font-medium md:justify-start">
 											<span>{item.product_name}</span>
-											<span class="md:hidden text-gray-400 text-xs">(₹{item.price})</span>
+											<span class="text-xs text-muted-foreground md:hidden">₹{item.price}</span>
 										</div>
-										<div
-											class="flex justify-between items-center text-gray-400 md:text-center mb-1 md:mb-0">
-											<span class="md:hidden text-xs">Quantity:</span>
-											<span>{item.qty} {item.qty === 1 ? 'unit' : 'units'}</span>
+										<div class="flex justify-between text-muted-foreground md:justify-center">
+											<span class="md:hidden text-xs">qty</span>
+											<span>{item.qty}</span>
 										</div>
-										<div class="flex justify-between items-center md:text-right">
-											<span class="md:hidden text-xs text-gray-400">Subtotal:</span>
+										<div class="flex justify-between md:justify-end">
+											<span class="text-xs text-muted-foreground md:hidden">subtotal</span>
 											<span class="font-medium">₹{item.price * item.qty}</span>
 										</div>
 									</a>
 								{/each}
 
-								<div class="grid grid-cols-2 md:grid-cols-3 gap-4 p-3 md:p-4 text-gray-400 text-sm">
-									<div>Shipping</div>
+								<div class="grid grid-cols-2 gap-2 p-3 text-sm text-muted-foreground md:grid-cols-3">
+									<div>shipping</div>
 									<div class="hidden md:block"></div>
 									<div class="text-right">
 										₹{order.amount -
@@ -317,9 +311,8 @@
 									</div>
 								</div>
 
-								<div
-									class="grid grid-cols-2 md:grid-cols-3 gap-4 p-3 md:p-4 font-medium text-sm md:text-base">
-									<div>Total</div>
+								<div class="grid grid-cols-2 gap-2 p-3 text-sm font-medium md:grid-cols-3">
+									<div>total</div>
 									<div class="hidden md:block"></div>
 									<div class="text-right">₹{order.amount}</div>
 								</div>
@@ -333,31 +326,3 @@
 	{/if}
 </div>
 
-<style>
-	@reference "../../../../../app.css";
-	.lhead {
-		@apply border-[1px] border-solid border-orange-300 bg-scoranged2 rounded-xl text-orange-200 opacity-75;
-	}
-
-	.litem {
-		@apply bg-scoranged2 hover:bg-scorange/10 p-4 text-orange-200 opacity-75 grid grid-flow-col grid-cols-4 gap-x-4 max-sm:text-sm text-center;
-	}
-
-	.litem:first-child,
-	.litem:last-child {
-		@apply rounded-xl;
-	}
-	.noshow {
-		@apply !invisible !max-h-0 !border-0 !m-0 !opacity-0;
-	}
-	/* Hide scrollbar for Chrome, Safari and Opera */
-	.no-scrollbar::-webkit-scrollbar {
-		display: none;
-	}
-
-	/* Hide scrollbar for IE, Edge and Firefox */
-	.no-scrollbar {
-		-ms-overflow-style: none; /* IE and Edge */
-		scrollbar-width: none; /* Firefox */
-	}
-</style>
