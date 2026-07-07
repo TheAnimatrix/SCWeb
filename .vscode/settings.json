@@ -6,6 +6,5 @@
     "supabase/functions"
   ],
   "deno.lint": true,
-  "deno.unstable": true,
-  "explorer.excludeGitIgnore": true
+  "deno.unstable": true
 }
