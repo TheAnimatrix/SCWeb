@@ -11,13 +11,24 @@ function parseProductIdFromUrl(url: string): string | null {
 	return match?.[1] ?? null;
 }
 
+function getBannerProductIds(banners: Banner[] | undefined): string[] {
+	if (!banners?.length) return [];
+
+	const ids: string[] = [];
+	for (const banner of banners) {
+		const id = parseProductIdFromUrl(banner.url);
+		if (id && !ids.includes(id)) ids.push(id);
+	}
+	return ids;
+}
+
 export const load: PageLoad = async ({ parent }) => {
 	const { supabase_lt } = await parent();
 
 	if (!supabase_lt) {
 		return {
 			recentProducts: [] as Product[],
-			featuredProduct: null as Product | null,
+			featuredProducts: [] as Product[],
 			stats: STATS_FALLBACK
 		};
 	}
@@ -44,38 +55,40 @@ export const load: PageLoad = async ({ parent }) => {
 			.limit(6);
 		recentProducts = (fallback.data ?? []) as Product[];
 	}
-	let featuredProduct: Product | null = null;
+	let featuredProducts: Product[] = [];
 
 	const banners = bannersResult.data?.[0]?.value as Banner[] | undefined;
-	const bannerProductId = banners?.[0]?.url ? parseProductIdFromUrl(banners[0].url) : null;
+	const bannerProductIds = getBannerProductIds(banners);
 
-	if (bannerProductId) {
+	if (bannerProductIds.length > 0) {
 		const featuredResult = await supabase_lt
 			.from('products')
 			.select(PRODUCT_SELECT)
-			.eq('id', bannerProductId)
-			.maybeSingle();
+			.in('id', bannerProductIds);
 
-		if (featuredResult.data) {
-			featuredProduct = featuredResult.data as Product;
+		if (featuredResult.data?.length) {
+			const byId = new Map(
+				(featuredResult.data as Product[]).map((product) => [product.id, product])
+			);
+
+			featuredProducts = bannerProductIds
+				.map((id) => byId.get(id))
+				.filter((product): product is Product => !!product);
 		}
 	}
 
-	if (!featuredProduct && recentProducts.length > 0) {
-		featuredProduct = recentProducts[0];
+	if (featuredProducts.length === 0 && recentProducts.length > 0) {
+		featuredProducts = recentProducts.slice(0, 3);
 	}
 
-	if (!featuredProduct) {
+	if (featuredProducts.length === 0) {
 		const fallbackResult = await supabase_lt
 			.from('products')
 			.select(PRODUCT_SELECT)
 			.order('created_at', { ascending: false })
-			.limit(1)
-			.maybeSingle();
+			.limit(3);
 
-		if (fallbackResult.data) {
-			featuredProduct = fallbackResult.data as Product;
-		}
+		featuredProducts = (fallbackResult.data ?? []) as Product[];
 	}
 
 	const stats = {
@@ -86,7 +99,7 @@ export const load: PageLoad = async ({ parent }) => {
 
 	return {
 		recentProducts,
-		featuredProduct,
+		featuredProducts,
 		stats
 	};
 };

@@ -1,9 +1,21 @@
 <script lang="ts">
 	import type { Product } from '$lib/types/product';
-	import { DotGrid, ScButton, FeatureModule, ProductCard, PlaceholderImage } from '$lib/components/sc';
+	import { navigating } from '$app/state';
+	import {
+		DotGrid,
+		ScButton,
+		FeatureModule,
+		ProductCard,
+		ProductCardSkeleton,
+		FeaturedCarousel,
+		FeaturedCarouselSkeleton,
+		Skeleton
+	} from '$lib/components/sc';
 	import Smoke from '$lib/components/effects/Smoke.svelte';
 
 	let { data } = $props();
+
+	const isLoading = $derived(!!navigating.to && navigating.to.url.pathname === '/');
 
 	const features = [
 		{
@@ -28,23 +40,7 @@
 	}
 
 	const listingPreview = $derived(data.recentProducts.slice(0, 3));
-
-	const featured = $derived(data.featuredProduct);
-	const featuredMaker = $derived(
-		featured?.author ?? featured?.users?.username ?? 'unknown'
-	);
-	const featuredPrice = $derived(
-		featured ? featured.price.new.toLocaleString('en-IN') : null
-	);
-	const featuredOldPrice = $derived(
-		featured && featured.price.old > 0
-			? featured.price.old.toLocaleString('en-IN')
-			: null
-	);
-	const featuredRating = $derived(featured?.rating);
-	const featuredStock = $derived(featured?.stock.count ?? 0);
-	const featuredImage = $derived(featured?.images?.[0]?.url ?? null);
-	const featuredHref = $derived(featured ? productHref(featured) : '/crafts');
+	const featuredProducts = $derived(data.featuredProducts);
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
@@ -68,80 +64,31 @@
 				</div>
 
 				<dl class="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-6 font-mono text-sm">
-					<div>
-						<dt class="inline text-muted-foreground">makers:</dt>
-						<dd class="ml-1 inline text-foreground">{data.stats.makers}</dd>
-					</div>
-					<div>
-						<dt class="inline text-muted-foreground">listings:</dt>
-						<dd class="ml-1 inline text-foreground">{data.stats.listings}</dd>
-					</div>
-					<div>
-						<dt class="inline text-muted-foreground">cities:</dt>
-						<dd class="ml-1 inline text-foreground">{data.stats.cities}</dd>
-					</div>
+					{#if isLoading}
+						{#each Array(3) as _, i (i)}
+							<Skeleton class="h-4 w-28 rounded-sm" />
+						{/each}
+					{:else}
+						<div>
+							<dt class="inline text-muted-foreground">makers:</dt>
+							<dd class="ml-1 inline text-foreground">{data.stats.makers}</dd>
+						</div>
+						<div>
+							<dt class="inline text-muted-foreground">listings:</dt>
+							<dd class="ml-1 inline text-foreground">{data.stats.listings}</dd>
+						</div>
+						<div>
+							<dt class="inline text-muted-foreground">cities:</dt>
+							<dd class="ml-1 inline text-foreground">{data.stats.cities}</dd>
+						</div>
+					{/if}
 				</dl>
 			</div>
 
-			{#if featured}
-				<a
-					href={featuredHref}
-					class="group block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/30"
-				>
-					<div
-						class="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground"
-					>
-						<span>Featured</span>
-					</div>
-
-					<div class="grid sm:grid-cols-[minmax(0,160px)_1fr]">
-						<div class="aspect-square overflow-hidden sm:aspect-auto sm:min-h-full">
-							<PlaceholderImage
-								src={featuredImage}
-								alt={featured.name}
-								class="transition-transform duration-500 group-hover:scale-105"
-							/>
-						</div>
-
-						<div class="flex min-w-0 flex-col justify-between gap-4 p-6">
-							<div class="space-y-3">
-								<h2 class="text-xl font-medium leading-snug text-foreground">{featured.name}</h2>
-
-								<dl class="space-y-1.5 font-mono text-sm">
-									<div class="flex gap-2">
-										<dt class="shrink-0 text-muted-foreground">maker:</dt>
-										<dd class="truncate text-foreground">@{featuredMaker}</dd>
-									</div>
-									<div class="flex gap-2">
-										<dt class="shrink-0 text-muted-foreground">stock:</dt>
-										<dd class="text-foreground">{featuredStock} units</dd>
-									</div>
-									{#if featuredRating}
-										<div class="flex gap-2">
-											<dt class="shrink-0 text-muted-foreground">rating:</dt>
-											<dd class="text-foreground">
-												{featuredRating.rating} / {featuredRating.count} reviews
-											</dd>
-										</div>
-									{/if}
-								</dl>
-							</div>
-
-							{#if featuredPrice}
-								<div class="text-right">
-									{#if featuredOldPrice}
-										<p class="font-mono text-sm text-muted-foreground line-through">
-											₹{featuredOldPrice}
-										</p>
-									{/if}
-									<p class="font-mono text-2xl font-semibold tracking-tight text-foreground">
-										₹{featuredPrice}
-									</p>
-								</div>
-							{/if}
-						</div>
-					</div>
-				</a>
+			{#if isLoading}
+				<FeaturedCarouselSkeleton />
+			{:else if featuredProducts.length > 0}
+				<FeaturedCarousel products={featuredProducts} {productHref} />
 			{:else}
 				<div
 					class="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8"
@@ -169,7 +116,13 @@
 			<ScButton href="/crafts" variant="ghost" arrow>Browse all</ScButton>
 		</div>
 
-		{#if listingPreview.length > 0}
+		{#if isLoading}
+			<div class="grid grid-cols-1 gap-6 md:grid-cols-3" aria-hidden="true">
+				{#each Array(3) as _, i (i)}
+					<ProductCardSkeleton />
+				{/each}
+			</div>
+		{:else if listingPreview.length > 0}
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 				{#each listingPreview as product (product.id)}
 					<ProductCard {product} href={productHref(product)} />
