@@ -2,10 +2,15 @@
 	import { onMount } from 'svelte';
 	import { theme } from '$lib/client/theme';
 	import {
+		drawGlowRadialBlob,
+		drawGlowRect,
 		parseRgbString,
 		particleBlendMode,
 		particleColorCss,
-		readCssRgb
+		particleDrawRgb,
+		readCssRgb,
+		rollAccentParticle,
+		type Rgb
 	} from '$lib/utils/particleTheme';
 
 	interface Props {
@@ -36,6 +41,8 @@
 		velocity: { x: number; y: number };
 		alpha: number;
 		decreasing: boolean;
+		isAccent: boolean;
+		accentRgb: Rgb | null;
 	}
 
 	interface BrutalistCell {
@@ -43,6 +50,8 @@
 		oy: number;
 		edge: number;
 		alpha: number;
+		isAccent: boolean;
+		accentRgb: Rgb | null;
 	}
 
 	interface BrutalistWisp {
@@ -61,9 +70,12 @@
 		phase: number;
 		drift: number;
 		seed: number;
+		isAccent: boolean;
+		accentRgb: Rgb | null;
 	}
 
 	let smokeCanvas: HTMLCanvasElement = $state();
+	let accentCanvas: HTMLCanvasElement = $state();
 	let colorHelper: HTMLDivElement = $state();
 
 	function snap(value: number) {
@@ -79,6 +91,7 @@
 
 	function createSoftParticle(): SoftParticle {
 		const radius = Math.random() * 180 + 120;
+		const accent = rollAccentParticle(0.06);
 		return {
 			x: Math.random() * (smokeCanvas?.width || 0),
 			y: (smokeCanvas?.height || 0) + radius,
@@ -88,7 +101,9 @@
 				y: -Math.random() * 0.7 - 0.4
 			},
 			alpha: 0.07 + Math.random() * 0.08,
-			decreasing: Math.random() > 0.5
+			decreasing: Math.random() > 0.5,
+			isAccent: accent.isAccent,
+			accentRgb: accent.accentRgb
 		};
 	}
 
@@ -107,11 +122,16 @@
 				const spawnChance = 0.34 * (1 - edge * 0.7);
 				if (Math.random() > spawnChance) continue;
 
+				const alpha = cellAlpha();
+				const accent = rollAccentParticle(alpha >= 1 ? 0.85 : 0.06);
+
 				cells.push({
 					ox,
 					oy,
 					edge,
-					alpha: cellAlpha()
+					alpha,
+					isAccent: accent.isAccent,
+					accentRgb: accent.accentRgb
 				});
 			}
 		}
@@ -127,10 +147,11 @@
 	}
 
 	onMount(() => {
-		if (!smokeCanvas || !colorHelper) return;
+		if (!smokeCanvas || !accentCanvas || !colorHelper) return;
 
 		const ctx = smokeCanvas.getContext('2d');
-		if (!ctx) return;
+		const accentCtx = accentCanvas.getContext('2d');
+		if (!ctx || !accentCtx) return;
 
 		let frameId = 0;
 		let frame = 0;
@@ -139,6 +160,8 @@
 		const resizeCanvas = () => {
 			smokeCanvas.width = smokeCanvas.offsetWidth;
 			smokeCanvas.height = smokeCanvas.offsetHeight;
+			accentCanvas.width = accentCanvas.offsetWidth;
+			accentCanvas.height = accentCanvas.offsetHeight;
 		};
 
 		resizeCanvas();
@@ -157,6 +180,7 @@
 
 		if (variant === 'brutalist' || variant === 'fabric') {
 			ctx.imageSmoothingEnabled = false;
+			accentCtx.imageSmoothingEnabled = false;
 		}
 
 		const softParticles: SoftParticle[] = [];
@@ -180,13 +204,18 @@
 				if (seen.has(key)) continue;
 				seen.add(key);
 
+				const alpha = cellAlpha();
+				const accent = rollAccentParticle(alpha >= 1 ? 0.85 : 0.07);
+
 				fabricDots.push({
 					x: col * spacing,
 					y: row * spacing,
-					alpha: cellAlpha(),
+					alpha,
 					phase: Math.random() * Math.PI * 2,
 					drift: (Math.random() - 0.5) * 0.015,
-					seed: Math.random()
+					seed: Math.random(),
+					isAccent: accent.isAccent,
+					accentRgb: accent.accentRgb
 				});
 			}
 		}
@@ -214,17 +243,20 @@
 		function respawnFabricDot(dot: FabricDot) {
 			const spacing = gridSize;
 			const cols = Math.max(1, Math.ceil(smokeCanvas.width / spacing));
+			const alpha = cellAlpha();
+			const accent = rollAccentParticle(alpha >= 1 ? 0.85 : 0.07);
+
 			dot.x = Math.floor(Math.random() * cols) * spacing;
 			dot.y = smokeCanvas.height + Math.random() * spacing * 6;
-			dot.alpha = cellAlpha();
+			dot.alpha = alpha;
 			dot.phase = Math.random() * Math.PI * 2;
 			dot.drift = (Math.random() - 0.5) * 0.015;
 			dot.seed = Math.random();
+			dot.isAccent = accent.isAccent;
+			dot.accentRgb = accent.accentRgb;
 		}
 
 		function updateSoft() {
-			if (!ctx) return;
-
 			for (let i = 0; i < softParticles.length; i++) {
 				const particle = softParticles[i];
 
@@ -239,22 +271,28 @@
 					if (particle.alpha >= 0.15) particle.decreasing = true;
 				}
 
-				ctx.beginPath();
-				const gradient = ctx.createRadialGradient(
-					particle.x,
-					particle.y,
-					0,
-					particle.x,
-					particle.y,
-					particle.radius
-				);
+				const rgb = particleDrawRgb(particleRgb, particle.accentRgb, particle.isAccent);
 
-				gradient.addColorStop(0, `rgba(${particleRgb.r}, ${particleRgb.g}, ${particleRgb.b}, ${particle.alpha})`);
-				gradient.addColorStop(1, `rgba(${particleRgb.r}, ${particleRgb.g}, ${particleRgb.b}, 0)`);
+				if (particle.isAccent) {
+					drawGlowRadialBlob(accentCtx, particle.x, particle.y, particle.radius, rgb, particle.alpha);
+				} else {
+					ctx.beginPath();
+					const gradient = ctx.createRadialGradient(
+						particle.x,
+						particle.y,
+						0,
+						particle.x,
+						particle.y,
+						particle.radius
+					);
 
-				ctx.fillStyle = gradient;
-				ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-				ctx.fill();
+					gradient.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${particle.alpha})`);
+					gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
+
+					ctx.fillStyle = gradient;
+					ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+					ctx.fill();
+				}
 
 				if (
 					particle.y < -particle.radius ||
@@ -267,8 +305,6 @@
 		}
 
 		function updateBrutalist() {
-			if (!ctx) return;
-
 			frame += 1;
 			const step = frame % 5 === 0;
 
@@ -291,8 +327,16 @@
 					const px = snap(wisp.x + cell.ox * gridSize * wisp.spread);
 					const py = snap(wisp.y + cell.oy * gridSize * wisp.spread);
 
-					ctx.fillStyle = `rgba(${particleRgb.r}, ${particleRgb.g}, ${particleRgb.b}, ${cell.alpha})`;
-					ctx.fillRect(px, py, gridSize, gridSize);
+					const rgb = particleDrawRgb(particleRgb, cell.accentRgb, cell.isAccent);
+
+					if (cell.isAccent) {
+						ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${cell.alpha})`;
+						ctx.fillRect(px, py, gridSize, gridSize);
+						drawGlowRect(accentCtx, px, py, gridSize, gridSize, rgb, cell.alpha);
+					} else {
+						ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${cell.alpha})`;
+						ctx.fillRect(px, py, gridSize, gridSize);
+					}
 				}
 
 				if (wisp.y < -gridSize * 16) {
@@ -302,8 +346,6 @@
 		}
 
 		function updateFabric() {
-			if (!ctx) return;
-
 			time += 0.005;
 			const spacing = gridSize;
 			const height = smokeCanvas.height;
@@ -319,28 +361,43 @@
 				const y = dot.y;
 
 				const densityThreshold = 0.05 + fall * 0.48;
-				if (dot.seed > densityThreshold) {
+				if (!dot.isAccent && dot.seed > densityThreshold) {
 					if (y < -spacing) respawnFabricDot(dot);
 					continue;
 				}
 
-				const topFade = y < height * 0.15 ? Math.max(0, y / (height * 0.15)) : 1;
-				const alpha = dot.alpha * (0.2 + fall * 0.55) * topFade;
+				const topFade =
+					y < height * 0.15
+						? Math.max(dot.isAccent ? 0.45 : 0, y / (height * 0.15))
+						: 1;
+				const baseAlpha = dot.alpha * (0.2 + fall * 0.55) * topFade;
+				const alpha = dot.isAccent ? Math.min(1, baseAlpha * 1.35) : baseAlpha;
 
 				if (alpha < 0.02 || y < -spacing) {
 					respawnFabricDot(dot);
 					continue;
 				}
 
-				ctx.fillStyle = `rgba(${particleRgb.r}, ${particleRgb.g}, ${particleRgb.b}, ${alpha})`;
-				ctx.fillRect(snap(x), snap(y), gridSize, gridSize);
+				const rgb = particleDrawRgb(particleRgb, dot.accentRgb, dot.isAccent);
+				const px = snap(x);
+				const py = snap(y);
+
+				if (dot.isAccent) {
+					ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+					ctx.fillRect(px, py, gridSize, gridSize);
+					drawGlowRect(accentCtx, px, py, gridSize, gridSize, rgb, alpha);
+				} else {
+					ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+					ctx.fillRect(px, py, gridSize, gridSize);
+				}
 			}
 		}
 
 		function updateSmoke() {
-			if (!ctx || !colorHelper) return;
+			if (!colorHelper) return;
 
 			ctx.clearRect(0, 0, smokeCanvas.width, smokeCanvas.height);
+			accentCtx.clearRect(0, 0, accentCanvas.width, accentCanvas.height);
 
 			if (variant === 'brutalist') {
 				updateBrutalist();
@@ -374,10 +431,15 @@
 <div
 	class="smoke-container pointer-events-none absolute inset-0 z-0 overflow-hidden"
 	class:brutalist={variant === 'brutalist'}
-	style="opacity: {opacity}; mix-blend-mode: {resolvedBlendMode}"
+	style="opacity: {opacity}"
 >
 	<div bind:this={colorHelper} class="hidden" style="background-color: {resolvedColor}"></div>
-	<canvas bind:this={smokeCanvas} class="h-full w-full"></canvas>
+	<canvas
+		bind:this={smokeCanvas}
+		class="h-full w-full"
+		style="mix-blend-mode: {resolvedBlendMode}"
+	></canvas>
+	<canvas bind:this={accentCanvas} class="accent-glow-canvas" aria-hidden="true"></canvas>
 	{#if variant === 'brutalist'}
 		<div class="brutalist-scanlines pointer-events-none absolute inset-0" aria-hidden="true"></div>
 		<div
@@ -389,6 +451,16 @@
 </div>
 
 <style>
+	.accent-glow-canvas {
+		position: absolute;
+		inset: 0;
+		height: 100%;
+		width: 100%;
+		pointer-events: none;
+		mix-blend-mode: screen;
+		opacity: 0.7;
+	}
+
 	.brutalist-scanlines {
 		background-image: repeating-linear-gradient(
 			0deg,

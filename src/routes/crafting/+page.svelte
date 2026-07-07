@@ -97,7 +97,7 @@
 
 <div class="min-h-screen bg-background text-foreground">
 	<DotGrid class="relative overflow-hidden border-b border-border">
-		<DriftParticles />
+		<DriftParticles particleCount={42} accentChance={0.2} />
 
 		<div class="relative z-10 mx-auto max-w-7xl px-4 py-8 md:py-12">
 			<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'Start crafting' }]} />

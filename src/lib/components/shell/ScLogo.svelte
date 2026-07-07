@@ -14,24 +14,11 @@
 <img
 	src={Logo}
 	alt="selfcrafted.in"
-	class={cn(
-		'h-8 w-auto',
-		variant === 'light' && 'logo-light',
-		variant === 'dark' && 'logo-dark',
-		className
-	)}
+	class={cn('h-8 w-auto', variant === 'light' && 'logo-light', className)}
 />
 
 <style>
 	.logo-light {
-		/* near-black wordmark with subtle teal on the mark */
-		filter: brightness(0) saturate(100%) invert(8%) sepia(12%) saturate(1200%)
-			hue-rotate(128deg) brightness(95%);
-	}
-
-	.logo-dark {
-		/* soft white with faint teal accent on the mark */
-		filter: brightness(0) saturate(100%) invert(100%) sepia(8%) saturate(400%)
-			hue-rotate(118deg) brightness(105%);
+		filter: invert(1);
 	}
 </style>
