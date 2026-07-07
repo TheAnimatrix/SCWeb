@@ -1,31 +1,28 @@
 <script lang="ts">
-	import type{ Product } from '$lib/types/product';
-	import ProductItem from '$lib/components/product/product_item.svelte';
-	import { goto } from '$app/navigation';
+	import type { Product } from '$lib/types/product';
+	import { ProductCard } from '$lib/components/sc';
+
 	interface Props {
 		products?: Product[];
-		getLink: any;
-		onClick?: any;
+		getLink: (index: number, product: Product) => string;
+		onClick?: (index: number, product: Product) => void;
 		class?: string;
 	}
 
 	let {
 		products = [],
 		getLink,
-		onClick = ()=>{},
-		class: className = ""
+		onClick = () => {},
+		class: className = ''
 	}: Props = $props();
-	
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full {className}">
-	{#each products as product, index (index)}
-        <ProductItem
-			{product} 
+<div class="grid w-full grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 {className}">
+	{#each products as product, index (product.id)}
+		<ProductCard
+			{product}
 			href={getLink(index, product)}
-			onClick={()=>onClick(index,product)}
+			onclick={() => onClick(index, product)}
 		/>
 	{/each}
-	<!-- Spacer to prevent footer overlap -->
-	<div class="h-20 col-span-full"></div>
 </div>
