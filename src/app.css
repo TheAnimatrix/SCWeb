@@ -2,142 +2,174 @@
 
 @config '../tailwind.config.js';
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-
-
 @layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
-  }
+	*,
+	::after,
+	::before,
+	::backdrop,
+	::file-selector-button {
+		border-color: var(--color-gray-200, currentColor);
+	}
 
-  h1 {
-	@apply !text-5xl;
-}
-h2 {
-	@apply !text-4xl;
-}
-h3 {
-	@apply !text-3xl;
-}
+	h1 {
+		@apply text-4xl font-semibold tracking-tight md:text-5xl;
+	}
+
+	h2 {
+		@apply text-3xl font-semibold tracking-tight md:text-4xl;
+	}
+
+	h3 {
+		@apply text-2xl font-semibold tracking-tight;
+	}
 }
 
 @utility animate_base {
-  @apply ease-linear transition-all duration-200;
+	@apply ease-linear transition-all duration-200;
 }
 
-@utility noise {
-  background-image: url('/images/noise.svg');
-  background-blend-mode: overlay;
+@utility dot-grid {
+	background-color: var(--dot-grid-bg);
+	background-image: radial-gradient(circle, var(--dot-grid-dot) 1px, transparent 1px);
+	background-size: 20px 20px;
 }
 
-@utility shadow-glow {
-  box-shadow:
-    0 0 20px var(--color-accent-default / 0.1),
-    0 0 40px var(--color-accent-default /  0.05);
+@keyframes sc-stripe-shift {
+	from {
+		background-position: 0 0;
+	}
+	to {
+		background-position: 12.728px 12.728px;
+	}
 }
 
-@utility shadow-glow-sm {
-  box-shadow:
-    0 0 10px var(--color-accent-default /  0.1),
-    0 0 20px var(--color-accent-default /  0.05);
+@utility sc-stripes {
+	--sc-stripe-base: hsl(var(--muted));
+	--sc-stripe-line: hsl(var(--border) / 0.7);
+	background-color: var(--sc-stripe-base);
+	background-image: repeating-linear-gradient(
+		-45deg,
+		var(--sc-stripe-line) 0,
+		var(--sc-stripe-line) 1px,
+		transparent 1px,
+		transparent 9px
+	);
+	background-size: 12.728px 12.728px;
+}
+
+@utility sc-stripes-bold {
+	--sc-stripe-base: hsl(var(--muted));
+	--sc-stripe-line: hsl(var(--foreground) / 0.07);
+	background-color: var(--sc-stripe-base);
+	background-image: repeating-linear-gradient(
+		-45deg,
+		var(--sc-stripe-line) 0,
+		var(--sc-stripe-line) 1px,
+		transparent 1px,
+		transparent 7px
+	);
+	background-size: 10px 10px;
+}
+
+@utility sc-stripes-animate {
+	@apply sc-stripes;
+	animation: sc-stripe-shift 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sc-stripes-animate {
+		animation: none;
+	}
 }
 
 @layer base {
-	:root {
-		/* Theme colors */
-		--accent-hue: 205;  /* Base hue for accent color */
-		--accent-saturation: 100%;
-		--accent-lightness: 75%;
-		--accent: var(--accent-hue) var(--accent-saturation) var(--accent-lightness);
-		--accent-foreground: 20 20% 20%;  /* Black text on accent */
-		--accent-dark: var(--accent-hue) var(--accent-saturation) 60%;  /* Darker variant */
-		--accent-rgb: var(--accent-hue), 255, 0;  /* RGB values for accent color */
-		--accent-shadow: var(--accent-hue) 100% 50%;  /* For shadow effects */
-		--accent-transparent: rgba(var(--accent-hue), 255, 0, 0.2);  /* Semi-transparent accent */
-		/* Background system */
-		--background: 0 0% 5%;  /* #0c0c0c */
-		--background-light: 0 0% 8%;  /* #151515 */
-		--background-lighter: 0 0% 15%;  /* #252525 */
-		--background-lightest: 0 0% 21%;  /* #353535 */
-		--foreground: 0 0% 100%;
-
-		/* Semantic colors */
-		--success: 122 55% 49%;  /* #4CAF50 */
-		--error: 0 60% 48%;  /* #C53333 */
-		--warning: 33 100% 57%;  /* #FFA726 */
-		--info: 187 100% 42%;  /* #00BCD4 */
-
-		/* System colors */
-		--muted: 217.2 32.6% 17.5%;
-		--muted-foreground: 215 20.2% 65.1%;
-
-		--popover: 222.2 84% 4.9%;
-		--popover-foreground: 210 40% 98%;
-
-		--card: 222.2 84% 4.9%;
-		--card-foreground: 210 40% 98%;
-
-		--border: 217.2 32.6% 17.5%;
-		--input: 217.2 32.6% 17.5%;
-
-		--primary: 210 40% 98%;
-		--primary-foreground: 222.2 47.4% 11.2%;
-
-		--secondary: 217.2 32.6% 17.5%;
-		--secondary-foreground: 210 40% 98%;
-
-		--destructive: 0 62.8% 30.6%;
-		--destructive-foreground: 210 40% 98%;
-
-		--ring: var(--accent);
-
-		--radius: 0.5rem;
-	}
-
+	:root,
 	.dark {
-		--background: 222.2 84% 4.9%;
-		--foreground: 210 40% 98%;
+		color-scheme: dark;
 
-		--muted: 217.2 32.6% 17.5%;
-		--muted-foreground: 215 20.2% 65.1%;
+		--background: 0 0% 0%;
+		--foreground: 0 0% 98%;
 
-		--popover: 222.2 84% 4.9%;
-		--popover-foreground: 210 40% 98%;
+		--card: 0 0% 0%;
+		--card-foreground: 0 0% 98%;
 
-		--card: 222.2 84% 4.9%;
-		--card-foreground: 210 40% 98%;
+		--popover: 0 0% 4%;
+		--popover-foreground: 0 0% 98%;
 
-		--border: 217.2 32.6% 17.5%;
-		--input: 217.2 32.6% 17.5%;
+		--primary: 0 0% 98%;
+		--primary-foreground: 0 0% 0%;
 
-		--primary: 210 40% 98%;
-		--primary-foreground: 222.2 47.4% 11.2%;
+		--secondary: 0 0% 8%;
+		--secondary-foreground: 0 0% 98%;
 
-		--secondary: 217.2 32.6% 17.5%;
-		--secondary-foreground: 210 40% 98%;
+		--muted: 0 0% 10%;
+		--muted-foreground: 0 0% 55%;
 
-		--accent: 217.2 32.6% 17.5%;
-		--accent-foreground: 210 40% 98%;
+		--accent: 0 0% 12%;
+		--accent-foreground: 0 0% 98%;
+		--accent-dark: 205 100% 75%;
 
-		--destructive: 0 62.8% 30.6%;
-		--destructive-foreground: 210 40% 98%;
+		--destructive: 0 72% 51%;
+		--destructive-foreground: 0 0% 100%;
 
-		--ring: scpurple;
+		--border: 0 0% 18%;
+		--input: 0 0% 18%;
+		--ring: 0 0% 98%;
+
+		--success: 142 71% 45%;
+		--error: 0 72% 51%;
+		--warning: 38 92% 50%;
+		--info: 199 89% 48%;
+
+		--radius: 0.375rem;
+
+		--dot-grid-bg: #000000;
+		--dot-grid-dot: #262626;
 	}
 
-	/* Fix for mobile overflow issue */
-	html, body {
+	.light {
+		color-scheme: light;
+
+		--background: 0 0% 100%;
+		--foreground: 0 0% 0%;
+
+		--card: 0 0% 100%;
+		--card-foreground: 0 0% 0%;
+
+		--popover: 0 0% 100%;
+		--popover-foreground: 0 0% 0%;
+
+		--primary: 0 0% 0%;
+		--primary-foreground: 0 0% 100%;
+
+		--secondary: 0 0% 96%;
+		--secondary-foreground: 0 0% 0%;
+
+		--muted: 0 0% 96%;
+		--muted-foreground: 0 0% 45%;
+
+		--accent: 0 0% 96%;
+		--accent-foreground: 0 0% 0%;
+		--accent-dark: 205 100% 75%;
+
+		--destructive: 0 72% 51%;
+		--destructive-foreground: 0 0% 100%;
+
+		--border: 0 0% 90%;
+		--input: 0 0% 90%;
+		--ring: 0 0% 0%;
+
+		--success: 142 71% 45%;
+		--error: 0 72% 51%;
+		--warning: 38 92% 50%;
+		--info: 199 89% 48%;
+
+		--dot-grid-bg: #fafafa;
+		--dot-grid-dot: #d4d4d4;
+	}
+
+	html,
+	body {
 		overflow-x: hidden;
 		width: 100%;
 		max-width: 100%;
@@ -150,7 +182,6 @@ h3 {
 		overflow-x: hidden;
 	}
 
-	/* Additional fixes for drawer/mobile menu */
 	[data-vaul-drawer-wrapper] {
 		position: fixed;
 		width: 100% !important;
@@ -165,7 +196,6 @@ h3 {
 		right: 0 !important;
 	}
 
-	/* Ensure fixed position elements don't cause overflow */
 	.fixed {
 		max-width: 100vw;
 		width: 100%;
@@ -176,14 +206,34 @@ h3 {
 	* {
 		@apply border-border;
 	}
+
 	body {
-		@apply bg-background text-foreground;
+		@apply bg-background font-sans text-foreground antialiased;
+		font-family: figtree, system-ui, -apple-system, sans-serif;
 	}
+
+	.font-mono {
+		font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+	}
+
 	input[type='number']::-webkit-inner-spin-button,
 	input[type='number']::-webkit-outer-spin-button {
 		-webkit-appearance: none;
-		-moz-appearance: none;
 		appearance: none;
 		margin: 0;
 	}
+}
+
+@font-face {
+	font-family: figtree;
+	src: url('$lib/fonts/Figtree-VariableFont_wght.ttf');
+	font-weight: 100 900;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: figtree;
+	src: url('$lib/fonts/Figtree-Italic-VariableFont_wght.ttf');
+	font-weight: 100 900;
+	font-style: italic;
 }
