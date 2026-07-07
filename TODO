@@ -1,28 +1,389 @@
-DONE:
------------------
+PRODUCTION READINESS TODO
+Generated: 2026-07-07
 
-TODO:
------------------
-- Username (auto) for google login
-- Upload profile picture
-- Fabbly/AvailableMakers : same color picked different material circles animate
-- on registration as a maker, autosend email to maker for verification
-- describe strength selection below picker
-- fix picker on mobile
-- on error downloading model, download button stuck at loading...
-- handle error download model properly in portal
-- no cube renders on STL failure
-- add Z area constraint to max printer volume
-- allow makers to adjust area constraints in portal
-- model area check before requesting quote
-- add dragging color selection
-- infill dragger shows 15% 3 but on change 20% 3
-- remove material option from left hand side and add a filter option in available makers
+Legend:
+- P0: Do not ship knowingly. Security, money, data ownership, or build blockers.
+- P1: Production will hurt soon. Reliability, correctness, observability, or testing gaps.
+- P2: Quality debt. Maintainability, cleanup, accessibility, and developer experience.
 
-minor issues:
------------------
-- can add to cart even if no actual stock [race condition]
+CURRENT QUALITY GATES
+---------------------
+- [ ] P0: Make `npm run build` pass.
+  Current failure: `PUBLIC_RAZORPAY_ID` is not exported by `$env/static/public`.
+  Files hit: `src/routes/(cart)/checkout/createOrder/+server.ts`, `src/routes/3dp-portal/(authenticated)/user/[id]/+server.ts`, client checkout pages.
+  Done when: a clean clone with documented env vars can build without errors.
 
-PLANNING:
------------------
-- how to handle micro transactions and split them to the maker ? I dont want my bank account to receive all these small transactions. What are the options ?
+- [ ] P0: Make `npm run check` pass.
+  Current result: 34 errors and 82 warnings.
+  Examples: missing env exports, strict `$state()` initialization errors, stale Bits UI select API usage, route param typing errors.
+  Done when: `svelte-check --tsconfig ./tsconfig.json` is clean or only has explicitly accepted warnings.
+
+- [ ] P0: Make `npm run lint` pass.
+  Current result: Prettier reports 154 files needing formatting.
+  Also check ESLint after formatting; right now Prettier exits before ESLint gets a meaningful run.
+  Done when: `npm run lint` is a CI gate.
+
+- [ ] P1: Add `.env.example` with all required variables.
+  Include at least: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` or renamed private server key, `PUBLIC_RAZORPAY_ID`, `RAZORPAY_KEY`, `PUBLIC_IS_PRODUCTION` if it stays.
+  Do not commit real secrets.
+
+- [ ] P1: Pick the real production adapter.
+  File: `svelte.config.js`.
+  `adapter-auto` is okay for experiments, but production should use the deployment target intentionally.
+
+P0 TARGET ARCHITECTURE
+----------------------
+- [ ] P0: Split API routes into a separate Hono server.
+  Goal: SvelteKit should become the web/frontend app, while business APIs live in a dedicated Hono service.
+  Move first:
+  - checkout/order creation and payment finalization
+  - print request upload/download/payment flows
+  - maker stats/order mutations
+  - profile/order/address mutations
+  Done when: SvelteKit routes call the Hono API through a typed client or server-side fetch layer, and direct business-critical mutations are no longer scattered through `+server.ts`, `+page.server.ts`, or browser Supabase calls.
+
+- [ ] P0: Add a typed Hono API client for the SvelteKit app.
+  Goal: the frontend should not know raw database/RPC details.
+  Fix: expose typed request/response contracts from the Hono app and consume them from SvelteKit through a small client module.
+  Done when: checkout, profile, maker portal, and print request flows call typed API methods instead of ad hoc `fetch('/...')` and direct Supabase table calls.
+
+- [ ] P0: Introduce Drizzle as the Postgres access layer.
+  Goal: keep database access vendor-independent and avoid coupling app logic to Supabase client/RPC APIs.
+  Fix:
+  - define Drizzle schema from the existing Postgres tables
+  - move server-side reads/writes to Drizzle queries
+  - keep Supabase Auth/Storage only where intentionally chosen, not as the general data layer
+  Done when: business-critical flows use Drizzle transactions and queries instead of `supabase.from(...)` / `supabase.rpc(...)`.
+
+- [ ] P0: Move transaction-heavy logic into Drizzle/Postgres transactions.
+  Targets: payment finalization, stock decrement, purchase creation, quote/order state transitions, maker stats updates.
+  Reason: vendor-independent database code plus explicit transactions makes correctness easier to test and migrate.
+  Done when: each money/order path has one transaction boundary and rollback behavior is tested.
+
+- [ ] P0: Retire Supabase Edge Functions.
+  Files:
+  - `supabase/functions/upload-model-request.ts`
+  - `supabase/functions/download-model-request.ts`
+  Goal: no more production business logic in Edge Functions.
+  Fix: move upload/download authorization and signed URL generation into the Hono API.
+  Done when: Edge Functions are deleted or disabled, and all callers use the Hono API instead.
+
+P0 SECURITY AND DATA OWNERSHIP
+------------------------------
+- [ ] P0: Split Supabase clients by privilege.
+  Files: `src/hooks.server.ts`, `src/app.d.ts`, all server loads/actions using `locals.supabase` and `locals.supabaseServer`.
+  Problem: `locals.supabase` and `locals.supabaseServer` are both created from `SUPABASE_KEY`. If that key is service-role-like, normal user requests bypass RLS.
+  Fix:
+  - `locals.supabase`: user-scoped SSR client with the public anon key and request cookies.
+  - `locals.supabaseAdmin`: service role client, server-only, used only behind explicit auth/ownership checks.
+  - Rename variables so the dangerous one looks dangerous.
+
+- [ ] P0: Stop sending raw cookies through page data.
+  File: `src/routes/+layout.server.ts`.
+  Problem: `cookies: cookies.getAll()` is returned to universal/client load. This can leak cookie names/values into serialized page data.
+  Fix: follow Supabase SSR cookie guidance without exposing all cookies to the browser. If cookie forwarding is needed, only forward the exact auth cookie data in the expected server-only path.
+
+- [ ] P0: Make `clientId` cookie explicitly secure.
+  File: `src/hooks.server.ts`.
+  Problem: cookie options are implicit in production and only partially set in dev.
+  Fix: explicitly set `httpOnly`, `secure`, `sameSite`, `path`, and `maxAge`. Treat `clientId` as an anonymous cart hint, not identity.
+
+- [ ] P0: Audit every service-role query for ownership checks.
+  Search: `supabaseServer`, future name `supabaseAdmin`.
+  Required rule: before any admin read/update/delete/insert based on route params or client input, prove the current user is allowed to touch that row.
+  Priority files:
+  - `src/routes/(cart)/checkout/createOrder/+server.ts`
+  - `src/routes/(cart)/summary/failure/[cart_id]/[order_id]/+page.server.ts`
+  - `src/routes/3dp-portal/(authenticated)/user/[id]/+server.ts`
+  - `src/routes/3dp-portal/(authenticated)/maker/[id]/statsUpdate/+server.ts`
+  - `src/routes/user/(authenticated)/maker/orders/+server.ts`
+
+- [ ] P0: Lock down cart ownership before checkout.
+  File: `src/routes/(cart)/checkout/createOrder/+server.ts`.
+  Problem: `POST` accepts `orderId`, reads cart using an admin client, and creates a Razorpay order. A caller can try arbitrary cart IDs.
+  Fix: cart lookup must include the current `clientId` and/or authenticated user ID. Never create payment orders for carts not owned by the caller.
+
+- [ ] P0: Lock down cart failure mutation.
+  File: `src/routes/(cart)/summary/failure/[cart_id]/[order_id]/+page.server.ts`.
+  Problem: visiting a URL can update any cart status to `failed` through an admin client.
+  Fix: this should not be a page load side effect. Move to a POST endpoint or webhook-style handler, verify cart ownership/order ID/payment provider state, and make it idempotent.
+
+- [ ] P0: Verify Razorpay signatures server-side before marking anything paid.
+  Files:
+  - `src/routes/(cart)/checkout/createOrder/+server.ts`
+  - `src/routes/3dp-portal/(authenticated)/user/[id]/+server.ts`
+  Problem: PATCH accepts `razorpay_order_id`, `razorpay_payment_id`, and `razorpay_signature`, then marks paid without cryptographic verification.
+  Fix: compute HMAC SHA256 over `order_id|payment_id` using the Razorpay secret, compare with constant-time equality, and reject mismatches.
+
+- [ ] P0: Do not trust client-supplied payment amounts.
+  File: `src/routes/3dp-portal/(authenticated)/user/[id]/+server.ts`.
+  Problem: POST compares supplied `amount` to the latest quote, but PATCH trusts form data and event history instead of verifying payment provider amount/status.
+  Fix: read amount/order status from Razorpay on the server or store expected amount at order creation and compare it during finalization.
+
+- [ ] P0: Add idempotency to payment finalization.
+  Files:
+  - `src/routes/(cart)/checkout/createOrder/+server.ts`
+  - `src/routes/3dp-portal/(authenticated)/user/[id]/+server.ts`
+  Problem: repeated PATCH calls can duplicate purchase records, append duplicate events, and decrement stock multiple times.
+  Fix: enforce unique payment IDs, check existing paid state, and make finalization safe to retry.
+
+- [ ] P0: Move stock decrement into an atomic database transaction/RPC.
+  File: `src/routes/(cart)/checkout/createOrder/+server.ts`.
+  Problem: current code reads stock, then writes `stock.count - qty` in a loop. Two buyers can oversell the same product.
+  Fix: one database function should validate stock, decrement with `WHERE stock >= qty`, create purchase, and mark cart paid in a single transaction.
+
+- [ ] P0: Never mutate paid/order state from client-side callbacks alone.
+  Files: checkout pages and print request payment pages.
+  Problem: Razorpay client callback is user-controlled browser code. It should only submit proof to the server; server verifies provider state/signature and finalizes.
+  Fix: server-side verification should be the source of truth. Consider Razorpay webhooks for final payment confirmation.
+
+- [ ] P0: Review RLS policies for all user-owned tables.
+  Tables seen in code: `cart`, `purchases`, `addresses`, `products`, `reviews`, `printrequests`, `PrintingCrafters`, `UserFilament`, `Chat`, `CreatorStats`, `CreatorReviews`.
+  Problem: several pages read/write directly from browser Supabase clients. That is okay only if RLS is complete and tested.
+  Done when: each table has documented select/insert/update/delete policy expectations and tests/manual SQL checks.
+
+P0 PRINT REQUEST AND FILE SECURITY
+----------------------------------
+- [ ] P0: Harden model upload validation.
+  File: `supabase/functions/upload-model-request.ts`.
+  Problems:
+  - extension-only `.stl` validation
+  - no file size limit
+  - no MIME/content sniffing
+  - filename uses original user filename
+  - `upsert: true` can overwrite
+  Fix: generate random storage keys, reject oversized files, validate basic STL structure, store sanitized metadata, and set `upsert: false`.
+
+- [ ] P0: Restrict CORS on Supabase edge functions.
+  Files:
+  - `supabase/functions/upload-model-request.ts`
+  - `supabase/functions/download-model-request.ts`
+  Problem: `Access-Control-Allow-Origin: *` on authenticated service-role-backed functions.
+  Fix: allow only production/dev origins you control and handle preflight consistently.
+
+- [ ] P0: Fix model download path authorization.
+  File: `supabase/functions/download-model-request.ts`.
+  Problem: access is checked from a user-supplied `model_url`/path. Path normalization is ad hoc and full public URLs are partially accepted.
+  Fix: accept a `printrequest_id`, load the row by ID, verify current user is `user_id` or `creator_id`, then create a signed URL for that row's model path.
+
+- [ ] P1: Make upload quota enforcement race-safe.
+  File: `supabase/functions/upload-model-request.ts`.
+  Problem: count-then-insert daily limit can be bypassed by concurrent requests.
+  Fix: enforce quota in a DB function/transaction or a per-user quota table with locking/unique constraints.
+
+- [ ] P1: Add malware/abuse controls for uploaded models.
+  Include storage bucket private by default, max object size, extension whitelist, rate limits, and logging of user ID/IP/user agent.
+
+P1 AUTH AND ROUTING
+-------------------
+- [ ] P1: Use `getUser()` for trusted auth checks, not `getSession()`.
+  Files with `getSession()` checks: `src/routes/3dp-portal/[...]`, `src/routes/user/(authenticated)/maker/orders/+server.ts`, `src/lib/server/user.ts`, client loads.
+  Reason: `getUser()` validates with Supabase; `getSession()` is more of a local session read.
+
+- [ ] P1: Fix auth callback duplication/confusion.
+  Files:
+  - `src/routes/auth/callback/+server.ts`
+  - `src/routes/user/pincode/+server.ts`
+  Problem: `user/pincode` appears to contain auth callback logic and an old pincode API comment.
+  Fix: keep auth callback in one route, remove/rename dead route, and add tests for OAuth/email callback redirects.
+
+- [ ] P1: Sanitize and validate `postLogin` redirect targets.
+  Files: sign-in and authenticated layout redirects.
+  Problem: current code encodes pathnames in some places, but audit that arbitrary external redirects cannot be injected.
+  Fix: allow only same-origin relative paths.
+
+- [ ] P1: Replace client-side profile data loads for sensitive pages with server loads.
+  Files:
+  - `src/routes/user/(authenticated)/profile/orders/+page.ts`
+  - `src/routes/user/(authenticated)/profile/addresses/+page.ts`
+  - `src/routes/user/(authenticated)/profile/crafts/+page.ts`
+  Reason: browser reads are fine only with strong RLS. Server loads make ownership explicit and reduce data leakage risk.
+
+P1 PAYMENT AND ORDER CORRECTNESS
+--------------------------------
+- [ ] P1: Validate and parse addresses server-side before storing.
+  File: `src/routes/(cart)/checkout/createOrder/+server.ts`.
+  Problem: address is a JSON string from `FormData`; server checks only non-empty string before storing.
+  Fix: JSON parse, validate with `validateAddress`, and store structured address.
+
+- [ ] P1: Stop storing payment signatures in user-visible/history records unless needed.
+  Files: purchases and print request events.
+  Reason: signatures are sensitive-ish verification artifacts. Store only what is needed for audit and never expose them in UI.
+
+- [ ] P1: Add purchase/cart/payment uniqueness constraints.
+  Database.
+  Required constraints:
+  - one purchase per successful Razorpay payment ID
+  - one paid purchase per cart/printrequest
+  - carts cannot transition from paid back to failed/active
+
+- [ ] P1: Add order state machines.
+  Tables: `cart`, `purchases`, `printrequests`.
+  Problem: status strings are updated freely.
+  Fix: define allowed transitions: active -> payment_pending -> paid -> fulfilled/cancelled/refunded, requested -> quoted -> order_created -> paid -> shipped/completed/cancelled.
+
+- [ ] P1: Replace product price from cart item with server price snapshot at checkout.
+  Files: cart and checkout flow.
+  Problem: cart item has `price`; checkout recalculates from products in one path but UI and cart state still trust cached values.
+  Fix: server owns final price calculation and stores a snapshot.
+
+- [ ] P1: Add refund/cancel/retry behavior.
+  Payment failure currently writes purchase-ish failure records. Define what happens after abandoned Razorpay modal, failed payment, partial stock update, or duplicate callback.
+
+P1 SERVER API HARDENING
+----------------------
+- [ ] P1: Validate request bodies with schemas.
+  Current pattern: manual `FormData`/JSON checks mixed with `any`.
+  Add lightweight validation for cart checkout, print request creation/payment, maker application, stats update, addresses, reviews.
+
+- [ ] P1: Rate limit high-risk endpoints.
+  Targets: auth-related endpoints, checkout order creation, payment finalization, upload model, download signed URL, maker stats update, chat/message endpoints.
+
+- [ ] P1: Add CSRF strategy for state-changing routes.
+  SvelteKit form actions have some protections, but custom POST/PATCH endpoints should be reviewed. Do not rely only on cookies for identity without CSRF protection.
+
+- [ ] P1: Fix maker stats update authorization.
+  File: `src/routes/3dp-portal/(authenticated)/maker/[id]/statsUpdate/+server.ts`.
+  Problem: endpoint checks logged-in session but does not prove the logged-in user is the maker ID being updated.
+  Fix: require `user.id === maker_id` or admin role, then update only that maker.
+
+- [ ] P1: Review chat/order mutations in maker and user pages.
+  Files:
+  - `src/routes/3dp-portal/(authenticated)/maker/[id]/+page.svelte`
+  - `src/routes/3dp-portal/(authenticated)/user/[id]/+page.svelte`
+  Problem: browser writes to `Chat` and `printrequests`; correctness depends fully on RLS.
+  Fix: either prove/test RLS or move privileged mutations to server endpoints/actions.
+
+P1 OBSERVABILITY AND OPERATIONS
+-------------------------------
+- [ ] P1: Replace `console.error`/`console.log` scatter with structured logging.
+  Search: `console.`.
+  Include route/action name, user ID when safe, request ID, and payment/order IDs.
+
+- [ ] P1: Add error monitoring.
+  Capture server errors, client errors, payment failures, upload failures, and Supabase edge function failures.
+
+- [ ] P1: Add audit logs for money and order state changes.
+  Record who/what changed state, old state, new state, provider IDs, and timestamp.
+
+- [ ] P1: Add backup/recovery story.
+  Supabase database backups, storage backup policy for models, and restore drill for orders/purchases.
+
+- [ ] P1: Add deployment checklist.
+  Include env vars, migrations, RLS policy verification, storage buckets private, Razorpay webhook secret, CORS origins, build/check/lint/test.
+
+P1 TESTING
+----------
+- [ ] P1: Replace placeholder tests.
+  Files:
+  - `tests/test.ts` expects "Welcome to SvelteKit"
+  - `src/index.test.ts` only tests `1 + 2`
+  Done when tests cover actual product behavior.
+
+- [ ] P1: Add checkout/payment unit tests.
+  Cover: invalid cart ID, cart not owned by user/client, wrong signature, duplicate PATCH, out-of-stock, price mismatch, empty cart.
+
+- [ ] P1: Add print request payment tests.
+  Cover: user cannot pay someone else's request, wrong amount, duplicate payment, invalid signature, missing quote, invalid address.
+
+- [ ] P1: Add RLS/integration tests.
+  Test that one user cannot read/update another user's carts, addresses, purchases, print requests, chats, filaments, or creator stats.
+
+- [ ] P1: Add Playwright smoke tests.
+  Cover: home loads, product detail loads, cart add/remove, checkout guard, auth redirect, maker portal guard, model upload happy-path stub.
+
+- [ ] P1: Add edge function tests or local scripts.
+  Cover upload/download authorization, quota, file size/type rejection, signed URL generation.
+
+P2 TYPE SAFETY AND CODE QUALITY
+-------------------------------
+- [ ] P2: Remove broad `any` usage from domain data.
+  Search: `any`.
+  Priority types: `Product.users`, cart items, print request events, Razorpay response, Supabase RPC results, address callbacks, maker filaments, chat messages.
+
+- [ ] P2: Define shared domain types.
+  Add types for:
+  - `PrintRequest`
+  - `PrintRequestEvent`
+  - `PaymentIds`
+  - `RazorpayCheckoutResponse`
+  - `MakerApplication`
+  - `Filament`
+  - `CreatorStats`
+
+- [ ] P2: Import generated Supabase `Database` type properly.
+  File: `src/app.d.ts`.
+  Problem: `Database`, `Session`, and `User` are referenced without visible imports.
+  Fix: import from generated Supabase types and `@supabase/supabase-js`.
+
+- [ ] P2: Fix Svelte 5 migration inconsistencies.
+  Current errors include incorrect `$state()` initialization types, stale bindable APIs, deprecated `<slot>`, and non-reactive updates.
+
+- [ ] P2: Fix UI component library mismatch.
+  Files: `src/lib/components/ui/select/*`, `variant_selector.svelte`.
+  Problem: Bits UI API usage does not match installed version.
+  Fix: align component code and dependency versions.
+
+- [ ] P2: Fix `svelte.config.js` alias.
+  File: `svelte.config.js`.
+  Problem: `$lib` is aliased to `./src/libs`, but the repo uses `src/lib`.
+  Fix: remove this alias or set it to `./src/lib`. Verify it does not override SvelteKit's default `$lib`.
+
+- [ ] P2: Remove dead generated/stale files.
+  Examples: `src/index.test.js`, timestamped Vite config files, old sample/test components, stale comments from prior routes.
+
+- [ ] P2: Stop using page loads for side effects.
+  File already flagged: cart failure page.
+  General rule: `load` reads data. Actions/endpoints mutate data.
+
+- [ ] P2: Centralize constants and status strings.
+  Replace stringly typed states like `paid`, `failed`, `active`, `requested`, `completed`, `approved`, `pending` with typed constants/enums.
+
+- [ ] P2: Normalize naming.
+  Examples: `supabase_lt`, `supabrowserclient`, `result_get_stock`, `payment_id_a`, `paymentIdA`, `PrintingCrafters`.
+  Pick predictable naming for server/client/admin clients and domain fields.
+
+- [ ] P2: Remove commented-out old logic.
+  Search for large commented blocks in cart, payment, model viewer, checkout, and portal pages.
+  Keep history in git, not in the source file.
+
+P2 ACCESSIBILITY AND FRONTEND QUALITY
+-------------------------------------
+- [ ] P2: Fix Svelte accessibility warnings.
+  Labels need associated controls; icon-only buttons need `aria-label`; static elements with mouse handlers need roles/keyboard support.
+
+- [ ] P2: Clean unused CSS selectors.
+  Build/check report many unused selectors in home page, 3dp portal, cart, account, model viewer, etc.
+
+- [ ] P2: Replace `alert()` with app-level toasts/dialogs.
+  Files: checkout/payment flow and related client pages.
+
+- [ ] P2: Improve loading/error states around Razorpay, model upload, and model download.
+  Existing TODO mentioned stuck loading and STL failure; keep this tied to real error boundaries.
+
+- [ ] P2: Add mobile checks for cart, checkout, maker portal, model viewer, and file upload.
+
+EXISTING PRODUCT TODO, PRESERVED
+--------------------------------
+- [ ] Username auto-generation for Google login.
+- [ ] Upload profile picture.
+- [ ] Fabbly/AvailableMakers: same color picked with different material circles should animate.
+- [ ] On registration as a maker, auto-send email to maker for verification.
+- [ ] Describe strength selection below picker.
+- [ ] Fix picker on mobile.
+- [ ] On error downloading model, download button gets stuck at loading.
+- [ ] Handle model download errors properly in portal.
+- [ ] No cube renders on STL failure.
+- [ ] Add Z-axis constraint to max printer volume.
+- [ ] Allow makers to adjust area constraints in portal.
+- [ ] Model area check before requesting quote.
+- [ ] Add dragging color selection.
+- [ ] Infill dragger shows 15% 3 but on change 20% 3.
+- [ ] Remove material option from left side and add filter option in available makers.
+- [ ] Can add to cart even if no actual stock. This is now a P0/P1 stock race issue above.
+
+PLANNING
+--------
+- [ ] Decide how to handle micro-transactions and maker payouts.
+  Question: do payments land in platform account first, use Razorpay Route/split settlements, manual payout batches, or another marketplace/payment provider?
+  Production requirement: accounting, refunds, taxes/GST, dispute handling, maker KYC, payout reconciliation.
