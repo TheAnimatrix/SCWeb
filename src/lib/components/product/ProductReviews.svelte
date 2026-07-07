@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, Trash2, Pencil, LoaderCircle } from '@lucide/svelte';
+	import { X, Trash2, Pencil } from '@lucide/svelte';
 	import { ReviewCard } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { formatTimeAgo } from './productSpecs';
@@ -292,10 +292,11 @@
 						disabled={isSubmittingReview}
 						onclick={submitReview}
 					>
-						{#if isSubmittingReview}
-							<LoaderCircle class="h-4 w-4 animate-spin" />
-						{/if}
-						{isEditingReview ? 'update_review' : 'submit_review'}
+						{isSubmittingReview
+							? 'submitting…'
+							: isEditingReview
+								? 'update_review'
+								: 'submit_review'}
 					</button>
 				</div>
 			</div>

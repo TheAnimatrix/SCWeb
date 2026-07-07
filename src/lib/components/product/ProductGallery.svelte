@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { fade } from 'svelte/transition';
 	import { cn } from '$lib/utils';
 	import { PlaceholderImage, TagBadge } from '$lib/components/sc';
+	import { getTabFadeIn, getTabFadeOut } from '$lib/utils/tabTransition';
 	import { isOpenHardware } from './productSpecs';
 	import type { Product } from '$lib/types/product';
 
@@ -32,11 +34,15 @@
 <div class={cn('space-y-3', className)}>
 	<div class="overflow-hidden rounded-lg border border-border bg-card">
 		<div class="relative aspect-[4/3] overflow-hidden">
-			<PlaceholderImage
-				src={currentImage}
-				alt={product.name}
-				loading="eager"
-			/>
+			{#key indicatorCur}
+				<div class="absolute inset-0" in:fade={getTabFadeIn()} out:fade={getTabFadeOut()}>
+					<PlaceholderImage
+						src={currentImage}
+						alt={product.name}
+						loading="eager"
+					/>
+				</div>
+			{/key}
 
 			{#if showOpenHardware}
 				<div class="absolute left-3 top-3 z-10">

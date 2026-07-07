@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Minus, Plus, Heart, Star } from '@lucide/svelte';
 	import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
-	import { TagBadge, MetaChip, ScButton, TrustSignals } from '$lib/components/sc';
+	import { TagBadge, MetaChip, ScButton, TrustSignals, Skeleton } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { buildProductTags } from '$lib/utils/productTypeTag';
 	import type { Product } from '$lib/types/product';
@@ -18,6 +18,7 @@
 		addToCartSuccess?: boolean | null;
 		addToCartMsg?: string;
 		variants?: VariantOption[];
+		variantsLoading?: boolean;
 		onIncrement?: () => void;
 		onDecrement?: () => void;
 		onAddToCart?: () => void;
@@ -30,6 +31,7 @@
 		addToCartSuccess = null,
 		addToCartMsg = '',
 		variants = [],
+		variantsLoading = false,
 		onIncrement,
 		onDecrement,
 		onAddToCart,
@@ -127,7 +129,12 @@
 		<HTMLWrapper html={shortDescription} />
 	</div>
 
-	{#if variants.length > 1}
+	{#if variantsLoading}
+		<div class="space-y-2" aria-hidden="true">
+			<Skeleton class="h-4 w-16 rounded-sm" />
+			<Skeleton class="h-10 w-full rounded-md" />
+		</div>
+	{:else if variants.length > 1}
 		<div class="space-y-2">
 			<label for="variant-select" class="text-sm font-medium text-foreground">Variant</label>
 			<select
