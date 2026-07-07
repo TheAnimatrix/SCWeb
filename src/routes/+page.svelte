@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Product } from '$lib/types/product';
 	import { navigating } from '$app/state';
+	import Icon from '@iconify/svelte';
 	import {
 		DotGrid,
 		ScButton,
@@ -44,26 +45,36 @@
 	const fleaMarketPreview = $derived(data.recentFleaMarket.slice(0, 3));
 	const featuredProducts = $derived(data.featuredProducts);
 
-	const listingSections = $derived([
+	const listingSectionMeta = [
 		{
+			id: 'products',
 			title: 'Fresh listings',
-			items: listingPreview,
+			icon: 'fluent:sparkle-24-regular',
 			browseHref: '/crafts?filter=products',
 			emptyMessage: 'No listings yet — check back soon'
 		},
 		{
+			id: 'spares',
 			title: 'Spares',
-			items: sparesPreview,
+			icon: 'fluent:puzzle-cube-24-regular',
 			browseHref: '/crafts?filter=spares',
 			emptyMessage: 'No spares listed yet — check back soon'
 		},
 		{
+			id: 'flea_market',
 			title: 'Flea market',
-			items: fleaMarketPreview,
+			icon: 'fluent:building-shop-24-regular',
 			browseHref: '/crafts?filter=flea_market',
 			emptyMessage: 'No flea market listings yet — check back soon'
 		}
-	]);
+	] as const;
+
+	const listingSections = $derived(
+		[listingPreview, sparesPreview, fleaMarketPreview].map((items, index) => ({
+			...listingSectionMeta[index],
+			items
+		}))
+	);
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
@@ -138,9 +149,17 @@
 		{#each listingSections as section (section.title)}
 			<section>
 				<div class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-				<h2 class="text-sm font-medium text-foreground">{section.title}</h2>
-				<ScButton href={section.browseHref} variant="ghost" arrow>Browse all</ScButton>
-			</div>
+					<div class="flex items-center gap-2.5">
+						<span
+							class="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-card text-muted-foreground"
+							aria-hidden="true"
+						>
+							<Icon icon={section.icon} class="size-3.5" aria-hidden="true" />
+						</span>
+						<h2 class="text-sm font-medium text-foreground">{section.title}</h2>
+					</div>
+					<ScButton href={section.browseHref} variant="ghost" arrow>Browse all</ScButton>
+				</div>
 
 			{#if isLoading}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-3" aria-hidden="true">
@@ -159,7 +178,7 @@
 					class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center"
 				>
 					<p class="text-sm text-muted-foreground">{section.emptyMessage}</p>
-					{#if section.title === 'Fresh listings'}
+					{#if section.id === 'products'}
 						<div class="mt-4">
 							<ScButton href="/crafting" variant="secondary">Start selling</ScButton>
 						</div>
