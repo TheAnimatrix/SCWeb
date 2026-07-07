@@ -1,22 +1,30 @@
 <script lang="ts">
 	import { toastStore } from '$lib/client/toastStore';
-	import Button from '$lib/components/ui/button/button.svelte';
+	import { ScButton, Skeleton, TierBadge } from '$lib/components/sc';
+	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
+	import { cn } from '$lib/utils';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronUp from '@lucide/svelte/icons/chevron-up';
+	import Printer from '@lucide/svelte/icons/printer';
+	import Star from '@lucide/svelte/icons/star';
+	import Timer from '@lucide/svelte/icons/timer';
+	import Users from '@lucide/svelte/icons/users';
+	import AlertCircle from '@lucide/svelte/icons/circle-alert';
 	import Icon from '@iconify/svelte';
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
-	//color is bindable
 	let {
 		supabase_lt,
 		model,
-		color = $bindable('#000000'),
+		color = $bindable('#525252'),
 		material = $bindable(null),
 		quality,
 		scale,
 		infill,
-        walls,
+		walls,
 		requestQuoteCompleter
 	}: {
 		supabase_lt: SupabaseClient;
@@ -26,7 +34,7 @@
 		quality: string;
 		scale: number;
 		infill: number;
-        walls : number;
+		walls: number;
 		requestQuoteCompleter: (
 			maker_id: string,
 			model: File | null,
@@ -58,7 +66,7 @@
 				material_type: string;
 			}>
 		>;
-		reviews : Array<{
+		reviews: Array<{
 			rating: number;
 			comment: string;
 			created_at: string;
@@ -76,25 +84,18 @@
 	let uploadProgress = $state<Record<string, number | null>>({});
 	let currentUserId = $state('');
 
-	function getIcon(tier: string) {
-		const icons = [
-			{ icon: 'fluent-emoji-high-contrast:tiger-face', color: '#ffcc33' },
-			{ icon: 'fluent-emoji-high-contrast:rhinoceros', color: '#6b9bff' },
-			{ icon: 'fluent-emoji-high-contrast:peacock', color: '#33cc99' },
-			{ icon: 'fluent-emoji-high-contrast:honeybee', color: '#ffd633' },
-			{ icon: 'fluent-emoji-high-contrast:eagle', color: '#5572d9' }
-		];
-		if (tier === 'Tiger') {
-			return icons[0];
-		} else if (tier === 'Rhino') {
-			return icons[1];
-		} else if (tier === 'Peacock') {
-			return icons[2];
-		} else if (tier === 'Bee') {
-			return icons[3];
-		} else if (tier === 'Osprey') {
-			return icons[4];
-		}
+	const hasModel = $derived(Boolean(model));
+
+	function formatResponseTime(avgQuoteTime: number | null | string) {
+		if (!avgQuoteTime) return null;
+		const parts = avgQuoteTime.toString().split(':');
+		const hh = parseInt(parts[0] ?? '0');
+		const mm = parseInt(parts[1] ?? '0');
+		const ss = parseInt(parts[2] ?? '0');
+		if (hh > 24) return `~${Math.ceil(hh / 24)} days`;
+		if (hh > 1) return `~${hh}.${(mm / 60).toFixed(1).split('.')[1]} hours`;
+		if (mm > 15) return `~${mm}.${(ss / 60).toFixed(1).split('.')[1]} min`;
+		return '~15 min';
 	}
 
 	async function requestQuote(
@@ -108,53 +109,57 @@
 		walls: number
 	) {
 		if (!model) {
-			toastStore.show('No model selected', 'error');
+			toastStore.show('Upload a model first', 'error');
 			return;
 		}
 		if (!color) {
 			toastStore.show('Please select a color', 'error');
 			return;
 		}
-
 		if (!material) {
 			toastStore.show('Please select a material', 'error');
 			return;
 		}
-
 		if (!quality) {
 			toastStore.show('Please select a quality level', 'error');
 			return;
 		}
-
 		if (!scale || scale <= 0) {
 			toastStore.show('Please set a valid scale', 'error');
 			return;
 		}
-
 		if (!infill || infill < 0 || infill > 100) {
 			toastStore.show('Please set a valid infill percentage', 'error');
 			return;
 		}
-		let selectedMaker = makers.find((maker) => maker.maker_id === maker_id);
+
+		const selectedMaker = makers.find((maker) => maker.maker_id === maker_id);
 		let validateCombo = selectedMaker != null;
 		validateCombo = validateCombo && Object.keys(selectedMaker?.filaments ?? {}).length > 0;
 		validateCombo = validateCombo && Object.keys(selectedMaker?.filaments ?? {}).includes(material);
 		validateCombo =
 			validateCombo &&
 			selectedMaker?.filaments[material]?.find((filament) => filament.color === color) != null;
+
 		if (!validateCombo) {
 			toastStore.show('This maker does not support this color/material combination', 'error');
 			return;
 		}
-		// Set loadingQuote via progress callback
+
 		await requestQuoteCompleter(
-			maker_id, model, color, material, quality, scale, infill, walls,
+			maker_id,
+			model,
+			color,
+			material,
+			quality,
+			scale,
+			infill,
+			walls,
 			(progress: number | null) => {
 				loadingQuote = progress !== null ? maker_id : '';
 				uploadProgress = { ...uploadProgress, [maker_id]: progress };
 			}
 		);
-		// Success toast is handled in requestQuoteCompleter
 	}
 
 	onMount(async () => {
@@ -168,30 +173,29 @@
 				error = 'Failed to load makers.';
 				loading = false;
 				return;
-			} else {
-				makers = response.data.filter(
-					(maker: any) => maker.filaments && maker.filaments.length > 0
-				);
-				// Group filaments by material_type
-				makers.forEach((maker: Maker) => {
-					const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
-
-					if (Array.isArray(maker.filaments)) {
-						maker.filaments.forEach((filament: any) => {
-							if (!filamentObj[filament.material_type]) {
-								filamentObj[filament.material_type] = [];
-							}
-							filamentObj[filament.material_type].push(filament);
-						});
-						maker.filaments = filamentObj;
-					}
-				});
 			}
 
-			loading = false;
+			makers = response.data.filter((maker: Maker) => maker.filaments && maker.filaments.length > 0);
+			makers.forEach((maker: Maker) => {
+				const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
+				if (Array.isArray(maker.filaments)) {
+					maker.filaments.forEach((filament: { color: string; material_type: string }) => {
+						if (!filamentObj[filament.material_type]) {
+							filamentObj[filament.material_type] = [];
+						}
+						filamentObj[filament.material_type].push(filament);
+					});
+					maker.filaments = filamentObj;
+				}
+			});
+
+			if (makers.length === 1) {
+				expandedMaker = makers[0].maker_id;
+			}
 		} catch (e) {
 			console.error(e);
 			error = 'Error loading makers.';
+		} finally {
 			loading = false;
 		}
 	});
@@ -199,219 +203,217 @@
 	function toggleMaker(id: string) {
 		expandedMaker = expandedMaker === id ? '' : id;
 	}
+
+	function averageRating(reviews: Maker['reviews']) {
+		if (!reviews?.length) return null;
+		return (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1);
+	}
 </script>
 
-<div
-	class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle mb-4 border border-accent/15">
-	<div class="text-lg font-medium text-white mb-4 flex items-center">
-		<Icon icon="material-symbols:person-pin-circle" class="text-accent mr-2 icon-glow" />
-		<span class="glow-text-subtle">Available Makers ({makers.length})</span>
-	</div>
+<section id="makers" class="scroll-mt-24">
+	<PortalCard>
+		<div class="mb-1 flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<div class="mb-1 flex items-center gap-2">
+					<Users class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<span class="font-mono text-sm text-foreground">available_makers</span>
+					{#if !loading}
+						<span class="font-mono text-xs text-muted-foreground">({makers.length})</span>
+					{/if}
+				</div>
+				<p class="text-sm text-muted-foreground">
+					Expand a maker, pick a filament color, then request your quote.
+				</p>
+			</div>
+		</div>
 
-	{#if loading}
-		<div class="text-center text-white/70 py-8">Loading makers...</div>
-	{:else if error}
-		<div class="text-center text-red-400 py-8">{error}</div>
-	{:else if makers.length === 0}
-		<div class="text-center text-white/60 py-8">No makers available right now.</div>
-	{:else}
-		<div class="space-y-3">
-			{#each makers as maker, i}
-				{@const icon = getIcon(maker.tier)}
-				{@const isSelf = maker.maker_id === currentUserId}
-				<div class="bg-black/50 rounded-lg overflow-hidden border border-zinc-800 {isSelf ? 'opacity-50 relative' : ''}">
-					<!-- Maker header -->
-					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
+		{#if !hasModel}
+			<div
+				class="mt-4 flex items-start gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-3"
+			>
+				<AlertCircle class="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+				<p class="text-sm text-muted-foreground">
+					Upload a model above to unlock maker selection and quote requests.
+				</p>
+			</div>
+		{/if}
+
+		{#if loading}
+			<div class="mt-6 space-y-3" aria-hidden="true">
+				{#each Array(3) as _, i (i)}
+					<Skeleton class="h-16 rounded-md border border-border" />
+				{/each}
+			</div>
+		{:else if error}
+			<div class="mt-6 py-8 text-center text-sm text-destructive">{error}</div>
+		{:else if makers.length === 0}
+			<div class="mt-6 py-8 text-center text-sm text-muted-foreground">
+				No makers available right now. Check back soon.
+			</div>
+		{:else}
+			<div class="mt-6 space-y-3">
+				{#each makers as maker}
+					{@const isSelf = maker.maker_id === currentUserId}
+					{@const isExpanded = expandedMaker === maker.maker_id}
+					{@const rating = averageRating(maker.reviews)}
 					<div
-						class="p-3 flex items-center justify-between cursor-pointer hover:bg-black/70 transition-colors"
-						onclick={() => toggleMaker(maker.maker_id)}>
-						<div class="flex items-center gap-2">
-							<div
-								class="w-8 h-8 rounded-full flex items-center justify-center"
-								style="background-color: {icon!.color}30;">
-								<Icon icon={icon!.icon} style="color: {icon!.color}" class="text-lg" />
+						class={cn(
+							'overflow-hidden rounded-lg border transition-colors',
+							isExpanded ? 'border-foreground/25 bg-card shadow-sm' : 'border-border bg-card',
+							isSelf && 'opacity-60'
+						)}
+					>
+						<button
+							type="button"
+							class="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/30"
+							onclick={() => toggleMaker(maker.maker_id)}
+							aria-expanded={isExpanded}
+						>
+							<div class="flex min-w-0 items-center gap-3">
+								<TierBadge tier={maker.tier} iconOnly class="size-10" />
+								<div class="min-w-0">
+									<div class="truncate font-medium text-foreground">{maker.crafter_name}</div>
+									<div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-muted-foreground">
+										<span>{maker.number_of_printers ?? 0} printer{maker.number_of_printers === 1 ? '' : 's'}</span>
+										<span>{maker.completed_orders ?? 0} orders</span>
+										{#if maker.max_printer_size}
+											<span>{maker.max_printer_size} max</span>
+										{/if}
+									</div>
+								</div>
 							</div>
-							<div class="font-medium text-white text-lg">{maker.crafter_name}</div>
-						</div>
-						<div class="flex items-center gap-4">
-							{#if maker.reviews?.length > 0}
-								<div class="flex items-center gap-1">
-									<Icon icon="material-symbols:star" class="text-yellow-400 text-sm" />
-									<span class="text-white text-sm">{maker.reviews.reduce((acc, review) => acc + review.rating, 0) / maker.reviews.length} ({maker.reviews.length})</span>
-								</div>
-							{:else}
-								<div class="flex items-center gap-1">
-									<Icon icon="material-symbols:star-outline" class="text-white text-sm" />
-									<span class="text-white text-sm">unrated</span>
-								</div>
-							{/if}
-							<button class="text-xl text-zinc-400">
-								<Icon
-									icon={expandedMaker === maker.maker_id
-										? 'material-symbols:expand-less'
-										: 'material-symbols:expand-more'} />
-							</button>
-						</div>
+
+							<div class="flex shrink-0 items-center gap-3">
+								{#if rating}
+									<div class="flex items-center gap-1 text-sm text-foreground">
+										<Star class="size-3.5 fill-foreground text-foreground" strokeWidth={1.5} />
+										<span>{rating}</span>
+										<span class="text-muted-foreground">({maker.reviews.length})</span>
+									</div>
+								{:else}
+									<span class="font-mono text-xs text-muted-foreground">unrated</span>
+								{/if}
+								{#if isExpanded}
+									<ChevronUp class="size-4 text-muted-foreground" strokeWidth={1.5} />
+								{:else}
+									<ChevronDown class="size-4 text-muted-foreground" strokeWidth={1.5} />
+								{/if}
+							</div>
+						</button>
+
 						{#if isSelf}
-							<div class="absolute top-2 right-2 bg-black/80 text-white text-xs px-3 py-1 rounded shadow-glow-subtle border border-accent/30 z-10">
-								You cant order from yourself
+							<div class="border-t border-border bg-muted/30 px-4 py-2 font-mono text-xs text-muted-foreground">
+								cannot_order_from_self
+							</div>
+						{/if}
+
+						{#if isExpanded}
+							<div
+								class={cn('border-t border-border px-4 pb-4 pt-3', isSelf && 'pointer-events-none')}
+								in:slide={{ duration: 200, easing: cubicOut }}
+								out:slide={{ duration: 200, easing: cubicOut }}
+							>
+								<div class="mb-4 flex flex-wrap gap-2">
+									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-xs">
+										affordability {maker.price_rank}/5
+									</span>
+									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-xs">
+										delivery {maker.delivery_rank}/5
+									</span>
+									{#if maker.avg_quote_time}
+										{@const response = formatResponseTime(maker.avg_quote_time)}
+										{#if response}
+											<span
+												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-xs"
+											>
+												<Timer class="size-3" strokeWidth={1.5} />
+												response {response}
+											</span>
+										{/if}
+									{/if}
+								</div>
+
+								<PortalSectionLabel label="filament_color" />
+								<div class="mt-2 space-y-3">
+									{#each Object.keys(maker.filaments) as mat}
+										<div class="rounded-md border border-border bg-muted/20 p-3">
+											<div class="mb-2 flex items-center gap-2">
+												<Printer class="size-3.5 text-muted-foreground" strokeWidth={1.5} />
+												<span class="font-mono text-xs text-foreground">{mat}</span>
+											</div>
+											<div class="flex flex-wrap gap-2">
+												{#each maker.filaments[mat] as filament}
+													<button
+														type="button"
+														class={cn(
+															'relative size-8 rounded-md border-2 transition-all',
+															color === filament.color && material === mat
+																? 'scale-110 border-black ring-2 ring-black/10'
+																: 'border-border hover:scale-105 hover:border-foreground/40'
+														)}
+														onclick={() => {
+															color = filament.color;
+															material = mat;
+														}}
+														aria-label="Select {mat} {filament.color}"
+														title="{mat} · {filament.color}"
+													>
+														<span
+															class="block size-full rounded-[4px]"
+															style="background-color: {filament.color};"
+														></span>
+													</button>
+												{/each}
+											</div>
+										</div>
+									{/each}
+								</div>
+
+								<div class="mt-5">
+									<ScButton
+										class="w-full"
+										disabled={!hasModel || loadingQuote === maker.maker_id}
+										onclick={() => {
+											if (loadingQuote === maker.maker_id) return;
+											requestQuote(
+												maker.maker_id,
+												model,
+												color ?? '',
+												material ?? '',
+												quality,
+												scale,
+												infill,
+												walls
+											);
+										}}
+									>
+										{#if loadingQuote === maker.maker_id}
+											{#if uploadProgress[maker.maker_id] != null}
+												request_quote… {uploadProgress[maker.maker_id]}%
+											{:else}
+												request_quote…
+											{/if}
+										{:else if !hasModel}
+											upload_model_first
+										{:else}
+											request_quote →
+										{/if}
+									</ScButton>
+
+									{#if loadingQuote === maker.maker_id && uploadProgress[maker.maker_id] != null}
+										<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
+											<div
+												class="h-full rounded-full bg-foreground transition-all duration-300"
+												style="width: {uploadProgress[maker.maker_id]}%"
+											></div>
+										</div>
+									{/if}
+								</div>
 							</div>
 						{/if}
 					</div>
-
-					<!-- Expanded maker details -->
-					{#if expandedMaker === maker.maker_id}
-						<div class="px-3 pb-3 {isSelf ? 'cursor-not-allowed pointer-events-none' : ''}" in:slide={{duration: 200, easing: cubicOut}} out:slide={{duration: 200, easing: cubicOut}}>
-							<div class="flex items-center gap-4 text-xs text-white/70 mb-2 flex-wrap">
-								<div class="flex items-center">
-									<Icon icon="mdi:printer" class="text-accent mr-1 text-lg" />
-									<span
-										>{maker.number_of_printers ?? 0} printer{maker.number_of_printers === 1
-											? ''
-											: 's'}</span>
-								</div>
-								<div class="flex items-center">
-									<Icon
-										icon="material-symbols:check-circle-outline"
-										class="text-accent mr-1 text-lg" />
-									<span
-										>{maker.completed_orders ?? 0} completed order{maker.completed_orders === 1
-											? ''
-											: 's'}</span>
-								</div>
-							</div>
-
-							<div class="flex flex-wrap items-center gap-y-2 gap-x-2 text-xs text-white/70 mb-2">
-								<!-- Max printer size -->
-								<div class="flex items-center bg-accent/20 text-accent rounded-sm p-1">
-									<!-- Area icon -->
-									<Icon icon="material-symbols:resize-rounded" class="text-accent mr-1 text-lg" />
-									<span>{maker.max_printer_size ?? 'Unknown'} Max</span>
-								</div>
-								<!-- Price and delivery rank -->
-								<div class="flex items-center bg-green-400/20 rounded-sm p-1 group relative">
-									{#each Array(maker.price_rank) as _, i}
-										<span class="text-green-600 font-bold">₹</span>
-									{/each}
-									{#each Array(5 - maker.price_rank) as _, i}
-										<span class="text-green-300/20">₹</span>
-									{/each}
-									<div
-										class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-green-900 text-green-400 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-										Affordablity: {maker.price_rank}/5
-									</div>
-								</div>
-								<div class="flex items-center bg-yellow-400/20 rounded-sm p-1 group relative">
-									{#each Array(maker.delivery_rank) as _, i}
-										<span class="text-yellow-600 font-bold">⚡︎</span>
-									{/each}
-									{#each Array(5 - maker.delivery_rank) as _, i}
-										<span class="text-yellow-300/20">⚡︎</span>
-									{/each}
-									<div
-										class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-yellow-900 text-yellow-400 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-										Delivery Speed: {maker.delivery_rank}/5
-									</div>
-								</div>
-								<!-- Response time-->
-								 
-
-								{#if maker.avg_quote_time}
-								{@const hh = parseInt(maker.avg_quote_time.toString().split(':')[0])}
-								{@const mm = parseInt(maker.avg_quote_time.toString().split(':')[1])}
-								{@const ss = parseInt(maker.avg_quote_time.toString().split(':')[2])}
-								<div class="flex items-center bg-accent/20 rounded-md px-2 py-1">
-									<Icon
-										icon="material-symbols:timer-outline"
-										class="text-accent mr-1.5 text-lg" />
-									<span class="text-accent font-medium">Response time:</span>
-									<span class="ml-1 text-white/80">
-										{#if hh > 24}
-											~{Math.ceil(hh / 24)} days
-										{:else if hh > 1}
-											~{hh}.{(mm/60).toFixed(1).split('.')[1]} hours
-										{:else if mm > 15}
-											~{mm}.{(ss/60).toFixed(1).split('.')[1]} minutes
-										{:else}
-											~15 minutes
-										{/if}
-									</span>
-								</div>
-								{/if}
-							</div>
-							<div class="flex flex-col gap-2 mt-2">
-								{#each Object.keys(maker.filaments) as mat}
-									<div class="flex gap-1">
-										<span
-											class="bg-accent/10 text-accent text-sm font-semibold px-2 py-0.5 rounded-lg w-fit"
-											>{mat}</span>
-										<div class="flex flex-wrap gap-2 ml-2">
-											{#each maker.filaments[mat] as filament}
-												<!-- show color as a circle -->
-												<button
-													class="w-6 h-6 rounded-lg border-2 transition-transform duration-200 hover:scale-110 hover:shadow-lg hover:shadow-accent/20 relative {color ===
-														filament.color && material === mat
-														? 'border-accent scale-110 shadow-lg shadow-accent/20'
-														: 'hover:border-white'}"
-													onclick={() => {
-														color = filament.color;
-														material = mat;
-													}}
-													aria-label={filament.color}>
-													<div
-														class="w-full h-full rounded-lg"
-														style="background-color: {filament.color};">
-													</div>
-													{#if color === filament.color}
-														<div class="absolute inset-0 rounded-lg bg-accent/20 animate-pulse">
-														</div>
-													{/if}
-												</button>
-											{/each}
-										</div>
-									</div>
-								{/each}
-							</div>
-
-							<div class="relative w-full mt-4">
-								<Button
-									class="w-full bg-accent/10 text-accent hover:bg-accent/14 relative"
-									disabled={loadingQuote === maker.maker_id}
-									onclick={() => {
-										requestQuote(
-											maker.maker_id,
-											model,
-											color ?? '',
-											material ?? '',
-											quality,
-											scale,
-											infill,
-                                            walls
-										);
-									}}>
-									<span class="relative z-10">
-										{#if loadingQuote === maker.maker_id}
-											{#if uploadProgress[maker.maker_id] !== null && typeof uploadProgress[maker.maker_id] === 'number'}
-												Requesting... {uploadProgress[maker.maker_id]}%
-											{:else}
-												Requesting...
-											{/if}
-										{:else}
-											Request a quote
-										{/if}
-									</span>
-								</Button>
-								{#if loadingQuote === maker.maker_id && uploadProgress[maker.maker_id] !== null && typeof uploadProgress[maker.maker_id] === 'number'}
-									<div class="w-full h-1 bg-accent/20 rounded mt-2">
-										<div class="h-1 bg-accent rounded" style="width: {uploadProgress[maker.maker_id]}%"></div>
-									</div>
-								{/if}
-							</div>
-						</div>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{/if}
-</div>
+				{/each}
+			</div>
+		{/if}
+	</PortalCard>
+</section>

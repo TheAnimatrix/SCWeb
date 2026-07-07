@@ -932,7 +932,7 @@
 		<Textarea bind:value={cancelReason} class="w-full mt-4" placeholder="Enter reason..." />
 		<Dialog.Footer>
 			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors mr-2"
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors mr-2"
 				onclick={onCancelCancel}>Cancel</button>
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
@@ -953,7 +953,7 @@
 		<Textarea bind:value={completeReason} class="w-full mt-4" placeholder="(Optional) Add a note..." />
 		<Dialog.Footer>
 			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors mr-2"
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors mr-2"
 				onclick={onCancelComplete}>Cancel</button>
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"

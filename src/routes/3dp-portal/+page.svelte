@@ -1,16 +1,23 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
-	import { getContext, onMount } from 'svelte';
-	import { writable, type Writable } from 'svelte/store';
-	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import Loader from '$lib/components/fundamental/Loader.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { toastStore } from '$lib/client/toastStore'; // Import custom toast store
-	import * as Tabs from '$lib/components/ui/tabs';
+	import CircleHelp from '@lucide/svelte/icons/circle-help';
+	import Wrench from '@lucide/svelte/icons/wrench';
+	import { toastStore } from '$lib/client/toastStore';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
-	import * as THREE from 'three';
+	import { ScButton, TagBadge } from '$lib/components/sc';
+	import {
+		PortalCard,
+		PortalSectionLabel,
+		PortalStepIndicator,
+		ConfigSummaryBar,
+		PortalModelPreview,
+		ParameterChip,
+		ReadinessChecklist
+	} from '$lib/components/portal';
 	import * as Accordion from '$lib/components/ui/accordion';
+	import { cn } from '$lib/utils';
+	import * as THREE from 'three';
 	import AvailableMakers from './AvailableMakers.svelte';
 
 	let { data } = $props();
@@ -32,7 +39,27 @@
 	let scale = $state(1.0);
 	let infill = $state(15); // Default to 40% (3 walls)
 	let walls = $state(3);
-	let selectedColor = $state('#fff'); // Green default
+	const DEFAULT_FILAMENT_COLOR = '#525252';
+
+	let selectedColor = $state(DEFAULT_FILAMENT_COLOR);
+
+	function previewModelColor(color: string): string {
+		const normalized = color.trim();
+		if (!normalized) return DEFAULT_FILAMENT_COLOR;
+
+		const lower = normalized.toLowerCase();
+		if (lower === '#fff' || lower === '#ffffff' || lower === 'white') {
+			return DEFAULT_FILAMENT_COLOR;
+		}
+
+		if (!normalized.startsWith('#') && /^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(normalized)) {
+			return `#${normalized}`;
+		}
+
+		return normalized;
+	}
+
+	const modelPreviewColor = $derived(previewModelColor(selectedColor));
 
 	// Material options
 	const materials = data.filtypes;
@@ -116,6 +143,24 @@
 	// Add ModelViewer reference
 	let modelViewer: ModelViewer;
 
+	const portalSteps = $derived([
+		{ id: 'upload', label: 'upload', done: modelLoaded },
+		{ id: 'configure', label: 'configure', done: modelLoaded },
+		{ id: 'quote', label: 'request_quote', done: false }
+	]);
+
+	const currentStep = $derived(modelLoaded ? 'configure' : 'upload');
+
+	const readinessItems = $derived([
+		{ label: 'Upload an STL model', done: modelLoaded },
+		{ label: 'Set material, quality & strength', done: Boolean(selectedMaterial && selectedQuality) },
+		{ label: 'Choose a maker and filament color below', done: false }
+	]);
+
+	function replaceModel() {
+		browseFiles();
+	}
+
 	// Initialize Three.js cube
 	function initThreeCube() {
 		if (!cubeContainer) {
@@ -146,98 +191,32 @@
 			// Cube geometry with slightly beveled edges
 			const geometry = new THREE.BoxGeometry(2.6, 2.6, 2.6); // Increased by 30% from 2.0
 
-			// Dark gray material for cube faces
-			const darkMaterial = new THREE.MeshStandardMaterial({
-				color: 0x1a1a2e,
-				roughness: 0.9,
+			const cubeMaterial = new THREE.MeshStandardMaterial({
+				color: 0xe5e5e5,
+				roughness: 0.85,
 				metalness: 0,
 				flatShading: true
 			});
 
-			// Create the main cube
-			const cube = new THREE.Mesh(geometry, darkMaterial);
+			const cube = new THREE.Mesh(geometry, cubeMaterial);
 			scene.add(cube);
 
-			// Edge geometry for colored borders
 			const edgeGeometry = new THREE.EdgesGeometry(geometry);
-
-			// Create a shader material for glowing edges
-			const glowEdgeShader = {
-				uniforms: {
-					time: { value: 0 }
-				},
-				vertexShader: `
-					varying vec3 vPosition;
-					void main() {
-						vPosition = position;
-						gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-					}
-				`,
-				fragmentShader: `
-					uniform float time;
-					varying vec3 vPosition;
-					
-					vec3 colorA = vec3(0.4, 0.6, 0.9);  // Blue
-					vec3 colorB = vec3(0.3, 0.5, 0.8);  // Darker blue
-					vec3 colorC = vec3(0.5, 0.7, 1.0);  // Lighter blue
-					
-					void main() {
-						float t = sin(time * 0.5) * 0.5 + 0.5;
-						float pos = vPosition.x + vPosition.y + vPosition.z;
-						float normalizedPos = fract(pos * 0.3 + time * 0.1);
-						
-						vec3 color1 = mix(colorA, colorB, normalizedPos);
-						vec3 color2 = mix(colorB, colorC, normalizedPos);
-						vec3 finalColor = mix(color1, color2, t);
-						
-						float glow = pow(sin(time * 0.5) * 0.5 + 0.5, 2.0) * 0.3 + 0.7;
-						gl_FragColor = vec4(finalColor * glow, 1.0);
-					}
-				`
-			};
-
-			// Create edge material
-			const edgeMaterial = new THREE.ShaderMaterial({
-				uniforms: glowEdgeShader.uniforms,
-				vertexShader: glowEdgeShader.vertexShader,
-				fragmentShader: glowEdgeShader.fragmentShader,
-				transparent: true,
-				linewidth: 2
-			});
-
-			// Create edges and add to scene
+			const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x171717 });
 			const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
 			cube.add(edges);
 
-			// Add subtle ambient light
-			const ambientLight = new THREE.AmbientLight(0x333333, 0.5);
+			const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
 			scene.add(ambientLight);
 
-			// Add directional light
-			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
 			directionalLight.position.set(10, 10, 10);
 			scene.add(directionalLight);
 
-			// Add point lights for dramatic lighting
-			const pointLight1 = new THREE.PointLight(0x6366f1, 0.8, 40); // Indigo-400
-			pointLight1.position.set(2, 2, 2);
-			scene.add(pointLight1);
-
-			const pointLight2 = new THREE.PointLight(0x4f46e5, 0.8, 70); // Indigo-600
-			pointLight2.position.set(-2, -2, 2);
-			scene.add(pointLight2);
-
-			// Add subtle shadows
-			renderer.shadowMap.enabled = true;
-			directionalLight.castShadow = true;
-
-			// Variables for smooth animation
 			let rotationSpeed = 0.005;
-			let time = 0;
 
-			// Animation loop
 			const animate = () => {
-				if (!renderer || !scene || !camera || !cube || !edgeMaterial?.uniforms?.time) {
+				if (!renderer || !scene || !camera || !cube) {
 					console.error('Required Three.js objects are missing');
 					return;
 				}
@@ -245,19 +224,11 @@
 				try {
 					const animationId = requestAnimationFrame(animate);
 
-					// Store the animation ID for cleanup only if container exists
 					if (cubeContainer && cubeContainer.dataset) {
 						cubeContainer.dataset.animationId = animationId.toString();
 					}
 
-					// Update time uniform for edge shader
-					time += 0.03;
-					edgeMaterial.uniforms.time.value = time;
-
-					// Adjust rotation speed based on hover state
 					rotationSpeed = isHovering ? 0.001 : 0.005;
-
-					// Apply rotation
 					cube.rotation.x = -0.4;
 					cube.rotation.y += rotationSpeed;
 
@@ -342,15 +313,6 @@
 	function browseFiles() {
 		const fileInput = document.getElementById('fileInput') as HTMLInputElement;
 		fileInput?.click();
-	}
-
-	function goBack() {
-		window.history.back();
-	}
-
-	function addToCart() {
-		// Placeholder for add to cart functionality
-		alert('Item added to cart!');
 	}
 
 	async function isUserMaker() {
@@ -480,628 +442,342 @@
 	}
 </script>
 
-<div class="w-full flex justify-center min-h-screen">
-	<div class="w-full max-w-7xl px-4 relative z-10">
-		<div class="text-center mb-8">
-			<div class="text-3xl font-bold mb-2">Community 3D Printing</div>
-			<p class="text-gray-400 max-w-2xl mx-auto text-sm">
-				Upload your 3D model and connect with skilled makers in our community who will bring your
-				design to life.
+<div class="min-h-screen bg-background text-foreground">
+	<div class="mx-auto max-w-7xl px-4 pb-16">
+		<header class="mb-8 border-b border-border pb-8">
+			<TagBadge label="3dp_portal" class="mb-3" />
+			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Community 3D Printing</h1>
+			<p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+				Upload a model, tune your print settings, then request a quote from a maker near you.
 			</p>
-		</div>
+			<PortalStepIndicator steps={portalSteps} current={currentStep} class="mt-6" />
+		</header>
 
-		<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-			<!-- Left panel: Model upload and parameters -->
-			<div class="lg:col-span-7">
-				<!-- Model preview area -->
-				<div
-					class="bg-black/60 border border-accent/15 rounded-lg mb-4 h-80 flex flex-col backdrop-blur-md relative overflow-hidden shadow-glow">
-					<div class="cube-glow-effect"></div>
-					{#if modelLoaded}
-						<div class="flex-1 flex flex-col items-center justify-center relative">
-							<ModelViewer
-								bind:this={modelViewer}
-								file={modelFile}
-								modelColor={selectedColor}
-								{selectedMaterial}
-								selectedScale={scale}
-								selectedInfill={infill}
-								{selectedQuality}
-								selectedWalls={parseInt(strengthLevels[sliderPosition].walls.split(' ')[0])}
-								onFailedLoad={() => {
-									toastStore.show('Sorry, this STL is not compatible with our portal. Please try a different model.', 'error');
-									modelFile = null;
-									modelLoaded = false;
-								}} />
-						</div>
-					{:else}
-						<div class="flex flex-col items-center justify-center h-full">
-							<div class="text-center flex flex-col items-center">
-								<!-- Three.js cube container -->
-								<button
-									bind:this={cubeContainer}
-									class="cube-container"
-									onmouseenter={handleCubeMouseEnter}
-									onmouseleave={handleCubeMouseLeave}>
-								</button>
+		{#if data.session}
+			<PortalCard class="mb-4">
+				<PortalSectionLabel label="quote_requests" />
+				{#if loadingRequests}
+					<p class="text-sm text-muted-foreground">Loading your daily limit…</p>
+				{:else if requestsLeft !== null && quoteDailyLimit !== null}
+					<div class="flex items-baseline gap-2">
+						<span class="text-3xl font-semibold tabular-nums text-foreground">{requestsLeft}</span>
+						<span class="text-sm text-muted-foreground">of {quoteDailyLimit} left today</span>
+					</div>
+					<p class="mt-2 text-xs leading-relaxed text-muted-foreground">
+						Quote requests are limited while we're a small team — please use them thoughtfully.
+					</p>
+				{:else}
+					<p class="text-sm text-muted-foreground">Sign in to see your quote limit.</p>
+				{/if}
+			</PortalCard>
+		{/if}
 
-								<div class="absolute bottom-6 left-0 right-0 text-center">
-									<div class="text-lg font-semibold text-white mb-2 glow-text">No Model Loaded</div>
-									<p class="text-white/60 text-sm px-8">Upload a 3D model to see preview</p>
-								</div>
-							</div>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Upload area / Drag & drop -->
-				<button
-					class="w-full bg-black/40 border-2 border-dashed rounded-lg mb-4 p-4 flex flex-col items-center justify-center text-center backdrop-blur-xs shadow-glow-subtle transition-all duration-300 {dragActive
-						? 'border-accent shadow-glow-active'
-						: 'border-accent/15'}"
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-stretch">
+			<div class="flex min-h-0 flex-col md:col-span-7">
+				<PortalModelPreview
+					class="h-full"
+					{modelLoaded}
+					{modelFile}
+					modelColor={modelPreviewColor}
+					{selectedMaterial}
+					selectedScale={scale}
+					selectedInfill={infill}
+					{selectedQuality}
+					selectedWalls={parseInt(strengthLevels[sliderPosition].walls.split(' ')[0])}
+					{dragActive}
+					bind:cubeContainer
+					bind:modelViewer
+					onCubeMouseEnter={handleCubeMouseEnter}
+					onCubeMouseLeave={handleCubeMouseLeave}
+					onBrowse={browseFiles}
+					onFileChange={handleFileInput}
 					ondragover={handleDragOver}
 					ondragleave={handleDragLeave}
-					onclick={browseFiles}
-					ondrop={handleDrop}>
-					<div class="flex items-center gap-3">
-						<Icon icon="material-symbols:upload" class="text-2xl text-accent icon-glow" />
-						<div class="text-left">
-							<div class="text-white font-medium text-sm">Drag & drop your 3D model file</div>
-							<div class="flex items-center mt-1">
-								<div
-									class="text-accent text-xs underline hover:text-accent/80 transition-colors">
-									or click to browse
-								</div>
-								<span class="mx-2 text-white/30 text-xs">•</span>
-								<span class="text-white/50 text-xs">STL (max 50MB)</span>
-							</div>
+					ondrop={handleDrop}
+					onReplace={replaceModel}
+					onFailedLoad={() => {
+						toastStore.show(
+							'Sorry, this STL is not compatible with our portal. Please try a different model.',
+							'error'
+						);
+						modelFile = null;
+						modelLoaded = false;
+					}}
+				/>
+			</div>
+
+			<div class="flex min-h-0 flex-col md:col-span-5">
+				<PortalCard class="flex h-full flex-col">
+					<div class="mb-4 flex items-center justify-between gap-3">
+						<div class="flex items-center gap-2">
+							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
+							<span class="font-mono text-sm text-foreground">print_parameters</span>
 						</div>
 					</div>
-					<input
-						type="file"
-						id="fileInput"
-						accept=".stl"
-						onchange={handleFileInput}
-						class="hidden" />
-				</button>
 
-				<!-- Print Parameters -->
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle border border-accent/15">
-					<div class="flex items-center mb-4">
-						<Icon
-							icon="material-symbols:build-outline"
-							class="text-xl text-accent mr-2 icon-glow" />
-						<div class="text-lg font-medium text-white glow-text-subtle">Print Parameters</div>
-					</div>
+					<ConfigSummaryBar
+						material={selectedMaterial}
+						quality={selectedQuality}
+						{scale}
+						strengthLabel={strengthLevels[sliderPosition].label}
+						{infill}
+						color={selectedColor}
+						class="mb-5"
+					/>
 
-					<!-- Material Selection -->
 					<div class="mb-5">
-						<label class="text-white/80 text-sm mb-2 block"> Material </label>
-						<div class="grid grid-cols-5 gap-1">
+						<PortalSectionLabel label="material" />
+						<div class="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
 							{#each materials as material}
-								<button
-									class="animate_base py-2 text-center text-sm transition-colors hover:bg-accent/20 rounded {selectedMaterial ===
-									material
-										? 'bg-accent/10 text-accent hover:bg-accent/20'
-										: 'bg-black-800/70 text-accent hover:bg-black-700/80'}"
-									onclick={() => {selectedMaterial = material; selectedColor = '#fff';}}>{material}</button>
+								<ParameterChip
+									selected={selectedMaterial === material}
+									onclick={() => {
+										selectedMaterial = material;
+										selectedColor = DEFAULT_FILAMENT_COLOR;
+									}}
+								>
+									{material}
+								</ParameterChip>
 							{/each}
 						</div>
 					</div>
 
-					<!-- Quality Selection -->
 					<div class="mb-5">
-						<label class="text-white/80 text-sm mb-2 block"> Quality </label>
-						<div class="grid grid-cols-3 gap-1">
+						<PortalSectionLabel label="quality" />
+						<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
 							{#each qualities as quality}
-								<button
-									class="py-2 text-center text-sm hover:bg-accent/20 animate_base transition-colors rounded {selectedQuality ===
-									quality
-										? 'bg-accent/10 text-accent hover:bg-accent/20'
-										: 'bg-black-800/70 text-accent hover:bg-black-700/80'}"
-									onclick={() => (selectedQuality = quality)}>{quality}</button>
+								<ParameterChip
+									selected={selectedQuality === quality}
+									onclick={() => (selectedQuality = quality)}
+								>
+									{quality.split(' ')[0]}
+								</ParameterChip>
 							{/each}
 						</div>
 					</div>
 
-					<!-- Scale Slider -->
 					<div class="mb-5">
-						<div class="flex justify-between items-center mb-1">
-							<label class="text-white/80 text-sm"
-								>Scale: <span class="text-white">{scale.toFixed(2)}x</span></label>
-							<div class="flex items-center text-white/60 text-xs">
-								<button onclick={() => (scale = 1)}>1x</button>
-								<span class="mx-2 text-white/30">|</span>
-								<button onclick={() => (scale = 2)}>2x</button>
-							</div>
-						</div>
-						<div class="relative">
-							<input
-								type="range"
-								min="0.5"
-								max="2"
-								step="0.05"
-								bind:value={scale}
-								oninput={() => modelViewer?.notifySliderMoving?.()}
-								class="w-full bg-accent bg-black-800 h-2 rounded appearance-none" />
-							<div
-								class="absolute top-0 left-0 right-0 flex justify-between px-1 -mt-1 pointer-events-none">
-								<div class="w-0.5 h-2 bg-white/20"></div>
-								<div class="w-0.5 h-2 bg-white/20"></div>
-								<div class="w-0.5 h-2 bg-white/20"></div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Strength (Infill) Slider -->
-					<div class="mb-5">
-						<div class="flex justify-between items-center mb-1">
-							<label class="text-white/80 text-sm">
-								Strength: <span class="text-white">
-									{strengthLevels[sliderPosition].label}
-								</span>
-							</label>
-							<div class="text-white/60 text-xs">
-								{infill}% infill {strengthLevels[sliderPosition].walls !== 'Full'
-									? strengthLevels[sliderPosition].walls
-									: ''}
-							</div>
-						</div>
-						<div class="relative">
-							<input
-								type="range"
-								min="0"
-								max="6"
-								step="1"
-								bind:value={sliderPosition}
-								oninput={() => {
-									updateInfillFromSlider();
-									modelViewer?.notifySliderMoving?.();
-								}}
-								class="w-full bg-accent bg-black-800 h-2 rounded appearance-none" />
-							<!-- Visual progress indicator -->
-							<div
-								class="absolute top-3 left-0 right-0 flex justify-between text-[10px] text-white/50 pointer-events-none">
-								{#each Array(7) as _, i}
-									<div class="flex flex-col items-start" style="width: 1%">
-										<div class="w-0.5 h-2 bg-white/20 mb-1"></div>
-										<span class="text-center">{strengthLevels[i].label}</span>
-									</div>
+						<div class="mb-2 flex items-center justify-between gap-2">
+							<PortalSectionLabel label="scale" class="mb-0" />
+							<div class="flex items-center gap-1.5 font-mono text-xs">
+								{#each [0.5, 1, 1.5, 2] as preset}
+									<button
+										type="button"
+										class={cn(
+											'rounded border px-2 py-0.5 transition-colors',
+											Math.abs(scale - preset) < 0.01
+												? 'border-black bg-black text-white'
+												: 'border-border text-muted-foreground hover:border-foreground/30'
+										)}
+										onclick={() => (scale = preset)}
+									>
+										{preset}x
+									</button>
 								{/each}
 							</div>
 						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Right panel: Available Makers -->
-			<div class="lg:col-span-5">
-				<!-- Quote Requests Available Section -->
-				{#if data.session}
-				<div class="bg-gradient-to-r from-accent/5 via-black/40 to-accent/5 border border-accent/10 rounded-lg p-4 mb-4 flex items-center gap-4 shadow-glow-subtle">
-					<div class="flex items-center justify-center w-12 h-12 rounded-full bg-accent/20">
-						<Icon icon="material-symbols:request-quote" class="text-3xl text-accent icon-glow" />
-					</div>
-					<div class="flex-1">
-						<div class="text-lg font-semibold text-accent glow-text">Quote Requests</div>
-						{#if loadingRequests}
-							<div class="text-white/80 text-sm">Loading...</div>
-						{:else if requestsLeft !== null && quoteDailyLimit !== null}
-							<div class="text-white/80 text-sm">
-								You have <span class="font-bold text-accent">{requestsLeft}</span> quote request{requestsLeft === 1 ? '' : 's'} available today
-								<span class="text-white/40">/ {quoteDailyLimit} max</span>
-							</div>
-						{:else}
-							<div class="text-white/80 text-sm">Unable to determine your quote request limit</div>
-						{/if}
-						<div class="text-xs text-gray-400 mt-1">We are a very small unfunded team, so please be frugal with your requests. Thank you!</div>
-					</div>
-				</div>
-				{/if}
-				<AvailableMakers supabase_lt={data.supabase_lt} model={modelFile} bind:color={selectedColor} bind:material={selectedMaterial} quality={selectedQuality} {scale} {infill} walls={walls} requestQuoteCompleter={requestQuoteCompleter} />
-				<!-- FAQ Section -->
-				<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle border border-accent/15">
-					<div class="text-lg font-medium text-white mb-4 flex items-center">
-						<Icon icon="material-symbols:quiz" class="text-accent mr-2 icon-glow" />
-						<span class="glow-text-subtle">Frequently Asked Questions</span>
+						<input
+							type="range"
+							min="0.5"
+							max="2"
+							step="0.05"
+							bind:value={scale}
+							oninput={() => modelViewer?.notifySliderMoving?.()}
+							class="portal-range w-full"
+						/>
 					</div>
 
-					<Accordion.Root class="w-full" type="multiple">
-						<Accordion.Item value="disclaimer" class="border-b border-zinc-800/50 pb-1">
-							<Accordion.Trigger
-								class="font-medium hover:text-accent text-sm text-white w-full text-left">
-								Disclaimer
-							</Accordion.Trigger>
-							<Accordion.Content class="text-white/70 text-sm mt-2">
-								<p>
-									If you choose to communicate with a crafter and decide to place an order outside
-									of this platform, please be aware that you assume full responsibility for that
-									order. Any ratings or reviews related to such transactions will also not be
-									considered.
-								</p>
-							</Accordion.Content>
-						</Accordion.Item>
-
-						<Accordion.Item value="supports" class="border-b border-zinc-800/50 pb-1">
-							<Accordion.Trigger
-								class="font-medium hover:text-accent text-sm text-white w-full text-left">
-								How about customization?
-							</Accordion.Trigger>
-							<Accordion.Content class="text-white/70 text-sm mt-2">
-								<p>
-									For custom print requests, our Discord server is an excellent resource.
-									Additionally, you can utilize the basic chat feature available on the 3dp orders
-									page within your profile. After a thorough discussion, the crafter will be able to
-									revise the final quote, allowing you to proceed with your order.
-								</p>
-							</Accordion.Content>
-						</Accordion.Item>
-
-						<Accordion.Item value="3mf" class="border-0 pb-1">
-							<Accordion.Trigger
-								class="font-medium hover:text-accent text-sm text-white w-full text-left">
-								Why don't you support 3MF?
-							</Accordion.Trigger>
-							<Accordion.Content class="text-white/70 text-sm mt-2">
-								<p>
-									Currently, processing 3MF files in the browser is challenging and not fully
-									supported due to various bugs. As an alternative, you can use a slicer of your
-									choice to convert the 3MF file into a single STL format.
-								</p>
-							</Accordion.Content>
-						</Accordion.Item>
-					</Accordion.Root>
-				</div>
-
-				<!-- Become a Maker Section -->
-				{#await isUserMaker() then isMaker}
-					{#if !isMaker}
-						<div class="bg-black/40 rounded-lg p-5 backdrop-blur-xs shadow-glow-subtle mt-4">
-							<div class="text-lg font-medium text-white mb-4 flex items-center">
-								<Icon icon="material-symbols:engineering" class="text-accent mr-2 icon-glow" />
-								<span class="glow-text-subtle">Join the Fabbly Portal!</span>
-							</div>
-
-							<div class="space-y-4">
-								<div class="text-white/80 text-sm leading-relaxed">
-									<p class="mb-3">
-										Are you passionate about 3D printing? Join our community of skilled makers and
-										turn your expertise into opportunities! Share your skills and connect with
-										designers worldwide.
-									</p>
-
-									<div class="bg-black/30 rounded-lg p-3 mb-4">
-										<div class="font-medium text-white mb-2">Requirements:</div>
-										<ul class="list-none space-y-2">
-											<li class="flex items-center text-white/70">
-												<Icon
-													icon="material-symbols:check-circle-outline"
-													class="text-accent mr-2" />
-												<span>Active Selfcrafted Account</span>
-											</li>
-											<li class="flex items-center text-white/70">
-												<Icon
-													icon="material-symbols:check-circle-outline"
-													class="text-accent mr-2" />
-												<span>Verified ownership of operational 3D printer(s)</span>
-											</li>
-										</ul>
-									</div>
-								</div>
-
-								{#await data.supabase_lt.auth.getUser() then user}
-									<div class="flex items-center justify-between">
-										<div class="text-white/60 text-sm">
-											{#if !user.data.user}
-												<span class="flex items-center">
-													<Icon icon="material-symbols:info-outline" class="mr-1" />
-													Login required to apply
-												</span>
-											{/if}
-										</div>
-										<button
-											class="bg-accent-dark/60 hover:bg-accent/60 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white font-medium px-6 py-2 rounded text-sm flex items-center gap-2 transition-colors"
-											onclick={() => {
-												let isLoggedIn = data.session?.user.id;
-												if (!isLoggedIn) goto('/user/sign?postLogin=/3dp-portal/maker');
-												else goto('/3dp-portal/maker');
-											}}>
-											<Icon icon="material-symbols:handyman" />
-											I want to be part of Fabbly!
-										</button>
-									</div>
-								{/await}
-							</div>
+					<div>
+						<div class="mb-2 flex items-center justify-between gap-2">
+							<PortalSectionLabel label="strength" class="mb-0" />
+							<span class="font-mono text-xs text-muted-foreground">
+								{strengthLevels[sliderPosition].label} · {infill}%
+							</span>
 						</div>
-					{/if}
-				{/await}
+						<input
+							type="range"
+							min="0"
+							max="6"
+							step="1"
+							bind:value={sliderPosition}
+							oninput={() => {
+								updateInfillFromSlider();
+								modelViewer?.notifySliderMoving?.();
+							}}
+							class="portal-range w-full"
+						/>
+						<div
+							class="pointer-events-none mt-2 flex justify-between font-mono text-[10px] text-muted-foreground"
+						>
+							{#each strengthLevels as level}
+								<span class="truncate px-0.5">{level.label}</span>
+							{/each}
+						</div>
+					</div>
+				</PortalCard>
 			</div>
-			<div class="h-[100px] w-[1px] bg-transparent"></div>
+		</div>
+
+		<div class="mt-10 space-y-6">
+			<ReadinessChecklist items={readinessItems} />
+
+			<AvailableMakers
+				supabase_lt={data.supabase_lt}
+				model={modelFile}
+				bind:color={selectedColor}
+				bind:material={selectedMaterial}
+				quality={selectedQuality}
+				{scale}
+				{infill}
+				{walls}
+				requestQuoteCompleter={requestQuoteCompleter}
+			/>
+
+			<PortalCard>
+				<div class="mb-4 flex items-center gap-2">
+					<CircleHelp class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<span class="font-mono text-sm text-foreground">faq</span>
+				</div>
+
+				<Accordion.Root class="w-full" type="multiple">
+					<Accordion.Item value="disclaimer" class="border-b border-border pb-1">
+						<Accordion.Trigger
+							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80"
+						>
+							Disclaimer
+						</Accordion.Trigger>
+						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
+							<p>
+								If you choose to communicate with a crafter and decide to place an order outside
+								of this platform, please be aware that you assume full responsibility for that
+								order. Any ratings or reviews related to such transactions will also not be
+								considered.
+							</p>
+						</Accordion.Content>
+					</Accordion.Item>
+
+					<Accordion.Item value="supports" class="border-b border-border pb-1">
+						<Accordion.Trigger
+							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80"
+						>
+							How about customization?
+						</Accordion.Trigger>
+						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
+							<p>
+								For custom print requests, our Discord server is an excellent resource.
+								Additionally, you can utilize the basic chat feature available on the 3dp orders
+								page within your profile. After a thorough discussion, the crafter will be able to
+								revise the final quote, allowing you to proceed with your order.
+							</p>
+						</Accordion.Content>
+					</Accordion.Item>
+
+					<Accordion.Item value="3mf" class="border-0 pb-1">
+						<Accordion.Trigger
+							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80"
+						>
+							Why don't you support 3MF?
+						</Accordion.Trigger>
+						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
+							<p>
+								Currently, processing 3MF files in the browser is challenging and not fully
+								supported due to various bugs. As an alternative, you can use a slicer of your
+								choice to convert the 3MF file into a single STL format.
+							</p>
+						</Accordion.Content>
+					</Accordion.Item>
+				</Accordion.Root>
+			</PortalCard>
+
+			{#await isUserMaker() then isMaker}
+				{#if !isMaker}
+					<PortalCard>
+						<div class="mb-4 flex items-center gap-2">
+							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
+							<span class="font-mono text-sm text-foreground">join_fabbly</span>
+						</div>
+
+						<div class="space-y-4">
+							<p class="text-sm leading-relaxed text-muted-foreground">
+								Are you passionate about 3D printing? Join our community of skilled makers and turn
+								your expertise into opportunities! Share your skills and connect with designers
+								worldwide.
+							</p>
+
+							<div class="rounded-md border border-border bg-muted/30 p-4">
+								<div class="mb-2 font-mono text-xs text-foreground">// requirements</div>
+								<ul class="space-y-2 text-sm text-muted-foreground">
+									<li>Active Selfcrafted Account</li>
+									<li>Verified ownership of operational 3D printer(s)</li>
+								</ul>
+							</div>
+
+							{#await data.supabase_lt.auth.getUser() then user}
+								<div class="flex flex-wrap items-center justify-between gap-3">
+									{#if !user.data.user}
+										<span class="font-mono text-xs text-muted-foreground">
+											login_required_to_apply
+										</span>
+									{:else}
+										<span></span>
+									{/if}
+									<ScButton
+										onclick={() => {
+											const isLoggedIn = data.session?.user.id;
+											if (!isLoggedIn) goto('/user/sign?postLogin=/3dp-portal/maker');
+											else goto('/3dp-portal/maker');
+										}}
+									>
+										I want to be part of Fabbly!
+									</ScButton>
+								</div>
+							{/await}
+						</div>
+					</PortalCard>
+				{/if}
+			{/await}
 		</div>
 	</div>
 </div>
 
 <style>
-	/* Firefox hides the up/down arrow buttons */
 	input[type='number'] {
 		-moz-appearance: textfield;
 	}
 
-	/* Chrome, Safari, Edge, Opera */
 	input::-webkit-outer-spin-button,
 	input::-webkit-inner-spin-button {
 		-webkit-appearance: none;
 		margin: 0;
 	}
 
-	/* Range input styling for better cross-browser compatibility */
-	input[type='range'] {
+	.portal-range {
 		-webkit-appearance: none;
 		appearance: none;
-		height: 8px !important;
-		background: hsla(205, 13%, 23%, 0.8) !important;
-		border-radius: 8px;
+		height: 6px;
+		border-radius: 9999px;
+		background: hsl(var(--border));
 		outline: none;
-		margin: 12px 0;
-		position: relative;
-		transition: all 0.3s ease;
+		margin: 8px 0;
 	}
 
-	input[type='range']::-webkit-slider-thumb {
+	.portal-range::-webkit-slider-thumb {
 		-webkit-appearance: none;
 		appearance: none;
-		width: 22px;
-		height: 22px;
+		width: 16px;
+		height: 16px;
 		border-radius: 50%;
-		background: hsl(205, 91%, 60%);
+		background: hsl(var(--foreground));
 		cursor: pointer;
-		box-shadow: 0 0 12px 3px hsla(205, 91%, 60%, 0.4);
-		border: 3px solid white;
-		transition: all 0.2s ease;
+		border: 2px solid white;
 	}
 
-	input[type='range']::-moz-range-thumb {
-		width: 22px;
-		height: 22px;
+	.portal-range::-moz-range-thumb {
+		width: 16px;
+		height: 16px;
 		border-radius: 50%;
-		background: hsl(205, 91%, 60%);
+		background: hsl(var(--foreground));
 		cursor: pointer;
-		box-shadow: 0 0 12px 3px hsla(205, 91%, 60%, 0.4);
-		border: 3px solid white;
-		transition: all 0.2s ease;
-	}
-
-	input[type='range']:hover::-webkit-slider-thumb {
-		transform: scale(1.1);
-		box-shadow: 0 0 15px 4px hsla(205, 83%, 67%, 0.5);
-	}
-
-	input[type='range']:active::-webkit-slider-thumb {
-		transform: scale(0.95);
-	}
-
-	/* Slider Track Progress */
-	input[type='range']::-webkit-slider-runnable-track {
-		height: 8px;
-		border-radius: 8px;
-		background: linear-gradient(90deg, hsla(205, 83%, 67%, 0.6) 0%, hsla(205, 99%, 85%, 0.4) 100%);
-	}
-
-	input[type='range']::-moz-range-progress {
-		background: linear-gradient(90deg, hsla(205, 91%, 60%, 0.6) 0%, hsla(205, 91%, 60%, 0.4) 100%);
-		height: 8px;
-		border-radius: 8px;
-	}
-
-	/* Styles for the 3D cube container */
-	.cube-container {
-		width: 234px;
-		height: 234px;
-		position: relative;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		transition: all 0.3s ease;
-		margin-bottom: 10px;
-	}
-
-	.cube-container canvas {
-		display: block;
-		border-radius: 4px;
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-	}
-
-	/* Gradient background effects */
-	.gradient-background {
-		background: linear-gradient(to bottom right, #0a0a12, #0f0f1a, #0a0a12);
-		position: relative;
-		overflow: hidden;
-		min-height: 100vh;
-	}
-
-	.gradient-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background:
-			radial-gradient(circle at 15% 20%, hsla(205, 51%, 54%, 0.2) 0%, transparent 45%),
-			radial-gradient(circle at 85% 70%, hsla(0, 60%, 56%, 0.05) 0%, transparent 45%),
-			radial-gradient(circle at 50% 50%, hsla(0, 0%, 0%, 0.3) 0%, hsla(0, 0%, 0%, 0.6) 100%),
-			linear-gradient(
-				45deg,
-				hsla(205, 96%, 67%, 0.05) 0%,
-				hsla(0, 0%, 0%, 0) 40%,
-				hsla(205, 60%, 59%, 0.05) 100%
-			);
-		pointer-events: none;
-		z-index: 1;
-		animation: pulse-subtle 15s infinite alternate ease-in-out;
-	}
-
-	/* Ambient orbs */
-	.ambient-orbs {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		pointer-events: none;
-		z-index: 0;
-	}
-
-	.orb {
-		position: absolute;
-		border-radius: 50%;
-		filter: blur(80px);
-		opacity: 0.12;
-	}
-
-	.orb-1 {
-		width: 450px;
-		height: 450px;
-		background: radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%);
-		top: 5%;
-		left: 10%;
-		animation: float-orb 20s infinite alternate ease-in-out;
-	}
-
-	.orb-2 {
-		width: 550px;
-		height: 550px;
-		background: radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%);
-		bottom: 5%;
-		right: 10%;
-		animation: float-orb 25s infinite alternate-reverse ease-in-out;
-	}
-
-	.orb-3 {
-		width: 300px;
-		height: 300px;
-		background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-		top: 40%;
-		right: 25%;
-		animation: float-orb 18s infinite alternate ease-in-out 5s;
-	}
-
-	@keyframes float-orb {
-		0% {
-			transform: translate(0, 0) scale(1);
-		}
-		50% {
-			transform: translate(30px, 30px) scale(1.1);
-		}
-		100% {
-			transform: translate(-30px, -30px) scale(1);
-		}
-	}
-
-	@keyframes pulse-subtle {
-		0% {
-			opacity: 0.8;
-		}
-		100% {
-			opacity: 1;
-		}
-	}
-
-	/* Cube effects */
-	.cube-container {
-		width: 234px;
-		height: 234px;
-		position: relative;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		transition: all 0.3s ease;
-		margin-bottom: 10px;
-	}
-
-	.cube-container canvas {
-		display: block;
-		border-radius: 4px;
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-	}
-
-	.cube-glow-effect {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		width: 400px;
-		height: 400px;
-		background: radial-gradient(
-			circle,
-			rgba(99, 102, 241, 0.08) 0%,
-			rgba(79, 70, 229, 0.06) 50%,
-			transparent 70%
-		);
-		filter: blur(40px);
-		opacity: 0.8;
-		pointer-events: none;
-		z-index: 0;
-		animation: pulse-glow 8s infinite alternate ease-in-out;
-	}
-
-	@keyframes pulse-glow {
-		0% {
-			opacity: 0.6;
-			width: 380px;
-			height: 380px;
-		}
-		100% {
-			opacity: 0.9;
-			width: 420px;
-			height: 420px;
-		}
-	}
-
-	/* Text and icon glows */
-	.glow-text {
-		text-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
-	}
-
-	.glow-text-subtle {
-		text-shadow: 0 0 8px rgba(99, 102, 241, 0.1);
-	}
-
-	.icon-glow {
-		filter: drop-shadow(0 0 5px rgba(99, 102, 241, 0.5));
-	}
-
-	.text-sccyan {
-		color: var(--color-accent);
-		text-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
-	}
-
-	/* Shadow effects */
-	.shadow-glow {
-		box-shadow:
-			0 0 20px rgba(0, 0, 0, 0.3),
-			0 0 30px rgba(99, 102, 241, 0.1);
-	}
-
-	.shadow-glow-subtle {
-		box-shadow:
-			0 0 15px rgba(0, 0, 0, 0.2),
-			0 0 20px rgba(99, 102, 241, 0.03);
-	}
-
-	.shadow-glow-active {
-		box-shadow:
-			0 0 20px rgba(0, 0, 0, 0.3),
-			0 0 30px rgba(99, 102, 241, 0.2);
-	}
-
-	/* Enhanced blur effects */
-	.backdrop-blur-xs {
-		backdrop-filter: blur(4px);
-		-webkit-backdrop-filter: blur(4px);
-	}
-
-	.backdrop-blur-md {
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
+		border: 2px solid white;
 	}
 </style>

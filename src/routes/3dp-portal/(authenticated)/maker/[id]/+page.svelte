@@ -733,7 +733,7 @@
 		<Textarea bind:value={cancelReason} class="w-full mt-4" placeholder="Enter reason..." />
 		<Dialog.Footer>
 			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors mr-2"
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors mr-2"
 				onclick={onCancelCancel}>Cancel</button>
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
@@ -769,7 +769,7 @@
 		</div>
 		<Dialog.Footer class="flex justify-end gap-3 mt-6">
 			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors border border-white/10"
 				onclick={onCancelCancel}>Cancel</button>
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-accent-dark/30 hover:bg-accent-dark/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -824,7 +824,7 @@
 		</div>
 		<Dialog.Footer class="flex justify-end gap-3 mt-6">
 			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
+				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors border border-white/10"
 				onclick={onCancelShipped}
 				disabled={shippedLoading}
 			>Cancel</button>
