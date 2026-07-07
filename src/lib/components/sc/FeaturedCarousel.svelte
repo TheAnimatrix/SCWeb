@@ -262,6 +262,37 @@
 		mask-composite: exclude;
 	}
 
+	/* clips the same revolving gradient to the heading text; the gradient center is
+	   pushed far to the bottom-right (roughly where the card's middle sits relative
+	   to the heading), so the text samples the same angular slice as the border
+	   nearest to it — its color changes as each streak sweeps past the top-left */
+	.glow-text {
+		background-image: conic-gradient(
+			from var(--glow-angle) at 30em 15em,
+			hsl(var(--foreground) / 0.7) 0deg,
+			hsl(var(--foreground) / 0.1) 44deg,
+			#fb923c 58deg,
+			#fb923c 70deg,
+			hsl(var(--foreground) / 0.1) 84deg,
+			hsl(var(--foreground) / 0.45) 126deg,
+			hsl(var(--foreground) / 0.08) 164deg,
+			#d946ef 177deg,
+			#d946ef 190deg,
+			hsl(var(--foreground) / 0.08) 204deg,
+			hsl(var(--foreground) / 0.55) 246deg,
+			hsl(var(--foreground) / 0.1) 282deg,
+			#3b82f6 295deg,
+			#3b82f6 308deg,
+			hsl(var(--foreground) / 0.1) 322deg,
+			hsl(var(--foreground) / 0.7) 360deg
+		);
+		background-color: hsl(var(--muted-foreground));
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+		animation: glow-spin 10s linear infinite;
+	}
+
 	@keyframes glow-spin {
 		to {
 			--glow-angle: 500deg;
@@ -269,7 +300,8 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.glow-ring {
+		.glow-ring,
+		.glow-text {
 			animation: none;
 		}
 	}
