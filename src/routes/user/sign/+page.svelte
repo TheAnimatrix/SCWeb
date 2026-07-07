@@ -1,11 +1,9 @@
 <script lang="ts">
-	import { writable, type Writable } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
-	import { getContext, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { toastStore } from '$lib/client/toastStore';
-	import { setLoading } from '$lib/client/loading.js';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { validatePassword } from '$lib/types/helper.js';
@@ -14,7 +12,7 @@
 	import DriftParticles from '$lib/components/effects/DriftParticles.svelte';
 	import { Breadcrumbs, ScLogo } from '$lib/components/shell';
 	import { theme } from '$lib/client/theme';
-	import { ScButton } from '$lib/components/sc';
+	import { ScButton, ScInput } from '$lib/components/sc';
 	import Mail from '@lucide/svelte/icons/mail';
 	import Lock from '@lucide/svelte/icons/lock';
 	import User from '@lucide/svelte/icons/user';
@@ -40,10 +38,10 @@
 		return url;
 	};
 
-	let load_store = getContext<Writable<boolean>>('loading');
+	let isAuthLoading = $state(false);
 
 	async function signWithGoogle(register: boolean) {
-		setLoading(load_store, true);
+		isAuthLoading = true;
 		try {
 			const { error } = await data.supabase_lt.auth.signInWithOAuth({
 				provider: 'google',
@@ -59,17 +57,18 @@
 			errorShow = register ? 2 : 1;
 			errorText = err instanceof Error ? err.message : 'An unknown error occurred';
 		} finally {
-			setLoading(load_store, false);
+			isAuthLoading = false;
 		}
 	}
 
 	async function signInWithEmail() {
-		setLoading(load_store, true);
+		if (isAuthLoading) return;
+		isAuthLoading = true;
 		const { error } = await data.supabase_lt.auth.signInWithPassword({
 			email: emailLogin,
 			password: passwordLogin
 		});
-		setLoading(load_store, false);
+		isAuthLoading = false;
 		if (error) {
 			errorShow = 1;
 			errorText = error.message;
@@ -80,6 +79,7 @@
 	}
 
 	async function signUpNewUser() {
+		if (isAuthLoading) return;
 		const k = validatePassword(passwordRegister ?? '', passwordRegister ?? '');
 
 		if (k.error) {
@@ -87,7 +87,7 @@
 			errorText = k.msg ?? 'Invalid password';
 			return;
 		}
-		setLoading(load_store, true);
+		isAuthLoading = true;
 
 		const { data: usernameCheck } = await data.supabase_lt.rpc('check_username', {
 			desired_username: usernameRegister
@@ -95,7 +95,7 @@
 		if (usernameCheck) {
 			errorShow = 2;
 			errorText = 'Username not available';
-			setLoading(load_store, false);
+			isAuthLoading = false;
 			return;
 		}
 
@@ -111,7 +111,7 @@
 			.update({ username: usernameRegister })
 			.eq('id', signUpData.user?.id)
 			.select();
-		setLoading(load_store, false);
+		isAuthLoading = false;
 		if (error) {
 			errorShow = 2;
 			errorText = error.message;
@@ -128,9 +128,6 @@
 	let passwordLogin = $state('');
 	let errorText = $state('');
 	let errorShow = $state(0);
-
-	const inputClass =
-		'h-10 w-full rounded-md border border-border bg-card pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10';
 
 	onMount(() => {
 		if (postLoginPath) {
@@ -184,59 +181,27 @@
 						}}
 						class="space-y-4"
 					>
-						<div class="space-y-1.5">
-							<label for="login-email" class="font-mono text-xs text-muted-foreground">
-								email
-							</label>
-							<div class="relative">
-								<Mail
-									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-									aria-hidden="true"
-								/>
-								<input
-									id="login-email"
-									type="email"
-									bind:value={emailLogin}
-									placeholder="you@example.com"
-									autocomplete="email"
-									required
-									class="peer {inputClass}"
-								/>
-								<div
-									class="pointer-events-none absolute inset-x-1 bottom-0 h-px bg-gradient-to-r from-orange-400 via-fuchsia-500 to-blue-500 opacity-60 transition-opacity duration-300 peer-focus:opacity-100"
-									aria-hidden="true"
-								></div>
-								<div
-									class="pointer-events-none absolute inset-x-2 -bottom-1.5 h-3 bg-gradient-to-r from-orange-500 via-fuchsia-500 to-blue-500 opacity-30 blur-md transition-opacity duration-300 peer-focus:opacity-60"
-									aria-hidden="true"
-								></div>
-								<div
-									class="pointer-events-none absolute inset-x-6 -bottom-3 h-5 bg-gradient-to-r from-orange-500 via-purple-500 to-blue-600 opacity-15 blur-xl transition-opacity duration-300 peer-focus:opacity-30"
-									aria-hidden="true"
-								></div>
-							</div>
-						</div>
+						<ScInput
+							id="login-email"
+							label="email"
+							type="email"
+							bind:value={emailLogin}
+							placeholder="you@example.com"
+							autocomplete="email"
+							required
+							icon={Mail}
+						/>
 
-						<div class="space-y-1.5">
-							<label for="login-password" class="font-mono text-xs text-muted-foreground">
-								password
-							</label>
-							<div class="relative">
-								<Lock
-									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-									aria-hidden="true"
-								/>
-								<input
-									id="login-password"
-									type="password"
-									bind:value={passwordLogin}
-									placeholder="••••••••"
-									autocomplete="current-password"
-									required
-									class={inputClass}
-								/>
-							</div>
-						</div>
+						<ScInput
+							id="login-password"
+							label="password"
+							type="password"
+							bind:value={passwordLogin}
+							placeholder="••••••••"
+							autocomplete="current-password"
+							required
+							icon={Lock}
+						/>
 
 						{#if errorShow === 1}
 							<p
@@ -249,12 +214,13 @@
 
 						<ScButton
 							class="w-full justify-center"
+							disabled={isAuthLoading}
 							onclick={(e) => {
 								e.preventDefault();
 								signInWithEmail();
 							}}
 						>
-							Sign in
+							{isAuthLoading ? 'Signing in…' : 'Sign in'}
 						</ScButton>
 
 						<div class="relative py-2">
@@ -272,6 +238,7 @@
 							type="button"
 							variant="outline"
 							class="w-full font-mono text-xs"
+							disabled={isAuthLoading}
 							onclick={() => signWithGoogle(false)}
 						>
 							<svg class="size-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -307,68 +274,38 @@
 						}}
 						class="space-y-4"
 					>
-						<div class="space-y-1.5">
-							<label for="register-email" class="font-mono text-xs text-muted-foreground">
-								email
-							</label>
-							<div class="relative">
-								<Mail
-									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-									aria-hidden="true"
-								/>
-								<input
-									id="register-email"
-									type="email"
-									bind:value={emailRegister}
-									placeholder="you@example.com"
-									autocomplete="email"
-									required
-									class={inputClass}
-								/>
-							</div>
-						</div>
+						<ScInput
+							id="register-email"
+							label="email"
+							type="email"
+							bind:value={emailRegister}
+							placeholder="you@example.com"
+							autocomplete="email"
+							required
+							icon={Mail}
+						/>
 
-						<div class="space-y-1.5">
-							<label for="register-username" class="font-mono text-xs text-muted-foreground">
-								username
-							</label>
-							<div class="relative">
-								<User
-									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-									aria-hidden="true"
-								/>
-								<input
-									id="register-username"
-									type="text"
-									bind:value={usernameRegister}
-									placeholder="your_handle"
-									autocomplete="username"
-									required
-									class={inputClass}
-								/>
-							</div>
-						</div>
+						<ScInput
+							id="register-username"
+							label="username"
+							type="text"
+							bind:value={usernameRegister}
+							placeholder="your_handle"
+							autocomplete="username"
+							required
+							icon={User}
+						/>
 
-						<div class="space-y-1.5">
-							<label for="register-password" class="font-mono text-xs text-muted-foreground">
-								password
-							</label>
-							<div class="relative">
-								<Lock
-									class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-									aria-hidden="true"
-								/>
-								<input
-									id="register-password"
-									type="password"
-									bind:value={passwordRegister}
-									placeholder="••••••••"
-									autocomplete="new-password"
-									required
-									class={inputClass}
-								/>
-							</div>
-						</div>
+						<ScInput
+							id="register-password"
+							label="password"
+							type="password"
+							bind:value={passwordRegister}
+							placeholder="••••••••"
+							autocomplete="new-password"
+							required
+							icon={Lock}
+						/>
 
 						{#if errorShow === 2}
 							<p
@@ -381,12 +318,13 @@
 
 						<ScButton
 							class="w-full justify-center"
+							disabled={isAuthLoading}
 							onclick={(e) => {
 								e.preventDefault();
 								signUpNewUser();
 							}}
 						>
-							Create account
+							{isAuthLoading ? 'Creating account…' : 'Create account'}
 						</ScButton>
 
 						<div class="relative py-2">
@@ -404,6 +342,7 @@
 							type="button"
 							variant="outline"
 							class="w-full font-mono text-xs"
+							disabled={isAuthLoading}
 							onclick={() => signWithGoogle(true)}
 						>
 							<svg class="size-4" viewBox="0 0 24 24" aria-hidden="true">
