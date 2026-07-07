@@ -1,18 +1,28 @@
 <script lang="ts">
+	import { navigating, page } from '$app/state';
 	import ProductList from '$pages/product_list.svelte';
 	import type { Product } from '$lib/types/product.js';
-	import { ScButton } from '$lib/components/sc';
+	import { ProductCardSkeleton, ScButton } from '$lib/components/sc';
 
 	let { data } = $props();
 
 	const products: Product[] = data.products ?? [];
+	const isLoading = $derived(
+		page.url.pathname.startsWith('/user/profile/crafts') && !!navigating.to
+	);
 
 	function getLink(_i: number, product: Product) {
 		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
 	}
 </script>
 
-{#if products.length > 0}
+{#if isLoading}
+	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-hidden="true">
+		{#each Array(3) as _, i (i)}
+			<ProductCardSkeleton />
+		{/each}
+	</div>
+{:else if products.length > 0}
 	<ProductList {products} {getLink} />
 {:else}
 	<div class="rounded-md border border-border bg-card px-4 py-8 text-center">

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Breadcrumbs } from '$lib/components/shell';
+	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
 	import { cn } from '$lib/utils';
 
-	let { data, children } = $props();
+	let { children } = $props();
 
 	const navItems = [
 		{ href: '/user/profile/account', label: 'account' },
@@ -51,9 +52,9 @@
 		</nav>
 
 		<div class="mt-6">
-			{#key data.url}
+			<TabPanelTransition tabKey={activePath}>
 				{@render children?.()}
-			{/key}
+			</TabPanelTransition>
 		</div>
 	</div>
 </div>

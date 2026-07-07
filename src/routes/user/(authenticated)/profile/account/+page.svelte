@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { navigating, page } from '$app/state';
 	import { validatePassword } from '$lib/types/helper.js';
-	import { setLoading } from '$lib/client/loading.js';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import { ScButton, TierBadge } from '$lib/components/sc';
+	import { FormSectionSkeleton, ScButton, ScInput, TierBadge } from '$lib/components/sc';
 	import { Button } from '$lib/components/ui/button';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Check from '@lucide/svelte/icons/check';
@@ -23,7 +21,6 @@
 
 	let newPass = $state('');
 	let confirmPass = $state('');
-	let load_store = getContext<Writable<boolean>>('loading');
 	let error_msg = $state<string | undefined>();
 	let isUpdatingPassword = $state(false);
 	let isEditingUsername = $state(false);
@@ -31,8 +28,9 @@
 	let isUpdatingUsername = $state(false);
 	let username_error = $state<string | undefined>();
 
-	const inputClass =
-		'h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10';
+	const isPageLoading = $derived(
+		page.url.pathname.startsWith('/user/profile/account') && !!navigating.to
+	);
 
 	const labelClass = 'font-mono text-xs text-muted-foreground';
 
@@ -48,7 +46,6 @@
 		}
 		error_msg = undefined;
 
-		setLoading(load_store, true);
 		try {
 			await supabase_lt.auth.updateUser({ password: newPass });
 			newPass = '';
@@ -56,7 +53,6 @@
 		} catch {
 			error_msg = 'Failed to update password.';
 		} finally {
-			setLoading(load_store, false);
 			isUpdatingPassword = false;
 		}
 	}
@@ -104,7 +100,6 @@
 			return;
 		}
 
-		setLoading(load_store, true);
 		try {
 			const { data: taken } = await supabase_lt.rpc('check_username', {
 				desired_username: newUsername
@@ -127,13 +122,15 @@
 		} catch {
 			username_error = 'Failed to update username.';
 		} finally {
-			setLoading(load_store, false);
 			isUpdatingUsername = false;
 		}
 	}
 </script>
 
 <div class="space-y-4">
+	{#if isPageLoading}
+		<FormSectionSkeleton />
+	{:else}
 	<section class="rounded-md border border-border bg-card p-4">
 		<dl class="space-y-3">
 			<div>
@@ -141,11 +138,12 @@
 				<dd class="mt-1">
 					{#if isEditingUsername}
 						<div class="flex items-center gap-2">
-							<input
+							<ScInput
 								type="text"
 								bind:value={newUsername}
-								maxlength="20"
-								class="{inputClass} flex-1"
+								maxlength={20}
+								size="sm"
+								class="flex-1"
 							/>
 							<Button
 								variant="outline"
@@ -215,17 +213,17 @@
 		{/if}
 
 		<div class="mt-3 space-y-3">
-			<input
+			<ScInput
 				type="password"
 				bind:value={newPass}
 				placeholder="New password"
-				class={inputClass}
+				size="sm"
 			/>
-			<input
+			<ScInput
 				type="password"
 				bind:value={confirmPass}
 				placeholder="Confirm password"
-				class={inputClass}
+				size="sm"
 			/>
 			<ScButton
 				class="w-full justify-center"
@@ -245,4 +243,5 @@
 	>
 		Sign out
 	</Button>
+	{/if}
 </div>

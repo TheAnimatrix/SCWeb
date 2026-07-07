@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Order, Orders, Product } from '$lib/types/product.js';
-	import {} from '$lib/client/loading.js';
+	import { navigating, page } from '$app/state';
 	import type { CartItem } from '$lib/client/cart.js';
-	import { ScButton } from '$lib/components/sc';
+	import { OrderCardSkeleton, ProseSkeleton, ScButton } from '$lib/components/sc';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronUp from '@lucide/svelte/icons/chevron-up';
 	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
@@ -11,10 +11,13 @@
 
 	let { data } = $props();
 	let supabase_lt = data.supabase_lt;
-	let subload = false;
 	let orders: Orders = $state([]);
 	orders = data.orders;
 	let visible = $state(Array(orders.length).fill(false));
+
+	const isPageLoading = $derived(
+		page.url.pathname.startsWith('/user/profile/orders') && !!navigating.to
+	);
 
 	function getDate(timestamp: string) {
 		const date = new Date(timestamp);
@@ -63,15 +66,13 @@
 </script>
 
 <div class="space-y-3">
-	{#if orders == undefined || orders.length <= 0 || subload}
+	{#if isPageLoading}
+		<OrderCardSkeleton count={3} />
+	{:else if orders == undefined || orders.length <= 0}
 		<div class="rounded-md border border-border bg-card px-4 py-8 text-center">
 			<ShoppingBag class="mx-auto mb-3 size-8 text-muted-foreground" />
-			{#if subload}
-				<p class="text-sm text-muted-foreground">Loading orders…</p>
-			{:else}
-				<p class="text-sm text-muted-foreground">No orders yet.</p>
-				<ScButton href="/crafts" variant="secondary" class="mt-3">Browse crafts</ScButton>
-			{/if}
+			<p class="text-sm text-muted-foreground">No orders yet.</p>
+			<ScButton href="/crafts" variant="secondary" class="mt-3">Browse crafts</ScButton>
 		</div>
 	{:else}
 		{#each orders as order, i}
@@ -198,9 +199,8 @@
 						{#if order.payment_method.includes('PrintRequest')}
 							<div class="border-t border-border p-3 text-sm">
 								{#await data.supabase_lt.from('printrequests').select('*').eq('id', order.cart_id).single()}
-									<div class="flex items-center justify-center gap-2 py-4 text-muted-foreground">
-										<div class="size-5 animate-spin rounded-full border-2 border-border border-t-foreground"></div>
-										Loading…
+									<div class="py-4">
+										<ProseSkeleton lines={4} />
 									</div>
 								{:then printRequest}
 									{#if printRequest.data}

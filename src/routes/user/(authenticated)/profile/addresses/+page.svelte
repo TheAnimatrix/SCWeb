@@ -1,12 +1,9 @@
 <script lang="ts">
-	import { setLoading } from '$lib/client/loading.js';
 	import { validateAddress, type Address } from '$lib/types/product.js';
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
-	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
 	import { tick } from 'svelte';
-	import { ScButton, Skeleton } from '$lib/components/sc';
+	import { ScButton, AddressCardSkeleton } from '$lib/components/sc';
 	import Plus from '@lucide/svelte/icons/plus';
 	import AlertCircle from '@lucide/svelte/icons/circle-alert';
 	import X from '@lucide/svelte/icons/x';
@@ -21,19 +18,6 @@
 	let isLoading = $state(false);
 	let isConfirmDialogOpen = $state(false);
 	let addressIndexToDelete = $state<number | null>(null);
-
-	const load_store = getContext<Writable<boolean>>('loading');
-
-	$effect(() => {
-		const unsubscribe = load_store.subscribe((value) => {
-			isLoading = value;
-		});
-		return unsubscribe;
-	});
-
-	function setCtxLoading(loading: boolean) {
-		setLoading(load_store, loading);
-	}
 
 	$effect(() => {
 		return () => clearTimeout(timeoutId);
@@ -54,7 +38,7 @@
 	}
 
 	async function setup() {
-		setCtxLoading(true);
+		isLoading = true;
 		errorShow = false;
 		try {
 			const result = await data.supabase_lt
@@ -76,7 +60,7 @@
 			addresses = [];
 			editing = [];
 		} finally {
-			setCtxLoading(false);
+			isLoading = false;
 		}
 	}
 
@@ -144,7 +128,7 @@
 			return;
 		}
 
-		setCtxLoading(true);
+		isLoading = true;
 		errorShow = false;
 		try {
 			const { error } = await data.supabase_lt.from('addresses').delete().eq('id', addrToDelete.id);
@@ -159,7 +143,7 @@
 		} catch {
 			showError('An unexpected error occurred while deleting.');
 		} finally {
-			setCtxLoading(false);
+			isLoading = false;
 		}
 	}
 
@@ -185,7 +169,7 @@
 				return true;
 			}
 
-			setCtxLoading(true);
+			isLoading = true;
 			try {
 				const { id, created_at, ...updateData } = finalAddress;
 				const { data: dbData, error } = await data.supabase_lt
@@ -213,7 +197,7 @@
 				showError('An unexpected error occurred while updating.');
 				return false;
 			} finally {
-				setCtxLoading(false);
+				isLoading = false;
 			}
 		}
 
@@ -222,7 +206,7 @@
 			return false;
 		}
 
-		setCtxLoading(true);
+		isLoading = true;
 		try {
 			const { id, ...insertData } = finalAddress;
 			const { data: dbData, error } = await data.supabase_lt
@@ -248,7 +232,7 @@
 			showError('An unexpected error occurred while saving.');
 			return false;
 		} finally {
-			setCtxLoading(false);
+			isLoading = false;
 		}
 	}
 </script>
@@ -296,7 +280,7 @@
 				<div data-address-item>
 					<AddressInput
 						{address}
-						bind:isEditing={editing[i]}
+						isEditing={editing[i]}
 						onEdit={() => handleEditRequest(i)}
 						onSave={async (addrToSave, changed) =>
 							await handleSaveRequest(i, addrToSave, changed)}
@@ -309,17 +293,7 @@
 	{/if}
 
 	{#if isLoading && addresses.length === 0}
-		<div class="space-y-3" aria-hidden="true">
-			{#each { length: 2 } as _, i (i)}
-				<div class="rounded-md border border-border bg-card p-4">
-					<Skeleton class="mb-2 h-4 w-1/3 rounded-sm" />
-					<div class="space-y-2">
-						<Skeleton class="h-3 w-5/6 rounded-sm" />
-						<Skeleton class="h-3 w-2/3 rounded-sm" />
-					</div>
-				</div>
-			{/each}
-		</div>
+		<AddressCardSkeleton count={2} />
 	{/if}
 </div>
 
