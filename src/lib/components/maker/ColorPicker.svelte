@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
-	const dispatch = createEventDispatcher();
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Drawer from '$lib/components/ui/drawer';
+	import { ScButton, ScInput } from '$lib/components/sc';
+	import { cn } from '$lib/utils';
 
-	// Color categories and swatches (expand as needed)
+	const dispatch = createEventDispatcher<{
+		change: { hex: string; name: string };
+		cancel: void;
+	}>();
+
 	const colorCategories = [
 		{
 			name: 'Reds',
@@ -11,7 +17,7 @@
 				{ name: 'Red', hex: '#e53935' },
 				{ name: 'Maroon', hex: '#b71c1c' },
 				{ name: 'Coral', hex: '#ff6f61' },
-				{ name: 'Pink', hex: '#ec407a' },
+				{ name: 'Pink', hex: '#ec407a' }
 			]
 		},
 		{
@@ -20,7 +26,7 @@
 				{ name: 'Orange', hex: '#fb8c00' },
 				{ name: 'Amber', hex: '#ffb300' },
 				{ name: 'Yellow', hex: '#fdd835' },
-				{ name: 'Gold', hex: '#ffd700' },
+				{ name: 'Gold', hex: '#ffd700' }
 			]
 		},
 		{
@@ -29,7 +35,7 @@
 				{ name: 'Green', hex: '#43a047' },
 				{ name: 'Lime', hex: '#cddc39' },
 				{ name: 'Teal', hex: '#00897b' },
-				{ name: 'Mint', hex: '#98ff98' },
+				{ name: 'Mint', hex: '#98ff98' }
 			]
 		},
 		{
@@ -38,7 +44,7 @@
 				{ name: 'Blue', hex: '#1e88e5' },
 				{ name: 'Navy', hex: '#283593' },
 				{ name: 'Cyan', hex: '#00bcd4' },
-				{ name: 'Sky Blue', hex: '#81d4fa' },
+				{ name: 'Sky Blue', hex: '#81d4fa' }
 			]
 		},
 		{
@@ -47,7 +53,7 @@
 				{ name: 'Purple', hex: '#8e24aa' },
 				{ name: 'Violet', hex: '#7c43bd' },
 				{ name: 'Lavender', hex: '#b39ddb' },
-				{ name: 'Magenta', hex: '#d500f9' },
+				{ name: 'Magenta', hex: '#d500f9' }
 			]
 		},
 		{
@@ -57,7 +63,7 @@
 				{ name: 'Black', hex: '#212121' },
 				{ name: 'Gray', hex: '#9e9e9e' },
 				{ name: 'Silver', hex: '#c0c0c0' },
-				{ name: 'Brown', hex: '#795548' },
+				{ name: 'Brown', hex: '#795548' }
 			]
 		},
 		{
@@ -66,52 +72,58 @@
 				{ name: 'Transparent', hex: '#e0e0e0' },
 				{ name: 'Gold Metallic', hex: '#ffd700' },
 				{ name: 'Copper', hex: '#b87333' },
-				{ name: 'Glow Green', hex: '#39ff14' },
+				{ name: 'Glow Green', hex: '#39ff14' }
 			]
 		}
 	];
 
-	// Props
-	let { value = '#ffffff', colorName = '', isOpen = $bindable(false) } = $props<{ value?: string, colorName?: string, isOpen?: boolean }>();
+	let { value = '#ffffff', colorName = '', isOpen = $bindable(false) } = $props<{
+		value?: string;
+		colorName?: string;
+		isOpen?: boolean;
+	}>();
 
 	let customHex = $state(value);
 	let selectedName = $state(colorName);
-
-	// HSV state (single source of truth)
 	let hue = $state(0);
 	let sat = $state(0);
 	let val = $state(100);
 	let customCanvas: HTMLCanvasElement | null = $state(null);
-	
-	// Responsive canvas size
 	let canvasSize = $state(240);
-	
-	// Update canvas size based on screen width
+	let isMobile = $state(false);
+
 	function updateCanvasSize() {
 		if (typeof window !== 'undefined') {
-			canvasSize = window.innerWidth < 640 ? 
-				Math.min(240, window.innerWidth - 40) : 240;
+			canvasSize = window.innerWidth < 640 ? Math.min(240, window.innerWidth - 40) : 240;
 		}
 	}
 
-	// Convert hex to HSV
 	function hexToHsv(hex: string) {
 		hex = hex.replace('#', '');
-		if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+		if (hex.length === 3) hex = hex.split('').map((x) => x + x).join('');
 		const num = parseInt(hex, 16);
 		const r = ((num >> 16) & 255) / 255;
 		const g = ((num >> 8) & 255) / 255;
 		const b = (num & 255) / 255;
-		const max = Math.max(r, g, b), min = Math.min(r, g, b);
-		let h = 0, s = 0, v = max;
+		const max = Math.max(r, g, b),
+			min = Math.min(r, g, b);
+		let h = 0,
+			s = 0,
+			v = max;
 		const d = max - min;
 		s = max === 0 ? 0 : d / max;
 		if (max === min) h = 0;
 		else {
 			switch (max) {
-				case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-				case g: h = (b - r) / d + 2; break;
-				case b: h = (r - g) / d + 4; break;
+				case r:
+					h = (g - b) / d + (g < b ? 6 : 0);
+					break;
+				case g:
+					h = (b - r) / d + 2;
+					break;
+				case b:
+					h = (r - g) / d + 4;
+					break;
 			}
 			h /= 6;
 		}
@@ -125,20 +137,19 @@
 	function hsvToHex(h: number, s: number, v: number) {
 		s /= 100;
 		v /= 100;
-		let c = v * s;
-		let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-		let m = v - c;
-		let r = 0, g = 0, b = 0;
+		const c = v * s;
+		const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+		const m = v - c;
+		let r = 0,
+			g = 0,
+			b = 0;
 		if (h < 60) [r, g, b] = [c, x, 0];
 		else if (h < 120) [r, g, b] = [x, c, 0];
 		else if (h < 180) [r, g, b] = [0, c, x];
 		else if (h < 240) [r, g, b] = [0, x, c];
 		else if (h < 300) [r, g, b] = [x, 0, c];
 		else [r, g, b] = [c, 0, x];
-		const toHex = (n: number) => {
-			const h = Math.round((n + m) * 255).toString(16).padStart(2, '0');
-			return h;
-		};
+		const toHex = (n: number) => Math.round((n + m) * 255).toString(16).padStart(2, '0');
 		return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 	}
 
@@ -148,13 +159,13 @@
 		sat = hsv.s;
 		val = hsv.v;
 		customHex = hsvToHex(hue, sat, val);
-        requestRedraw();
+		requestRedraw();
 	}
 
 	function selectColor(hex: string, name: string) {
 		setFromHex(hex);
 		selectedName = name;
-        requestRedraw();
+		requestRedraw();
 	}
 
 	function handleCustomInput(e: Event) {
@@ -163,17 +174,21 @@
 			setFromHex(inputVal);
 			selectedName = '';
 		}
-		customHex = inputVal; // Keep raw input until valid
+		customHex = inputVal;
 	}
 
 	function confirmColor() {
 		dispatch('change', { hex: customHex, name: selectedName });
 	}
+
 	function cancelColor() {
 		dispatch('cancel');
 	}
 
-	// Canvas drawing
+	function handleOpenChange(open: boolean) {
+		if (!open) cancelColor();
+	}
+
 	let needsRedraw = false;
 	function drawCustomCanvas() {
 		if (!customCanvas) return;
@@ -182,28 +197,23 @@
 
 		const width = customCanvas.width;
 		const height = customCanvas.height;
-
-		// Clear canvas
 		ctx.clearRect(0, 0, width, height);
 
-		// Draw hue/saturation gradient
-		const hueColor = hsvToHex(hue, 100, 100); // Get the pure color for the current hue
+		const hueColor = hsvToHex(hue, 100, 100);
 		const satGradient = ctx.createLinearGradient(0, 0, width, 0);
-		satGradient.addColorStop(0, '#fff'); // White
-		satGradient.addColorStop(1, hueColor); // Pure hue color
+		satGradient.addColorStop(0, '#fff');
+		satGradient.addColorStop(1, hueColor);
 		ctx.fillStyle = satGradient;
 		ctx.fillRect(0, 0, width, height);
 
-		// Draw value gradient
 		const valGradient = ctx.createLinearGradient(0, 0, 0, height);
-		valGradient.addColorStop(0, 'rgba(0,0,0,0)'); // Transparent black
-		valGradient.addColorStop(1, '#000'); // Opaque black
+		valGradient.addColorStop(0, 'rgba(0,0,0,0)');
+		valGradient.addColorStop(1, '#000');
 		ctx.fillStyle = valGradient;
 		ctx.fillRect(0, 0, width, height);
 
-		// Draw marker for current (sat, val)
-		const markerX = (sat / 100) * width; // Use width/height directly
-		const markerY = (1 - val / 100) * height; // Use width/height directly
+		const markerX = (sat / 100) * width;
+		const markerY = (1 - val / 100) * height;
 		ctx.save();
 		ctx.beginPath();
 		ctx.arc(markerX, markerY, 7, 0, 2 * Math.PI);
@@ -227,7 +237,7 @@
 
 	function handleCanvasInteraction(e: MouseEvent | TouchEvent) {
 		const rect = customCanvas!.getBoundingClientRect();
-		let clientX, clientY;
+		let clientX: number, clientY: number;
 
 		if (e instanceof MouseEvent) {
 			clientX = e.clientX;
@@ -236,19 +246,13 @@
 			clientX = e.touches[0].clientX;
 			clientY = e.touches[0].clientY;
 		} else {
-			return; // Ignore other event types or empty touch lists
+			return;
 		}
 
 		const x = clientX - rect.left;
 		const y = clientY - rect.top;
-		
-		// Get actual canvas dimensions
-		const width = customCanvas!.width;
-		const height = customCanvas!.height;
-		
 		sat = Math.max(0, Math.min(100, (x / rect.width) * 100));
 		val = Math.max(0, Math.min(100, 100 - (y / rect.height) * 100));
-		
 		customHex = hsvToHex(hue, sat, val);
 		selectedName = '';
 		requestRedraw();
@@ -260,22 +264,16 @@
 		selectedName = '';
 		requestRedraw();
 	}
-	
+
 	function handleTouchMove(e: TouchEvent) {
-		e.preventDefault(); // Keep preventDefault for touch move scrolling
+		e.preventDefault();
 		if (e.touches.length > 0) {
 			const rect = customCanvas!.getBoundingClientRect();
 			const touch = e.touches[0];
 			const x = touch.clientX - rect.left;
 			const y = touch.clientY - rect.top;
-			
-			// Get actual canvas dimensions
-			const width = customCanvas!.width;
-			const height = customCanvas!.height;
-
 			sat = Math.max(0, Math.min(100, (x / rect.width) * 100));
 			val = Math.max(0, Math.min(100, 100 - (y / rect.height) * 100));
-			
 			customHex = hsvToHex(hue, sat, val);
 			selectedName = '';
 			requestRedraw();
@@ -285,16 +283,18 @@
 	onMount(() => {
 		setFromHex(value);
 		updateCanvasSize();
-		
-		// Add window resize listener
-		if (typeof window !== 'undefined') {
-			window.addEventListener('resize', updateCanvasSize);
-		}
-		
+
+		const mq = window.matchMedia('(max-width: 767px)');
+		const updateMobile = () => {
+			isMobile = mq.matches;
+		};
+		updateMobile();
+		mq.addEventListener('change', updateMobile);
+
+		window.addEventListener('resize', updateCanvasSize);
 		return () => {
-			if (typeof window !== 'undefined') {
-				window.removeEventListener('resize', updateCanvasSize);
-			}
+			window.removeEventListener('resize', updateCanvasSize);
+			mq.removeEventListener('change', updateMobile);
 		};
 	});
 
@@ -303,152 +303,163 @@
 			requestRedraw();
 		}
 	});
-	
-	let canvasWidth = $derived(canvasSize);
-	let canvasHeight = $derived(canvasSize);
+
+	const canvasWidth = $derived(canvasSize);
+	const canvasHeight = $derived(canvasSize);
 </script>
 
-<Dialog.Root bind:open={isOpen}>
-	<Dialog.Content class="xs:max-h-[80vh] overflow-y-auto max-h-[90vh] sm:max-w-[425px] w-[90vw] backdrop-blur-sm bg-[#101010]/80">
-		<Dialog.Header>
-			<Dialog.Title>Choose a Color</Dialog.Title>
-		</Dialog.Header>
-
-		<div class="color-picker-ui px-2 py-1 min-h-[400px] flex flex-col">
-			<!-- Swatches Section -->
-			<div class="space-y-3 mb-4">
-				{#each colorCategories as category}
-					<div class="category">
-						<div class="font-semibold text-xs text-white/75 mb-1">{category.name}</div>
-						<div class="swatch-grid grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1 sm:gap-2">
-							{#each category.colors as color}
-								<button
-									type="button"
-									class="swatch w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all {customHex === color.hex ? 'border-accent ring-2 ring-accent' : 'border-gray-600 hover:border-gray-400'}"
-									style="background-color: {color.hex}"
-									onclick={() => selectColor(color.hex, color.name)}
-									title={color.name}
+{#snippet pickerBody()}
+	<div class="space-y-4">
+		{#each colorCategories as category (category.name)}
+			<div>
+				<p class="mb-2 font-mono text-xs text-muted-foreground">{category.name}</p>
+				<div class="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
+					{#each category.colors as color (color.hex)}
+						<button
+							type="button"
+							class={cn(
+								'swatch flex size-8 items-center justify-center rounded-full border-2 transition-all sm:size-9',
+								customHex === color.hex
+									? 'border-foreground ring-2 ring-foreground/10'
+									: 'border-border hover:border-foreground/40'
+							)}
+							style="background-color: {color.hex}"
+							onclick={() => selectColor(color.hex, color.name)}
+							title={color.name}
+						>
+							{#if customHex === color.hex}
+								<svg
+									class="size-3.5 text-foreground"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									viewBox="0 0 24 24"
+									><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg
 								>
-									{#if customHex === color.hex}
-										<svg class="w-3 h-3 sm:w-4 sm:h-4 text-black/80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-									{/if}
-								</button>
-							{/each}
-						</div>
-					</div>
-				{/each}
+							{/if}
+						</button>
+					{/each}
+				</div>
 			</div>
+		{/each}
 
-			<!-- Custom Picker Section -->
-			<div class="flex flex-col sm:flex-row gap-4 mt-4 items-center flex-grow">
-				<canvas
-					bind:this={customCanvas}
-					width={canvasWidth}
-					height={canvasHeight}
-					class="rounded border border-gray-700 cursor-crosshair touch-none block"
-					onmousedown={handleCanvasInteraction}
-					ontouchstart={handleCanvasInteraction}
-					ontouchmove={handleTouchMove}
-				></canvas>
-				
-				<div class="flex sm:flex-col items-center w-full sm:w-auto">
-					<div class="hue-slider-container w-full sm:w-auto">
-						<input 
-							type="range" 
-							min="0" 
-							max="360" 
-							step="1" 
-							value={hue} 
-							oninput={handleHueChange}
-							class="hue-slider w-full sm:w-auto" 
-						/>
-						<span class="block mt-2 text-xs text-accent text-center">Hue</span>
-					</div>
-				</div>
-			</div>
-			
-			<!-- Custom hex input and preview at the bottom -->
-			<div class="mt-4 flex items-center gap-2 justify-center">
+		<div class="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+			<canvas
+				bind:this={customCanvas}
+				width={canvasWidth}
+				height={canvasHeight}
+				class="touch-none cursor-crosshair rounded-md border border-border"
+				onmousedown={handleCanvasInteraction}
+				ontouchstart={handleCanvasInteraction}
+				ontouchmove={handleTouchMove}
+			></canvas>
+
+			<div class="hue-slider-container w-full sm:w-auto">
 				<input
-					type="text"
-					bind:value={customHex}
-					maxlength="7"
-					placeholder="#RRGGBB"
-					class="w-24 px-2 py-1 rounded bg-[#18181b] border border-gray-700 text-sm text-white focus:ring-accent focus:border-accent"
-					oninput={handleCustomInput}
+					type="range"
+					min="0"
+					max="360"
+					step="1"
+					value={hue}
+					oninput={handleHueChange}
+					class="hue-slider w-full"
 				/>
-				<span class="inline-block w-8 h-8 rounded-full border border-accent" style="background-color: {customHex}"></span>
-				<span class="text-xs text-accent">{customHex}</span>
+				<span class="mt-2 block text-center font-mono text-xs text-muted-foreground">hue</span>
 			</div>
-			
-			<Dialog.Footer class="mt-4">
-				<div class="flex gap-2 justify-center w-full">
-					<button type="button" class="px-5 py-2 rounded bg-accent text-black font-semibold hover:bg-accent/90 text-sm" onclick={confirmColor}>Select</button>
-				</div>
-			</Dialog.Footer>
 		</div>
-	</Dialog.Content>
-</Dialog.Root>
+
+		<div class="flex items-center justify-center gap-2">
+			<ScInput
+				bind:value={customHex}
+				maxlength={7}
+				placeholder="#RRGGBB"
+				class="w-28 font-mono"
+				glow={false}
+				oninput={handleCustomInput}
+			/>
+			<span
+				class="inline-block size-8 rounded-full border border-border"
+				style="background-color: {customHex}"
+			></span>
+			<span class="font-mono text-xs text-muted-foreground">{customHex}</span>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet pickerFooter()}
+	<div class="flex justify-end gap-2">
+		<ScButton variant="secondary" onclick={cancelColor}>Cancel</ScButton>
+		<ScButton onclick={confirmColor}>Select color</ScButton>
+	</div>
+{/snippet}
+
+{#if isMobile}
+	<Drawer.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
+		<Drawer.Content class="max-h-[92vh] border-border bg-background">
+			<Drawer.Header class="border-b border-border pb-4 text-left">
+				<Drawer.Title class="font-mono text-sm text-foreground">choose_color</Drawer.Title>
+			</Drawer.Header>
+			<div class="overflow-y-auto px-4 py-4">
+				{@render pickerBody()}
+			</div>
+			<Drawer.Footer class="border-t border-border">
+				{@render pickerFooter()}
+			</Drawer.Footer>
+		</Drawer.Content>
+	</Drawer.Root>
+{:else}
+	<Dialog.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
+		<Dialog.Content class="max-h-[90vh] w-[95vw] overflow-hidden border-border bg-card p-0 sm:max-w-md">
+			<Dialog.Header class="border-b border-border px-6 py-4">
+				<Dialog.Title class="font-mono text-sm text-foreground">choose_color</Dialog.Title>
+			</Dialog.Header>
+			<div class="max-h-[calc(90vh-8rem)] overflow-y-auto px-6 py-4">
+				{@render pickerBody()}
+			</div>
+			<Dialog.Footer class="border-t border-border px-6 py-4">
+				{@render pickerFooter()}
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
+{/if}
 
 <style>
-.color-picker-ui {
-	width: 100%;
-}
-.swatch-grid {
-	margin-bottom: 0.25rem;
-}
-.swatch {
-	outline: none;
-	cursor: pointer;
-}
-.swatch:focus {
-	box-shadow: 0 0 0 2px var(--accent);
-}
-
-/* Horizontal slider for mobile, vertical for desktop */
-.hue-slider-container {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	width: 100%;
-}
-
-@media (min-width: 640px) {
 	.hue-slider-container {
-		height: 240px;
-		width: 24px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
 	}
+
+	@media (min-width: 640px) {
+		.hue-slider-container {
+			height: 240px;
+			width: 24px;
+		}
+		.hue-slider {
+			transform: rotate(-90deg);
+			width: 240px !important;
+			height: 24px;
+		}
+	}
+
 	.hue-slider {
-		transform: rotate(-90deg);
-		width: 240px !important;
+		border-radius: 8px;
+		border: 1px solid hsl(var(--border));
 		height: 24px;
+		background: transparent;
 	}
-}
 
-.hue-slider {
-	border-radius: 8px;
-	border: 1px solid #444;
-	height: 24px;
-	background: transparent;
-}
+	.hue-slider::-webkit-slider-runnable-track {
+		background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
+		border-radius: 8px;
+		height: 100%;
+	}
 
-/* Chrome, Safari, Edge */
-.hue-slider::-webkit-slider-runnable-track {
-	background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
-	border-radius: 8px;
-	height: 100%;
-}
-/* Firefox */
-.hue-slider::-moz-range-track {
-	background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
-	border-radius: 8px;
-	height: 100%;
-}
-/* IE */
-.hue-slider::-ms-fill-lower,
-.hue-slider::-ms-fill-upper {
-	background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
-	border-radius: 8px;
-}
-</style> 
+	.hue-slider::-moz-range-track {
+		background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red);
+		border-radius: 8px;
+		height: 100%;
+	}
+</style>

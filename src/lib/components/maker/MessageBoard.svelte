@@ -1,9 +1,13 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
+	import Send from '@lucide/svelte/icons/send';
 	import type { SupabaseClient } from '@supabase/supabase-js';
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { Filter } from 'bad-words';
 	import { toastStore } from '$lib/client/toastStore';
+	import { PortalSectionLabel } from '$lib/components/portal';
+	import { MessageBubbleSkeleton, ScButton } from '$lib/components/sc';
+	import { cn } from '$lib/utils';
 
 	let {
 		orderId,
@@ -26,7 +30,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let subscription: any = null;
-	let scrollContainer: HTMLDivElement | null = null;
+	let scrollContainer: HTMLDivElement | null = $state(null);
 	let page = $state(0);
 	let pageSize = 15;
 	let hasMore = $state(true);
@@ -50,17 +54,17 @@
 	}
 
 	async function fetchMessages(initial = false) {
-		if (!initial && loadingMore) return; // Prevent concurrent "load more" calls
+		if (!initial && loadingMore) return;
 
 		if (initial) {
-			loading = true; // Show "Loading messages..." text
+			loading = true;
 		}
-		loadingMore = true; // Indicate an active fetch operation
+		loadingMore = true;
 
 		if (initial) {
 			page = 0;
 			hasMore = true;
-			messages = []; // Clear messages for initial load
+			messages = [];
 		}
 
 		const from = page * pageSize;
@@ -76,8 +80,7 @@
 
 		const {
 			data,
-			error: fetchError,
-			count
+			error: fetchError
 		} = await supabase_lt
 			.from('Chat')
 			.select('*', { count: 'exact' })
@@ -87,38 +90,31 @@
 
 		if (fetchError) {
 			error = fetchError.message;
-			if (initial) messages = []; // Ensure messages is empty on initial fetch error
+			if (initial) messages = [];
 		} else {
 			const newMessagesData = (data || []).reverse();
 			if (initial) {
 				messages = newMessagesData;
-			} else {
-				if (newMessagesData.length > 0) {
-					messages = [...newMessagesData, ...messages];
-				}
+			} else if (newMessagesData.length > 0) {
+				messages = [...newMessagesData, ...messages];
 			}
 			hasMore = (data?.length || 0) === pageSize;
 		}
 
-		await tick(); // Wait for Svelte to update the DOM with new messages
+		await tick();
 
 		if (initial) {
-			loading = false; // Set loading to false; the $effect will handle the scroll
-			// We can keep the tick if other logic might depend on it, or remove if solely for the removed scroll
+			loading = false;
 			await tick();
-		} else {
-			// Only adjust scroll if new messages were actually added and scrollContainer exists
-			if (scrollContainer && data && data.length > 0) {
-				const currentScrollHeight = scrollContainer.scrollHeight;
-				scrollContainer.scrollTop =
-					previousScrollTop + (currentScrollHeight - previousScrollHeight);
-			}
+		} else if (scrollContainer && data && data.length > 0) {
+			const currentScrollHeight = scrollContainer.scrollHeight;
+			scrollContainer.scrollTop =
+				previousScrollTop + (currentScrollHeight - previousScrollHeight);
 		}
-		loadingMore = false; // Fetch operation complete
+		loadingMore = false;
 	}
 
 	$effect(() => {
-		// Handles the very first scroll to bottom after initial messages are loaded.
 		if (
 			!initialLoadCompleted &&
 			!loading &&
@@ -126,14 +122,8 @@
 			scrollContainer &&
 			!loadingMore
 		) {
-			// Ensure all conditions are met:
-			// - Initial load hasn't completed its scroll yet.
-			// - Main loading indicator is off.
-			// - Messages are present.
-			// - Scroll container exists.
-			// - The "loadingMore" phase (entire fetchMessages async op) is also complete.
 			scrollContainer.scrollTop = scrollContainer.scrollHeight;
-			initialLoadCompleted = true; // Prevent this from running again
+			initialLoadCompleted = true;
 		}
 	});
 
@@ -145,26 +135,20 @@
 		}
 	}
 
-	// Removed the problematic $effect that unconditionally scrolled to bottom
-
 	$effect(() => {
-		// Only scroll to bottom if a new message is added at the end (appended)
-		// and not during a "load more" operation (which fetchMessages handles).
 		if (scrollContainer && messages.length > prevMessageCount && !loadingMore) {
 			const lastMessage = messages[messages.length - 1];
-			const secondLastMessage = messages[messages.length - 2]; // Could be undefined if messages.length < 2
+			const secondLastMessage = messages[messages.length - 2];
 
-			// Condition to check if a new message was truly appended and is the latest
 			if (
-				(messages.length === 1 && prevMessageCount === 0) || // It's the very first message
-				(prevMessageCount > 0 && // There were previous messages
-					lastMessage && // The last message exists
-					(!secondLastMessage || // Either there's no second to last (meaning one was added to a list of 1)
+				(messages.length === 1 && prevMessageCount === 0) ||
+				(prevMessageCount > 0 &&
+					lastMessage &&
+					(!secondLastMessage ||
 						new Date(lastMessage.created_at).getTime() >
-							new Date(secondLastMessage.created_at).getTime())) // Or it's newer
+							new Date(secondLastMessage.created_at).getTime()))
 			) {
 				const isOwnMessage = lastMessage?.sender_id === session?.data?.user?.id;
-				// Check if scroll container is scrolled near the bottom (e.g., within 100px)
 				const nearBottom =
 					scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight <
 					100;
@@ -177,9 +161,8 @@
 		prevMessageCount = messages.length;
 	});
 
-	// Debounce chat read updates
 	let newChatIds = $state<string[]>([]);
-	let debounceChatReadTimer: NodeJS.Timeout | null = null;
+	let debounceChatReadTimer: ReturnType<typeof setTimeout> | null = null;
 	$effect(() => {
 		if (newChatIds.length > 0) {
 			if (debounceChatReadTimer) {
@@ -198,18 +181,15 @@
 		}
 	});
 
-	// Subscribe to realtime updates
 	function subscribeToMessages() {
 		subscription = supabase_lt
 			.channel('realtime-chat-channel')
 			.on(
 				'postgres_changes',
-				{ event: '*', schema: 'public', table: 'Chat', filter: `relationship_id=eq.${orderId}` }, //might need to change to filter: `relationship_id=eq.${orderId}`
+				{ event: '*', schema: 'public', table: 'Chat', filter: `relationship_id=eq.${orderId}` },
 				(payload) => {
 					if (payload.eventType === 'INSERT') {
 						messages = [...messages, payload.new];
-						//mark message as read
-						//TODO: debounce multiple updates.
 						newChatIds.push(payload.new.chat_id);
 					}
 					if (payload.eventType === 'UPDATE') {
@@ -226,7 +206,6 @@
 	onMount(() => {
 		fetchMessages(true);
 		subscribeToMessages();
-		// Mark all messages as read for this order
 		if (session?.data?.user?.id) {
 			supabase_lt
 				.from('Chat')
@@ -234,7 +213,7 @@
 				.eq('relationship_id', orderId)
 				.eq('recipient_id', session.data.user.id)
 				.eq('status', 'sent')
-				.then((res) => {});
+				.then(() => {});
 		}
 		return () => {
 			if (subscription) supabase_lt.removeChannel(subscription);
@@ -247,7 +226,7 @@
 		const { error: sendError } = await supabase_lt.from('Chat').insert([
 			{
 				sender_id: session.data.user.id,
-				recipient_id: receiverId, // set if you know the recipient
+				recipient_id: receiverId,
 				message: newMessage,
 				relationship_id: orderId,
 				message_type: 'text',
@@ -264,7 +243,6 @@
 
 	$effect(() => {
 		if (session?.data?.user?.id && messages.length > 0) {
-			// Find messages sent to the current user that are still 'sent'
 			const unread = messages.filter(
 				(msg) => msg.recipient_id === session.data.user.id && msg.status === 'sent'
 			);
@@ -278,166 +256,189 @@
 			}
 		}
 	});
+
+	function isLatestQuote(index: number) {
+		let lastIndex = -1;
+		for (let j = messages.length - 1; j >= 0; j--) {
+			if (
+				messages[j].message_type === 'quote' &&
+				messages[j].recipient_id === session?.data?.user?.id
+			) {
+				lastIndex = j;
+				break;
+			}
+		}
+		return index === lastIndex;
+	}
 </script>
 
-<div class="relative h-full flex flex-col">
+<div class="relative flex h-full flex-col">
 	{#if disabled}
 		<div
-			class="absolute inset-0 bg-[#101010]/70 z-10 flex items-center justify-center cursor-not-allowed rounded-lg">
-			<span class="text-gray-400 text-lg font-semibold">Chat Disabled</span>
+			class="absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center rounded-md bg-background/80 backdrop-blur-sm"
+		>
+			<span class="font-mono text-sm text-muted-foreground">chat_disabled</span>
 		</div>
 	{/if}
-	<div class="flex flex-col gap-1 pl-4 pb-2">
-		<span class="text-xs text-gray-400">Message Board</span>
+
+	<div class="border-b border-border px-4 py-3">
+		<PortalSectionLabel label="message_board" class="mb-0" />
 	</div>
-	<div class="flex flex-1 relative">
+
+	<div class="relative flex flex-1">
 		<div
-			class="absolute inset-0 flex-1 flex flex-col bg-accent/7 rounded-lg p-4 overflow-y-auto"
+			class="absolute inset-0 flex flex-1 flex-col overflow-y-auto bg-muted/10 p-4"
 			bind:this={scrollContainer}
-			onscroll={handleScroll}>
-			<div class="text-xs text-gray-400 mb-2 flex items-center gap-1">
-				<Icon icon="ph:info-duotone" class="text-yellow-500" />
-				<span
-					>File sharing is not available due to hosting costs. We apologize for any inconvenience.</span>
+			onscroll={handleScroll}
+		>
+			<div
+				class="mb-3 flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2"
+			>
+				<Icon icon="ph:info-duotone" class="mt-0.5 shrink-0 text-muted-foreground" />
+				<span class="text-xs leading-relaxed text-muted-foreground">
+					File sharing is not available due to hosting costs. We apologize for any inconvenience.
+				</span>
 			</div>
+
 			{#if loading}
-				<div class="text-gray-400 text-center py-4">Loading messages...</div>
+				<div class="flex-1 space-y-4 py-4" aria-hidden="true">
+					<MessageBubbleSkeleton align="left" />
+					<MessageBubbleSkeleton align="right" />
+					<MessageBubbleSkeleton align="left" />
+					<MessageBubbleSkeleton align="right" />
+				</div>
 			{:else if error}
-				<div class="text-red-400 text-center py-4">{error}</div>
+				<div class="py-8 text-center text-sm text-destructive">{error}</div>
 			{:else if messages.length === 0}
-				<div class="text-gray-400 text-center py-4">No messages yet.</div>
+				<div class="py-8 text-center text-sm text-muted-foreground">No messages yet.</div>
 			{:else}
 				<div class="flex-1 space-y-4">
-					{#each messages as msg, i}
+					{#each messages as msg, i (msg.chat_id)}
 						{#if i === 0 || getDateLabel(msg.created_at) !== getDateLabel(messages[i - 1].created_at)}
-							<div class="flex justify-center my-2">
-								<span class="bg-accent-dark/20 text-xs text-gray-200 px-3 py-1 rounded-full">
+							<div class="my-2 flex justify-center">
+								<span
+									class="rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-muted-foreground"
+								>
 									{getDateLabel(msg.created_at)}
 								</span>
 							</div>
 						{/if}
-						<div
-							class="flex flex-col {msg.sender_id === session?.data?.user?.id
-								? 'items-end'
-								: 'items-start'}">
+
+						{@const isOwn = msg.sender_id === session?.data?.user?.id}
+						<div class={cn('flex flex-col', isOwn ? 'items-end' : 'items-start')}>
 							{#if msg.message_type === 'action'}
 								{@const actionObj = JSON.parse(msg.message)}
 								{#if actionObj.action === 'shipped'}
 									{@const shippedObj = JSON.parse(msg.message)}
 									<div
-										class="px-4 py-3 rounded-lg max-w-xs break-words bg-gradient-to-br from-amber-500/20 to-yellow-500/30 border border-yellow-400/70 text-yellow-100 shadow-lg backdrop-blur-sm {msg.sender_id ===
-										session?.data?.user?.id
-											? 'self-end'
-											: 'self-start'} flex flex-col items-start">
-										<div class="font-semibold text-sm flex items-center gap-2">
-											<div class="bg-yellow-400/30 p-1.5 rounded-full">
-												<Icon icon="ph:truck-bold" class="text-lg text-yellow-200" />
-											</div>
-											<span class="text-yellow-50">Shipped via {shippedObj.courier}</span>
+										class={cn(
+											'flex max-w-xs flex-col items-start break-words rounded-md border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-foreground',
+											isOwn ? 'self-end' : 'self-start'
+										)}
+									>
+										<div class="flex items-center gap-2 font-medium">
+											<Icon icon="ph:truck-bold" class="text-base text-warning" />
+											<span>Shipped via {shippedObj.courier}</span>
 										</div>
 										{#if shippedObj.tracking_id}
-											<div class="text-sm mt-2 bg-black/20 px-3 py-1.5 rounded-md w-full">
-												<span class="font-medium text-yellow-200">Tracking ID:</span>
+											<div class="mt-2 w-full rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs">
+												<span class="font-mono text-muted-foreground">tracking_id:</span>
 												<span class="ml-1">{shippedObj.tracking_id}</span>
 											</div>
 										{/if}
 										{#if shippedObj.tracking_link}
-											<div class="text-sm mt-2 w-full">
-												<a
-													href={shippedObj.tracking_link}
-													target="_blank"
-													class="flex items-center justify-center gap-1 bg-yellow-500/30 hover:bg-yellow-500/50 text-yellow-50 px-3 py-2 rounded-md w-full transition-all duration-200 border border-yellow-400/50 hover:border-yellow-400">
-													<Icon icon="ph:package-bold" class="text-lg" />
-													Track your package
-													<Icon icon="ph:arrow-up-right-bold" class="text-xs" />
-												</a>
-											</div>
+											<a
+												href={shippedObj.tracking_link}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-border bg-card px-3 py-2 text-xs transition-colors hover:bg-muted"
+											>
+												<Icon icon="ph:package-bold" class="text-base" />
+												Track package
+												<Icon icon="ph:arrow-up-right-bold" class="text-xs" />
+											</a>
 										{/if}
 										{#if shippedObj.reason}
-											<div class="text-xs mt-2 text-yellow-200/70 bg-black/10 px-2 py-1 rounded w-full">{shippedObj.reason}</div>
+											<div class="mt-2 w-full text-xs text-muted-foreground">{shippedObj.reason}</div>
 										{/if}
 									</div>
 								{:else}
 									<div
-										class="px-3 py-2 rounded-lg max-w-xs break-words bg-red-500/20 border border-red-400 text-red-200 {msg.sender_id ===
-										session?.data?.user?.id
-											? 'self-end'
-											: 'self-start'} flex flex-col items-center">
-										<div class="font-semibold text-sm w-full flex items-start gap-1">
-											<Icon icon="ph:warning-circle-bold" class="text-lg" />
+										class={cn(
+											'flex max-w-xs flex-col break-words rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive',
+											isOwn ? 'self-end' : 'self-start'
+										)}
+									>
+										<div class="flex w-full items-start gap-1 font-medium">
+											<Icon icon="ph:warning-circle-bold" class="text-base" />
 											{actionObj?.action
 												? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
 												: 'Action'}
 										</div>
 										{#if actionObj?.reason}
-											<div class="text-sm mt-1 text-red-200 flex flex-col">
-												<span class="opacity-50">Reason </span> <span>{actionObj.reason}</span>
+											<div class="mt-1 text-xs">
+												<span class="text-muted-foreground">reason:</span>
+												<span class="ml-1">{actionObj.reason}</span>
 											</div>
 										{/if}
 									</div>
 								{/if}
 							{:else if msg.message_type === 'quote'}
-								{@const actionObj = JSON.parse(msg.message)}
+								{@const quoteObj = JSON.parse(msg.message)}
 								<div
-									class="px-3 py-2 rounded-lg max-w-xs break-words bg-blue-500/20 border border-blue-400 text-blue-200 {msg.sender_id ===
-									session?.data?.user?.id
-										? 'self-end'
-										: 'self-start'} flex flex-col items-start">
-									<div class="font-semibold text-sm flex items-center gap-1">
-										<Icon icon="ph:warning-circle-bold" class="text-lg" />
-										{msg.sender_id === session?.data?.user?.id ? 'Quote Sent' : 'Quote Received'}
+									class={cn(
+										'flex max-w-xs flex-col break-words rounded-md border border-border bg-card px-3 py-2 text-sm',
+										isOwn ? 'self-end' : 'self-start'
+									)}
+								>
+									<div class="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+										<Icon icon="ph:currency-inr-bold" class="text-base" />
+										{isOwn ? 'quote_sent' : 'quote_received'}
 									</div>
-									<div class="text-sm text-blue-200">{actionObj.reason}</div>
-									<div class="text-2xl font-semibold mt-1 text-blue-200">{actionObj.quote}₹</div>
-									<!-- show a button to accept the quote only for the latest quote message for the current user -->
-									{#if msg.recipient_id === session?.data?.user?.id && (() => {
-											// Find the last quote message for the current user
-											let lastIndex = -1;
-											for (let j = messages.length - 1; j >= 0; j--) {
-												if (messages[j].message_type === 'quote' && messages[j].recipient_id === session?.data?.user?.id) {
-													lastIndex = j;
-													break;
-												}
-											}
-											return i === lastIndex;
-										})()}
-										<button
-											class="bg-blue-500/20 text-blue-200 px-3 py-2 rounded-lg text-sm mt-2 w-full hover:bg-blue-500/50 transition-colors duration-200"
+									{#if quoteObj.reason}
+										<div class="mt-1 text-foreground">{quoteObj.reason}</div>
+									{/if}
+									<div class="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+										{quoteObj.quote}₹
+									</div>
+									{#if msg.recipient_id === session?.data?.user?.id && isLatestQuote(i)}
+										<ScButton
+											class="mt-2 w-full"
 											onclick={paynow
-												? () => {
-														paynow();
-													}
-												: () => {
+												? () => paynow()
+												: () =>
 														toastStore.show(
 															'Close the chat, select address and click pay now',
 															'info'
-														);
-													}}>Pay Now</button>
+														)}
+										>
+											Pay now
+										</ScButton>
 									{/if}
 								</div>
 							{:else}
 								<div
-									class="px-3 py-2 rounded-lg max-w-xs break-words {msg.sender_id ===
-									session?.data?.user?.id
-										? 'bg-sky-400/65 text-white self-end'
-										: 'bg-gray-800 text-gray-100 self-start'}">
+									class={cn(
+										'max-w-xs break-words rounded-md px-3 py-2 text-sm',
+										isOwn
+											? 'bg-foreground text-background'
+											: 'border border-border bg-card text-foreground'
+									)}
+								>
 									{@html filter.clean(msg.message)}
 								</div>
 							{/if}
-							<div class="flex gap-x-0.5 mt-1">
-								{#if msg.sender_id === session?.data?.user?.id}
-									<div class="text-xs text-right">
-										<span class={msg.status === 'read' ? 'text-green-400' : 'text-gray-400'}>
-											<Icon
-												icon={msg.status === 'read' ? 'mdi:check-all' : 'mdi:check'}
-												class="w-3 h-3" />
-										</span>
-									</div>
+
+							<div class="mt-1 flex gap-0.5">
+								{#if isOwn}
+									<span class={msg.status === 'read' ? 'text-foreground' : 'text-muted-foreground'}>
+										<Icon
+											icon={msg.status === 'read' ? 'mdi:check-all' : 'mdi:check'}
+											class="size-3"
+										/>
+									</span>
 								{/if}
-								<div
-									class="text-xs text-gray-500 {msg.sender_id === session?.data?.user?.id
-										? 'text-right'
-										: ''}">
+								<div class="font-mono text-[10px] text-muted-foreground">
 									{new Date(msg.created_at).toLocaleTimeString([], {
 										hour: '2-digit',
 										minute: '2-digit'
@@ -450,20 +451,26 @@
 			{/if}
 		</div>
 	</div>
-	<!-- send message form-->
-	<div class="border-t border-gray-700/50 p-4 h-fit">
-		<form class="flex items-center gap-2 bg-accent/7 rounded-lg px-4 py-2" onsubmit={sendMessage}>
+
+	<div class="border-t border-border p-4">
+		<form
+			class="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
+			onsubmit={sendMessage}
+		>
 			<input
 				type="text"
-				class="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-400"
-				placeholder="Type your message..."
+				class="flex-1 border-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+				placeholder="Type your message…"
 				bind:value={newMessage}
-				{disabled} />
+				{disabled}
+			/>
 			<button
-				class="text-accent hover:text-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				type="submit"
-				{disabled}>
-				<Icon icon="ph:paper-plane-right-bold" class="text-xl" />
+				class="text-foreground transition-colors hover:text-foreground/70 disabled:cursor-not-allowed disabled:opacity-50"
+				{disabled}
+				aria-label="Send message"
+			>
+				<Send class="size-4" strokeWidth={1.5} />
 			</button>
 		</form>
 	</div>

@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import Icon from '@iconify/svelte';
+	import Plus from '@lucide/svelte/icons/plus';
 	import type { SupabaseClient } from '@supabase/supabase-js';
-	import { onMount } from 'svelte'; // Or use $effect if preferred
-	import FilamentFormModal from './FilamentFormModal.svelte'; // Import the modal
+	import { onMount } from 'svelte';
+	import FilamentFormModal from './FilamentFormModal.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
+	import { ScButton, TableBodySkeleton } from '$lib/components/sc';
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
@@ -195,147 +198,149 @@
 </script>
 
 <!-- Filament Management Section -->
-<div class="mt-8">
-	<div
-		class="text-xl font-semibold text-white/60 mb-2 text-left pl-1 tracking-wide"
-		style="backdrop-filter: blur(2px);">
-		Filament inventory
-	</div>
-	<div class="py-3 px-4 bg-[#151515]/60 rounded-lg border border-gray-700/40 mb-4">
+<PortalCard>
+	<PortalSectionLabel label="filament_inventory" class="mb-4" />
+
+	<div class="mb-4 rounded-md border border-border bg-muted/20 p-4">
 		<button
-			class="flex items-center gap-2 text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors"
-			onclick={() => (disclaimerVisible = !disclaimerVisible)}>
+			type="button"
+			class="flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-foreground/80"
+			onclick={() => (disclaimerVisible = !disclaimerVisible)}
+		>
 			<Icon
 				icon={disclaimerVisible ? 'ph:caret-down-bold' : 'ph:caret-right-bold'}
-				class="text-xs" />
-			<span>Important Disclaimer</span>
+				class="text-xs text-muted-foreground"
+			/>
+			<span class="font-mono text-xs">important_disclaimer</span>
 		</button>
 
 		{#if disclaimerVisible}
 			<div
 				class="mt-3 flex flex-col gap-y-2"
 				in:slide={{ duration: 200, easing: cubicOut }}
-				out:slide={{ duration: 200, easing: cubicOut }}>
-				<p class="text-sm text-amber-200/90 flex items-start gap-2">
-					<span
-						class="inline-flex items-center justify-center bg-amber-500/20 text-amber-400 rounded-full h-5 w-5 text-xs font-medium"
-						>1</span>
-					<span
-						>You will not be displayed on the marketplace if you have no filaments in your inventory</span>
-				</p>
-				<p class="text-sm text-amber-200/90 flex items-start gap-2">
-					<span
-						class="inline-flex items-center justify-center bg-amber-500/20 text-amber-400 rounded-full h-5 w-5 text-xs font-medium"
-						>2</span>
-					<span
-						>Only the colors you have in your inventory will be displayed in the marketplace</span>
-				</p>
-				<p class="text-sm text-amber-200/90 flex items-start gap-2">
-					<span
-						class="inline-flex items-center justify-center bg-amber-500/20 text-amber-400 rounded-full h-5 w-5 text-xs font-medium"
-						>3</span>
-					<span
-						>Only the material types you have in your inventory will be displayed in the marketplace</span>
-				</p>
-				<p class="text-sm text-amber-200/90 flex items-start gap-2">
-					<span
-						class="inline-flex items-center justify-center bg-amber-500/20 text-amber-400 rounded-full h-5 w-5 text-xs font-medium"
-						>4</span>
-					<span>Please keep your inventory updated to avoid wasting customer's time</span>
-				</p>
-				<!-- Don't show again button -->
+				out:slide={{ duration: 200, easing: cubicOut }}
+			>
+				{#each [
+					'You will not be displayed on the marketplace if you have no filaments in your inventory',
+					'Only the colors you have in your inventory will be displayed in the marketplace',
+					'Only the material types you have in your inventory will be displayed in the marketplace',
+					'Please keep your inventory updated to avoid wasting customer time'
+				] as item, index}
+					<p class="flex items-start gap-2 text-sm text-muted-foreground">
+						<span
+							class="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-muted font-mono text-xs text-foreground"
+						>
+							{index + 1}
+						</span>
+						<span>{item}</span>
+					</p>
+				{/each}
 				<button
-					class="mt-4 self-end px-3 py-1.5 rounded-md bg-amber-500/20 text-amber-200 text-xs font-semibold hover:bg-amber-500/40 transition-colors border border-amber-400/30"
+					type="button"
+					class="mt-2 self-end rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					onclick={hideDisclaimerPermanently}
 				>
-					Don't show again
+					don't_show_again
 				</button>
 			</div>
 		{/if}
 	</div>
-	<!-- Glassmorphism container -->
-	<div
-		class="overflow-x-auto bg-[#151515]/60 rounded-lg sm:p-4 xs:px-0 xs:pt-0 border border-gray-700/50">
-		<table class="min-w-full divide-y divide-gray-700 text-left">
-			<thead class="bg-[#0c0c0c]/50">
+
+	<div class="overflow-x-auto rounded-md border border-border">
+		<table class="min-w-full divide-y divide-border text-left">
+			<thead class="bg-muted/30">
 				<tr>
 					<th
 						scope="col"
-						class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
+						class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+					>
+						Name
+					</th>
 					<th
 						scope="col"
-						class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Brand</th>
+						class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+					>
+						Brand
+					</th>
 					<th
 						scope="col"
-						class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+						class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+					>
+						Type
+					</th>
 					<th
 						scope="col"
-						class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Color</th>
+						class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+					>
+						Color
+					</th>
 					<th
 						scope="col"
-						class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider"
-						>Quantity Left (kg)</th>
+						class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+					>
+						Quantity (kg)
+					</th>
 					<th
 						scope="col"
-						class="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider"
-						>Actions</th>
+						class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+					>
+						Actions
+					</th>
 				</tr>
 			</thead>
-			<tbody class="divide-y divide-gray-700/50">
+			<tbody class="divide-y divide-border">
 				{#if isLoadingFilaments}
-					<tr>
-						<!-- Adjusted colspan -->
-						<td colspan="5" class="px-4 py-10 text-center text-sm text-gray-400">
-							<div class="flex justify-center items-center space-x-2">
-								<Icon icon="svg-spinners:ring-resize" class="h-5 w-5" />
-								<span>Loading filaments...</span>
-							</div>
-						</td>
-					</tr>
+					<TableBodySkeleton rows={4} columns={6} />
 				{:else}
 					{#each filamentInventory as filament (filament.temp_key)}
-						<!-- Use the generated temp_key -->
-						<tr class="hover:bg-[#1f1f1f]/50 transition-colors">
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">{filament.name}</td>
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300"
-								>{filament.brand || 'N/A'}</td>
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300"
-								>{filament.material_type || 'N/A'}</td>
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+						<tr class="transition-colors hover:bg-muted/20">
+							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground">{filament.name}</td>
+							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
+								>{filament.brand || 'N/A'}</td
+							>
+							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
+								>{filament.material_type || 'N/A'}</td
+							>
+							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground">
 								<div class="flex flex-wrap items-center gap-2">
 									<span
-										class="inline-block w-4 h-4 rounded-full border border-gray-500"
-										style="background-color: {filament.color || '#ffffff'};"></span>
-									<span class="text-xs">{filament.color || 'N/A'}</span>
+										class="inline-block size-4 rounded-full border border-border"
+										style="background-color: {filament.color || '#ffffff'};"
+									></span>
+									<span class="font-mono text-xs text-muted-foreground"
+										>{filament.color || 'N/A'}</span
+									>
 								</div>
 							</td>
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300"
-								>{filament.quantity_kg ?? 'N/A'}</td>
-							<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
+								>{filament.quantity_kg ?? 'N/A'}</td
+							>
+							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground">
 								<Button
 									variant="ghost"
 									size="icon"
-									class="p-2 text-gray-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-all"
+									class="rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
 									onclick={() => openEditModal(filament)}
-									aria-label="Edit filament">
-									<Icon icon="ph:pencil-simple-line-bold" class="text-xl" />
+									aria-label="Edit filament"
+								>
+									<Icon icon="ph:pencil-simple-line-bold" class="text-lg" />
 								</Button>
 								<Button
 									variant="ghost"
 									size="icon"
-									class="ml-1 p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+									class="ml-1 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 									onclick={() => askDeleteFilament(filament)}
-									aria-label="Delete filament">
-									<Icon icon="ph:trash-bold" class="text-xl" />
+									aria-label="Delete filament"
+								>
+									<Icon icon="ph:trash-bold" class="text-lg" />
 								</Button>
 							</td>
 						</tr>
 					{:else}
-						<!-- Enhanced Empty State Placeholder -->
 						<tr>
-							<td colspan="6" class="px-4 py-10 text-center text-sm text-gray-400">
-								<div class="flex flex-col items-center space-y-3">
-									<Icon icon="mdi:database-off-outline" class="h-10 w-10 text-gray-500" />
+							<td colspan="6" class="px-4 py-10 text-center text-sm text-muted-foreground">
+								<div class="flex flex-col items-center gap-3">
+									<Icon icon="mdi:database-off-outline" class="size-10 text-muted-foreground" />
 									<span>
 										{filamentError ? filamentError : 'Your filament inventory is empty.'}
 									</span>
@@ -347,14 +352,14 @@
 			</tbody>
 		</table>
 	</div>
-	<div class="mt-4 text-right">
-		<button
-			class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 px-4 py-2 bg-card/5 hover:bg-card/10 text-white/80 hover:text-white border border-white/20"
-			onclick={openAddModal}>
-			<Icon icon="ph:plus-bold" class="mr-1.5 h-4 w-4" /> Add Filament
-		</button>
+
+	<div class="mt-4 flex justify-end">
+		<ScButton variant="secondary" onclick={openAddModal}>
+			<Plus class="mr-1.5 size-4" strokeWidth={1.5} />
+			Add filament
+		</ScButton>
 	</div>
-</div>
+</PortalCard>
 <!-- End Filament Management Section -->
 
 <!-- Modal Component -->
