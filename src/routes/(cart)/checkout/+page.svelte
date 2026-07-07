@@ -10,7 +10,6 @@
 	// Removed unused 'browser' import
 	// import { browser } from '$app/environment';
 	import { getContext, onMount } from 'svelte';
-	import { setLoading } from '$lib/client/loading';
 	import { type Writable } from 'svelte/store';
 	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
@@ -100,14 +99,15 @@
 	}
 
 	let cart_store = getContext<Writable<CartG>>('userCartStatus');
-	let load_store = getContext<Writable<boolean>>('loading');
+	let isPaying = $state(false);
 
 	async function payNow() {
+		if (isPaying) return;
+
 		// Add check to ensure cartData is defined
 		if (!cartData) {
 			console.error('Cannot proceed to payment: Cart data is not available.');
 			alert('An error occurred preparing your order. Please try again.');
-			setLoading(load_store, false); // Ensure loading is stopped
 			return;
 		}
 
@@ -115,11 +115,10 @@
 		if (!validAddress) {
 			console.error('Cannot proceed to payment: Shipping address is not selected or invalid.');
 			alert('Please select or enter a valid shipping address.');
-			setLoading(load_store, false); // Ensure loading is stopped
 			return;
 		}
 
-		setLoading(load_store, true);
+		isPaying = true;
 		const formData = new FormData();
 		formData.append('orderId', cartData.id);
 		formData.append('address', JSON.stringify(validAddress));
@@ -133,7 +132,7 @@
 					`${dataResult?.message ?? 'Failed to create payment order. Please check your details and try again.'}`,
 					'error'
 				);
-				setLoading(load_store, false); // Stop loading on error
+				isPaying = false; // Stop loading on error
 				return;
 			}
 			var options = {
@@ -148,7 +147,7 @@
 					// Add check for cartData inside handler as well, just in case
 					if (!cartData) {
 						console.error('Cart data became unavailable during payment processing.');
-						setLoading(load_store, false); // Stop loading on error
+						isPaying = false; // Stop loading on error
 						return;
 					}
 					const formData2 = new FormData();
@@ -163,18 +162,18 @@
 						console.error('Failed to update order status after payment.');
 						// Potentially redirect to a different summary page or show an error
 						// Still set loading false and navigate, maybe to an error page?
-						setLoading(load_store, false); // Stop loading even if PATCH fails
+						isPaying = false; // Stop loading even if PATCH fails
 						// Decide on navigation for PATCH failure, e.g., goto('/summary/error');
 						return;
 					}
 					cart_store.set({ valid: false, itemCount: 0 });
 					// Explicitly set loading to false *before* navigating
-					setLoading(load_store, false);
+					isPaying = false;
 					goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
 				},
 				modal: {
 					ondismiss: function () {
-						setLoading(load_store, false);
+						isPaying = false;
 					}
 				},
 				prefill: {},
@@ -186,7 +185,7 @@
 			var rzp1 = new Razorpay(options);
 			if (!rzp1) {
 				alert('Issue with Payment Provider, try again');
-				setLoading(load_store, false);
+				isPaying = false;
 				return;
 			}
 			rzp1.open();
@@ -194,13 +193,13 @@
 				// Ensure cartData is available for the failure URL
 				if (!cartData) {
 					console.error('Cart data unavailable for failure redirect.');
-					setLoading(load_store, false);
+					isPaying = false;
 					rzp1.close();
 					// Maybe redirect to a generic failure page
 					goto('/summary/failure');
 					return;
 				}
-				setLoading(load_store, false);
+				isPaying = false;
 				rzp1.close();
 				window.location.href = `/summary/failure/${cartData.id}/${response.error.metadata.order_id}`;
 				// goto(`/summary/failure/${cartData.id}/${response.error.metadata.order_id}`,{invalidateAll:true});
@@ -217,10 +216,9 @@
 				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
 				'error'
 			);
-			setLoading(load_store, false); // Ensure loading stops on catch
+			isPaying = false; // Ensure loading stops on catch
 			return;
 		}
-		// Removed setLoading(load_store, false) from here as it should be handled within handlers/catch
 	}
 </script>
 
@@ -309,8 +307,11 @@
 													class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
 													{item.qty}
 												</div>
-												<Skeleton class="size-6 rounded-md" />
-												<div class="text-sm truncate max-w-[180px] text-gray-400">Loading...</div>
+												<Skeleton class="size-8 rounded-md" />
+												<div class="flex min-w-0 flex-col gap-1.5">
+													<Skeleton class="h-4 w-32 rounded-sm" />
+													<Skeleton class="h-3 w-20 rounded-sm" />
+												</div>
 											</div>
 											<div class="font-medium">₹{item.price * item.qty}</div>
 										</div>
@@ -376,8 +377,8 @@
 						</div>
 
 						<button
-							class={`w-full mt-5 relative group/button overflow-hidden ${!addressValid || (cartData?.list ?? []).length <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-							disabled={(cartData?.list ?? []).length <= 0 || !addressValid}
+							class={`w-full mt-5 relative group/button overflow-hidden ${!addressValid || (cartData?.list ?? []).length <= 0 || isPaying ? 'opacity-50 cursor-not-allowed' : ''}`}
+							disabled={(cartData?.list ?? []).length <= 0 || !addressValid || isPaying}
 							onclick={payNow}>
 							<div
 								class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300">
@@ -386,7 +387,7 @@
 							<div
 								class="relative flex items-center justify-center gap-2 bg-transparent border border-accent/30 rounded-xl px-5 py-3 font-medium text-accent">
 								<Icon icon="ph:credit-card-bold" />
-								<span>Proceed to Payment</span>
+								<span>{isPaying ? 'Opening payment…' : 'Proceed to Payment'}</span>
 
 								<div
 									class="absolute right-4 opacity-0 group-hover/button:opacity-100 transform group-hover/button:translate-x-1 transition-all duration-300">
