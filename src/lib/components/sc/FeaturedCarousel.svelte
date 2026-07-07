@@ -98,7 +98,7 @@
 		<div
 			class="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground"
 		>
-			<span>Featured</span>
+			<span class="glow-text">Featured</span>
 
 			{#if hasMultiple}
 				<div class="flex items-center gap-1">
