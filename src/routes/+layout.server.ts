@@ -1,11 +1,29 @@
-import type { LayoutServerLoad } from './$types'
+import { getGithubStars } from '$lib/server/github';
+import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals: { safeGetSession, clientId }, cookies }) => {
-  const { session, user } = await safeGetSession()
-  return {
-    session: session,
-    user: user,
-    clientId : clientId,
-    cookies : cookies.getAll()
-  }
-}
+export const load: LayoutServerLoad = async ({
+	locals: { safeGetSession, clientId, supabase },
+	cookies
+}) => {
+	const { session, user } = await safeGetSession();
+	const githubStars = await getGithubStars();
+
+	let username: string | null = null;
+	if (user?.id) {
+		const { data: userRow } = await supabase
+			.from('users')
+			.select('username')
+			.eq('id', user.id)
+			.maybeSingle();
+		username = userRow?.username ?? null;
+	}
+
+	return {
+		session,
+		user,
+		username,
+		clientId,
+		cookies: cookies.getAll(),
+		githubStars
+	};
+};
