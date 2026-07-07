@@ -1,16 +1,27 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import X from '@lucide/svelte/icons/x';
 	import { Breadcrumbs } from '$lib/components/shell';
-	import { FilterSidebar, Pagination, ProductCard, SearchBar } from '$lib/components/sc';
+	import {
+		FilterSidebar,
+		Pagination,
+		ProductCard,
+		ProductCardSkeleton,
+		SearchBar,
+		Skeleton
+	} from '$lib/components/sc';
 	import type { BrowseFilters, BrowseSort } from '$lib/types/browse';
 	import type { Product } from '$lib/types/product';
 
 	let { data } = $props();
 
 	let mobileFiltersOpen = $state(false);
+
+	const isRefreshing = $derived(
+		page.url.pathname.startsWith('/crafts') && !!navigating.to
+	);
 
 	const sortOptions: { value: BrowseSort; label: string }[] = [
 		{ value: 'newest', label: 'newest' },
@@ -83,9 +94,13 @@
 				<div class="min-w-0">
 					<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Browse creations</h1>
 					<p class="mt-1 font-mono text-sm text-muted-foreground">
-						{data.totalCount} result{data.totalCount === 1 ? '' : 's'}
-						<span aria-hidden="true"> · </span>
-						sort: {data.filters.sort}
+						{#if isRefreshing}
+							<Skeleton class="inline-block h-4 w-32 rounded-sm align-middle" />
+						{:else}
+							{data.totalCount} result{data.totalCount === 1 ? '' : 's'}
+							<span aria-hidden="true"> · </span>
+							sort: {data.filters.sort}
+						{/if}
 					</p>
 				</div>
 
@@ -135,7 +150,17 @@
 				/>
 
 				<div class="min-w-0">
-					{#if data.products.length > 0}
+					{#if isRefreshing}
+						<div
+							class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+							aria-busy="true"
+							aria-label="Loading crafts"
+						>
+							{#each Array(6) as _, i (i)}
+								<ProductCardSkeleton />
+							{/each}
+						</div>
+					{:else if data.products.length > 0}
 						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							{#each data.products as product (product.id)}
 								<ProductCard {product} href={productHref(product)} />

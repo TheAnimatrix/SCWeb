@@ -37,6 +37,7 @@
 
 	let reviews = $state<PageReview[]>([]);
 	let variants = $state<VariantOption[]>([]);
+	let variantsLoading = $state(true);
 
 	const cartQtyMax = $derived(productItem.stock.count);
 	const cartStore = getContext<Writable<CartG>>('userCartStatus');
@@ -46,63 +47,68 @@
 	}
 
 	async function loadVariants(product: Product) {
-		const currentVariant: VariantOption = {
-			id: product.id,
-			label: product.name,
-			href: productHref(product)
-		};
+		variantsLoading = true;
+		try {
+			const currentVariant: VariantOption = {
+				id: product.id,
+				label: product.name,
+				href: productHref(product)
+			};
 
-		if (product.type === 'product') {
-			const result = await data.supabase_lt.from('products').select('*').eq('rel', product.id);
-			if (result.data && !result.error && result.data.length > 0) {
-				variants = [
-					currentVariant,
-					...result.data.map((item: Product) => ({
-						id: item.id,
-						label: item.name,
-						href: productHref(item)
-					}))
-				];
-				return;
-			}
-		} else if (product.rel) {
-			const result = await data.supabase_lt.from('products').select('*').eq('rel', product.rel);
-			const parentResult = await data.supabase_lt
-				.from('products')
-				.select('*')
-				.eq('id', product.rel)
-				.maybeSingle();
-
-			const options: VariantOption[] = [];
-			if (parentResult.data) {
-				options.push({
-					id: parentResult.data.id,
-					label: parentResult.data.name,
-					href: productHref(parentResult.data)
-				});
-			}
-
-			if (result.data && !result.error) {
-				for (const item of result.data) {
-					if (!options.some((option) => option.id === item.id)) {
-						options.push({
+			if (product.type === 'product') {
+				const result = await data.supabase_lt.from('products').select('*').eq('rel', product.id);
+				if (result.data && !result.error && result.data.length > 0) {
+					variants = [
+						currentVariant,
+						...result.data.map((item: Product) => ({
 							id: item.id,
 							label: item.name,
 							href: productHref(item)
-						});
+						}))
+					];
+					return;
+				}
+			} else if (product.rel) {
+				const result = await data.supabase_lt.from('products').select('*').eq('rel', product.rel);
+				const parentResult = await data.supabase_lt
+					.from('products')
+					.select('*')
+					.eq('id', product.rel)
+					.maybeSingle();
+
+				const options: VariantOption[] = [];
+				if (parentResult.data) {
+					options.push({
+						id: parentResult.data.id,
+						label: parentResult.data.name,
+						href: productHref(parentResult.data)
+					});
+				}
+
+				if (result.data && !result.error) {
+					for (const item of result.data) {
+						if (!options.some((option) => option.id === item.id)) {
+							options.push({
+								id: item.id,
+								label: item.name,
+								href: productHref(item)
+							});
+						}
 					}
 				}
+
+				if (!options.some((option) => option.id === product.id)) {
+					options.push(currentVariant);
+				}
+
+				variants = options;
+				return;
 			}
 
-			if (!options.some((option) => option.id === product.id)) {
-				options.push(currentVariant);
-			}
-
-			variants = options;
-			return;
+			variants = [];
+		} finally {
+			variantsLoading = false;
 		}
-
-		variants = [];
 	}
 
 	$effect(() => {
@@ -207,6 +213,7 @@
 				{addToCartSuccess}
 				{addToCartMsg}
 				{variants}
+				{variantsLoading}
 				onIncrement={incCart}
 				onDecrement={decCart}
 				onAddToCart={cartSubmit}
