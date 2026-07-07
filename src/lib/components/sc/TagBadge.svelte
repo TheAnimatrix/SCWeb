@@ -15,7 +15,7 @@
 
 <span
 	class={cn(
-		'inline-flex items-center rounded-md border font-mono text-xs',
+		'inline-flex items-center rounded-md border text-xs font-medium',
 		emphasized
 			? 'relative overflow-hidden border-foreground/25 bg-muted px-2.5 py-1 font-semibold text-foreground'
 			: cn('px-2 py-0.5', tintClass),

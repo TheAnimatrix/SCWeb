@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { BrowseCategory, BrowseFilters, CategoryCounts } from '$lib/types/browse';
 	import { cn } from '$lib/utils';
+	import { ScInput } from '$lib/components/sc';
 
 	interface Props {
 		filters: BrowseFilters;
@@ -77,22 +78,24 @@
 	<section>
 		<p class="mb-3 font-mono text-xs text-muted-foreground">// price_range</p>
 		<div class="flex items-center gap-2">
-			<input
+			<ScInput
 				type="number"
-				min="0"
+				min={0}
 				placeholder="min"
-				value={filters.minPrice ?? ''}
+				size="sm"
+				value={filters.minPrice != null ? String(filters.minPrice) : ''}
 				onchange={handleMinPriceChange}
-				class="h-9 w-full rounded-md border border-border bg-card px-3 font-mono text-sm focus:border-foreground/30 focus:outline-none"
+				class="font-mono"
 			/>
 			<span class="font-mono text-xs text-muted-foreground">—</span>
-			<input
+			<ScInput
 				type="number"
-				min="0"
+				min={0}
 				placeholder="max"
-				value={filters.maxPrice ?? ''}
+				size="sm"
+				value={filters.maxPrice != null ? String(filters.maxPrice) : ''}
 				onchange={handleMaxPriceChange}
-				class="h-9 w-full rounded-md border border-border bg-card px-3 font-mono text-sm focus:border-foreground/30 focus:outline-none"
+				class="font-mono"
 			/>
 		</div>
 	</section>

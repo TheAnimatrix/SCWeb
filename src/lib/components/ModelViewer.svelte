@@ -17,7 +17,8 @@
     import ZoomOut from '@lucide/svelte/icons/zoom-out';
     import { createEventDispatcher } from 'svelte';
     import { estimateWeight } from '$lib/helper/modelWeightCalculator';
-	import { toastStore } from '$lib/client/toastStore';
+    import { toastStore } from '$lib/client/toastStore';
+    import Skeleton from '$lib/components/sc/Skeleton.svelte';
 
     // Material densities in g/cm³
     // const MATERIAL_DENSITIES = {
@@ -75,6 +76,7 @@
     let controls: OrbitControls;
     let currentModel: THREE.Object3D | null = $state(null);
     let isInitialized = $state(false);
+    let isModelLoading = $state(false);
     let resizeObserver: ResizeObserver | null = null;
     let pmremGenerator: THREE.PMREMGenerator | null = null;
     let autoRotateResumeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -569,6 +571,7 @@
     });
 
     async function loadModel(file: File) {
+        isModelLoading = true;
         try {
             if (!scene) {
                 console.error("Scene not initialized");
@@ -620,6 +623,8 @@
             }
         } catch (error) {
             console.error('Error loading model:', error);
+        } finally {
+            isModelLoading = false;
         }
     }
 
@@ -1054,11 +1059,12 @@
         </div>
     </div>
 
-    {#if !file}
+    {#if isModelLoading}
         <div
             class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+            aria-hidden="true"
         >
-            <p class="font-mono text-sm text-muted-foreground">loading_model...</p>
+            <Skeleton class="h-full w-full rounded-none border-0 opacity-60" animate={true} />
         </div>
     {/if}
 </div>

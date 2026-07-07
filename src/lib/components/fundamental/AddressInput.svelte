@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { type Address, compareAddress, getValidState } from '$lib/types/product';
 	import { Button } from '$lib/components/ui/button';
+	import { ScInput } from '$lib/components/sc';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Check from '@lucide/svelte/icons/check';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -10,7 +11,7 @@
 
 	interface Props {
 		address: Address;
-		isEditing: boolean;
+		isEditing?: boolean;
 		class?: string;
 		onEdit?: () => boolean;
 		onSave?: (addr: Address, isChanged: boolean) => Promise<boolean> | boolean;
@@ -20,7 +21,7 @@
 
 	let {
 		address,
-		isEditing = $bindable(false),
+		isEditing = false,
 		class: className = '',
 		onEdit = () => true,
 		onSave = async () => true,
@@ -28,7 +29,15 @@
 		onCancel = () => {}
 	}: Props = $props();
 
-	let editableAddress = $state<Address>({});
+	let editableAddress = $state({
+		name: '',
+		line1: '',
+		line2: '',
+		city: '',
+		pincode: '',
+		state: '',
+		phone: ''
+	});
 	let originalAddress = $state<Address>({});
 
 	function getWithoutCountryCode(phone: string | undefined): string {
@@ -38,24 +47,37 @@
 		return phone;
 	}
 
+	function toEditableFields(addr: Address) {
+		return {
+			name: addr.name ?? '',
+			line1: addr.line1 ?? '',
+			line2: addr.line2 ?? '',
+			city: addr.city ?? '',
+			pincode: addr.pincode ?? '',
+			state: addr.state ?? '',
+			phone: addr.phone ? getWithoutCountryCode(addr.phone) : ''
+		};
+	}
+
 	$effect(() => {
 		if (isEditing) {
 			if (address.id !== originalAddress.id || !compareAddress(address, originalAddress)) {
 				originalAddress = { ...address };
-				editableAddress = { ...address };
-				if (editableAddress.phone) {
-					editableAddress.phone = getWithoutCountryCode(editableAddress.phone);
-				}
+				editableAddress = toEditableFields(address);
 			}
 		}
 	});
 
 	function handleEditRequest() {
-		if (onEdit()) isEditing = true;
+		onEdit();
 	}
 
 	async function handleSaveRequest() {
-		let addressToSave = { ...editableAddress };
+		let addressToSave: Address = {
+			...address,
+			...editableAddress,
+			line2: editableAddress.line2 || undefined
+		};
 
 		if (addressToSave.state?.length) {
 			const [validState] = getValidState(addressToSave.state);
@@ -70,15 +92,10 @@
 		}
 
 		const isChanged = !compareAddress(originalAddress, addressToSave);
-		if (await onSave(addressToSave, isChanged)) {
-			isEditing = false;
-		}
+		await onSave(addressToSave, isChanged);
 	}
 
 	const uniqueId = `addr-${address.id || Math.random().toString(36).substring(2, 9)}`;
-
-	const inputClass =
-		'h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10';
 
 	const labelClass = 'font-mono text-xs text-muted-foreground';
 </script>
@@ -107,10 +124,11 @@
 			<div class="min-w-0 flex-1 space-y-3">
 				<div>
 					<label for="{uniqueId}-name" class={labelClass}>name</label>
-					<input
+					<ScInput
 						id="{uniqueId}-name"
 						type="text"
-						class="{inputClass} mt-1"
+						size="sm"
+						wrapperClass="mt-1"
 						placeholder="Full name"
 						bind:value={editableAddress.name}
 					/>
@@ -118,21 +136,25 @@
 
 				<div>
 					<label for="{uniqueId}-line1" class={labelClass}>address</label>
-					<input
+					<ScInput
 						id="{uniqueId}-line1"
 						type="text"
-						class="{inputClass} mt-1"
+						size="sm"
+						wrapperClass="mt-1"
 						placeholder="House no, street, area"
 						bind:value={editableAddress.line1}
 					/>
 				</div>
 
 				<div>
-					<label for="{uniqueId}-line2" class={labelClass}>line 2 <span class="normal-case">(optional)</span></label>
-					<input
+					<label for="{uniqueId}-line2" class={labelClass}>
+						line 2 <span class="normal-case">(optional)</span>
+					</label>
+					<ScInput
 						id="{uniqueId}-line2"
 						type="text"
-						class="{inputClass} mt-1"
+						size="sm"
+						wrapperClass="mt-1"
 						placeholder="Landmark, apt, suite"
 						bind:value={editableAddress.line2}
 					/>
@@ -141,39 +163,51 @@
 				<div class="grid grid-cols-3 gap-2">
 					<div>
 						<label for="{uniqueId}-city" class={labelClass}>city</label>
-						<input id="{uniqueId}-city" type="text" class="{inputClass} mt-1" bind:value={editableAddress.city} />
+						<ScInput
+							id="{uniqueId}-city"
+							type="text"
+							size="sm"
+							wrapperClass="mt-1"
+							bind:value={editableAddress.city}
+						/>
 					</div>
 					<div>
 						<label for="{uniqueId}-pincode" class={labelClass}>pincode</label>
-						<input
+						<ScInput
 							id="{uniqueId}-pincode"
 							type="text"
-							class="{inputClass} mt-1"
+							size="sm"
+							wrapperClass="mt-1"
 							bind:value={editableAddress.pincode}
-							maxlength="6"
+							maxlength={6}
 							inputmode="numeric"
 						/>
 					</div>
 					<div>
 						<label for="{uniqueId}-state" class={labelClass}>state</label>
-						<input id="{uniqueId}-state" type="text" class="{inputClass} mt-1" bind:value={editableAddress.state} />
+						<ScInput
+							id="{uniqueId}-state"
+							type="text"
+							size="sm"
+							wrapperClass="mt-1"
+							bind:value={editableAddress.state}
+						/>
 					</div>
 				</div>
 
 				<div>
 					<label for="{uniqueId}-phone" class={labelClass}>phone</label>
-					<div class="relative mt-1">
-						<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">+91</span>
-						<input
-							id="{uniqueId}-phone"
-							type="tel"
-							class="{inputClass} pl-10"
-							placeholder="10-digit number"
-							bind:value={editableAddress.phone}
-							maxlength="14"
-							inputmode="tel"
-						/>
-					</div>
+					<ScInput
+						id="{uniqueId}-phone"
+						type="tel"
+						size="sm"
+						wrapperClass="mt-1"
+						prefix="+91"
+						placeholder="10-digit number"
+						bind:value={editableAddress.phone}
+						maxlength={14}
+						inputmode="tel"
+					/>
 				</div>
 			</div>
 		{/if}
@@ -192,7 +226,7 @@
 				variant="ghost"
 				size="icon"
 				class="size-8 text-destructive hover:text-destructive"
-				onclick={isEditing ? () => { onCancel(); isEditing = false; } : () => onDelete()}
+				onclick={isEditing ? () => onCancel() : () => onDelete()}
 				aria-label={isEditing ? 'Cancel' : 'Delete'}
 			>
 				{#if isEditing}
@@ -206,7 +240,7 @@
 </div>
 
 <style>
-	input {
+	:global(.min-w-0 input) {
 		min-width: 0;
 	}
 </style>
