@@ -12,7 +12,7 @@
             </div>
             <div class="hidden md:block">
               <div class="ml-10 flex items-center space-x-4">
-                <a href="/" class=":bg-white text-black px-1 py-1 font-bold text-2xl" aria-current="page">Crafts</a>
+                <a href="/" class=":bg-card text-black px-1 py-1 font-bold text-2xl" aria-current="page">Crafts</a>
                 <a href="/about" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-md font-medium">About</a>
                 <a href="/crafting" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-md font-large">Start Crafting</a>
                 <a href="/cart"><img src="{Cart}" alt="cart"/></a>

@@ -7,7 +7,14 @@
     import { STLLoader } from 'three/addons/loaders/STLLoader.js';
     import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
     import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
-    import Icon from '@iconify/svelte';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import ArrowDown from '@lucide/svelte/icons/arrow-down';
+    import ArrowUp from '@lucide/svelte/icons/arrow-up';
+    import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+    import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+    import RotateCw from '@lucide/svelte/icons/rotate-cw';
+    import ZoomIn from '@lucide/svelte/icons/zoom-in';
+    import ZoomOut from '@lucide/svelte/icons/zoom-out';
     import { createEventDispatcher } from 'svelte';
     import { estimateWeight } from '$lib/helper/modelWeightCalculator';
 	import { toastStore } from '$lib/client/toastStore';
@@ -21,6 +28,14 @@
     //     'NYLON': 1.14
     // };
 
+    interface ModelInfo {
+        dimensions: { x: number; y: number; z: number };
+        fileSize: string;
+        vertexCount: number;
+        triangleCount: number;
+        isCalculating: boolean;
+    }
+
     interface Props {
         file?: File | null;
         modelColor?: string; // Default to indigo-400
@@ -30,6 +45,7 @@
         selectedWalls?: number;
         selectedQuality?: string;
         quantity?: number; // Add new quantity parameter
+        modelInfo?: ModelInfo;
         onFailedLoad?: () => void;
     }
 
@@ -42,6 +58,13 @@
         selectedWalls = 4,
         selectedQuality = 'Standard (0.20mm)',
         quantity = 1,
+        modelInfo = $bindable({
+            dimensions: { x: 0, y: 0, z: 0 },
+            fileSize: '0 KB',
+            vertexCount: 0,
+            triangleCount: 0,
+            isCalculating: false
+        }),
         onFailedLoad = () => {}
     }: Props = $props();
     
@@ -52,19 +75,12 @@
     let controls: OrbitControls;
     let currentModel: THREE.Object3D | null = $state(null);
     let isInitialized = $state(false);
+    let resizeObserver: ResizeObserver | null = null;
+    let pmremGenerator: THREE.PMREMGenerator | null = null;
+    let autoRotateResumeTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Add state for model information and loading state
-    let modelInfo = $state({
-        dimensions: { x: 0, y: 0, z: 0 },
-        fileSize: '0 KB',
-        vertexCount: 0,
-        triangleCount: 0,
-        // estimatedWeight: '0g',
-        // totalWeight: '0g',
-        isCalculating: false,
-        // calculationAttempts: 0  // Track calculation attempts
-    });
-    
+    const AUTO_ROTATE_PAUSE_MS = 8000;
+
     // Track the last loaded file to prevent reloading the same file
     let lastLoadedFileId = $state('');
     
@@ -173,9 +189,139 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    // Helper function to format dimensions
-    function formatDimension(value: number): string {
-        return value.toFixed(2) + ' mm';
+    function parsePreviewColor(color: string): THREE.Color {
+        const parsed = new THREE.Color();
+        let normalized = color.trim();
+
+        if (!normalized) {
+            return parsed.set('#525252');
+        }
+
+        if (!normalized.startsWith('#') && /^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(normalized)) {
+            normalized = `#${normalized}`;
+        }
+
+        try {
+            parsed.setStyle(normalized);
+        } catch {
+            parsed.set('#525252');
+        }
+
+        return parsed;
+    }
+
+    function createModelMaterial(color: string): THREE.MeshStandardMaterial {
+        return new THREE.MeshStandardMaterial({
+            color: parsePreviewColor(color),
+            metalness: 0,
+            roughness: 0.82,
+            envMapIntensity: 0.35,
+            flatShading: false
+        });
+    }
+
+    function isOutlineMesh(mesh: THREE.Mesh): boolean {
+        return mesh.name === 'model-outline';
+    }
+
+    function prepareSurfaceMesh(mesh: THREE.Mesh, color: string = modelColor) {
+        mesh.material = createModelMaterial(color);
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.renderOrder = 1;
+    }
+
+    function addBlackOutline(mesh: THREE.Mesh) {
+        const outline = new THREE.Mesh(
+            mesh.geometry,
+            new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                side: THREE.BackSide
+            })
+        );
+        outline.name = 'model-outline';
+        outline.scale.setScalar(1.008);
+        outline.renderOrder = 0;
+        mesh.add(outline);
+    }
+
+    function wrapWithOutline(surfaceMesh: THREE.Mesh): THREE.Group {
+        const group = new THREE.Group();
+        addBlackOutline(surfaceMesh);
+        group.add(surfaceMesh);
+        return group;
+    }
+
+    function disposeModelObject(object: THREE.Object3D) {
+        object.traverse((node) => {
+            if (node instanceof THREE.Mesh) {
+                if (node.geometry && !isOutlineMesh(node)) {
+                    node.geometry.dispose();
+                }
+                if (node.material) {
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach((material) => material.dispose());
+                    } else {
+                        node.material.dispose();
+                    }
+                }
+            }
+        });
+    }
+
+    function pauseAutoRotate() {
+        if (!controls) return;
+        controls.autoRotate = false;
+        if (autoRotateResumeTimer) {
+            clearTimeout(autoRotateResumeTimer);
+            autoRotateResumeTimer = null;
+        }
+    }
+
+    function scheduleAutoRotateResume() {
+        if (!controls) return;
+        if (autoRotateResumeTimer) {
+            clearTimeout(autoRotateResumeTimer);
+        }
+        autoRotateResumeTimer = setTimeout(() => {
+            if (controls) {
+                controls.autoRotate = true;
+            }
+            autoRotateResumeTimer = null;
+        }, AUTO_ROTATE_PAUSE_MS);
+    }
+
+    function handleControlsStart() {
+        pauseAutoRotate();
+        renderer?.domElement.classList.remove('cursor-grab');
+        renderer?.domElement.classList.add('cursor-grabbing');
+    }
+
+    function handleControlsEnd() {
+        scheduleAutoRotateResume();
+        renderer?.domElement.classList.remove('cursor-grabbing');
+        renderer?.domElement.classList.add('cursor-grab');
+    }
+
+    function setupSceneLighting(targetScene: THREE.Scene) {
+        const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+        targetScene.add(ambient);
+
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x999999, 0.65);
+        hemi.position.set(0, 1, 0);
+        targetScene.add(hemi);
+
+        for (const [x, y, z, intensity] of [
+            [6, 8, 10, 0.45],
+            [-8, 5, 6, 0.35],
+            [0, -4, 10, 0.3],
+            [10, 2, -6, 0.25],
+            [-6, 10, -4, 0.25]
+        ] as const) {
+            const light = new THREE.DirectionalLight(0xffffff, intensity);
+            light.position.set(x, y, z);
+            targetScene.add(light);
+        }
     }
 
     // Calculate weight using current parameters
@@ -355,21 +501,14 @@
         if (!currentModel) return;
         
         currentModel.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-                if (child.material) {
-                    if (child.material instanceof THREE.MeshPhongMaterial) {
-                        child.material.color.setStyle(color);
-                        child.material.specular = new THREE.Color(0xffffff);
-                        child.material.shininess = 30;
-                    } else {
-                        // If not a MeshPhongMaterial, replace it with one
-                        child.material = new THREE.MeshPhongMaterial({
-                            color: color,
-                            specular: 0xffffff,
-                            shininess: 30,
-                            flatShading: false
-                        });
-                    }
+            if (child instanceof THREE.Mesh && !isOutlineMesh(child)) {
+                if (child.material instanceof THREE.MeshStandardMaterial) {
+                    child.material.color.copy(parsePreviewColor(color));
+                    child.material.metalness = 0;
+                    child.material.roughness = 0.82;
+                    child.material.envMapIntensity = 0.35;
+                } else {
+                    child.material = createModelMaterial(color);
                 }
             }
         });
@@ -412,84 +551,21 @@
         }
     }
 
-    onMount(async () => {
+    onMount(() => {
         if (!container) return;
-        
-        // Setup Three.js scene with a darker background that matches the page
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x080810); // Much darker background to match page
-        
-        camera = new THREE.PerspectiveCamera(75, container.offsetWidth / container.offsetHeight, 0.1, 2000);
-        camera.position.z = 5;
 
-        // Setup renderer with better antialiasing
-        renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            alpha: true 
+        initScene();
+
+        resizeObserver = new ResizeObserver(() => {
+            if (!isInitialized) {
+                initScene();
+            } else {
+                handleResize();
+            }
         });
-        renderer.setSize(container.offsetWidth, container.offsetHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        container.appendChild(renderer.domElement);
+        resizeObserver.observe(container);
 
-        // Enhanced lighting setup for darker background
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1); // Reduced ambient light
-        scene.add(ambientLight);
-        
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Increased main light
-        directionalLight.position.set(10, 10, 15);
-        directionalLight.castShadow = true;
-        scene.add(directionalLight);
-
-        const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.0); // Increased main light
-        directionalLight2.position.set(-10, -10, -15);
-        directionalLight2.castShadow = true;
-        scene.add(directionalLight2);
-
-        const directionalLight3 = new THREE.DirectionalLight(0xffffff, 1.0); // Increased main light
-        directionalLight3.position.set(0, 10, 0);
-        directionalLight3.castShadow = true;
-        scene.add(directionalLight3);
-
-        const directionalLight4 = new THREE.DirectionalLight(0xffffff, 1.0); // Increased main light
-        directionalLight4.position.set(0, -10, 0);
-        directionalLight4.castShadow = true;
-        scene.add(directionalLight4);
-
-        // Add rim light for better edge definition
-        // const rimLight = new THREE.DirectionalLight(0x6366f1, 0.4); // Indigo rim light
-        // rimLight.position.set(-5, 5, -5);
-        // scene.add(rimLight);
-        
-
-        // Add subtle point lights for better detail
-        const pointLight1 = new THREE.PointLight(0x6366f1, 0.3); // Indigo point light
-        pointLight1.position.set(2, 2, 2);
-        scene.add(pointLight1);
-
-        const pointLight2 = new THREE.PointLight(0x4f46e5, 0.3); // Darker indigo point light
-        pointLight2.position.set(-2, -2, 2);
-        scene.add(pointLight2);
-
-        // Add controls with improved zoom range and damping
-        controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 0.1;
-        controls.maxDistance = 1000;
-        controls.enablePan = true;
-        controls.screenSpacePanning = true;
-        controls.autoRotate = true;
-        controls.autoRotateSpeed = 1.0;
-
-        // Handle window resize
         window.addEventListener('resize', handleResize);
-
-        isInitialized = true;
-        
-        // Start animation only when everything is ready
-        startAnimation();
     });
 
     async function loadModel(file: File) {
@@ -502,18 +578,7 @@
             // Clean up previous model resources
             if (currentModel) {
                 scene.remove(currentModel);
-                currentModel.traverse((node) => {
-                    if (node instanceof THREE.Mesh) {
-                        if (node.geometry) node.geometry.dispose();
-                        if (node.material) {
-                            if (Array.isArray(node.material)) {
-                                node.material.forEach(material => material.dispose());
-                            } else {
-                                node.material.dispose();
-                            }
-                        }
-                    }
-                });
+                disposeModelObject(currentModel);
                 currentModel = null;
             }
 
@@ -632,15 +697,8 @@
         try {
             const loader = new STLLoader(loadingManager);
             const geometry = await loader.loadAsync(url);
-            const material = new THREE.MeshPhongMaterial({ 
-                color: modelColor,
-                specular: 0xffffff,
-                shininess: 30,
-                flatShading: false
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+            const mesh = new THREE.Mesh(geometry, createModelMaterial(modelColor));
+            prepareSurfaceMesh(mesh);
             
             geometry.center();
             
@@ -657,21 +715,20 @@
             modelInfo.triangleCount = geometry.attributes.position.count / 3;
             
             const maxDim = Math.max(size.x, size.y, size.z);
-            
+            const model = wrapWithOutline(mesh);
+            let scaleFactor = 1;
+
             if (maxDim > 1000) {
-                const scale = 100 / maxDim;
-                mesh.scale.set(scale, scale, scale);
-                // Adjust stored dimensions for the automatic scaling
-                modelInfo.dimensions.x *= scale;
-                modelInfo.dimensions.y *= scale;
-                modelInfo.dimensions.z *= scale;
+                scaleFactor = 100 / maxDim;
+                modelInfo.dimensions.x *= scaleFactor;
+                modelInfo.dimensions.y *= scaleFactor;
+                modelInfo.dimensions.z *= scaleFactor;
             }
+
+            model.scale.setScalar(scaleFactor * selectedScale);
             
-            // Apply user-selected scale
-            mesh.scale.multiplyScalar(selectedScale);
-            
-            if (scene) scene.add(mesh);
-            currentModel = mesh;
+            if (scene) scene.add(model);
+            currentModel = model;
             
             if (camera && controls) {
                 const scaledMaxDim = maxDim > 1000 ? 100 : maxDim;
@@ -712,15 +769,9 @@
             }
             
             object.traverse(child => {
-                if (child instanceof THREE.Mesh) {
-                    child.material = new THREE.MeshPhongMaterial({ 
-                        color: modelColor,
-                        specular: 0xffffff,
-                        shininess: 30,
-                        flatShading: false
-                    });
-                    child.castShadow = true;
-                    child.receiveShadow = true;
+                if (child instanceof THREE.Mesh && !isOutlineMesh(child)) {
+                    prepareSurfaceMesh(child);
+                    addBlackOutline(child);
                     
                     // Update triangle count if possible
                     if (child.geometry) {
@@ -771,15 +822,9 @@
             // Count triangles and set materials
             let triangleCount = 0;
             object.traverse(child => {
-                if (child instanceof THREE.Mesh) {
-                    child.material = new THREE.MeshPhongMaterial({ 
-                        color: modelColor,
-                        specular: 0xffffff,
-                        shininess: 30,
-                        flatShading: false
-                    });
-                    child.castShadow = true;
-                    child.receiveShadow = true;
+                if (child instanceof THREE.Mesh && !isOutlineMesh(child)) {
+                    prepareSurfaceMesh(child);
+                    addBlackOutline(child);
                     
                     // Update triangle count if possible
                     if (child.geometry) {
@@ -805,10 +850,71 @@
 
     function handleResize() {
         if (!camera || !renderer || !container) return;
-        
-        camera.aspect = container.offsetWidth / container.offsetHeight;
+
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (width <= 0 || height <= 0) return;
+
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(container.offsetWidth, container.offsetHeight);
+        renderer.setSize(width, height);
+    }
+
+    function getSceneBackgroundColor(el: HTMLElement): THREE.Color {
+        const bg = getComputedStyle(el).backgroundColor;
+        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+            return new THREE.Color(bg);
+        }
+
+        const hsl = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+        return new THREE.Color(hsl ? `hsl(${hsl})` : '#000000');
+    }
+
+    function initScene() {
+        if (!container || isInitialized) return;
+
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (width <= 0 || height <= 0) return;
+
+        scene = new THREE.Scene();
+        scene.background = getSceneBackgroundColor(container);
+
+        camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 2000);
+        camera.position.z = 5;
+
+        renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: false
+        });
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.NoToneMapping;
+        renderer.shadowMap.enabled = false;
+        renderer.domElement.classList.add('absolute', 'inset-0', 'size-full', 'touch-none', 'cursor-grab');
+        container.appendChild(renderer.domElement);
+
+        pmremGenerator = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+        scene.environmentIntensity = 0.55;
+
+        setupSceneLighting(scene);
+
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 0.1;
+        controls.maxDistance = 1000;
+        controls.enablePan = true;
+        controls.screenSpacePanning = true;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.0;
+        controls.addEventListener('start', handleControlsStart);
+        controls.addEventListener('end', handleControlsEnd);
+
+        isInitialized = true;
+        startAnimation();
     }
 
     // Control functions
@@ -874,8 +980,12 @@
     onDestroy(() => {
         // Stop animation
         stopAnimation();
-        
+
+        resizeObserver?.disconnect();
         window.removeEventListener('resize', handleResize);
+
+        pmremGenerator?.dispose();
+        scene?.environment?.dispose?.();
         
         if (renderer) {
             renderer.dispose();
@@ -885,154 +995,78 @@
         }
         
         if (controls) {
+            controls.removeEventListener('start', handleControlsStart);
+            controls.removeEventListener('end', handleControlsEnd);
             controls.dispose();
+        }
+
+        if (autoRotateResumeTimer) {
+            clearTimeout(autoRotateResumeTimer);
+            autoRotateResumeTimer = null;
         }
         
         // Clean up any other resources
         if (currentModel) {
-            currentModel.traverse((node) => {
-                if (node instanceof THREE.Mesh) {
-                    if (node.geometry) node.geometry.dispose();
-                    if (node.material) {
-                        if (Array.isArray(node.material)) {
-                            node.material.forEach(material => material.dispose());
-                        } else {
-                            node.material.dispose();
-                        }
-                    }
-                }
-            });
+            disposeModelObject(currentModel);
         }
         
         // Remove references to prevent memory leaks, don't set to null to avoid type errors
         isInitialized = false;
     });
+
+    const controlButtonClass =
+        'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground active:bg-muted/60';
+
+    const viewerControls = [
+        { label: 'Zoom out', icon: ZoomOut, action: zoomOut },
+        { label: 'Zoom in', icon: ZoomIn, action: zoomIn },
+        { label: 'Rotate left', icon: RotateCcw, action: rotateLeft },
+        { label: 'Rotate right', icon: RotateCw, action: rotateRight },
+        { label: 'Rotate up', icon: ArrowUp, action: rotateUp },
+        { label: 'Rotate down', icon: ArrowDown, action: rotateDown },
+        { label: 'Reset view', icon: RefreshCw, action: resetView }
+    ] as const;
 </script>
 
-<div class="w-full h-full relative" bind:this={container}>
-    <!-- Control buttons in horizontal bar -->
-    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex flex-row backdrop-blur-xs gap-2 bg-black/50 rounded-full p-1.5">
-        <button 
-            onclick={zoomOut} 
-            title="Zoom Out"
-            class=" border-none text-white p-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center w-9 h-9 hover:bg-white/20 hover:scale-105 active:scale-95"
+<div class="absolute inset-0 overflow-hidden bg-background">
+    <div class="absolute inset-0 z-0" bind:this={container}></div>
+
+    <div class="pointer-events-none absolute inset-0 z-10">
+        <div
+            class="pointer-events-auto absolute bottom-3 left-1/2 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-card/90 p-1 backdrop-blur-sm"
+            role="toolbar"
+            aria-label="Model viewer controls"
         >
-            <Icon icon="material-symbols:zoom-out" />
-        </button>
-        
-        <button 
-            onclick={zoomIn} 
-            title="Zoom In"
-            class="border-none text-white p-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center w-9 h-9 hover:bg-white/20 hover:scale-105 active:scale-95"
-        >
-            <Icon icon="material-symbols:zoom-in" />
-        </button>
-        
-        <button 
-            onclick={rotateLeft} 
-            title="Rotate Left"
-            class="border-none text-white p-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center w-9 h-9 hover:bg-white/20 hover:scale-105 active:scale-95"
-        >
-            <Icon icon="material-symbols:rotate-left" />
-        </button>
-        
-        <button 
-            onclick={rotateRight} 
-            title="Rotate Right"
-            class="border-none text-white p-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center w-9 h-9 hover:bg-white/20 hover:scale-105 active:scale-95"
-        >
-            <Icon icon="material-symbols:rotate-right" />
-        </button>
-        
-        <button 
-            onclick={rotateUp} 
-            title="Rotate Up"
-            class="border-none text-white p-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center w-9 h-9 hover:bg-white/20 hover:scale-105 active:scale-95"
-        >
-            <Icon icon="material-symbols:arrow-upward" />
-        </button>
-        
-        <button 
-            onclick={rotateDown} 
-            title="Rotate Down"
-            class="border-none text-white p-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center w-9 h-9 hover:bg-white/20 hover:scale-105 active:scale-95"
-        >
-            <Icon icon="material-symbols:arrow-downward" />
-        </button>
-        
-        <button 
-            onclick={resetView} 
-            title="Reset View"
-            class="border-none text-white p-2 rounded cursor-pointer transition-all duration-200 flex items-center justify-center w-9 h-9 hover:bg-white/20 hover:scale-105 active:scale-95"
-        >
-            <Icon icon="material-symbols:restart-alt" />
-        </button>
-    </div>
-    
-    <!-- Model Information Panel -->
-    {#if file}
-        <div class="model-info-panel absolute top-2 right-2 z-10 bg-black/60 backdrop-blur-md rounded-lg p-3 text-xs text-white/90">
-            <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
-                <span class="text-indigo-300/80">Size:</span>
-                <span class="font-medium">{modelInfo.fileSize}</span>
-                
-                <span class="text-indigo-300/80">Dimensions:</span>
-                <span class="font-medium">
-                    {formatDimension(modelInfo.dimensions.x * selectedScale)} × 
-                    {formatDimension(modelInfo.dimensions.y * selectedScale)} × 
-                    {formatDimension(modelInfo.dimensions.z * selectedScale)}
-                </span>
-                
-                <!-- <span class="text-indigo-300/80">Est. Weight:</span>
-                <div class="font-medium">
-                    {#if modelInfo.isCalculating}
-                        <div class="flex items-center">
-                            <span class="text-indigo-200 animate-pulse">Calculating...</span>
-                            <button 
-                                onclick={() => { 
-                                    modelInfo.isCalculating = false;
-                                    // Provide fallback value if needed
-                                    if (modelInfo.estimatedWeight === '0g') {
-                                        const quickEstimate = calculateQuickEstimate();
-                                        modelInfo.estimatedWeight = formatWeight(Math.max(quickEstimate, 3));
-                                        modelInfo.totalWeight = formatWeight(Math.max(quickEstimate, 3) * quantity);
-                                    }
-                                }}
-                                class="ml-2 text-indigo-400 hover:text-indigo-300 transition-colors p-1 rounded hover:bg-white/10"
-                                title="Reset calculation"
-                            >
-                                <Icon icon="material-symbols:refresh" class="w-3 h-3" />
-                            </button>
-                        </div>
-                    {:else}
-                        <span>{modelInfo.estimatedWeight}</span>
-                        {#if quantity > 1}
-                            <div class="text-indigo-300/80 flex items-center gap-1 mt-1">
-                                <span class="text-[10px]">Total:</span>
-                                <span class="text-white text-[11px] font-medium">{modelInfo.totalWeight}</span>
-                                <span class="text-indigo-200/80 text-[10px] ml-1">({quantity}x)</span>
-                            </div>
-                        {/if}
-                        <span class="text-indigo-300/60 text-[10px] block">
-                            ({selectedMaterial}, {selectedInfill}% infill, {selectedWalls} walls)
-                        </span>
-                    {/if}
-                </div> -->
-            </div>
+            {#each viewerControls as control, index (control.label)}
+                {#if index === 2 || index === 4 || index === 6}
+                    <span class="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true"></span>
+                {/if}
+                <button
+                    type="button"
+                    onclick={control.action}
+                    title={control.label}
+                    aria-label={control.label}
+                    class={controlButtonClass}
+                >
+                    <control.icon class="size-3.5" strokeWidth={1.5} />
+                </button>
+            {/each}
         </div>
-    {/if}
-    
+    </div>
+
     {#if !file}
-        <div class="absolute inset-0 flex items-center justify-center bg-black/70">
-            <div class="text-white text-lg">Loading model...</div>
+        <div
+            class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+        >
+            <p class="font-mono text-sm text-muted-foreground">loading_model...</p>
         </div>
     {/if}
 </div>
 
 <style>
-    /* Only keep canvas styling as it's required for Three.js */
     canvas {
-        width: 100%;
-        height: 100%;
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
     }
 </style>

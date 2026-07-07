@@ -126,7 +126,7 @@
 	onmouseleave={handleMouseLeave}
 >
 	<div 
-		class="group relative flex items-center py-3 px-4 bg-white/5 hover:bg-white/10 border border-[#252525] rounded-xl transition-all duration-300"
+		class="group relative flex items-center py-3 px-4 bg-card/5 hover:bg-card/10 border border-[#252525] rounded-xl transition-all duration-300"
 		style="--mouse-x: {mouseX}px; --mouse-y: {mouseY}px;"
 	>
 		{#if icon && iconPosition === 'left'}

@@ -64,7 +64,7 @@
 					</div>
 					<button
 						onclick={handleCancel}
-						class="p-1 text-gray-400 hover:text-gray-200 hover:bg-white/10 rounded-full"
+						class="p-1 text-gray-400 hover:text-gray-200 hover:bg-card/10 rounded-full"
 						aria-label="Close dialog"
 					>
 						<Icon icon="ph:x-bold" class="text-lg" />
@@ -75,7 +75,7 @@
 			<div class="bg-[#222] px-6 py-4 flex justify-end gap-3 rounded-b-xl border-t border-[#333]">
 				<button
 					onclick={handleCancel}
-					class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-white/5 hover:bg-white/10 transition-colors"
+					class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors"
 				>
 					{cancelText}
 				</button>

@@ -1,7 +1,4 @@
 import { goto } from "$app/navigation";
-import { Turtle } from "lucide-svelte";
-
-
 const localStorageKey = "postLoginURL";
 
 export function gotoPostLogin(fallback: string, remove: boolean = true){

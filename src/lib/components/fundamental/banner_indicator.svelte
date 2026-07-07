@@ -20,7 +20,7 @@
 	let {
 		curActive = $bindable(),
 		max,
-		colorPrimary = 'bg-white',
+		colorPrimary = 'bg-card',
 		colorSecondary = 'bg-scpurple',
 		hoverAccent = 'hover:bg-scpurplel1',
 		styleActive = $bindable(''),

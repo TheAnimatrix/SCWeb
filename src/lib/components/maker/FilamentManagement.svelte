@@ -349,7 +349,7 @@
 	</div>
 	<div class="mt-4 text-right">
 		<button
-			class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/20"
+			class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 px-4 py-2 bg-card/5 hover:bg-card/10 text-white/80 hover:text-white border border-white/20"
 			onclick={openAddModal}>
 			<Icon icon="ph:plus-bold" class="mr-1.5 h-4 w-4" /> Add Filament
 		</button>
