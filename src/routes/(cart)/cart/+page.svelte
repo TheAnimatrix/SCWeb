@@ -14,14 +14,12 @@
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { ScButton, StockBar, Skeleton, PlaceholderImage } from '$lib/components/sc';
-	import { setLoading } from '$lib/client/loading.js';
 	import { changeCart, type Cart, type CartG } from '$lib/client/cart';
 	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
 	import { toastStore } from '$lib/client/toastStore';
 	import { cn } from '$lib/utils';
 
 	const cart_store = getContext<Writable<CartG>>('userCartStatus');
-	const load_store = getContext<Writable<boolean>>('loading');
 
 	let {
 		data
@@ -85,7 +83,6 @@
 	async function updateCartQuantity(index: number, quantity: number, stock: number) {
 		if (isUpdatingCart) return;
 		isUpdatingCart = true;
-		setLoading(load_store, true);
 
 		if (!isNaN(quantity) && isStockAvailable(stock, quantity)) {
 			if (!cartDetails?.list) return;
@@ -110,7 +107,6 @@
 			} catch (err) {
 				console.error('Error updating cart:', err);
 			} finally {
-				setLoading(load_store, false);
 				isUpdatingCart = false;
 			}
 		} else {
@@ -118,7 +114,6 @@
 			if (cartDetails?.list) {
 				quantityList[index] = cartDetails.list[index].qty.toString();
 			}
-			setLoading(load_store, false);
 			isUpdatingCart = false;
 		}
 	}
@@ -152,7 +147,6 @@
 		if (!cartDetails?.list) return;
 		const product = { ...cartDetails.list[i] };
 		product.qty = 0;
-		setLoading(load_store, true);
 
 		try {
 			const success = await changeCart(
@@ -171,7 +165,6 @@
 		} catch (err) {
 			console.error('Error removing item:', err);
 		} finally {
-			setLoading(load_store, false);
 			isUpdatingCart = false;
 		}
 	}

@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { type CartG, initCartG, getActiveCart } from '$lib/client/cart';
 	import './styles.css';
-	import { navigating } from '$app/state';
 	import { page } from '$app/state';
 	import { goto, invalidate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import '../app.css';
 	import { writable, type Writable } from 'svelte/store';
 	import { onMount, setContext, getContext } from 'svelte';
-	import Loader from '$lib/components/fundamental/Loader.svelte';
 	import Toast from '$lib/components/common/Toast.svelte';
 	import { removePostLoginURL } from '$lib/client/postLogin';
 	import { initTheme } from '$lib/client/theme';
@@ -40,14 +38,11 @@
 		return { displayName, avatarUrl };
 	});
 
-	setContext('loading', writable(false));
 	setContext('userCartStatus', initCartG());
-	const load_store = getContext<Writable<boolean>>('loading');
 	const cart_store = getContext<Writable<CartG>>('userCartStatus');
 
 	const currentPath = $derived(page.url.pathname);
 	const cartCount = $derived($cart_store.itemCount);
-	const isLoading = $derived(!!navigating.to || $load_store);
 
 	onMount(() => {
 		initTheme();
@@ -91,15 +86,6 @@
 </script>
 
 <div class="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-background text-foreground">
-	{#if isLoading}
-		<div
-			class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm"
-		>
-			<Loader />
-			<p class="mt-4 font-mono text-sm text-muted-foreground">loading...</p>
-		</div>
-	{/if}
-
 	<SystemStatusBar />
 
 	<div class="sticky top-0 z-40">
