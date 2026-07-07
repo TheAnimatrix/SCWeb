@@ -1,17 +1,25 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
-	import Icon from '@iconify/svelte';
 	import { type Writable } from 'svelte/store';
-	import { fade, fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import type { Session, SupabaseClient } from '@supabase/supabase-js';
+	import Minus from '@lucide/svelte/icons/minus';
+	import Plus from '@lucide/svelte/icons/plus';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import ShoppingCart from '@lucide/svelte/icons/shopping-cart';
+	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
+	import Receipt from '@lucide/svelte/icons/receipt';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import Lock from '@lucide/svelte/icons/lock';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
+	import { Breadcrumbs } from '$lib/components/shell';
+	import { ScButton, StockBar, Skeleton, PlaceholderImage } from '$lib/components/sc';
 	import { setLoading } from '$lib/client/loading.js';
 	import { changeCart, type Cart, type CartG } from '$lib/client/cart';
 	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
-	import type { Session, SupabaseClient } from '@supabase/supabase-js';
 	import { toastStore } from '$lib/client/toastStore';
+	import { cn } from '$lib/utils';
 
-	// --- Contexts ---
 	const cart_store = getContext<Writable<CartG>>('userCartStatus');
 	const load_store = getContext<Writable<boolean>>('loading');
 
@@ -26,13 +34,15 @@
 		};
 	} = $props();
 
-	// --- State ---
 	let cartDetails: Cart | undefined = $state(data.cart.data);
 	let isUpdatingCart = $state(false);
 	let highlightedRow: number | null = $state(null);
 	let quantityList = $state(data.cart.data?.list?.map((item) => item.qty.toString()) ?? []);
 	let cartSubtotal = $state(calculateCartSubtotal(data.cart.data?.list ?? []));
 	let productDetailsCache: Record<string, any> = {};
+
+	const cartItems = $derived(cartDetails?.list ?? []);
+	const hasItems = $derived(cartItems.length > 0);
 
 	$effect(() => {
 		if (data.cart.data) {
@@ -42,19 +52,20 @@
 		}
 	});
 
-	// --- Product details cache ---
+	function productHref(name: string, id: string): string {
+		return `/${name.replaceAll(' ', '_')}/craft/item=${id}`;
+	}
+
 	async function getItemDetails(itemId: string) {
 		if (productDetailsCache[itemId]) return productDetailsCache[itemId];
 		const result = await data.supabase_lt.from('products').select('*').eq('id', itemId);
 		if (result.data && result.data[0]) {
 			productDetailsCache[itemId] = result.data[0];
 			return result.data[0];
-		} else {
-			return null;
 		}
+		return null;
 	}
 
-	// // --- Cart calculations ---
 	function calculateCartSubtotal(list: { price: number; qty: number }[]) {
 		let total = 0;
 		list.forEach((item) => {
@@ -62,9 +73,11 @@
 		});
 		return total;
 	}
+
 	function calculateTotalPrice(itemPrice: number, itemQuantity: number) {
 		return itemPrice * itemQuantity;
 	}
+
 	function isStockAvailable(stockCount: number, itemQuantity: number) {
 		return itemQuantity <= stockCount;
 	}
@@ -73,11 +86,12 @@
 		if (isUpdatingCart) return;
 		isUpdatingCart = true;
 		setLoading(load_store, true);
+
 		if (!isNaN(quantity) && isStockAvailable(stock, quantity)) {
 			if (!cartDetails?.list) return;
 			const product = { ...cartDetails.list[index] };
 			product.qty = quantity;
-			setLoading(load_store, true);
+
 			try {
 				const success = await changeCart(
 					data.supabase_lt,
@@ -100,7 +114,7 @@
 				isUpdatingCart = false;
 			}
 		} else {
-			toastStore.show('Sorry! we only have ' + stock + ' units at the moment.', 'error');
+			toastStore.show(`Sorry! we only have ${stock} units at the moment.`, 'error');
 			if (cartDetails?.list) {
 				quantityList[index] = cartDetails.list[index].qty.toString();
 			}
@@ -109,13 +123,13 @@
 		}
 	}
 
-	// --- Cart actions ---
 	async function updateQuantity(event: Event, i: number, result: any) {
 		const inputQuantity = parseInt(quantityList[i]);
 		await updateCartQuantity(i, inputQuantity, result.stock.count);
 	}
 
-	let debounceIncrementDecrement: Map<number, NodeJS.Timeout> = new Map();
+	const debounceIncrementDecrement: Map<number, NodeJS.Timeout> = new Map();
+
 	async function incrementDecrementQuantity(isIncrement: boolean, i: number, result: any) {
 		if (!cartDetails?.list) return;
 		let quantity = +(quantityList[i] ?? 0);
@@ -139,6 +153,7 @@
 		const product = { ...cartDetails.list[i] };
 		product.qty = 0;
 		setLoading(load_store, true);
+
 		try {
 			const success = await changeCart(
 				data.supabase_lt,
@@ -161,7 +176,6 @@
 		}
 	}
 
-	// --- Visual feedback ---
 	function highlightRow(index: number) {
 		highlightedRow = index;
 		setTimeout(() => {
@@ -169,16 +183,7 @@
 		}, 1000);
 	}
 
-	//verify stock and redirect to checkout
 	async function checkOut() {
-		//refetch cart details
-		// const cartDetails = await getCartDetails(data.supabase_lt, data.clientId);
-		// for(let i = 0; i < cartDetails.list.length; i++) {
-		//   if(!isStockAvailable(cartDetails.list[i].stock.count, cartDetails.list[i].qty)) {
-		//     toastStore.show('Sorry! we only have ' + cartDetails.list[i].stock.count + ' units at the moment.', 'error');
-		//     return;
-		//   }
-		// }
 		if (cartDetails?.list) {
 			for (let i = 0; i < cartDetails.list.length; i++) {
 				if (
@@ -187,142 +192,135 @@
 						cartDetails.list[i].qty
 					)
 				) {
+					const cached = productDetailsCache[cartDetails.list[i].product_id];
 					toastStore.show(
-						`Sorry! we only have ${productDetailsCache[cartDetails.list[i].product_id].stock.count} unit${productDetailsCache[cartDetails.list[i].product_id].stock.count > 1 ? 's' : ''} of ${productDetailsCache[cartDetails.list[i].product_id].name} at the moment.`,
+						`Sorry! we only have ${cached.stock.count} unit${cached.stock.count > 1 ? 's' : ''} of ${cached.name} at the moment.`,
 						'error'
 					);
 					return;
 				}
 			}
-		}else{
-      return;
-    }
-    goto('/checkout');
+		} else {
+			return;
+		}
+		goto('/checkout');
 	}
 </script>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white">
-	<div class="container mx-auto px-4 py-12">
-		<!-- Page Header -->
-		<div class="text-center mb-10" in:fly={{ y: -20, duration: 600, delay: 200, easing: cubicOut }}>
-			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
-				<span class="text-accent text-sm uppercase tracking-wider font-medium">Shopping Cart</span>
-			</div>
-			<div class="text-4xl font-bold mb-2">Your Items</div>
-			<p class="text-gray-400">Review your cart before checking out</p>
+<div class="min-h-screen bg-background text-foreground">
+	<div class="mx-auto max-w-7xl px-4 py-8 md:py-12">
+		<Breadcrumbs
+			items={[
+				{ label: 'home', href: '/' },
+				{ label: 'cart' }
+			]}
+		/>
+
+		<div class="mt-6 flex flex-col gap-2 border-b border-border pb-6">
+			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Your cart</h1>
+			<p class="text-sm text-muted-foreground">
+				{#if hasItems}
+					Review your items before checkout.
+				{:else}
+					Your cart is empty — browse crafts to get started.
+				{/if}
+			</p>
 		</div>
 
-		<!-- Main Content -->
-		<div
-			class="flex flex-col lg:flex-row gap-8 mb-16"
-			in:fly={{ y: 20, duration: 400, delay: 300, easing: cubicOut }}>
-			<!-- Cart Items -->
-			<div class="lg:w-2/3 space-y-6 flex-1">
-				{#if !cartDetails || (cartDetails.list ?? []).length === 0}
-					<div class="flex items-center justify-center w-full">
-						<div
-							class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl p-10 border border-[#252525] transition-all duration-300 hover:shadow-glow flex flex-col items-center justify-center text-center min-h-[400px] w-full max-w-2xl mx-auto"
-							in:fade={{ duration: 200 }}>
-							<div class="relative">
-								<div class="absolute -inset-4 rounded-full bg-accent/5 blur-xl"></div>
-								<Icon icon="ph:shopping-cart" class="text-accent text-6xl mb-6 opacity-70" />
-							</div>
-							<div class="text-3xl font-bold mb-3">Your cart is empty</div>
-							<p class="text-gray-400 mb-8 max-w-md">
-								Looks like you haven't added any items yet. Explore our products and find something
-								you like!
-							</p>
-							<button
-								class="flex items-center justify-center gap-2 bg-accent/10 text-accent px-8 py-4 rounded-xl font-medium hover:bg-accent/20 transition-all duration-300 hover:scale-105 transform"
-								onclick={() => goto('/')}>
-								<Icon icon="ph:shopping-bag-bold" class="text-xl" />
-								Browse Crafts
-							</button>
+		<div class="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
+			<div class="flex-1 space-y-4">
+				{#if !hasItems}
+					<div
+						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-20 text-center"
+					>
+						<div class="mb-4 rounded-full bg-muted p-4">
+							<ShoppingCart class="size-8 text-muted-foreground" aria-hidden="true" />
+						</div>
+						<h2 class="text-lg font-medium text-foreground">Nothing here yet</h2>
+						<p class="mt-2 max-w-sm text-sm text-muted-foreground">
+							Explore crafts from independent makers and add something you like.
+						</p>
+						<div class="mt-6">
+							<ScButton href="/crafts" arrow>
+								<ShoppingBag class="mr-2 inline size-4" aria-hidden="true" />
+								Browse crafts
+							</ScButton>
 						</div>
 					</div>
 				{:else}
-					{#each cartDetails.list ?? [] as productItem, i (productItem.product_id)}
+					{#each cartItems as productItem, i (productItem.product_id)}
 						{#await getItemDetails(productItem.product_id)}
 							<div
-								class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl p-4 border border-[#252525] animate-pulse">
-								<div class="flex items-center space-x-4">
-									<div class="w-20 h-20 bg-[#252525] rounded-xl"></div>
-									<div class="flex-1">
-										<div class="h-5 bg-[#252525] rounded w-1/2 mb-2"></div>
-										<div class="h-4 bg-[#252525] rounded w-1/4"></div>
+								class="overflow-hidden rounded-lg border border-border bg-card"
+								aria-hidden="true"
+							>
+								<div class="flex flex-col sm:flex-row">
+									<Skeleton class="aspect-[4/3] sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px] rounded-none border-0" />
+									<div class="flex flex-1 flex-col gap-3 p-5">
+										<Skeleton class="h-5 w-2/3 rounded-sm" />
+										<Skeleton class="h-4 w-1/3 rounded-sm" />
+										<Skeleton class="mt-auto h-8 w-32 rounded-sm" />
 									</div>
 								</div>
 							</div>
 						{:then result}
-							<div
-								class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] overflow-hidden transition-all duration-300 hover:shadow-glow group {isStockAvailable(
-									result.stock.count,
-									productItem.qty
-								)
-									? 'cursor-pointer'
-									: 'filter grayscale'}"
-								class:highlight-animation={highlightedRow === i}
-								in:fade={{ duration: 200 }}
-								style="isolation: isolate;">
-								<div class="flex flex-col md:flex-row">
-									<!-- Product Image - No black borders -->
-									<div
-										class="relative md:w-1/4 lg:w-1/3 bg-[#151515] flex items-center justify-center overflow-hidden">
-										<img
-											src={result.images[0].url}
-											class="object-cover w-full h-full max-h-[200px] transition-transform duration-300 group-hover:scale-110"
+							{@const inStock = isStockAvailable(result.stock.count, productItem.qty)}
+							<article
+								class={cn(
+									'overflow-hidden rounded-lg border border-border bg-card transition-colors',
+									highlightedRow === i && 'bg-muted/40',
+									!inStock && 'opacity-70'
+								)}
+							>
+								<div class="flex flex-col sm:flex-row">
+									<a
+										href={productHref(result.name, productItem.product_id)}
+										class="relative aspect-[4/3] overflow-hidden sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px]"
+									>
+										<PlaceholderImage
+											src={result.images[0]?.url}
 											alt={result.name}
-											loading="lazy" />
-										<div
-											class="absolute inset-0 bg-linear-to-r from-transparent to-[#151515]/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-										</div>
-									</div>
+											class="transition-transform duration-300 hover:scale-105"
+										/>
+									</a>
 
-									<!-- Product Details - More compact -->
-									<div class="flex-1 p-4 flex flex-col">
-										<div class="flex flex-col md:flex-row justify-between">
-											<div>
-												<div
-													class="text-xl font-bold text-white group-hover:text-accent transition-colors duration-300">
+									<div class="flex flex-1 flex-col gap-4 p-5">
+										<div class="flex items-start justify-between gap-4">
+											<div class="min-w-0 space-y-1">
+												<a
+													href={productHref(result.name, productItem.product_id)}
+													class="text-lg font-medium leading-snug text-foreground transition-colors hover:text-foreground/80"
+												>
 													{result.name}
-												</div>
-												<p class="text-accent opacity-80 text-xs mb-2">by {result.author}</p>
+												</a>
+												<p class="font-mono text-xs text-muted-foreground">
+													by @{result.author}
+												</p>
 											</div>
-											<!-- Removed duplicate price here -->
+
+											<p class="shrink-0 font-mono text-lg font-semibold text-foreground">
+												₹{calculateTotalPrice(result.price.new, productItem.qty).toLocaleString('en-IN')}
+											</p>
 										</div>
 
-										<div class="flex items-center text-xs text-gray-400 mb-3">
-											<Icon icon="ph:cube-bold" class="mr-1" />
-											<span class={result.stock.count > 5 ? 'text-green-400' : 'text-yellow-400'}>
-												{result.stock.count} in stock
-											</span>
+										<StockBar current={result.stock.count} total={Math.max(result.stock.count, 10)} />
 
-											{#if result.guarantee}
-												<span class="mx-2">•</span>
-												<Icon icon="ph:shield-check-bold" class="mr-1" />
-												<span>{result.guarantee}</span>
-											{/if}
-										</div>
+										{#if result.guarantee}
+											<p class="text-xs text-muted-foreground">{result.guarantee}</p>
+										{/if}
 
-										<!-- Price and Quantity Controls - More compact -->
 										<div
-											class="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-auto pt-2 border-t border-[#252525]">
-											<div class="text-2xl font-bold text-accent">
-												₹{calculateTotalPrice(result.price.new, productItem.qty)}
-											</div>
-
-											<div class="flex items-center mt-2 sm:mt-0 relative z-10">
+											class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"
+										>
+											<div class="flex items-center">
 												<button
-													onclick={() => incrementDecrementQuantity(false, i, result)}
-													class="w-8 h-8 flex items-center justify-center bg-[#252525]/30 hover:bg-accent/20 text-accent rounded-l-lg transition-colors duration-200 relative z-10"
-													aria-label="Decrease quantity"
 													type="button"
-													style="touch-action: manipulation;">
-													<span
-														class="flex items-center justify-center w-full h-full pointer-events-none">
-														<Icon icon="ph:minus-bold" />
-													</span>
+													onclick={() => incrementDecrementQuantity(false, i, result)}
+													class="inline-flex size-8 items-center justify-center rounded-l-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+													aria-label="Decrease quantity"
+													disabled={isUpdatingCart}
+												>
+													<Minus class="size-4" />
 												</button>
 
 												<input
@@ -330,186 +328,127 @@
 													bind:value={quantityList[i]}
 													min="1"
 													max={result.stock.count}
-													class="w-12 h-8 bg-[#252525]/30 text-center border-x border-[#353535] text-white focus:outline-hidden focus:ring-1 focus:ring-accent/50 relative z-10"
+													class="h-8 w-12 border-y border-border bg-card text-center font-mono text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
 													disabled={isUpdatingCart}
 													onchange={(e) => updateQuantity(e, i, result)}
-													style="touch-action: manipulation;" />
+												/>
 
 												<button
+													type="button"
 													onclick={() => incrementDecrementQuantity(true, i, result)}
-													class="w-8 h-8 flex items-center justify-center bg-[#252525]/30 hover:bg-accent/20 text-accent rounded-r-lg transition-colors duration-200 relative z-10"
+													class="inline-flex size-8 items-center justify-center rounded-r-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
 													aria-label="Increase quantity"
 													disabled={isUpdatingCart}
-													type="button"
-													style="touch-action: manipulation;">
-													<span
-														class="flex items-center justify-center w-full h-full pointer-events-none">
-														<Icon icon="ph:plus-bold" />
-													</span>
-												</button>
-
-												<button
-													onclick={() => removeItem(i, result)}
-													class="ml-3 w-8 h-8 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors duration-200 relative z-10"
-													aria-label="Remove item"
-													disabled={isUpdatingCart}
-													type="button"
-													style="touch-action: manipulation;">
-													<span
-														class="flex items-center justify-center w-full h-full pointer-events-none">
-														<Icon icon="ph:trash-bold" />
-													</span>
+												>
+													<Plus class="size-4" />
 												</button>
 											</div>
+
+											<button
+												type="button"
+												onclick={() => removeItem(i, result)}
+												class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+												aria-label="Remove item"
+												disabled={isUpdatingCart}
+											>
+												<Trash2 class="size-4" />
+												Remove
+											</button>
 										</div>
 									</div>
 								</div>
-							</div>
-						{:catch err}
+							</article>
+						{:catch}
 							<div
-								class="bg-[#151515]/70 backdrop-blur-xs rounded-2xl p-6 border border-red-500/20 text-center">
-								<Icon icon="ph:warning-circle" class="text-red-400 text-3xl mb-2" />
-								<p>There was an error loading this item. Please try refreshing the page.</p>
+								class="flex items-center gap-3 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground"
+							>
+								<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
+								<p>Could not load this item. Try refreshing the page.</p>
 							</div>
 						{/await}
 					{/each}
 				{/if}
 			</div>
 
-			<!-- Order Summary with background blur -->
-			{#if cartDetails && cartDetails.list && cartDetails.list.length > 0}
-				<div class="lg:w-1/3">
-					<div
-						class="relative bg-[#151515]/30 backdrop-blur-md rounded-2xl border border-[#252525] overflow-hidden sticky top-4 transition-all duration-300 hover:shadow-glow"
-						in:fade={{ duration: 200, delay: 300 }}>
-						<div class="p-5 border-b border-[#252525]">
-							<div class="text-xl font-bold flex items-center">
-								<Icon icon="ph:receipt-bold" class="mr-2 text-accent" />
-								Order Summary
-							</div>
+			{#if hasItems}
+				<aside class="w-full lg:w-80 lg:shrink-0">
+					<div class="sticky top-20 rounded-lg border border-border bg-card">
+						<div class="flex items-center gap-2 border-b border-border px-5 py-4">
+							<Receipt class="size-4 text-foreground" aria-hidden="true" />
+							<h2 class="text-sm font-medium text-foreground">Order summary</h2>
 						</div>
 
-						<div class="p-5 space-y-4">
-							<div class="flex justify-between items-center">
-								<span class="text-gray-400">Subtotal</span>
-								<span class="font-medium">₹{cartSubtotal.toFixed(2)}</span>
+						<div class="space-y-4 p-5">
+							<div class="flex items-center justify-between text-sm">
+								<span class="text-muted-foreground">Subtotal</span>
+								<span class="font-mono text-foreground">
+									₹{cartSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+								</span>
 							</div>
 
-							<div class="flex justify-between items-center pb-4 border-b border-[#252525]">
+							<div class="flex items-center justify-between border-b border-border pb-4 text-sm">
 								<div>
-									<span class="text-gray-400">Shipping</span>
-									<div class="text-xs text-gray-500">India-Wide Flat Rate</div>
+									<span class="text-muted-foreground">Shipping</span>
+									<p class="text-xs text-muted-foreground">India-wide flat rate</p>
 								</div>
-								<span class="font-medium">₹{DELIVERY_FLAT_FEE}</span>
+								<span class="font-mono text-foreground">
+									₹{DELIVERY_FLAT_FEE.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+								</span>
 							</div>
 
-							<div class="flex justify-between items-center pt-1">
-								<span class="text-lg font-bold">Total</span>
-								<span class="text-2xl font-bold text-accent">
-									₹{(cartSubtotal + DELIVERY_FLAT_FEE).toFixed(2)}
+							<div class="flex items-center justify-between">
+								<span class="font-medium text-foreground">Total</span>
+								<span class="font-mono text-xl font-semibold text-foreground">
+									₹{(cartSubtotal + DELIVERY_FLAT_FEE).toLocaleString('en-IN', {
+										minimumFractionDigits: 2
+									})}
 								</span>
 							</div>
 
 							<button
-								class="w-full mt-5 relative group/button overflow-hidden"
-								class:opacity-50={isUpdatingCart}
+								type="button"
+								class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
+								onclick={checkOut}
 								disabled={isUpdatingCart}
-								onclick={() => checkOut()}>
-								<div
-									class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300">
-								</div>
-
-								<div
-									class="relative flex items-center justify-center gap-2 bg-transparent border border-accent/30 rounded-xl px-5 py-3 font-medium text-accent">
-									<Icon icon="ph:shopping-cart-simple-bold" />
-									<span>Proceed to Checkout</span>
-
-									<div
-										class="absolute right-4 opacity-0 group-hover/button:opacity-100 transform group-hover/button:translate-x-1 transition-all duration-300">
-										<Icon icon="ph:arrow-right-bold" />
-									</div>
-								</div>
+							>
+								Proceed to checkout
+								<span aria-hidden="true">→</span>
 							</button>
 
-							<div class="text-center mt-3">
-								<button
-									class="text-sm text-gray-400 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
-									onclick={() => goto('/products')}>
-									<Icon icon="ph:arrow-left-bold" />
-									Continue Shopping
-								</button>
+							<div class="text-center">
+								<ScButton href="/crafts" variant="ghost" class="text-sm">
+									← Continue shopping
+								</ScButton>
 							</div>
 
 							<div
-								class="pt-4 border-t border-[#252525] flex items-center justify-center gap-3 text-gray-500">
-								<Icon icon="ph:shield-check-bold" class="text-accent opacity-50" />
-								<span class="text-xs">Secure Checkout</span>
-								<Icon icon="ph:lock-simple-bold" class="text-accent opacity-50" />
+								class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground"
+							>
+								<span class="inline-flex items-center gap-1">
+									<ShieldCheck class="size-3.5" aria-hidden="true" />
+									Secure
+								</span>
+								<span class="inline-flex items-center gap-1">
+									<Lock class="size-3.5" aria-hidden="true" />
+									Encrypted
+								</span>
 							</div>
 						</div>
 					</div>
-				</div>
+				</aside>
 			{/if}
 		</div>
 	</div>
 </div>
 
 <style>
-	.shadow-glow {
-		@apply [box-shadow:0_4px_20px_-5px_accent/10];
-	}
-
-	.shadow-glow-lg {
-		@apply [box-shadow:0_8px_30px_-5px_accent/20];
-	}
-
-	/* Animation for price changes */
-	@keyframes highlight {
-		0% {
-			background-color: hsl(var(--accent) / 0.1);
-		}
-		100% {
-			background-color: transparent;
-		}
-	}
-
-	.highlight-animation {
-		animation: highlight 1.5s ease-out;
-	}
-
-	/* Smooth transitions */
-	.transition-all {
-		transition-property: all;
-		transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-		transition-duration: 300ms;
-	}
-
-	/* Input styles */
 	input::-webkit-outer-spin-button,
 	input::-webkit-inner-spin-button {
 		-webkit-appearance: none;
 		margin: 0;
 	}
+
 	input[type='number'] {
 		-moz-appearance: textfield;
-	}
-
-	input:focus {
-		outline: none;
-	}
-
-	/* Loading animation */
-	.animate-pulse {
-		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-	}
-
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.5;
-		}
 	}
 </style>

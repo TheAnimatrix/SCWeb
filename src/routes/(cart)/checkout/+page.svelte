@@ -18,6 +18,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '@iconify/svelte';
 	import { toastStore } from '$lib/client/toastStore.js';
+	import { Skeleton } from '$lib/components/sc';
 
 	let { data } = $props();
 	// Removed $state declarations for derived values
@@ -308,7 +309,7 @@
 													class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
 													{item.qty}
 												</div>
-												<div class="w-6 h-6 bg-[#252525] rounded-md animate-pulse"></div>
+												<Skeleton class="size-6 rounded-md" />
 												<div class="text-sm truncate max-w-[180px] text-gray-400">Loading...</div>
 											</div>
 											<div class="font-medium">₹{item.price * item.qty}</div>
