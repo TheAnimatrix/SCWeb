@@ -24,9 +24,9 @@
 		<li class="flex items-center gap-2">
 			<div
 				class={cn(
-					'flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-xs transition-colors',
+					'flex items-center gap-2.5 rounded-md border px-4 py-2 text-sm font-medium transition-colors',
 					step.id === current
-						? 'border-primary bg-primary text-primary-foreground'
+						? 'border-primary bg-primary text-primary-foreground shadow-sm'
 						: step.done
 							? 'border-border bg-card text-foreground'
 							: 'border-border bg-muted/40 text-muted-foreground'
@@ -34,7 +34,7 @@
 			>
 				<span
 					class={cn(
-						'flex size-5 items-center justify-center rounded-full border text-[10px]',
+						'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
 						step.id === current
 							? 'border-primary-foreground/30 bg-primary-foreground/10'
 							: step.done
@@ -51,7 +51,7 @@
 				<span>{step.label}</span>
 			</div>
 			{#if i < steps.length - 1}
-				<span class="hidden font-mono text-muted-foreground/50 sm:inline" aria-hidden="true">→</span>
+				<span class="hidden text-muted-foreground/50 sm:inline" aria-hidden="true">→</span>
 			{/if}
 		</li>
 	{/each}

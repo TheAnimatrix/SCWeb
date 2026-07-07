@@ -15,7 +15,7 @@
 <button
 	type="button"
 	class={cn(
-		'animate_base rounded-md border px-2 py-2 text-center font-mono text-xs transition-colors',
+		'animate_base rounded-md border px-2 py-2 text-center text-xs font-medium transition-colors',
 		selected
 			? 'border-black bg-black text-white'
 			: 'border-border bg-card text-foreground hover:border-foreground/30 hover:bg-muted/30',

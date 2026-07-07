@@ -25,7 +25,7 @@
 		className
 	)}
 >
-	<p class="mb-2 font-mono text-xs text-muted-foreground">// before_requesting_quote</p>
+	<p class="mb-2 text-xs font-medium text-muted-foreground">Before requesting a quote</p>
 	<ul class="space-y-1.5">
 		{#each items as item (item.label)}
 			<li class="flex items-center gap-2 text-sm">

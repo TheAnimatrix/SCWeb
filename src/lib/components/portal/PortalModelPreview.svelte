@@ -85,9 +85,9 @@
 	ondrop={ondrop}
 >
 	<div
-		class="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2 font-mono text-xs"
+		class="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2 text-xs"
 	>
-		<span class="text-muted-foreground">model_preview</span>
+		<span class="font-medium text-muted-foreground">Model preview</span>
 		{#if modelLoaded && modelFile}
 			<div class="flex items-center gap-2 text-foreground">
 				<FileBox class="size-3.5" strokeWidth={1.5} />
@@ -95,7 +95,7 @@
 				<span class="text-muted-foreground">({fileSize})</span>
 			</div>
 		{:else}
-			<span class="text-muted-foreground">awaiting_upload.stl</span>
+			<span class="text-muted-foreground">No file yet · STL only</span>
 		{/if}
 	</div>
 
@@ -119,13 +119,13 @@
 			<div
 				class="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-end sm:justify-between"
 			>
-				<div class="font-mono text-xs">
-					<div class="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground">model_info</div>
+				<div class="text-xs">
+					<div class="mb-2 text-xs font-medium text-muted-foreground">Model info</div>
 					<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
-						<span class="text-muted-foreground">size</span>
+						<span class="text-muted-foreground">Size</span>
 						<span class="text-foreground">{modelInfo.fileSize}</span>
 
-						<span class="text-muted-foreground">dims</span>
+						<span class="text-muted-foreground">Dimensions</span>
 						<span class="text-foreground">
 							{formatDimension(modelInfo.dimensions.x * selectedScale)} ×
 							{formatDimension(modelInfo.dimensions.y * selectedScale)} ×
@@ -137,11 +137,11 @@
 				{#if onReplace}
 					<button
 						type="button"
-						class="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-md border border-border bg-card px-2.5 py-1.5 font-mono text-xs text-foreground transition-colors hover:border-foreground/30 sm:self-auto"
+						class="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 sm:self-auto"
 						onclick={onReplace}
 					>
 						<RefreshCw class="size-3.5" strokeWidth={1.5} />
-						replace
+						Replace
 					</button>
 				{/if}
 			</div>
@@ -159,14 +159,14 @@
 					role="presentation"
 				></div>
 				<div class="text-center">
-					<div class="mb-1 flex items-center justify-center gap-2 font-mono text-sm text-foreground">
+					<div class="mb-1 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
 						<Upload class="size-4" strokeWidth={1.5} />
-						upload_model
+						Upload model
 					</div>
 					<p class="text-xs text-muted-foreground">
 						Drop an STL here, or click to browse files
 					</p>
-					<p class="mt-2 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+					<p class="mt-2 text-xs text-muted-foreground">
 						STL · max 50MB
 					</p>
 				</div>
