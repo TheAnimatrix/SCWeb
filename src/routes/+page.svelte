@@ -101,10 +101,11 @@
 
 	<section class="border-b border-border bg-background">
 		<div class="mx-auto grid max-w-7xl grid-cols-1 md:grid-cols-3">
-			{#each features as feature (feature.title)}
+			{#each features as feature, i (feature.title)}
 				<FeatureModule
 					title={feature.title}
 					description={feature.description}
+					index={i}
 				/>
 			{/each}
 		</div>
