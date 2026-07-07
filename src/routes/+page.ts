@@ -1,6 +1,7 @@
 import type { Banner } from '$lib/client/banner';
 import type { Product } from '$lib/types/product';
 import type { PageLoad } from './$types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const STATS_FALLBACK = { makers: 48, listings: 128, cities: 12 };
 
@@ -22,39 +23,54 @@ function getBannerProductIds(banners: Banner[] | undefined): string[] {
 	return ids;
 }
 
+async function loadRecentByType(
+	supabase: SupabaseClient,
+	type: string,
+	limit = 6
+): Promise<Product[]> {
+	const result = await supabase
+		.from('products')
+		.select(PRODUCT_SELECT)
+		.eq('type', type)
+		.order('created_at', { ascending: false })
+		.limit(limit);
+
+	if (result.error) {
+		console.error(`Failed to load recent ${type} listings:`, result.error);
+		const fallback = await supabase
+			.from('products')
+			.select('*')
+			.eq('type', type)
+			.order('created_at', { ascending: false })
+			.limit(limit);
+		return (fallback.data ?? []) as Product[];
+	}
+
+	return (result.data ?? []) as Product[];
+}
+
 export const load: PageLoad = async ({ parent }) => {
 	const { supabase_lt } = await parent();
 
 	if (!supabase_lt) {
 		return {
 			recentProducts: [] as Product[],
+			recentSpares: [] as Product[],
+			recentFleaMarket: [] as Product[],
 			featuredProducts: [] as Product[],
 			stats: STATS_FALLBACK
 		};
 	}
 
-	const [recentResult, bannersResult, listingsResult, makersResult] = await Promise.all([
-		supabase_lt
-			.from('products')
-			.select(PRODUCT_SELECT)
-			.order('created_at', { ascending: false })
-			.limit(6),
-		supabase_lt.from('constants').select().eq('key', 'BANNERS'),
-		supabase_lt.from('products').select('id', { count: 'exact', head: true }),
-		supabase_lt.from('users').select('id', { count: 'exact', head: true })
-	]);
-
-	let recentProducts = (recentResult.data ?? []) as Product[];
-
-	if (recentResult.error) {
-		console.error('Failed to load recent products with users join:', recentResult.error);
-		const fallback = await supabase_lt
-			.from('products')
-			.select('*')
-			.order('created_at', { ascending: false })
-			.limit(6);
-		recentProducts = (fallback.data ?? []) as Product[];
-	}
+	const [recentProducts, recentSpares, recentFleaMarket, bannersResult, listingsResult, makersResult] =
+		await Promise.all([
+			loadRecentByType(supabase_lt, 'product'),
+			loadRecentByType(supabase_lt, 'spare'),
+			loadRecentByType(supabase_lt, 'flea-market'),
+			supabase_lt.from('constants').select().eq('key', 'BANNERS'),
+			supabase_lt.from('products').select('id', { count: 'exact', head: true }),
+			supabase_lt.from('users').select('id', { count: 'exact', head: true })
+		]);
 	let featuredProducts: Product[] = [];
 
 	const banners = bannersResult.data?.[0]?.value as Banner[] | undefined;
@@ -99,6 +115,8 @@ export const load: PageLoad = async ({ parent }) => {
 
 	return {
 		recentProducts,
+		recentSpares,
+		recentFleaMarket,
 		featuredProducts,
 		stats
 	};

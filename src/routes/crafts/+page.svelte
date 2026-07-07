@@ -146,7 +146,7 @@
 					filters={data.filters}
 					categoryCounts={data.categoryCounts}
 					onchange={navigate}
-					class="hidden md:sticky md:top-[5.25rem] md:block md:self-start"
+					class="hidden md:sticky md:top-[5.25rem] md:flex md:self-start"
 				/>
 
 				<div class="min-w-0">

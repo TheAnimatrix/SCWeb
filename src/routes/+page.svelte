@@ -40,7 +40,30 @@
 	}
 
 	const listingPreview = $derived(data.recentProducts.slice(0, 3));
+	const sparesPreview = $derived(data.recentSpares.slice(0, 3));
+	const fleaMarketPreview = $derived(data.recentFleaMarket.slice(0, 3));
 	const featuredProducts = $derived(data.featuredProducts);
+
+	const listingSections = $derived([
+		{
+			title: 'Fresh listings',
+			items: listingPreview,
+			browseHref: '/crafts?filter=products',
+			emptyMessage: 'No listings yet — check back soon'
+		},
+		{
+			title: 'Spares',
+			items: sparesPreview,
+			browseHref: '/crafts?filter=spares',
+			emptyMessage: 'No spares listed yet — check back soon'
+		},
+		{
+			title: 'Flea market',
+			items: fleaMarketPreview,
+			browseHref: '/crafts?filter=flea_market',
+			emptyMessage: 'No flea market listings yet — check back soon'
+		}
+	]);
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
@@ -111,33 +134,39 @@
 		</div>
 	</section>
 
-	<section class="mx-auto max-w-7xl px-4 py-16">
-		<div class="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-			<h2 class="text-sm font-medium text-foreground">Fresh listings</h2>
-			<ScButton href="/crafts" variant="ghost" arrow>Browse all</ScButton>
-		</div>
+	<div class="mx-auto max-w-7xl space-y-10 px-4 pb-16 pt-16">
+		{#each listingSections as section (section.title)}
+			<section>
+				<div class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+				<h2 class="text-sm font-medium text-foreground">{section.title}</h2>
+				<ScButton href={section.browseHref} variant="ghost" arrow>Browse all</ScButton>
+			</div>
 
-		{#if isLoading}
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-3" aria-hidden="true">
-				{#each Array(3) as _, i (i)}
-					<ProductCardSkeleton />
-				{/each}
-			</div>
-		{:else if listingPreview.length > 0}
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-				{#each listingPreview as product (product.id)}
-					<ProductCard {product} href={productHref(product)} />
-				{/each}
-			</div>
-		{:else}
-			<div
-				class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center"
-			>
-				<p class="text-sm text-muted-foreground">No listings yet — check back soon</p>
-				<div class="mt-4">
-					<ScButton href="/crafting" variant="secondary">Start selling</ScButton>
+			{#if isLoading}
+				<div class="grid grid-cols-1 gap-6 md:grid-cols-3" aria-hidden="true">
+					{#each Array(3) as _, i (i)}
+						<ProductCardSkeleton />
+					{/each}
 				</div>
-			</div>
-		{/if}
-	</section>
+			{:else if section.items.length > 0}
+				<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+					{#each section.items as product (product.id)}
+						<ProductCard {product} href={productHref(product)} />
+					{/each}
+				</div>
+			{:else}
+				<div
+					class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center"
+				>
+					<p class="text-sm text-muted-foreground">{section.emptyMessage}</p>
+					{#if section.title === 'Fresh listings'}
+						<div class="mt-4">
+							<ScButton href="/crafting" variant="secondary">Start selling</ScButton>
+						</div>
+					{/if}
+				</div>
+			{/if}
+			</section>
+		{/each}
+	</div>
 </div>

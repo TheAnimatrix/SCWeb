@@ -54,9 +54,9 @@
 	}
 </script>
 
-<aside class={cn('flex flex-col gap-8', className)} aria-label="Filters">
-	<section>
-		<p class="mb-3 font-mono text-xs text-muted-foreground">// category</p>
+<aside class={cn('flex flex-col gap-10', className)} aria-label="Filters">
+	<section class="flex flex-col gap-3">
+		<p class="font-mono text-xs text-muted-foreground">// category</p>
 		<ul class="flex flex-col gap-2">
 			{#each categories as category (category.value)}
 				<li>
@@ -75,8 +75,8 @@
 		</ul>
 	</section>
 
-	<section>
-		<p class="mb-3 font-mono text-xs text-muted-foreground">// price_range</p>
+	<section class="flex flex-col gap-3">
+		<p class="font-mono text-xs text-muted-foreground">// price_range</p>
 		<div class="flex items-center gap-2">
 			<ScInput
 				type="number"
@@ -100,8 +100,8 @@
 		</div>
 	</section>
 
-	<section>
-		<p class="mb-3 font-mono text-xs text-muted-foreground">// city</p>
+	<section class="flex flex-col gap-3">
+		<p class="font-mono text-xs text-muted-foreground">// city</p>
 		<div class="flex flex-wrap gap-2">
 			{#each cities as city (city)}
 				<button
@@ -120,8 +120,8 @@
 		</div>
 	</section>
 
-	<section>
-		<p class="mb-3 font-mono text-xs text-muted-foreground">// availability</p>
+	<section class="flex flex-col gap-3">
+		<p class="font-mono text-xs text-muted-foreground">// availability</p>
 		<label class="flex cursor-pointer items-center justify-between gap-3 font-mono text-sm">
 			<span>in_stock</span>
 			<button
