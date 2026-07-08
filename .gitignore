@@ -14,3 +14,4 @@ mcp.json
 dev-dist/
 api/dist/
 api/drizzle/
+.cursor/rules/
