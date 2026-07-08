@@ -8,6 +8,7 @@ import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { v4 as uuidv4 } from 'uuid';
 import { CLIENT_ID_COOKIE_NAME } from '$lib/constants/cookies';
 import { createLogger } from '$lib/server/logger';
+import { scrubSentryEvent } from '$lib/sentry-scrub';
 import { sanitizeRequestId } from '$lib/server/request-id';
 
 const sentryDsn = env.SENTRY_DSN;
@@ -15,7 +16,8 @@ const sentryDsn = env.SENTRY_DSN;
 if (sentryDsn) {
 	Sentry.init({
 		dsn: sentryDsn,
-		tracesSampleRate: 0
+		tracesSampleRate: 0,
+		beforeSend: scrubSentryEvent
 	});
 }
 
@@ -109,11 +111,28 @@ const appHandle: Handle = async ({ event, resolve }) => {
 
 export const handle = sentryDsn ? sequence(Sentry.sentryHandle(), appHandle) : appHandle;
 
-export const handleError: HandleServerError = ({ error, event }) => {
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+	const log = createLogger({
+		requestId: event.locals.requestId,
+		route: event.route?.id ?? undefined,
+		clientId: event.locals.clientId
+	});
+
+	log.error('request.unhandled_exception', {
+		error: error instanceof Error ? error.message : String(error),
+		status,
+		message
+	});
+
 	if (sentryDsn) {
 		Sentry.captureException(error, {
 			tags: {
 				requestId: event.locals.requestId ?? 'unknown'
+			},
+			extra: {
+				route: event.route?.id,
+				status,
+				message
 			}
 		});
 	}

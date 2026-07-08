@@ -18,6 +18,7 @@ import type { ProductSnapshot } from './cart.js';
 import {
 	buildOrderItemSnapshots,
 	computeOrderTotals,
+	checkoutAddressesEqual,
 	isOrderOwnedBy,
 	normalizeCheckoutAddress,
 	resolveFailOrderStatus,
@@ -27,7 +28,8 @@ import {
 	type CheckoutLine
 } from './checkout.js';
 import type { RazorpayClient } from './razorpay-client.js';
-import { writeAudit } from './audit.js';
+import { truncateAuditReason, writeAudit } from './audit.js';
+import { storeLog } from '../middleware/logging.js';
 
 export type CreateOrderResult =
 	| { ok: true; response: CreateCheckoutOrderResponse }
@@ -210,6 +212,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 				if (existingOrder) {
 					const previousTotal = existingOrder.total;
+					const addressChanged = !checkoutAddressesEqual(existingOrder.address, normalizedAddress);
 
 					await tx
 						.update(orders)
@@ -224,6 +227,23 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 					await replaceOrderItems(tx, existingOrder.id, snapshots);
 					orderId = existingOrder.id;
+
+					const auditMeta: Record<string, unknown> = { addressChanged };
+					if (totals.total !== previousTotal) {
+						auditMeta.previousTotal = previousTotal;
+						auditMeta.total = totals.total;
+					}
+
+					await writeAudit(tx, {
+						actorUserId: actor.userId,
+						actorClientId: actor.clientId,
+						entityType: 'order',
+						entityId: existingOrder.id,
+						action: 'updated',
+						fromState: CART_ORDER_STATUS.PAYMENT_PENDING,
+						toState: CART_ORDER_STATUS.PAYMENT_PENDING,
+						meta: auditMeta
+					});
 
 					if (
 						shouldReuseRazorpayOrder(existingOrder.razorpayOrderId) &&
@@ -461,17 +481,13 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 						const decremented = await decrementProductStock(tx, line.productId, line.qty);
 						if (!decremented) {
-							console.error(
-								JSON.stringify({
-									level: 'error',
-									message: 'checkout.confirm.stock_conflict',
-									orderId: order.id,
-									razorpayOrderId,
-									razorpayPaymentId,
-									productId: line.productId,
-									qty: line.qty
-								})
-							);
+							storeLog('error', 'checkout.confirm.stock_conflict', {
+								orderId: order.id,
+								razorpayOrderId,
+								razorpayPaymentId,
+								productId: line.productId,
+								qty: line.qty
+							});
 							throw stockConflictError();
 						}
 					}
@@ -564,18 +580,14 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						fromState: CART_ORDER_STATUS.PAYMENT_PENDING,
 						toState: CART_ORDER_STATUS.FAILED,
 						providerIds: { razorpayOrderId },
-						meta: reason ? { reason } : null
+						meta: reason ? { reason: truncateAuditReason(reason) } : null
 					});
 
-					console.warn(
-						JSON.stringify({
-							level: 'warn',
-							message: 'checkout.order.failed',
-							orderId: order.id,
-							razorpayOrderId,
-							reason: reason ?? null
-						})
-					);
+					storeLog('warn', 'checkout.order.failed', {
+						orderId: order.id,
+						razorpayOrderId,
+						reason: reason ?? null
+					});
 				}
 
 				return {

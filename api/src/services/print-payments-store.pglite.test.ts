@@ -7,6 +7,7 @@ import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import { purchases } from '../db/schema/purchases.js';
+import { auditLog } from '../db/schema/auditLog.js';
 import { createPrintPaymentsStore } from './print-payments-store.js';
 import type { RazorpayClient } from './razorpay-client.js';
 
@@ -198,6 +199,19 @@ describe('PrintPaymentsStore (PGlite)', () => {
 				})
 			])
 		);
+
+		const auditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'payment_order_created'));
+		expect(auditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'print_request',
+				entityId: PRINT_REQUEST_ID,
+				action: 'payment_order_created',
+				providerIds: { razorpayOrderId: `order_${PRINT_REQUEST_ID}` }
+			})
+		]);
 	});
 
 	it('confirms once and inserts a single purchase with legacy parity columns', async () => {
@@ -261,6 +275,20 @@ describe('PrintPaymentsStore (PGlite)', () => {
 			billingAddress: ADDRESS,
 			shippingAddress: ADDRESS
 		});
+
+		const auditRows = await testDb.db.select().from(auditLog).where(eq(auditLog.action, 'paid'));
+		expect(auditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'print_request',
+				entityId: PRINT_REQUEST_ID,
+				action: 'paid',
+				toState: 'paid',
+				providerIds: {
+					razorpayOrderId: created.response.razorpayOrderId,
+					razorpayPaymentId: 'pay_123'
+				}
+			})
+		]);
 	});
 
 	it('concurrent confirm inserts only one purchase', async () => {
@@ -475,15 +503,80 @@ describe('PrintPaymentsStore (PGlite)', () => {
 		);
 
 		expect(warnSpy).toHaveBeenCalledWith(
-			JSON.stringify({
-				event: 'quote_drift',
-				printRequestId: PRINT_REQUEST_ID,
-				orderAmount: 2500,
-				latestQuote: 3000
-			})
+			expect.stringContaining('"message":"print_payments.quote_drift"')
 		);
 
 		warnSpy.mockRestore();
+	});
+
+	it('writes payment_failed audit when failPayment updates a quoted request', async () => {
+		await seedQuotedPrintRequest(testDb.db);
+
+		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder(
+			{ userId: USER_ID, clientId: CLIENT_ID },
+			PRINT_REQUEST_ID,
+			ADDRESS
+		);
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const result = await store.failPayment(
+			{ userId: USER_ID, clientId: CLIENT_ID },
+			PRINT_REQUEST_ID,
+			created.response.razorpayOrderId,
+			'user_closed'
+		);
+
+		expect(result).toEqual({ ok: true, response: { status: 'quoted' } });
+
+		const [row] = await testDb.db
+			.select()
+			.from(printrequests)
+			.where(eq(printrequests.id, PRINT_REQUEST_ID));
+		expect(row?.orderId).toBeNull();
+
+		const auditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'payment_failed'));
+		expect(auditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'print_request',
+				entityId: PRINT_REQUEST_ID,
+				action: 'payment_failed',
+				providerIds: { razorpayOrderId: created.response.razorpayOrderId },
+				meta: { reason: 'user_closed' }
+			})
+		]);
+	});
+
+	it('does not write payment_failed audit when failPayment is a no-op', async () => {
+		await seedQuotedPrintRequest(testDb.db);
+
+		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder(
+			{ userId: USER_ID, clientId: CLIENT_ID },
+			PRINT_REQUEST_ID,
+			ADDRESS
+		);
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const result = await store.failPayment(
+			{ userId: USER_ID, clientId: CLIENT_ID },
+			PRINT_REQUEST_ID,
+			'order_wrong_id',
+			'user_closed'
+		);
+
+		expect(result).toEqual({ ok: true, response: { status: 'quoted' } });
+
+		const auditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'payment_failed'));
+		expect(auditRows).toHaveLength(0);
 	});
 
 	it('rejects cross-order replay with order_mismatch and writes nothing', async () => {

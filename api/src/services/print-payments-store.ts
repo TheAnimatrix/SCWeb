@@ -11,7 +11,8 @@ import { printrequests } from '../db/schema/printrequests.js';
 import { purchases } from '../db/schema/purchases.js';
 import type { Actor } from '../types/context.js';
 import type { RazorpayClient } from './razorpay-client.js';
-import { writeAudit } from './audit.js';
+import { truncateAuditReason, writeAudit } from './audit.js';
+import { storeLog } from '../middleware/logging.js';
 import {
 	buildOrderCreatedEvent,
 	buildPaidEvent,
@@ -291,14 +292,11 @@ export function createPrintPaymentsStore(
 
 					const latestQuote = getLatestQuote(row.events);
 					if (latestQuote !== null && latestQuote !== orderAmount) {
-						console.warn(
-							JSON.stringify({
-								event: 'quote_drift',
-								printRequestId,
-								orderAmount,
-								latestQuote
-							})
-						);
+						storeLog('warn', 'print_payments.quote_drift', {
+							printRequestId,
+							orderAmount,
+							latestQuote
+						});
 					}
 
 					const paidEvent = buildPaidEvent(razorpayOrderId, razorpayPaymentId, orderAmount);
@@ -448,7 +446,7 @@ export function createPrintPaymentsStore(
 				const failedEvent = buildPaymentFailedEvent(razorpayOrderId, reason);
 				const updatedEvents = [...normalizePrintEvents(row.events), failedEvent];
 
-				await tx
+				const changed = await tx
 					.update(printrequests)
 					.set({
 						orderId: null,
@@ -457,7 +455,15 @@ export function createPrintPaymentsStore(
 					})
 					.where(
 						and(eq(printrequests.id, printRequestId), eq(printrequests.requestStage, 'quoted'))
-					);
+					)
+					.returning({ id: printrequests.id });
+
+				if (changed.length === 0) {
+					return {
+						ok: true as const,
+						response: { status: row.requestStage ?? 'quoted' }
+					};
+				}
 
 				await writeAudit(tx, {
 					actorUserId: userId,
@@ -468,7 +474,7 @@ export function createPrintPaymentsStore(
 					fromState: row.requestStage,
 					toState: row.requestStage,
 					providerIds: { razorpayOrderId },
-					meta: reason ? { reason } : null
+					meta: reason ? { reason: truncateAuditReason(reason) } : null
 				});
 
 				return {

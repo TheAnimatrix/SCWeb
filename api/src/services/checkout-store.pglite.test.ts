@@ -292,6 +292,16 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
 		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.FAILED);
+
+		const auditRows = await testDb.db.select().from(auditLog).where(eq(auditLog.action, 'failed'));
+		expect(auditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				action: 'failed',
+				toState: CART_ORDER_STATUS.FAILED,
+				meta: { reason: 'user_closed' }
+			})
+		]);
 	});
 
 	it('does not downgrade paid orders on fail', async () => {
@@ -462,6 +472,18 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
 		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
+
+		const updatedAuditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'updated'));
+		expect(updatedAuditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				action: 'updated',
+				meta: { addressChanged: true }
+			})
+		]);
 	});
 
 	it('creates a new Razorpay order when re-entering with changed total', async () => {
@@ -503,6 +525,22 @@ describe('CheckoutStore (PGlite)', () => {
 			total: 299,
 			razorpayOrderId: second.response.razorpayOrderId
 		});
+
+		const updatedAuditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'updated'));
+		expect(updatedAuditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				action: 'updated',
+				meta: {
+					addressChanged: false,
+					previousTotal: 199,
+					total: 299
+				}
+			})
+		]);
 	});
 
 	it('writes an audit row when checkout is confirmed', async () => {
