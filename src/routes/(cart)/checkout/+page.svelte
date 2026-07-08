@@ -268,19 +268,15 @@
 									<div class="border-b border-border pb-3 last:border-0 last:pb-0">
 										<div class="flex items-center justify-between gap-3">
 											<div class="flex min-w-0 flex-1 items-center gap-3">
-												<span
-													class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
-													{item.qty}
-												</span>
 												<a
 													href={productHref(item.name, item.productId)}
-													class="size-10 shrink-0 overflow-hidden rounded-md">
+													class="size-16 shrink-0 overflow-hidden rounded-md">
 													{#if item.imageUrl}
-														<PlaceholderImage src={item.imageUrl} alt={item.name} class="size-10" />
+														<PlaceholderImage src={item.imageUrl} alt={item.name} class="size-16" />
 													{:else}
 														<div
-															class="flex size-10 items-center justify-center rounded-md bg-muted">
-															<Package class="size-4 text-muted-foreground" aria-hidden="true" />
+															class="flex size-16 items-center justify-center rounded-md bg-muted">
+															<Package class="size-5 text-muted-foreground" aria-hidden="true" />
 														</div>
 													{/if}
 												</a>

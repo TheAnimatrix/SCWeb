@@ -331,6 +331,19 @@
 	font-style: italic;
 }
 
+/* Razorpay checkout inherits color-scheme from the host page. On dark-themed
+   sites the browser paints an opaque white iframe background instead of the
+   intended semi-transparent overlay. */
+.razorpay-container,
+.razorpay-container *,
+[class*='razorpay'] {
+	color-scheme: light !important;
+}
+
+iframe[src*='razorpay'] {
+	color-scheme: light !important;
+}
+
 @layer utilities {
 	.font-mono.text-muted-foreground,
 	.font-mono .text-muted-foreground {

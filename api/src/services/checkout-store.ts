@@ -361,7 +361,20 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						currency: 'INR'
 					}
 				};
-			} catch {
+			} catch (error) {
+				const razorpayError =
+					typeof error === 'object' && error !== null && 'error' in error
+						? (error as { statusCode?: number; error?: { description?: string; code?: string } })
+						: null;
+
+				storeLog('error', 'checkout.order.razorpay_failed', {
+					orderId: prepared.orderId,
+					statusCode: razorpayError?.statusCode ?? null,
+					code: razorpayError?.error?.code ?? null,
+					description: razorpayError?.error?.description ?? null,
+					message: error instanceof Error ? error.message : String(error)
+				});
+
 				return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
 			}
 		},
