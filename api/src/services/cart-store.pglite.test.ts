@@ -10,6 +10,7 @@ import * as schema from '../db/schema/index.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { products } from '../db/schema/products.js';
+import { auditLog } from '../db/schema/auditLog.js';
 import { createCartStore } from './cart-store.js';
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
@@ -46,6 +47,11 @@ const migrationSql = readFileSync(
 	'utf8'
 );
 
+const auditMigrationSql = readFileSync(
+	resolve(import.meta.dirname, '../../drizzle/0004_audit_log.sql'),
+	'utf8'
+);
+
 type TestDb = {
 	client: PGlite;
 	db: Database;
@@ -61,6 +67,15 @@ async function createTestDb(): Promise<TestDb> {
 		.filter(Boolean);
 
 	for (const statement of statements) {
+		await client.exec(statement);
+	}
+
+	const auditStatements = auditMigrationSql
+		.split('--> statement-breakpoint')
+		.map((statement) => statement.trim())
+		.filter(Boolean);
+
+	for (const statement of auditStatements) {
 		await client.exec(statement);
 	}
 
@@ -202,6 +217,18 @@ describe('CartStore (PGlite)', () => {
 			expect(userView.cart?.items).toEqual([
 				expect.objectContaining({ productId: PRODUCT_1, qty: 5 })
 			]);
+
+			const auditRows = await testDb.db
+				.select()
+				.from(auditLog)
+				.where(eq(auditLog.action, 'guest_claimed'));
+			expect(auditRows).toEqual([
+				expect.objectContaining({
+					entityType: 'cart',
+					action: 'guest_claimed',
+					meta: { guestClientId: CLIENT_A }
+				})
+			]);
 		});
 
 		it('merges both carts with sum, clamp, and zero-delete', async () => {
@@ -237,6 +264,19 @@ describe('CartStore (PGlite)', () => {
 				.from(cartItems)
 				.where(eq(cartItems.productId, PRODUCT_2));
 			expect(staleRows).toHaveLength(0);
+
+			const auditRows = await testDb.db
+				.select()
+				.from(auditLog)
+				.where(eq(auditLog.action, 'merged'));
+			expect(auditRows).toEqual([
+				expect.objectContaining({
+					entityType: 'cart',
+					action: 'merged',
+					entityId: userCart.id,
+					meta: { guestCartId: guestCart.id }
+				})
+			]);
 		});
 
 		it('is idempotent when re-merging after guest cart is gone', async () => {

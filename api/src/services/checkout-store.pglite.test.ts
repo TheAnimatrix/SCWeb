@@ -13,6 +13,7 @@ import { carts } from '../db/schema/carts.js';
 import { orderItems } from '../db/schema/orderItems.js';
 import { orders } from '../db/schema/orders.js';
 import { products } from '../db/schema/products.js';
+import { auditLog } from '../db/schema/auditLog.js';
 import { createCheckoutStore } from './checkout-store.js';
 import type { RazorpayClient } from './razorpay-client.js';
 
@@ -56,6 +57,11 @@ const migrationSql = readFileSync(
 	'utf8'
 );
 
+const auditMigrationSql = readFileSync(
+	resolve(import.meta.dirname, '../../drizzle/0004_audit_log.sql'),
+	'utf8'
+);
+
 type TestDb = {
 	client: PGlite;
 	db: Database;
@@ -71,6 +77,15 @@ async function createTestDb(): Promise<TestDb> {
 		.filter(Boolean);
 
 	for (const statement of statements) {
+		await client.exec(statement);
+	}
+
+	const auditStatements = auditMigrationSql
+		.split('--> statement-breakpoint')
+		.map((statement) => statement.trim())
+		.filter(Boolean);
+
+	for (const statement of auditStatements) {
 		await client.exec(statement);
 	}
 
@@ -277,6 +292,16 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
 		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.FAILED);
+
+		const auditRows = await testDb.db.select().from(auditLog).where(eq(auditLog.action, 'failed'));
+		expect(auditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				action: 'failed',
+				toState: CART_ORDER_STATUS.FAILED,
+				meta: { reason: 'user_closed' }
+			})
+		]);
 	});
 
 	it('does not downgrade paid orders on fail', async () => {
@@ -447,6 +472,18 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
 		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
+
+		const updatedAuditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'updated'));
+		expect(updatedAuditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				action: 'updated',
+				meta: { addressChanged: true }
+			})
+		]);
 	});
 
 	it('creates a new Razorpay order when re-entering with changed total', async () => {
@@ -488,5 +525,90 @@ describe('CheckoutStore (PGlite)', () => {
 			total: 299,
 			razorpayOrderId: second.response.razorpayOrderId
 		});
+
+		const updatedAuditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'updated'));
+		expect(updatedAuditRows).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				action: 'updated',
+				meta: {
+					addressChanged: false,
+					previousTotal: 199,
+					total: 299
+				}
+			})
+		]);
+	});
+
+	it('writes an audit row when checkout is confirmed', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const confirmed = await store.confirmOrder(
+			{ userId: null, clientId: CLIENT_A },
+			created.response.razorpayOrderId,
+			'pay_audit'
+		);
+		expect(confirmed).toEqual({ ok: true, response: { status: 'paid' } });
+
+		const rows = await testDb.db.select().from(auditLog);
+		expect(rows).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					entityType: 'order',
+					action: 'created'
+				}),
+				expect.objectContaining({
+					entityType: 'order',
+					action: 'paid',
+					toState: CART_ORDER_STATUS.PAID,
+					providerIds: {
+						razorpayOrderId: created.response.razorpayOrderId,
+						razorpayPaymentId: 'pay_audit'
+					}
+				})
+			])
+		);
+	});
+
+	it('rolls back audit rows when confirm transaction fails', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 2);
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		await testDb.db
+			.update(products)
+			.set({ stock: { count: 1, status: 'in stock' } })
+			.where(eq(products.id, PRODUCT_1));
+
+		const result = await store.confirmOrder(
+			{ userId: null, clientId: CLIENT_A },
+			created.response.razorpayOrderId,
+			'pay_rollback'
+		);
+
+		expect(result).toEqual({
+			ok: false,
+			status: 409,
+			body: { error: 'stock_conflict' }
+		});
+
+		const paidAuditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'paid'));
+		expect(paidAuditRows).toHaveLength(0);
 	});
 });

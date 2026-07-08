@@ -118,4 +118,23 @@ export function normalizeCheckoutAddress(address: CheckoutAddress): CheckoutAddr
 	};
 }
 
+export function checkoutAddressesEqual(stored: unknown, incoming: CheckoutAddress): boolean {
+	if (!stored || typeof stored !== 'object') {
+		return false;
+	}
+
+	const left = normalizeCheckoutAddress(stored as CheckoutAddress);
+	const right = normalizeCheckoutAddress(incoming);
+
+	return (
+		left.name === right.name &&
+		left.line1 === right.line1 &&
+		left.line2 === right.line2 &&
+		left.city === right.city &&
+		left.pincode === right.pincode &&
+		left.state === right.state &&
+		left.phone === right.phone
+	);
+}
+
 export { DELIVERY_FLAT_FEE };

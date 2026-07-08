@@ -23,6 +23,7 @@ import {
 	type MergeLine,
 	type ProductSnapshot
 } from './cart.js';
+import { writeAudit } from './audit.js';
 
 export type UpsertCartItemResult =
 	| { ok: true; response: GetCartResponse }
@@ -242,7 +243,30 @@ async function applyMergedLinesToUserCart(
 		);
 }
 
-async function mergeBothCarts(tx: DbExecutor, guestCart: { id: string }, userCart: { id: string }) {
+async function auditCartMerge(
+	tx: DbExecutor,
+	actor: Actor,
+	userCartId: string,
+	guestCartId: string
+) {
+	await writeAudit(tx, {
+		actorUserId: actor.userId,
+		actorClientId: actor.clientId,
+		entityType: 'cart',
+		entityId: userCartId,
+		action: 'merged',
+		fromState: CART_ORDER_STATUS.ACTIVE,
+		toState: CART_ORDER_STATUS.ACTIVE,
+		meta: { guestCartId }
+	});
+}
+
+async function mergeBothCarts(
+	tx: DbExecutor,
+	actor: Actor,
+	guestCart: { id: string },
+	userCart: { id: string }
+) {
 	const guestLines = await tx
 		.select({ productId: cartItems.productId, qty: cartItems.qty })
 		.from(cartItems)
@@ -270,6 +294,7 @@ async function mergeBothCarts(tx: DbExecutor, guestCart: { id: string }, userCar
 
 	await applyMergedLinesToUserCart(tx, userCart.id, mergedLines);
 	await tx.delete(carts).where(eq(carts.id, guestCart.id));
+	await auditCartMerge(tx, actor, userCart.id, guestCart.id);
 }
 
 export function createCartStore(db: Database): CartStore {
@@ -387,6 +412,17 @@ export function createCartStore(db: Database): CartStore {
 							})
 							.where(eq(carts.id, guestCart.id));
 
+						await writeAudit(tx, {
+							actorUserId: actor.userId,
+							actorClientId: actor.clientId,
+							entityType: 'cart',
+							entityId: guestCart.id,
+							action: 'guest_claimed',
+							fromState: CART_ORDER_STATUS.ACTIVE,
+							toState: CART_ORDER_STATUS.ACTIVE,
+							meta: { guestClientId: clientId }
+						});
+
 						await clampCartItemsToStock(tx, guestCart.id);
 						return { ok: true as const, response: { merged: true } };
 					} catch (error) {
@@ -398,7 +434,7 @@ export function createCartStore(db: Database): CartStore {
 						const racedUser = await findUserActiveCart(tx, actor.userId!);
 
 						if (racedGuest && racedUser) {
-							await mergeBothCarts(tx, racedGuest, racedUser);
+							await mergeBothCarts(tx, actor, racedGuest, racedUser);
 							return { ok: true as const, response: { merged: true } };
 						}
 
@@ -411,7 +447,7 @@ export function createCartStore(db: Database): CartStore {
 				}
 
 				if (scenario === 'both' && guestCart && userCart) {
-					await mergeBothCarts(tx, guestCart, userCart);
+					await mergeBothCarts(tx, actor, guestCart, userCart);
 					return { ok: true as const, response: { merged: true } };
 				}
 

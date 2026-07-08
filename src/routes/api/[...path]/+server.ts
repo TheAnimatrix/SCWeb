@@ -45,10 +45,7 @@ async function proxyRequest(event: RequestEvent) {
 		headers.set('referer', referer);
 	}
 
-	const requestId = request.headers.get('x-request-id');
-	if (requestId) {
-		headers.set('x-request-id', requestId);
-	}
+	headers.set('x-request-id', locals.requestId);
 
 	const clientId = cookies.get(CLIENT_ID_COOKIE_NAME);
 	if (clientId) {

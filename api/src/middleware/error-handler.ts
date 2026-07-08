@@ -1,10 +1,10 @@
+import * as Sentry from '@sentry/node';
 import type { ErrorHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { createLogger } from './logging.js';
 import type { AppVariables } from '../types/context.js';
 
 export function reportError(error: unknown, context: Record<string, unknown>) {
-	// Hook for Sentry / OpenTelemetry / other monitoring providers.
 	console.error(
 		JSON.stringify({
 			level: 'error',
@@ -14,6 +14,10 @@ export function reportError(error: unknown, context: Record<string, unknown>) {
 			...context
 		})
 	);
+
+	if (process.env.SENTRY_DSN) {
+		Sentry.captureException(error, { extra: context });
+	}
 }
 
 export const errorHandler: ErrorHandler<{ Variables: AppVariables }> = (error, c) => {

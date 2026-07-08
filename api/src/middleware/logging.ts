@@ -79,6 +79,10 @@ export function logCheckoutTransition(
 	});
 }
 
+export function storeLog(level: LogLevel, message: string, fields: LogFields = {}) {
+	writeLog(level, message, fields);
+}
+
 export const loggingMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }> => {
 	return async (c, next) => {
 		const startedAt = Date.now();

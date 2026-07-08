@@ -7,6 +7,7 @@ import * as schema from '../db/schema/index.js';
 import { chat } from '../db/schema/chat.js';
 import { creatorStats } from '../db/schema/creatorStats.js';
 import { printrequests } from '../db/schema/printrequests.js';
+import { auditLog } from '../db/schema/auditLog.js';
 import { getLatestQuote } from './print-payments.js';
 import { createChatsStore } from './chats-store.js';
 import { createPrintRequestsStore } from './print-requests-store.js';
@@ -75,6 +76,23 @@ CREATE TABLE IF NOT EXISTS "CreatorReviews" (
 );
 `;
 
+const AUDIT_LOG_STUB_SQL = `
+CREATE TABLE IF NOT EXISTS "audit_log" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"at" timestamp with time zone DEFAULT now() NOT NULL,
+	"actor_user_id" uuid,
+	"actor_client_id" text,
+	"entity_type" text NOT NULL,
+	"entity_id" text NOT NULL,
+	"action" text NOT NULL,
+	"from_state" text,
+	"to_state" text,
+	"provider_ids" jsonb,
+	"meta" jsonb
+);
+CREATE INDEX IF NOT EXISTS "audit_log_entity_type_entity_id_at_idx" ON "audit_log" ("entity_type", "entity_id", "at");
+`;
+
 type TestDb = {
 	client: PGlite;
 	db: Database;
@@ -86,6 +104,7 @@ async function createTestDb(): Promise<TestDb> {
 	await client.exec(CHAT_STUB_SQL);
 	await client.exec(CREATOR_STATS_STUB_SQL);
 	await client.exec(CREATOR_REVIEWS_STUB_SQL);
+	await client.exec(AUDIT_LOG_STUB_SQL);
 
 	const db = drizzle(client, { schema }) as unknown as Database;
 	return { client, db };
@@ -144,6 +163,31 @@ describe('print-requests-store (pglite)', () => {
 		const messages = await testDb.db.select().from(chat);
 		expect(messages).toHaveLength(1);
 		expect(messages[0]?.messageType).toBe('quote');
+	});
+
+	it('writes an audit row for print-request action transitions', async () => {
+		await seedPrintRequest(testDb.db);
+		const store = createPrintRequestsStore(testDb.db);
+
+		const result = await store.performAction(
+			{ userId: MAKER_ID, clientId: null },
+			PRINT_REQUEST_ID,
+			{ action: 'quote', payload: { amount: 500, reason: 'PLA' } }
+		);
+
+		expect(result.ok).toBe(true);
+
+		const rows = await testDb.db.select().from(auditLog);
+		expect(rows).toEqual([
+			expect.objectContaining({
+				entityType: 'print_request',
+				entityId: PRINT_REQUEST_ID,
+				action: 'quote',
+				fromState: 'requested',
+				toState: 'quoted',
+				actorUserId: MAKER_ID
+			})
+		]);
 	});
 
 	it('rejects maker action by user with 403', async () => {

@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { createLogger } from '$lib/server/logger';
 import type { Actions } from './$types';
 
 // Re-use or define validation logic server-side
@@ -74,7 +75,13 @@ function validateServerForm(formData: FormData): Record<string, string> {
 }
 
 export const actions: Actions = {
-	default: async ({ request, locals: { supabase, supabaseAdmin } }) => {
+	default: async ({ request, locals: { supabase, supabaseAdmin, requestId, clientId }, route }) => {
+		const log = createLogger({
+			requestId,
+			route: route.id ?? undefined,
+			clientId
+		});
+
 		// Fetch the user fresh inside the action
 		const {
 			data: { user },
@@ -82,7 +89,7 @@ export const actions: Actions = {
 		} = await supabase.auth.getUser();
 
 		if (authError || !user) {
-			console.error('Authentication Error:', authError);
+			log.error('maker.application.auth_failed');
 			// Or redirect to login
 			return fail(401, { message: 'User not authenticated or session expired.' });
 		}
@@ -127,7 +134,10 @@ export const actions: Actions = {
 			const { error: dbError } = await supabaseAdmin.from('PrintingCrafters').insert(makerData);
 
 			if (dbError) {
-				console.error('Supabase DB Error:', dbError);
+				log.error('maker.application.db_failed', {
+					userId: user.id,
+					code: dbError.code
+				});
 				// Provide more specific feedback if possible, e.g., duplicate entry
 				let userMessage = 'Failed to submit application due to a database error.';
 				if (dbError.code === '23505') {
@@ -161,7 +171,9 @@ export const actions: Actions = {
 			// Success! Return success state. The page will react to this.
 			return { success: true };
 		} catch (e) {
-			console.error('Server Error:', e);
+			log.error('maker.application.unexpected_error', {
+				error: e instanceof Error ? e.message : String(e)
+			});
 			const message = 'An unexpected server error occurred.';
 			return fail(500, {
 				message: message,

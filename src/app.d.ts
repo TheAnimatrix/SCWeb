@@ -24,6 +24,7 @@ declare global {
 			supabaseAdmin: SupabaseClient<Database>;
 			safeGetSession(): Promise<{ session: Session | null; user: User | null }>;
 			clientId: string;
+			requestId: string;
 		}
 		interface PageData {
 			session: Session | null;

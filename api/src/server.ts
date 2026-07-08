@@ -1,12 +1,22 @@
+import * as Sentry from '@sentry/node';
 import { serve } from '@hono/node-server';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { createApp } from './app.js';
 import { createDb } from './db/index.js';
 import { loadEnv } from './env.js';
+import { scrubSentryEvent } from './sentry-scrub.js';
 
 config({ path: resolve(process.cwd(), '../.env') });
 config({ path: resolve(process.cwd(), '.env') });
+
+if (process.env.SENTRY_DSN) {
+	Sentry.init({
+		dsn: process.env.SENTRY_DSN,
+		tracesSampleRate: 0,
+		beforeSend: scrubSentryEvent
+	});
+}
 
 process.env.SUPABASE_URL ??= process.env.PUBLIC_SUPABASE_URL;
 process.env.SUPABASE_ANON_KEY ??= process.env.PUBLIC_SUPABASE_KEY;

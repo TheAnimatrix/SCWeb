@@ -11,6 +11,8 @@ import { printrequests } from '../db/schema/printrequests.js';
 import { purchases } from '../db/schema/purchases.js';
 import type { Actor } from '../types/context.js';
 import type { RazorpayClient } from './razorpay-client.js';
+import { truncateAuditReason, writeAudit } from './audit.js';
+import { storeLog } from '../middleware/logging.js';
 import {
 	buildOrderCreatedEvent,
 	buildPaidEvent,
@@ -184,14 +186,33 @@ export function createPrintPaymentsStore(
 
 				const orderCreatedEvent = buildOrderCreatedEvent(prepared.amount, razorpayOrder.id);
 
-				await db
-					.update(printrequests)
-					.set({
-						orderId: razorpayOrder.id,
-						events: [...prepared.events, orderCreatedEvent],
-						lastUpdated: sql`now()`
-					})
-					.where(eq(printrequests.id, printRequestId));
+				await db.transaction(async (tx) => {
+					const [current] = await tx
+						.select({ requestStage: printrequests.requestStage })
+						.from(printrequests)
+						.where(eq(printrequests.id, printRequestId))
+						.limit(1);
+
+					await tx
+						.update(printrequests)
+						.set({
+							orderId: razorpayOrder.id,
+							events: [...prepared.events, orderCreatedEvent],
+							lastUpdated: sql`now()`
+						})
+						.where(eq(printrequests.id, printRequestId));
+
+					await writeAudit(tx, {
+						actorUserId: userId,
+						actorClientId: actor.clientId,
+						entityType: 'print_request',
+						entityId: printRequestId,
+						action: 'payment_order_created',
+						fromState: current?.requestStage ?? null,
+						toState: current?.requestStage ?? null,
+						providerIds: { razorpayOrderId: razorpayOrder.id }
+					});
+				});
 
 				return {
 					ok: true,
@@ -271,14 +292,11 @@ export function createPrintPaymentsStore(
 
 					const latestQuote = getLatestQuote(row.events);
 					if (latestQuote !== null && latestQuote !== orderAmount) {
-						console.warn(
-							JSON.stringify({
-								event: 'quote_drift',
-								printRequestId,
-								orderAmount,
-								latestQuote
-							})
-						);
+						storeLog('warn', 'print_payments.quote_drift', {
+							printRequestId,
+							orderAmount,
+							latestQuote
+						});
 					}
 
 					const paidEvent = buildPaidEvent(razorpayOrderId, razorpayPaymentId, orderAmount);
@@ -318,6 +336,20 @@ export function createPrintPaymentsStore(
 							body: { error: 'forbidden' as const }
 						};
 					}
+
+					await writeAudit(tx, {
+						actorUserId: userId,
+						actorClientId: actor.clientId,
+						entityType: 'print_request',
+						entityId: printRequestId,
+						action: 'paid',
+						fromState: row.requestStage,
+						toState: 'paid',
+						providerIds: {
+							razorpayOrderId,
+							razorpayPaymentId
+						}
+					});
 
 					const purchaseInsert = {
 						paymentStatus: 'paid',
@@ -414,7 +446,7 @@ export function createPrintPaymentsStore(
 				const failedEvent = buildPaymentFailedEvent(razorpayOrderId, reason);
 				const updatedEvents = [...normalizePrintEvents(row.events), failedEvent];
 
-				await tx
+				const changed = await tx
 					.update(printrequests)
 					.set({
 						orderId: null,
@@ -423,7 +455,27 @@ export function createPrintPaymentsStore(
 					})
 					.where(
 						and(eq(printrequests.id, printRequestId), eq(printrequests.requestStage, 'quoted'))
-					);
+					)
+					.returning({ id: printrequests.id });
+
+				if (changed.length === 0) {
+					return {
+						ok: true as const,
+						response: { status: row.requestStage ?? 'quoted' }
+					};
+				}
+
+				await writeAudit(tx, {
+					actorUserId: userId,
+					actorClientId: actor.clientId,
+					entityType: 'print_request',
+					entityId: printRequestId,
+					action: 'payment_failed',
+					fromState: row.requestStage,
+					toState: row.requestStage,
+					providerIds: { razorpayOrderId },
+					meta: reason ? { reason: truncateAuditReason(reason) } : null
+				});
 
 				return {
 					ok: true as const,

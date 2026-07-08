@@ -1,7 +1,17 @@
 import { redirect } from '@sveltejs/kit';
+import { createLogger } from '$lib/server/logger';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals: { supabaseAdmin, supabase }, url }) => {
+export const load: LayoutServerLoad = async ({
+	locals: { supabaseAdmin, supabase, requestId, clientId },
+	url,
+	route
+}) => {
+	const log = createLogger({
+		requestId,
+		route: route.id ?? undefined,
+		clientId
+	});
 	let makerStatus: 'approved' | 'pending' | 'not_maker' = 'not_maker'; // Default status
 
 	const session = await supabase.auth.getUser();
@@ -19,7 +29,7 @@ export const load: LayoutServerLoad = async ({ locals: { supabaseAdmin, supabase
 			.maybeSingle();
 
 		if (dbError) {
-			console.error('Error fetching PrintingCrafters data:', dbError);
+			log.error('maker.layout.crafter_lookup_failed');
 			// Optionally throw an error or handle it gracefully
 			// throw error(500, "Database error fetching maker status");
 		}
@@ -36,7 +46,9 @@ export const load: LayoutServerLoad = async ({ locals: { supabaseAdmin, supabase
 			makerStatus = 'not_maker';
 		}
 	} catch (e) {
-		console.error('Exception fetching maker status:', e);
+		log.error('maker.layout.unexpected_error', {
+			error: e instanceof Error ? e.message : String(e)
+		});
 		// Handle unexpected errors
 	}
 

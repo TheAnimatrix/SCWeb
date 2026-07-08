@@ -9,6 +9,8 @@ import { printrequests } from '../db/schema/printrequests.js';
 import type { Actor } from '../types/context.js';
 import type { PrintRequestEvent } from './print-payments.js';
 import { recalculateCreatorStats } from './creator-stats.js';
+import { writeAudit } from './audit.js';
+import { storeLog } from '../middleware/logging.js';
 import {
 	ACTION_TRANSITIONS,
 	appendEvent,
@@ -248,6 +250,16 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 					})
 					.where(eq(printrequests.id, printRequestId));
 
+				await writeAudit(tx, {
+					actorUserId: actorId,
+					actorClientId: actor.clientId,
+					entityType: 'print_request',
+					entityId: printRequestId,
+					action,
+					fromState: currentStage,
+					toState: nextStage
+				});
+
 				return {
 					ok: true as const,
 					response: {
@@ -261,10 +273,11 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 				try {
 					await recalculateCreatorStats(db, statsMakerId);
 				} catch (error) {
-					console.error(
-						`[creator-stats] Failed to recalculate stats for maker ${statsMakerId} after completing print request ${printRequestId}:`,
-						error
-					);
+					storeLog('error', 'creator_stats.recalculate_failed', {
+						makerId: statsMakerId,
+						printRequestId,
+						error: error instanceof Error ? error.message : String(error)
+					});
 				}
 			}
 
