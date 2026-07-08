@@ -9,3 +9,6 @@ build
 dev-dist/
 api/dist/
 api/drizzle
+
+# Shell scripts (POSIX sh, not formatted by Prettier)
+deploy/*.sh
