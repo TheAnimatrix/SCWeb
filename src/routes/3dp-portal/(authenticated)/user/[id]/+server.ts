@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { validateAddress, type Address } from '$lib/types/product';
 import { json } from '@sveltejs/kit';
+import type { Json } from '../../../../../../supabase/types';
 import Razorpay from 'razorpay';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 import { RAZORPAY_KEY } from '$env/static/private';
@@ -13,6 +14,14 @@ const instance = new Razorpay({
 	key_secret: RAZORPAY_KEY
 });
 
+function getPrintRequestAddressPart(
+	address: Json | null | undefined,
+	part: 'billing' | 'shipping'
+): Json | null {
+	if (!address || typeof address !== 'object' || Array.isArray(address)) return null;
+	const record = address as Record<string, Json | undefined>;
+	return record[part] ?? null;
+}
 function getLatestQuote(events: unknown): number | null {
 	if (!Array.isArray(events)) return null;
 	const quotedEvents = events
@@ -89,7 +98,7 @@ export const POST = (async ({ params, request, locals }) => {
 			.from('printrequests')
 			.update({
 				order_id: paymentOrderResult.id,
-				address: { shipping: address, billing: address },
+				address: { shipping: address, billing: address } as unknown as Json,
 				events: [
 					...(Array.isArray(printRequest.events) ? printRequest.events : []),
 					{
@@ -194,8 +203,8 @@ export const PATCH = (async ({ params, request, locals, cookies }) => {
 		payment_method: 'razorpay:PrintRequest',
 		payment_id: payment_id_a,
 		payment_id_b: payment_id_b,
-		billing_address: printRequest.address?.billing,
-		shipping_address: printRequest.address?.shipping,
+		billing_address: getPrintRequestAddressPart(printRequest.address, 'billing'),
+		shipping_address: getPrintRequestAddressPart(printRequest.address, 'shipping'),
 		client_id: cookies.get(CLIENT_ID_COOKIE_NAME) ?? 'N/A',
 		cart_id: id,
 		amount: latestQuote,

@@ -17,23 +17,26 @@
 	import { MetaChip, ReviewCardSkeleton, ScButton, TagBadge } from '$lib/components/sc';
 	import { newAddress, validateAddress, type Address } from '$lib/types/product';
 	import { cn } from '$lib/utils';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+	import { asPrintRequest } from '$lib/types/printRequest';
 	let { data } = $props();
 
-	let req = $state(data.printRequest);
-	let sortedEvents = $derived(
-		req.events
-			? [...req.events]
-					.filter((event: any) => event.type !== 'order_created')
-					.sort(
-						(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-					)
-			: []
-	);
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
+
+	let req = $state(asPrintRequest(data.printRequest));
 	$effect(() => {
-		req = data.printRequest;
+		req = asPrintRequest(data.printRequest);
 	});
 
-	const maker = data.maker;
+	let sortedEvents = $derived(
+		req?.events
+			? [...req.events]
+					.filter((event) => event.type !== 'order_created')
+					.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+			: []
+	);
 	let downloading = $state(false);
 	let messageBoardOpen = $state(false);
 	let cancelDialogOpen = $state(false);
@@ -57,20 +60,27 @@
 	}
 
 	const displayModelName = $derived.by(() => {
-		const parts = req.model?.split('/').pop()?.split('.') ?? [];
+		const parts = req?.model?.split('/').pop()?.split('.') ?? [];
 		if (parts.length < 2) return 'Model';
 		const nameParts = parts[parts.length - 2]?.split('_') ?? [];
 		return `${nameParts[nameParts.length - 1] ?? 'model'}.${parts[parts.length - 1]}`;
 	});
 
 	const latestQuote = $derived(
-		req.events
-			?.filter((e: { type: string }) => e.type === 'quoted')
-			.sort(
-				(a: { timestamp: string }, b: { timestamp: string }) =>
-					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-			)[0]?.extra?.quote
+		req?.events
+			?.filter((e) => e.type === 'quoted')
+			.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]?.extra
+			?.quote
 	);
+
+	const latestQuoteAmount = $derived.by(() => {
+		const quote = latestQuote;
+		if (quote == null) return undefined;
+		const amount = Number(quote);
+		return Number.isFinite(amount) ? amount : undefined;
+	});
+
+	const maker = data.maker;
 
 	const STAGE_STYLES: Record<string, string> = {
 		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
@@ -108,7 +118,8 @@
 
 	async function payQuote(amount: number) {
 		if (payLoading) return;
-		if (!req?.model) return;
+		const order = req;
+		if (!order?.model) return;
 		payLoading = true;
 		//check for address validity
 		let addressValidity = validateAddress(validAddress);
@@ -119,14 +130,14 @@
 			return;
 		}
 		//check for user session
-		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
+		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('Invalid session, please reload the page or login again', 'error');
 			payLoading = false;
 			return;
 		}
 		//POST request to create a new order ('/3dp-portal/user/[id]')
-		const res = await fetch(`/3dp-portal/user/${req.id}`, {
+		const res = await fetch(`/3dp-portal/user/${order.id}`, {
 			method: 'POST',
 			body: JSON.stringify({ address: validAddress, amount: amount })
 		});
@@ -180,7 +191,7 @@
 				modal: {
 					ondismiss: async function () {
 						//remove order_created event from print request
-						// await data.supabase_lt.from('printrequests').update({
+						// await supabase().from('printrequests').update({
 						// 	order_id: null,
 						// 	events: data.printRequest.events.filter((event: any) => event.type !== 'order_created')
 						// }).eq('id', req.id);
@@ -207,7 +218,10 @@
 				toastStore.show('Payment failed, please try again', 'error');
 				// @ts-ignore - Razorpay is loaded from external script
 				rzp1.close();
-				window.location.href = `/summary/failure/${req.id}/${response.error.metadata.order_id}`;
+				const orderId = req?.id;
+				if (orderId) {
+					window.location.href = `/summary/failure/${orderId}/${response.error.metadata.order_id}`;
+				}
 				return;
 			});
 		} catch (e) {
@@ -224,7 +238,7 @@
 
 	async function downloadModel() {
 		if (!req?.model) return;
-		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
+		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('You must be logged in to request a quote', 'error');
 			return;
@@ -303,25 +317,27 @@
 		e.preventDefault();
 		if (!req || !data.session?.data?.user?.id || !cancelReason.trim()) return;
 		//repull the order data
-		const updatedOrder = await data.supabase_lt
+		const updatedOrder = await supabase()
 			.from('printrequests')
 			.select('*')
 			.eq('id', req.id)
 			.single();
 		if (!updatedOrder.data) return;
 		// 1. Send chat message of type 'action'
-		await data.supabase_lt.from('Chat').insert([
-			{
-				sender_id: data.session.data.user.id,
-				recipient_id: req.creator_id ?? '',
-				message: JSON.stringify({ action: 'cancelled', reason: cancelReason }),
-				relationship_id: req.id,
-				message_type: 'action',
-				status: 'sent'
-			}
-		]);
+		await supabase()
+			.from('Chat')
+			.insert([
+				{
+					sender_id: data.session.data.user.id,
+					recipient_id: req.creator_id ?? '',
+					message: JSON.stringify({ action: 'cancelled', reason: cancelReason }),
+					relationship_id: req.id,
+					message_type: 'action',
+					status: 'sent'
+				}
+			]);
 		// 2. Update print request's request_stage
-		await data.supabase_lt
+		await supabase()
 			.from('printrequests')
 			.update({
 				request_stage: 'cancelled',
@@ -351,11 +367,12 @@
 
 	$effect(() => {
 		(async () => {
-			if (!data.session?.data?.user?.id) return;
-			const { data: unread, error } = await data.supabase_lt
+			const order = req;
+			if (!order || !data.session?.data?.user?.id) return;
+			const { data: unread, error } = await supabase()
 				.from('Chat')
 				.select('chat_id')
-				.eq('relationship_id', req.id)
+				.eq('relationship_id', order.id)
 				.eq('recipient_id', data.session.data.user.id)
 				.eq('status', 'sent');
 			if (error) return;
@@ -372,7 +389,7 @@
 	onMount(() => {
 		//track unread counts by subscribing to the chat channel
 		if (!data.session?.data?.user?.id) return;
-		const chatSubscription = data.supabase_lt
+		const chatSubscription = supabase()
 			.channel('realtime-chat-global')
 			.on(
 				'postgres_changes',
@@ -393,7 +410,7 @@
 			)
 			.subscribe();
 		return () => {
-			data.supabase_lt.removeChannel(chatSubscription);
+			supabase().removeChannel(chatSubscription);
 		};
 	});
 
@@ -431,25 +448,27 @@
 	async function onConfirmComplete(e: MouseEvent) {
 		e.preventDefault();
 		if (!req || !data.session?.data?.user?.id) return;
-		const updatedOrder = await data.supabase_lt
+		const updatedOrder = await supabase()
 			.from('printrequests')
 			.select('*')
 			.eq('id', req.id)
 			.single();
 		if (!updatedOrder.data) return;
 		// 1. Send chat message of type 'action' (optional: can add a message for completion)
-		await data.supabase_lt.from('Chat').insert([
-			{
-				sender_id: data.session.data.user.id,
-				recipient_id: req.creator_id ?? '',
-				message: JSON.stringify({ action: 'completed', reason: completeReason }),
-				relationship_id: req.id,
-				message_type: 'action',
-				status: 'sent'
-			}
-		]);
+		await supabase()
+			.from('Chat')
+			.insert([
+				{
+					sender_id: data.session.data.user.id,
+					recipient_id: req.creator_id ?? '',
+					message: JSON.stringify({ action: 'completed', reason: completeReason }),
+					relationship_id: req.id,
+					message_type: 'action',
+					status: 'sent'
+				}
+			]);
 		// 2. Update print request's request_stage
-		await data.supabase_lt
+		await supabase()
 			.from('printrequests')
 			.update({
 				request_stage: 'completed',
@@ -494,7 +513,7 @@
 		if (!data.session?.data?.user?.id || !req?.id || !req?.creator_id) return;
 		reviewLoading = true;
 		reviewError = '';
-		const { data: review, error } = await data.supabase_lt
+		const { data: review, error } = await supabase()
 			.from('CreatorReviews')
 			.select('*')
 			.eq('user_id', data.session.data.user.id)
@@ -527,6 +546,8 @@
 	}
 
 	async function submitReview() {
+		const order = req;
+		if (!order) return;
 		if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
 			reviewError = 'Please select a rating.';
 			return;
@@ -538,20 +559,20 @@
 		reviewLoading = true;
 		const payload = {
 			user_id: data.session.data.user.id,
-			maker_id: req.creator_id,
-			print_request_id: req.id,
+			maker_id: order.creator_id,
+			print_request_id: order.id,
 			rating: reviewRating,
 			comment: reviewComment.trim()
 		};
 		let result;
 		if (userReview) {
-			result = await data.supabase_lt
+			result = await supabase()
 				.from('CreatorReviews')
 				.update(payload)
 				.eq('id', userReview.id)
 				.select('*');
 		} else {
-			result = await data.supabase_lt.from('CreatorReviews').insert(payload).select('*');
+			result = await supabase().from('CreatorReviews').insert(payload).select('*');
 		}
 		if (result.error) {
 			reviewError = result.error.message;
@@ -567,10 +588,7 @@
 	async function deleteReview() {
 		if (!userReview) return;
 		reviewLoading = true;
-		const { error } = await data.supabase_lt
-			.from('CreatorReviews')
-			.delete()
-			.eq('id', userReview.id);
+		const { error } = await supabase().from('CreatorReviews').delete().eq('id', userReview.id);
 		if (error) {
 			reviewError = error.message;
 			reviewLoading = false;
@@ -790,10 +808,12 @@
 						class:ring-2={highlightPay}
 						class:ring-foreground={highlightPay}
 						class:ring-offset-2={highlightPay}
-						disabled={payLoading}
+						disabled={payLoading || latestQuoteAmount == null}
 						bind:this={payButtonRef}
-						onclick={() => payQuote(latestQuote)}>
-						{payLoading ? 'Processing…' : `Pay ${latestQuote}₹`}
+						onclick={() => {
+							if (latestQuoteAmount != null) void payQuote(latestQuoteAmount);
+						}}>
+						{payLoading ? 'Processing…' : `Pay ${latestQuoteAmount ?? latestQuote}₹`}
 					</button>
 				</PortalCard>
 			{/if}
@@ -847,7 +867,7 @@
 									{/if}
 									{#if event.extra.amount}
 										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											amount: {(event.extra.amount / 100).toFixed(2)}₹
+											amount: {(Number(event.extra.amount) / 100).toFixed(2)}₹
 										</p>
 									{/if}
 								{/if}
@@ -867,14 +887,14 @@
 	{/if}
 </div>
 
-{#if messageBoardOpen}
+{#if messageBoardOpen && req}
 	<Drawer.Root bind:open={messageBoardOpen}>
 		<Drawer.Trigger class="hidden" />
 		<Drawer.Content
 			class="mx-auto flex h-[100vh] max-w-3xl flex-col border-border bg-background sm:h-[80vh]">
 			<MessageBoard
 				orderId={req.id}
-				supabase_lt={data.supabase_lt}
+				supabase_lt={supabase()}
 				session={data.session}
 				receiverId={req.creator_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'}

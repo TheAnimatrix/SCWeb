@@ -14,6 +14,7 @@
 	} from '$lib/components/product';
 	import type { Product } from '$lib/types/product';
 	import { getPurchasableLimit } from '$lib/utils/stock';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	interface VariantOption {
 		id: string;
@@ -23,7 +24,11 @@
 
 	let { data } = $props();
 
-	const productItem = $derived(data.product);
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
+
+	const productItem = $derived(data.product ? (data.product as unknown as Product) : undefined);
 	let indicatorCur = $state(0);
 	let cartQty = $state(1);
 	let addToCartSuccess: boolean | null = $state(null);
@@ -48,7 +53,7 @@
 				page.url.pathname.includes('/craft/item='))
 	);
 
-	const cartQtyMax = $derived(getPurchasableLimit(productItem.stock));
+	const cartQtyMax = $derived(productItem ? getPurchasableLimit(productItem.stock) : 0);
 	const cartStore = getContext<Writable<CartG>>('userCartStatus');
 
 	function productHref(item: Product): string {
@@ -56,7 +61,7 @@
 	}
 
 	async function handleVariantNavigate(href: string) {
-		if (href === productHref(productItem)) return;
+		if (!productItem || href === productHref(productItem)) return;
 		variantNavigating = true;
 		await goto(href, { keepFocus: true, noScroll: true });
 	}
@@ -71,7 +76,7 @@
 			};
 
 			if (product.type === 'product') {
-				const result = await data.supabase_lt.from('products').select('*').eq('rel', product.id);
+				const result = await supabase().from('products').select('*').eq('rel', product.id);
 				if (result.data && !result.error && result.data.length > 0) {
 					variants = [
 						currentVariant,
@@ -84,8 +89,8 @@
 					return;
 				}
 			} else if (product.rel) {
-				const result = await data.supabase_lt.from('products').select('*').eq('rel', product.rel);
-				const parentResult = await data.supabase_lt
+				const result = await supabase().from('products').select('*').eq('rel', product.rel);
+				const parentResult = await supabase()
 					.from('products')
 					.select('*')
 					.eq('id', product.rel)
@@ -126,46 +131,79 @@
 		}
 	}
 
+	function mapPageReviews(source: typeof data.reviews): PageReview[] {
+		return (source ?? []).map((review) => ({
+			id: review.id,
+			user_id: review.user_id,
+			rating: review.rating,
+			comment: review.comment ?? '',
+			created_at: review.created_at,
+			users:
+				review.users &&
+				typeof review.users === 'object' &&
+				!('error' in review.users) &&
+				'username' in review.users
+					? {
+							username:
+								typeof (review.users as { username?: unknown }).username === 'string'
+									? (review.users as { username: string }).username
+									: undefined,
+							tier:
+								typeof (review.users as { tier?: unknown }).tier === 'string'
+									? (review.users as { tier: string }).tier
+									: undefined
+						}
+					: undefined
+		}));
+	}
+
 	$effect(() => {
-		reviews = data.reviews ?? [];
-		void loadVariants(productItem);
+		const product = productItem;
+		reviews = mapPageReviews(data.reviews);
+		if (product) void loadVariants(product);
 	});
 
 	$effect(() => {
-		if (variantsLoading) return;
+		const product = productItem;
+		if (variantsLoading || !product) return;
 
 		for (const variant of variants) {
-			if (variant.id !== productItem.id) {
+			if (variant.id !== product.id) {
 				void preloadData(variant.href);
 			}
 		}
 	});
 
 	$effect(() => {
-		void productItem.id;
+		const product = productItem;
+		if (!product) return;
+		void product.id;
 		variantNavigating = false;
 		indicatorCur = 0;
 		cartQty = 1;
 		addToCartSuccess = null;
 	});
 
-	const slug = $derived(productItem.name.replaceAll(' ', '_').toLowerCase());
-	const makerName = $derived(productItem.author ?? productItem.users?.username ?? 'unknown');
-	const makerLocation = $derived(productItem.users?.city ?? '—');
+	const slug = $derived(productItem?.name.replaceAll(' ', '_').toLowerCase() ?? '');
+	const makerName = $derived(productItem?.author ?? productItem?.users?.username ?? 'unknown');
+	const makerLocation = $derived(productItem?.users?.city ?? '—');
 	const memberSince = $derived(
-		new Date(productItem.created_at).toLocaleDateString('en-US', {
-			month: 'short',
-			year: 'numeric'
-		})
+		productItem
+			? new Date(productItem.created_at).toLocaleDateString('en-US', {
+					month: 'short',
+					year: 'numeric'
+				})
+			: ''
 	);
 	const shopHref = $derived(`/crafts?q=${encodeURIComponent(makerName)}`);
 
 	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
+		const product = productItem;
 		const newItemId = page.params.item;
-		const productId = productItem.id;
-		if (newItemId && newItemId !== productId) {
+		const productId = product?.id;
+		if (newItemId && productId && newItemId !== productId) {
 			window.location.reload();
 		}
 	});
@@ -192,6 +230,8 @@
 	}
 
 	async function cartSubmit() {
+		const product = productItem;
+		if (!product) return;
 		if (cartQty <= 0) {
 			showCartFeedback(false, 'Quantity must be at least 1');
 			return;
@@ -199,13 +239,13 @@
 
 		addToCartMsg = `${cartQty}`;
 		const cartItem: CartItem = {
-			product_id: productItem.id,
-			price: productItem.price.new,
+			product_id: product.id,
+			price: product.price.new,
 			qty: cartQty
 		};
 
 		const result = await changeCart(
-			data.supabase_lt,
+			supabase(),
 			cartStore,
 			cartItem,
 			cartQtyMax,
@@ -234,64 +274,68 @@
 		]} />
 
 	<div class="mt-6 grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-start">
-		<div class="min-w-0 space-y-4">
-			{#if isRefreshing}
-				<div class="space-y-3" aria-busy="true" aria-label="Loading product images">
-					<Skeleton class="aspect-[4/3] w-full rounded-lg" />
-					<div class="flex flex-wrap gap-2">
-						{#each [...Array(3).keys()] as index (index)}
-							<Skeleton class="h-16 w-16 rounded-md" />
-						{/each}
+		{#if productItem}
+			<div class="min-w-0 space-y-4">
+				{#if isRefreshing}
+					<div class="space-y-3" aria-busy="true" aria-label="Loading product images">
+						<Skeleton class="aspect-[4/3] w-full rounded-lg" />
+						<div class="flex flex-wrap gap-2">
+							{#each [...Array(3).keys()] as index (index)}
+								<Skeleton class="h-16 w-16 rounded-md" />
+							{/each}
+						</div>
 					</div>
-				</div>
-			{:else}
-				<ProductGallery product={productItem} bind:indicatorCur />
-			{/if}
+				{:else}
+					<ProductGallery product={productItem} bind:indicatorCur />
+				{/if}
 
-			<MakerCard
-				name={makerName}
-				location={makerLocation}
-				craftCount={1}
-				{memberSince}
-				{shopHref}
-				avatarUrl={data.makerAvatarUrl} />
-		</div>
-
-		<ProductPurchasePanel
-			class="min-w-0"
-			product={productItem}
-			bind:cartQty
-			{addToCartSuccess}
-			{addToCartMsg}
-			{variants}
-			{variantsLoading}
-			{isRefreshing}
-			onVariantNavigate={handleVariantNavigate}
-			onIncrement={incCart}
-			onDecrement={decCart}
-			onAddToCart={cartSubmit} />
-	</div>
-
-	<div class="mt-10">
-		{#if isRefreshing}
-			<div class="space-y-4" aria-busy="true" aria-label="Loading product details">
-				<div class="flex flex-wrap gap-2 border-b border-border pb-3">
-					{#each [...Array(3).keys()] as index (index)}
-						<Skeleton class="h-8 w-24 rounded-md" />
-					{/each}
-				</div>
-				<ProseSkeleton class="rounded-lg border border-border bg-card p-5 md:p-6" lines={8} />
+				<MakerCard
+					name={makerName}
+					location={makerLocation}
+					craftCount={1}
+					{memberSince}
+					{shopHref}
+					avatarUrl={data.makerAvatarUrl} />
 			</div>
-		{:else}
-			<ProductDetailTabs
+
+			<ProductPurchasePanel
+				class="min-w-0"
 				product={productItem}
-				bind:reviews
-				initialReviews={data.reviews ?? []}
-				supabase={data.supabase_lt} />
+				bind:cartQty
+				{addToCartSuccess}
+				{addToCartMsg}
+				{variants}
+				{variantsLoading}
+				{isRefreshing}
+				onVariantNavigate={handleVariantNavigate}
+				onIncrement={incCart}
+				onDecrement={decCart}
+				onAddToCart={cartSubmit} />
 		{/if}
 	</div>
 
-	<div class="mt-12">
-		<RelatedProducts product={productItem} supabase={data.supabase_lt} />
-	</div>
+	{#if productItem}
+		<div class="mt-10">
+			{#if isRefreshing}
+				<div class="space-y-4" aria-busy="true" aria-label="Loading product details">
+					<div class="flex flex-wrap gap-2 border-b border-border pb-3">
+						{#each [...Array(3).keys()] as index (index)}
+							<Skeleton class="h-8 w-24 rounded-md" />
+						{/each}
+					</div>
+					<ProseSkeleton class="rounded-lg border border-border bg-card p-5 md:p-6" lines={8} />
+				</div>
+			{:else}
+				<ProductDetailTabs
+					product={productItem}
+					bind:reviews
+					initialReviews={mapPageReviews(data.reviews)}
+					supabase={supabase()} />
+			{/if}
+		</div>
+
+		<div class="mt-12">
+			<RelatedProducts product={productItem} supabase={supabase()} />
+		</div>
+	{/if}
 </div>

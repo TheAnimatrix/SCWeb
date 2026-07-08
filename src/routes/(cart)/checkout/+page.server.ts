@@ -1,4 +1,5 @@
 import { getActiveCart } from '$lib/client/cart';
+import { asAddressList } from '$lib/types/product';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
@@ -11,15 +12,20 @@ export const load: PageServerLoad = async (event) => {
 	const userExists = resultUser.data.user != null && resultUser.data.user ? true : false;
 	let addresses;
 	if (userExists) {
-		addresses = await event.locals.supabase
-			.from('addresses')
-			.select('*')
-			.eq('uid', resultUser.data.user?.id);
-
-		if (addresses.error) {
+		const userId = resultUser.data.user?.id;
+		if (!userId) {
 			addresses = undefined;
 		} else {
-			addresses = addresses.data;
+			const addressResult = await event.locals.supabase
+				.from('addresses')
+				.select('*')
+				.eq('uid', userId);
+
+			if (addressResult.error) {
+				addresses = undefined;
+			} else {
+				addresses = asAddressList(addressResult.data);
+			}
 		}
 	} else addresses = undefined;
 	return { email: resultUser.data.user?.email, userExists: userExists, addresses: addresses, cart };

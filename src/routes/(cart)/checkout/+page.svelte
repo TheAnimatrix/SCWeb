@@ -14,19 +14,25 @@
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { CheckoutLineSkeleton, PlaceholderImage, ScButton, Skeleton } from '$lib/components/sc';
 	import { type CartG, type Cart } from '$lib/client/cart';
-	import { newAddress, validateAddress, type Address } from '$lib/types/product';
+	import { newAddress, validateAddress, asAddressList, type Address } from '$lib/types/product';
 	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
 	import { toastStore } from '$lib/client/toastStore.js';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
 
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
+
 	let validAddress: Address | undefined = $state();
 	let productDetailsCache: Record<string, any> = {};
+	const addresses = $derived(asAddressList(data.addresses));
 
 	async function getProductDetails(productId: string) {
 		if (productDetailsCache[productId]) return productDetailsCache[productId];
 
-		const result = await data.supabase_lt
+		const result = await supabase()
 			.from('products')
 			.select('name,images,price,author')
 			.eq('id', productId);
@@ -51,8 +57,8 @@
 	let hasItems = $derived(cartItems.length > 0);
 
 	let addressValid: boolean = $state(false);
-	if (data.userExists && data.addresses && data.addresses.length > 0) {
-		const firstAddress = data.addresses[0];
+	if (data.userExists && addresses.length > 0) {
+		const firstAddress = addresses[0];
 		if (validateAddress(firstAddress) == null) {
 			addressValid = true;
 			validAddress = firstAddress;
@@ -148,7 +154,6 @@
 				}
 			};
 
-			// @ts-expect-error Razorpay is loaded from external script
 			const rzp1 = new Razorpay(options);
 			if (!rzp1) {
 				toastStore.show('Issue with payment provider. Please try again.', 'error');
@@ -156,26 +161,30 @@
 				return;
 			}
 			rzp1.open();
-			rzp1.on(
-				'payment.failed',
-				async function (response: { error: { metadata: { order_id: string } } }) {
-					if (!cartData) {
-						isPaying = false;
-						rzp1.close();
-						goto('/summary/failure');
-						return;
-					}
+			rzp1.on('payment.failed', async function (response: unknown) {
+				const failedResponse = response as {
+					error?: { metadata?: { order_id?: string } };
+				};
+				if (!cartData) {
 					isPaying = false;
 					rzp1.close();
-					const orderId = response.error.metadata.order_id;
-					try {
-						await fetch(`/summary/failure/${cartData.id}/${orderId}`, { method: 'POST' });
-					} catch {
-						// Still navigate so the user sees the failure page.
-					}
-					window.location.href = `/summary/failure/${cartData.id}/${orderId}`;
+					goto('/summary/failure');
+					return;
 				}
-			);
+				isPaying = false;
+				rzp1.close();
+				const orderId = failedResponse.error?.metadata?.order_id;
+				if (!orderId) {
+					goto('/summary/failure');
+					return;
+				}
+				try {
+					await fetch(`/summary/failure/${cartData.id}/${orderId}`, { method: 'POST' });
+				} catch {
+					// Still navigate so the user sees the failure page.
+				}
+				window.location.href = `/summary/failure/${cartData.id}/${orderId}`;
+			});
 		} catch (e: unknown) {
 			toastStore.show(
 				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
@@ -241,7 +250,7 @@
 						<AddressInputSelector
 							email={data.email}
 							userExists={data.userExists}
-							addresses={data.addresses}
+							{addresses}
 							bind:address={validAddress}
 							bind:addressValid />
 					</div>
@@ -249,7 +258,7 @@
 					<AddressInputSelector
 						email={data.email}
 						userExists={data.userExists}
-						addresses={data.addresses}
+						{addresses}
 						bind:address={validAddress}
 						bind:addressValid />
 				{/if}

@@ -2,7 +2,7 @@ import Razorpay from 'razorpay';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { type CartItem } from '$lib/client/cart';
 import type { Product } from '$lib/types/product';
-import { canFulfillQuantity, isOnDemand } from '$lib/utils/stock';
+import { canFulfillQuantity, isOnDemand, parseProductStock } from '$lib/utils/stock';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 import { RAZORPAY_KEY } from '$env/static/private';
 import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers';
@@ -140,7 +140,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 				.select()
 				.eq('id', item.product_id);
 			if (result_get_stock?.data?.length) {
-				const currentStock = result_get_stock.data[0].stock;
+				const currentStock = parseProductStock(result_get_stock.data[0].stock);
 				if (!isOnDemand(currentStock)) {
 					await locals.supabaseAdmin
 						.from('products')
@@ -220,12 +220,13 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			return json({ error: true, message: 'Invalid cart state for checkout' }, { status: 400 });
 		}
 
-		if ((orderData.list ?? []).length <= 0) {
+		const cartList = orderData.list;
+		if (!Array.isArray(cartList) || cartList.length <= 0) {
 			return json({ error: true, message: 'Order cart is empty' }, { status: 400 });
 		}
 
 		let totalPrice = 0;
-		const itemList = orderData.list as CartItem[];
+		const itemList = cartList as CartItem[];
 		for (const item of itemList) {
 			const productResult = await locals.supabaseAdmin
 				.from('products')
@@ -237,7 +238,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 					{ status: 400 }
 				);
 			}
-			const stock = productResult.data[0].stock;
+			const stock = parseProductStock(productResult.data[0].stock);
 			if (!canFulfillQuantity(stock, item.qty)) {
 				return json(
 					{
@@ -247,7 +248,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 					{ status: 400 }
 				);
 			}
-			const product: Product = productResult.data[0];
+			const product = productResult.data[0] as unknown as Product;
 			totalPrice += product.price.new * item.qty;
 		}
 

@@ -8,7 +8,13 @@
 	import AlertCircle from '@lucide/svelte/icons/circle-alert';
 	import X from '@lucide/svelte/icons/x';
 
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+
 	let { data } = $props();
+
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
 
 	let errorMsg = $state('');
 	let errorShow = $state(false);
@@ -41,7 +47,7 @@
 		isLoading = true;
 		errorShow = false;
 		try {
-			const result = await data.supabase_lt
+			const result = await supabase()
 				.from('addresses')
 				.select('*')
 				.order('created_at', { ascending: false });
@@ -133,7 +139,7 @@
 		isLoading = true;
 		errorShow = false;
 		try {
-			const { error } = await data.supabase_lt.from('addresses').delete().eq('id', addrToDelete.id);
+			const { error } = await supabase().from('addresses').delete().eq('id', addrToDelete.id);
 			if (error) {
 				showError(`Error deleting address: ${error.message}`);
 			} else {
@@ -177,7 +183,7 @@
 				const updateData = { ...finalAddress };
 				delete updateData.id;
 				delete updateData.created_at;
-				const { data: dbData, error } = await data.supabase_lt
+				const { data: dbData, error } = await supabase()
 					.from('addresses')
 					.update(updateData)
 					.eq('id', id)
@@ -221,7 +227,7 @@
 		try {
 			const insertData = { ...finalAddress };
 			delete insertData.id;
-			const { data: dbData, error } = await data.supabase_lt
+			const { data: dbData, error } = await supabase()
 				.from('addresses')
 				.insert([insertData])
 				.select()

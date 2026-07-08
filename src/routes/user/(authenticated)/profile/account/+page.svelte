@@ -8,8 +8,10 @@
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
 
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+
 	let { data } = $props();
-	let supabase_lt = data.supabase_lt;
+	const supabase_lt = requireBrowserSupabase(data.supabase_lt);
 
 	let username = $state('');
 	let email = $derived(data.email ?? '');

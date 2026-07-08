@@ -7,22 +7,26 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { goto, invalidate } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+	import { asPrintRequest } from '$lib/types/printRequest';
 	let { data } = $props();
 
-	let req = $state(data.printRequest);
-	let sortedEvents = $derived(
-		req.events
-			? [...req.events]
-					.filter((event: any) => event.type !== 'order_created')
-					.sort(
-						(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-					)
-			: []
-	);
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
+
+	let req = $state(asPrintRequest(data.printRequest));
 	$effect(() => {
-		req = data.printRequest;
+		req = asPrintRequest(data.printRequest);
 	});
 
+	const sortedEvents = $derived(
+		req?.events
+			? [...req.events]
+					.filter((event) => event.type !== 'order_created')
+					.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+			: []
+	);
 	let downloading = $state(false);
 	let messageBoardOpen = $state(false);
 	let cancelDialogOpen = $state(false);
@@ -30,9 +34,14 @@
 	let downloadProgress = $state(0);
 	let unreadCount = $state(0);
 
-	let modelName = req.model?.split('/').pop().split('.');
-	let modelName2 = modelName[modelName.length - 2].split('_');
-	modelName = `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}`;
+	const displayModelName = $derived.by(() => {
+		const path = req?.model;
+		if (!path) return '';
+		const segments = path.split('/').pop()?.split('.') ?? [];
+		if (segments.length < 2) return segments.join('.');
+		const prefix = segments[segments.length - 2]?.split('_') ?? [];
+		return `${prefix[prefix.length - 1] ?? ''}.${segments[segments.length - 1] ?? ''}`;
+	});
 
 	// Add a mapping for stage colors
 	const STAGE_COLORS: { [key: string]: string } = {
@@ -100,13 +109,13 @@
 				return false;
 			}
 		}
-		if (!req.id || !data.session?.data?.user?.id) {
+		if (!req || !req.id || !data.session?.data?.user?.id) {
 			shippedError = 'Order/session missing.';
 			return;
 		}
 		shippedLoading = true;
 		// Fetch updated order
-		const updatedOrderRes = await data.supabase_lt
+		const updatedOrderRes = await supabase()
 			.from('printrequests')
 			.select('*')
 			.eq('id', req.id)
@@ -118,28 +127,30 @@
 		}
 		const updatedOrder = updatedOrderRes.data;
 		// 1. Send chat message of type 'action'
-		const chatInsert = await data.supabase_lt.from('Chat').insert([
-			{
-				sender_id: data.session.data.user.id,
-				recipient_id: updatedOrder.user_id ?? '',
-				message: JSON.stringify({
-					action: 'shipped',
-					courier: courierName,
-					tracking_id: trackingId,
-					tracking_link: trackingLink
-				}),
-				relationship_id: updatedOrder.id,
-				message_type: 'action',
-				status: 'sent'
-			}
-		]);
+		const chatInsert = await supabase()
+			.from('Chat')
+			.insert([
+				{
+					sender_id: data.session.data.user.id,
+					recipient_id: updatedOrder.user_id ?? '',
+					message: JSON.stringify({
+						action: 'shipped',
+						courier: courierName,
+						tracking_id: trackingId,
+						tracking_link: trackingLink
+					}),
+					relationship_id: updatedOrder.id,
+					message_type: 'action',
+					status: 'sent'
+				}
+			]);
 		if (chatInsert.error) {
 			shippedError = 'Error sending shipped message.';
 			shippedLoading = false;
 			return;
 		}
 		// 2. Update print request's request_stage and events
-		const updateRes = await data.supabase_lt
+		const updateRes = await supabase()
 			.from('printrequests')
 			.update({
 				request_stage: 'shipped',
@@ -174,7 +185,7 @@
 
 	async function downloadModel() {
 		if (!req?.model) return;
-		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
+		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('You must be logged in to request a quote', 'error');
 			return;
@@ -212,7 +223,7 @@
 						const url = window.URL.createObjectURL(xhr.response);
 						const a = document.createElement('a');
 						a.href = url;
-						a.download = modelName;
+						a.download = displayModelName;
 						document.body.appendChild(a);
 						a.click();
 						setTimeout(() => {
@@ -252,12 +263,12 @@
 			toastStore.show('Please enter a quote', 'error');
 			return;
 		}
-		if (!req.id) {
+		if (!req || !req.id) {
 			toastStore.show('No valid order selected', 'error');
 			return;
 		}
 		//fetch updated order
-		const updatedOrderRes = await data.supabase_lt
+		const updatedOrderRes = await supabase()
 			.from('printrequests')
 			.select('*')
 			.eq('id', req.id)
@@ -270,7 +281,7 @@
 
 		quoteLoading = true;
 		//update request_stage to 'quoted' && update "events"
-		const updateQuote = await data.supabase_lt
+		const updateQuote = await supabase()
 			.from('printrequests')
 			.update({
 				request_stage: 'quoted',
@@ -292,16 +303,18 @@
 			return;
 		}
 		//send chat message of type 'quote'
-		const chatInsert = await data.supabase_lt.from('Chat').insert([
-			{
-				sender_id: data.session?.data?.user?.id ?? '',
-				recipient_id: updatedOrder.user_id ?? '',
-				message: JSON.stringify({ action: 'quoted', reason: quoteBreakdown, quote: quote }),
-				relationship_id: updatedOrder.id,
-				message_type: 'quote',
-				status: 'sent'
-			}
-		]);
+		const chatInsert = await supabase()
+			.from('Chat')
+			.insert([
+				{
+					sender_id: data.session?.data?.user?.id ?? '',
+					recipient_id: updatedOrder.user_id ?? '',
+					message: JSON.stringify({ action: 'quoted', reason: quoteBreakdown, quote: quote }),
+					relationship_id: updatedOrder.id,
+					message_type: 'quote',
+					status: 'sent'
+				}
+			]);
 		if (chatInsert.error) {
 			toastStore.show('Error sending quote', 'error');
 			quoteLoading = false;
@@ -321,27 +334,29 @@
 
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
-		if (!req.id || !data.session?.data?.user?.id || !cancelReason.trim()) return;
+		if (!req || !req.id || !data.session?.data?.user?.id || !cancelReason.trim()) return;
 		//repull the order data
-		const updatedOrder = await data.supabase_lt
+		const updatedOrder = await supabase()
 			.from('printrequests')
 			.select('*')
 			.eq('id', req.id)
 			.single();
 		if (!updatedOrder.data) return;
 		// 1. Send chat message of type 'action'
-		await data.supabase_lt.from('Chat').insert([
-			{
-				sender_id: data.session.data.user.id,
-				recipient_id: updatedOrder.data.user_id ?? '',
-				message: JSON.stringify({ action: 'cancelled', reason: cancelReason }),
-				relationship_id: updatedOrder.data.id,
-				message_type: 'action',
-				status: 'sent'
-			}
-		]);
+		await supabase()
+			.from('Chat')
+			.insert([
+				{
+					sender_id: data.session.data.user.id,
+					recipient_id: updatedOrder.data.user_id ?? '',
+					message: JSON.stringify({ action: 'cancelled', reason: cancelReason }),
+					relationship_id: updatedOrder.data.id,
+					message_type: 'action',
+					status: 'sent'
+				}
+			]);
 		// 2. Update print request's request_stage
-		await data.supabase_lt
+		await supabase()
 			.from('printrequests')
 			.update({
 				request_stage: 'cancelled',
@@ -421,11 +436,12 @@
 
 	$effect(() => {
 		(async () => {
-			if (!data.session?.data?.user?.id) return;
-			const { data: unread, error } = await data.supabase_lt
+			const order = req;
+			if (!order || !data.session?.data?.user?.id) return;
+			const { data: unread, error } = await supabase()
 				.from('Chat')
 				.select('chat_id')
-				.eq('relationship_id', req.id)
+				.eq('relationship_id', order.id)
 				.eq('recipient_id', data.session.data.user.id)
 				.eq('status', 'sent');
 			if (error) return;
@@ -442,7 +458,7 @@
 	onMount(() => {
 		//track unread counts by subscribing to the chat channel
 		if (!data.session?.data?.user?.id) return;
-		const chatSubscription = data.supabase_lt
+		const chatSubscription = supabase()
 			.channel('realtime-chat-global')
 			.on(
 				'postgres_changes',
@@ -463,7 +479,7 @@
 			)
 			.subscribe();
 		return () => {
-			data.supabase_lt.removeChannel(chatSubscription);
+			supabase().removeChannel(chatSubscription);
 		};
 	});
 </script>
@@ -482,7 +498,7 @@
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="flex flex-col items-start justify-between w-full">
 				<div class="font-semibold text-white text-lg truncate">
-					{modelName ?? 'Model'}
+					{displayModelName || 'Model'}
 				</div>
 				<div class="text-xs text-gray-400">{new Date(req.created_at).toLocaleString()}</div>
 			</div>
@@ -678,7 +694,7 @@
 								{/if}
 								{#if event.extra.amount}
 									<div class="text-gray-400 mt-1 font-semibold">
-										Amount : {(event.extra.amount / 100).toFixed(2)}₹
+										Amount : {(Number(event.extra.amount) / 100).toFixed(2)}₹
 									</div>
 								{/if}
 							{/if}
@@ -701,13 +717,13 @@
 	{/if}
 </div>
 
-{#if messageBoardOpen}
+{#if messageBoardOpen && req}
 	<Drawer.Root bind:open={messageBoardOpen}>
 		<Drawer.Trigger style="display:none" />
 		<Drawer.Content class="max-w-3xl mx-auto h-[100vh] sm:h-[80vh] transition-all duration-200">
 			<MessageBoard
 				orderId={req.id}
-				supabase_lt={data.supabase_lt}
+				supabase_lt={supabase()}
 				session={data.session}
 				receiverId={req.user_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'} />

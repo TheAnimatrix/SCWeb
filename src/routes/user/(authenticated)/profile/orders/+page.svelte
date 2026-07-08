@@ -10,7 +10,13 @@
 	import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+
 	let { data } = $props();
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
+
 	let orders: Orders = $state([]);
 	orders = data.orders;
 	let visible = $state(Array(orders.length).fill(false));
@@ -213,7 +219,7 @@
 								<!--Items-->
 								{#if order.payment_method.includes('PrintRequest')}
 									<div class="border-t border-border p-3 text-sm">
-										{#await data.supabase_lt
+										{#await supabase()
 											.from('printrequests')
 											.select('*')
 											.eq('id', order.cart_id)

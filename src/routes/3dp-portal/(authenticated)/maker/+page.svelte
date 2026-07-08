@@ -16,7 +16,7 @@
 
 	let name = $state($page.form?.name ?? '');
 	let contactNumber = $state($page.form?.contactNumber ?? '');
-	let email = $state($page.form?.email ?? session?.user?.email ?? '');
+	let email = $state($page.form?.email ?? session?.data?.user?.email ?? '');
 	let maxPrinterSize = $state($page.form?.maxPrinterSize ?? '');
 	let numPrinters = $state($page.form?.numPrinters ?? 1);
 	let selectedFilaments = $state<Set<string>>(new Set($page.form?.selectedFilaments ?? []));
@@ -74,11 +74,11 @@
 		</p>
 	</header>
 
-	{#if makerStatus === 'approved'}
+	{#if makerStatus === 'approved' && data.supabase_lt}
 		<ApprovedMakerPortal
 			supabase_lt={data.supabase_lt}
 			{session}
-			makerName={data.makerData?.name} />
+			makerName={data.makerData?.name ?? undefined} />
 	{:else if makerStatus === 'pending' || $page.form?.success}
 		<PortalCard class="text-center">
 			<div class="mx-auto max-w-md space-y-2">

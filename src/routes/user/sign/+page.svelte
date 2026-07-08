@@ -17,6 +17,8 @@
 	import Lock from '@lucide/svelte/icons/lock';
 	import User from '@lucide/svelte/icons/user';
 
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+
 	const PUBLIC_SITE_URL = env.PUBLIC_SITE_URL == undefined ? null : env.PUBLIC_SITE_URL;
 	const PUBLIC_VERCEL_URL = env.PUBLIC_VERCEL_URL == undefined ? null : env.PUBLIC_VERCEL_URL;
 
@@ -32,6 +34,10 @@
 
 	let { data } = $props();
 
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
+
 	const getURL = () => {
 		let url = PUBLIC_SITE_URL ?? PUBLIC_VERCEL_URL ?? 'http://192.168.0.208:5173/auth/callback';
 		url = url.includes('http') ? url : `https://${url}`;
@@ -43,7 +49,7 @@
 	async function signWithGoogle(register: boolean) {
 		isAuthLoading = true;
 		try {
-			const { error } = await data.supabase_lt.auth.signInWithOAuth({
+			const { error } = await supabase().auth.signInWithOAuth({
 				provider: 'google',
 				options: {
 					redirectTo: getURL()
@@ -64,7 +70,7 @@
 	async function signInWithEmail() {
 		if (isAuthLoading) return;
 		isAuthLoading = true;
-		const { error } = await data.supabase_lt.auth.signInWithPassword({
+		const { error } = await supabase().auth.signInWithPassword({
 			email: emailLogin,
 			password: passwordLogin
 		});
@@ -89,7 +95,7 @@
 		}
 		isAuthLoading = true;
 
-		const { data: usernameCheck } = await data.supabase_lt.rpc('check_username', {
+		const { data: usernameCheck } = await supabase().rpc('check_username', {
 			desired_username: usernameRegister
 		});
 		if (usernameCheck) {
@@ -99,14 +105,14 @@
 			return;
 		}
 
-		const { data: signUpData, error } = await data.supabase_lt.auth.signUp({
+		const { data: signUpData, error } = await supabase().auth.signUp({
 			email: emailRegister,
 			password: passwordRegister,
 			options: {
 				emailRedirectTo: `http://localhost:5173/user/profile`
 			}
 		});
-		await data.supabase_lt
+		await supabase()
 			.from('users')
 			.update({ username: usernameRegister })
 			.eq('id', signUpData.user?.id)
