@@ -69,9 +69,46 @@ function syncCartStore(cart_store: Writable<CartG>, cart: Cart) {
 	cart_store.set({ valid: true, itemCount: cartItemCount(cart) });
 }
 
-/**
- *
- */
+export type CartQuantityResolution =
+	| { action: 'remove' }
+	| { action: 'set'; qty: number }
+	| { action: 'reject'; message: string }
+	| { action: 'noop' };
+
+export function resolveCartQuantityChange(params: {
+	currentQty: number | undefined;
+	changeQty: number;
+	absoluteStockChange: boolean;
+	stockLimit: number;
+}): CartQuantityResolution {
+	const { currentQty, changeQty, absoluteStockChange, stockLimit } = params;
+
+	if (currentQty !== undefined) {
+		const newQty = absoluteStockChange ? changeQty : currentQty + changeQty;
+
+		if (newQty <= 0) {
+			return { action: 'remove' };
+		}
+		if (newQty > stockLimit) {
+			return {
+				action: 'reject',
+				message: `We only have ${stockLimit} left. You already have ${currentQty} in your cart.`
+			};
+		}
+		return { action: 'set', qty: newQty };
+	}
+
+	if (changeQty <= 0) {
+		return { action: 'noop' };
+	}
+	if (changeQty > stockLimit) {
+		return {
+			action: 'reject',
+			message: `We only have ${stockLimit} left.`
+		};
+	}
+	return { action: 'set', qty: changeQty };
+}
 
 /**
  * Changes the quantity of an item in the cart.
@@ -96,30 +133,27 @@ export async function changeCart(
 	const cart: Cart = cartResult.data!;
 	cart.list = cart.list ?? [];
 	const itemIndex = cart.list.findIndex((item) => item.product_id === changed.product_id);
-	if (itemIndex >= 0) {
-		const sameCartItem = cart.list[itemIndex];
-		let newQty;
-		if(!absoluteStockChange)
-			newQty = (sameCartItem?.qty ?? 0) + changed.qty;
-		else
-			newQty = changed.qty;
+	const resolution = resolveCartQuantityChange({
+		currentQty: itemIndex >= 0 ? cart.list[itemIndex].qty : undefined,
+		changeQty: changed.qty,
+		absoluteStockChange,
+		stockLimit: changedItemStock
+	});
 
-		if (newQty === 0) {
+	if (resolution.action === 'reject') {
+		return { error: true, data: resolution.message };
+	}
+	if (resolution.action === 'noop') {
+		return { error: false, data: 'updated cart' };
+	}
+	if (itemIndex >= 0) {
+		if (resolution.action === 'remove') {
 			cart.list.splice(itemIndex, 1);
-		} else if(newQty> changedItemStock){
-			return { error: true, data: `We only have ${changedItemStock} left. You already have ${sameCartItem.qty} in your cart.` };
+		} else {
+			cart.list[itemIndex].qty = resolution.qty;
 		}
-		else{
-			cart.list[itemIndex].qty = newQty;
-		}
-	} else {
-		if (changed.qty > changedItemStock) {
-			return {
-				error: true,
-				data: `We only have ${changedItemStock} left.`
-			};
-		}
-		cart.list.push(changed);
+	} else if (resolution.action === 'set') {
+		cart.list.push({ ...changed, qty: resolution.qty });
 	}
 	const { data: updatedRows, error } = await supabase.rpc('update_cart_by_id', {
 		in_client_id: clientId,

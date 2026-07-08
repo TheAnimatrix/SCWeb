@@ -87,12 +87,12 @@
 		stock: { count: number; status?: string }
 	) {
 		if (isUpdatingCart) return;
-		isUpdatingCart = true;
+		if (!cartDetails?.list) return;
 
 		const limit = getPurchasableLimit(stock);
 
 		if (!isNaN(quantity) && isStockAvailable(stock, quantity)) {
-			if (!cartDetails?.list) return;
+			isUpdatingCart = true;
 			const product = { ...cartDetails.list[index] };
 			product.qty = quantity;
 
@@ -109,10 +109,12 @@
 					await invalidate('cart:change');
 					highlightRow(index);
 				} else {
-					console.error('Failed to update quantity:', success.data);
+					toastStore.show(success.data, 'error');
+					quantityList[index] = cartDetails.list[index].qty.toString();
 				}
 			} catch (err) {
 				console.error('Error updating cart:', err);
+				quantityList[index] = cartDetails.list[index].qty.toString();
 			} finally {
 				isUpdatingCart = false;
 			}
@@ -121,10 +123,7 @@
 				? `Sorry! you can only order up to ${limit} units of this made-to-order item at a time.`
 				: `Sorry! we only have ${stock.count} units at the moment.`;
 			toastStore.show(message, 'error');
-			if (cartDetails?.list) {
-				quantityList[index] = cartDetails.list[index].qty.toString();
-			}
-			isUpdatingCart = false;
+			quantityList[index] = cartDetails.list[index].qty.toString();
 		}
 	}
 
@@ -153,8 +152,8 @@
 
 	async function removeItem(i: number, result: any) {
 		if (isUpdatingCart) return;
-		isUpdatingCart = true;
 		if (!cartDetails?.list) return;
+		isUpdatingCart = true;
 		const product = { ...cartDetails.list[i] };
 		product.qty = 0;
 
@@ -170,10 +169,12 @@
 			if (!success.error) {
 				await invalidate('cart:change');
 			} else {
-				console.error('Failed to remove item:', success.data);
+				toastStore.show(success.data, 'error');
+				quantityList[i] = cartDetails.list[i].qty.toString();
 			}
 		} catch (err) {
 			console.error('Error removing item:', err);
+			quantityList[i] = cartDetails.list[i].qty.toString();
 		} finally {
 			isUpdatingCart = false;
 		}
@@ -187,19 +188,22 @@
 	}
 
 	async function checkOut() {
-		if (cartDetails?.list) {
-			for (let i = 0; i < cartDetails.list.length; i++) {
-				const cached = productDetailsCache[cartDetails.list[i].product_id];
-				if (!isStockAvailable(cached.stock, cartDetails.list[i].qty)) {
-					const message = isOnDemand(cached.stock)
-						? `Sorry! you can only order up to ${getPurchasableLimit(cached.stock)} units of ${cached.name} at a time.`
-						: `Sorry! we only have ${cached.stock.count} unit${cached.stock.count > 1 ? 's' : ''} of ${cached.name} at the moment.`;
-					toastStore.show(message, 'error');
-					return;
-				}
+		if (!cartDetails?.list) return;
+
+		for (let i = 0; i < cartDetails.list.length; i++) {
+			const item = cartDetails.list[i];
+			const cached = await getItemDetails(item.product_id);
+			if (!cached) {
+				toastStore.show("Couldn't verify stock for an item — try again", 'error');
+				return;
 			}
-		} else {
-			return;
+			if (!isStockAvailable(cached.stock, item.qty)) {
+				const message = isOnDemand(cached.stock)
+					? `Sorry! you can only order up to ${getPurchasableLimit(cached.stock)} units of ${cached.name} at a time.`
+					: `Sorry! we only have ${cached.stock.count} unit${cached.stock.count > 1 ? 's' : ''} of ${cached.name} at the moment.`;
+				toastStore.show(message, 'error');
+				return;
+			}
 		}
 		goto('/checkout');
 	}
