@@ -1,5 +1,27 @@
 # Production Plan
 
+## Progress log
+
+- **2026-07-08 — wu-0a merged (`f17a70d`)**: Phase 0 security hotfixes complete —
+  Razorpay HMAC verification (both endpoints), idempotent finalization + unique
+  index migration (`supabase/migrations/20260708120000_...` — **apply before
+  deploy**), `payment_pending` state machine, strict cart ownership
+  (uid-owned carts require the authenticated user), failure flow moved to
+  ownership-checked POST, `cookies.getAll()` leak removed, hardened `clientId`
+  cookie, anon/`supabaseAdmin` privilege split (**smoke-test RLS-dependent flows
+  before production deploy**), shared server helpers + 8 unit tests (13/13 green).
+- **2026-07-08 — wu-1a merged (`f52aaad`)**: Phase 1 api/ skeleton complete —
+  Hono app factory (`AppType` exported), identity middleware (verified JWT →
+  user; clientId cookie → guest, optional HMAC signing via
+  `CLIENT_ID_SIGNING_SECRET`), CSRF (origin required for cookie-authed
+  mutations), structured JSON logging, request-id, rate-limit baseline,
+  `requireAuth()`, `/health` + masked db probe, typed `hc<AppType>` client wired
+  into SvelteKit, cart contracts/status constants, drizzle + fallback schema
+  (cart, products). **Pending:** real `drizzle-kit pull` introspection — blocked
+  on `POSTGRES_URL` using the direct DB host (IPv6-only, ENOTFOUND locally);
+  switch it to the Session pooler connection string, then run
+  `npm run db:pull -w @scweb/api`.
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
