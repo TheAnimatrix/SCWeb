@@ -38,7 +38,11 @@ export default defineConfig({
 			'three/addons/loaders/STLLoader.js',
 			'three/examples/jsm/loaders/3MFLoader.js',
 			'three/examples/jsm/loaders/STLLoader.js'
-		]
+		],
+		// Per-icon subpath imports (60+ across routes) each register as a separate
+		// dep — every newly visited route triggered a re-optimize + full reload.
+		// The icon modules are pure ESM; they don't need pre-bundling at all.
+		exclude: ['@lucide/svelte']
 	},
 	resolve: {
 		dedupe: ['svelte']
