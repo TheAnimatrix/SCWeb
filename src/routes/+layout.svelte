@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { type CartG, initCartG, getActiveCart } from '$lib/client/cart';
+	import {
+		type CartG,
+		initCartG,
+		getCart,
+		mergeGuestCart,
+		syncCartStore
+	} from '$lib/client/cartApi';
 	import './styles.css';
 	import { page } from '$app/state';
 	import { goto, invalidate, afterNavigate } from '$app/navigation';
@@ -74,13 +80,9 @@
 
 		const supabaseClient = data.supabase_lt;
 
-		getActiveCart(supabaseClient, data.clientId).then((cart) => {
-			if (!cart.error && cart.data) {
-				let itemCount = 0;
-				cart.data.list?.forEach((item) => {
-					itemCount += item.qty;
-				});
-				cart_store.set({ itemCount, valid: true });
+		getCart(fetch).then((cart) => {
+			if (cart.ok) {
+				syncCartStore(cart_store, cart.data.cart);
 			}
 		});
 
@@ -88,6 +90,14 @@
 			async (event, newSession) => {
 				if (newSession?.expires_at !== data.session?.expires_at) {
 					invalidate('supabase:auth');
+				}
+
+				if (event === 'SIGNED_IN') {
+					await mergeGuestCart(fetch, data.clientId);
+					const cart = await getCart(fetch);
+					if (cart.ok) {
+						syncCartStore(cart_store, cart.data.cart);
+					}
 				}
 
 				if (event === 'SIGNED_OUT') {

@@ -3,7 +3,7 @@
 	import { goto, preloadData, invalidate } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import type { Writable } from 'svelte/store';
-	import { changeCart, type CartG, type CartItem } from '$lib/client/cart';
+	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { MakerCard, ProseSkeleton, Skeleton } from '$lib/components/sc';
 	import {
@@ -238,26 +238,15 @@
 		}
 
 		addToCartMsg = `${cartQty}`;
-		const cartItem: CartItem = {
-			product_id: product.id,
-			price: product.price.new,
-			qty: cartQty
-		};
 
-		const result = await changeCart(
-			supabase(),
-			cartStore,
-			cartItem,
-			cartQtyMax,
-			data.clientId ?? '',
-			false
-		);
+		const result = await setCartItem(fetch, product.id, cartQty, 'add');
 
-		if (!result.error) {
+		if (result.ok) {
+			syncCartStore(cartStore, result.data.cart);
 			showCartFeedback(true, addToCartMsg);
 			await invalidate('cart:change');
 		} else {
-			showCartFeedback(false, result.data);
+			showCartFeedback(false, result.error.message);
 		}
 
 		cartQty = 1;

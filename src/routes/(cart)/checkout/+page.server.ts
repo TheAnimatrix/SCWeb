@@ -1,11 +1,12 @@
-import { getActiveCart } from '$lib/client/cart';
+import { getCart } from '$lib/client/cartApi';
 import { asAddressList } from '$lib/types/product';
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
-	const cart = await getActiveCart(event.locals.supabase, event.locals.clientId);
-	if (cart.error || (cart.data?.list ?? []).length <= 0) {
+	const result = await getCart(event.fetch);
+	const cart = result.ok ? result.data.cart : null;
+	if (!cart || cart.items.length <= 0) {
 		throw redirect(303, '/cart');
 	}
 	const resultUser = await event.locals.supabase.auth.getUser();

@@ -1,10 +1,10 @@
-import { getActiveCart } from '$lib/client/cart';
+import { getCart } from '$lib/client/cartApi';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, depends }) => {
+export const load: PageServerLoad = async ({ fetch, depends }) => {
 	depends('cart:change');
-	const cart = await getActiveCart(locals.supabase, locals.clientId);
+	const result = await getCart(fetch);
 	return {
-		cart
+		cart: result.ok ? result.data.cart : null
 	};
 };

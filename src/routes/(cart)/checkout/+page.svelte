@@ -12,49 +12,27 @@
 	import Package from '@lucide/svelte/icons/package';
 	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { Breadcrumbs } from '$lib/components/shell';
-	import { CheckoutLineSkeleton, PlaceholderImage, ScButton, Skeleton } from '$lib/components/sc';
-	import { type CartG, type Cart } from '$lib/client/cart';
+	import { PlaceholderImage, ScButton } from '$lib/components/sc';
+	import {
+		confirmCheckout,
+		createCheckoutOrder,
+		failCheckout,
+		type CartG
+	} from '$lib/client/cartApi';
 	import { newAddress, validateAddress, asAddressList, type Address } from '$lib/types/product';
-	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
 	import { toastStore } from '$lib/client/toastStore.js';
-	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
 
-	function supabase() {
-		return requireBrowserSupabase(data.supabase_lt);
-	}
-
 	let validAddress: Address | undefined = $state();
-	let productDetailsCache: Record<string, any> = {};
 	const addresses = $derived(asAddressList(data.addresses));
 
-	async function getProductDetails(productId: string) {
-		if (productDetailsCache[productId]) return productDetailsCache[productId];
-
-		const result = await supabase()
-			.from('products')
-			.select('name,images,price,author')
-			.eq('id', productId);
-		if (result.data?.[0]) {
-			productDetailsCache[productId] = result.data[0];
-			return result.data[0];
-		}
-		return null;
-	}
-
-	function calcSubTotal(cart: Cart | undefined) {
-		let total = 0;
-		cart?.list?.forEach((item) => {
-			total += item.price * item.qty;
-		});
-		return total;
-	}
-
-	let cartData = $derived(data.cart?.error ? undefined : data.cart?.data);
-	let subtotal = $derived(calcSubTotal(cartData));
-	let cartItems = $derived(cartData?.list ?? []);
-	let hasItems = $derived(cartItems.length > 0);
+	const cartData = $derived(data.cart);
+	const subtotal = $derived(cartData?.subtotal ?? 0);
+	const deliveryFee = $derived(cartData?.deliveryFee ?? 0);
+	const cartTotal = $derived(cartData?.total ?? 0);
+	const cartItems = $derived(cartData?.items ?? []);
+	const hasItems = $derived(cartItems.length > 0);
 
 	let addressValid: boolean = $state(false);
 	if (data.userExists && addresses.length > 0) {
@@ -92,56 +70,45 @@
 		}
 
 		isPaying = true;
-		const formData = new FormData();
-		formData.append('orderId', cartData.id);
-		formData.append('address', JSON.stringify(validAddress));
 
 		try {
-			const result = await fetch('/checkout/createOrder', { method: 'POST', body: formData });
-			const dataResult = await result.json();
+			const orderResult = await createCheckoutOrder(fetch, validAddress);
 
-			if (!result.ok || !dataResult || dataResult.error) {
-				toastStore.show(
-					dataResult?.message ??
-						'Failed to create payment order. Please check your details and try again.',
-					'error'
-				);
+			if (!orderResult.ok) {
+				toastStore.show(orderResult.error.message, 'error');
 				isPaying = false;
 				return;
 			}
 
+			const { razorpayOrderId, amountPaise } = orderResult.data;
+			const cartId = cartData.id;
+
 			const options = {
 				key: PUBLIC_RAZORPAY_ID,
-				amount: dataResult.amount,
+				amount: amountPaise,
 				currency: 'INR',
 				name: 'SelfCrafted',
 				image:
 					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
-				order_id: dataResult.orderId,
+				order_id: razorpayOrderId,
 				handler: async function (response: {
 					razorpay_order_id: string;
 					razorpay_payment_id: string;
 					razorpay_signature: string;
 				}) {
-					if (!cartData) {
-						isPaying = false;
-						return;
-					}
-					const formData2 = new FormData();
-					formData2.append('payment_id_a', response.razorpay_order_id);
-					formData2.append('payment_id_b', response.razorpay_payment_id);
-					formData2.append('payment_signature', response.razorpay_signature);
-					const patchResult = await fetch('/checkout/createOrder', {
-						method: 'PATCH',
-						body: formData2
+					const confirmResult = await confirmCheckout(fetch, {
+						razorpayOrderId: response.razorpay_order_id,
+						razorpayPaymentId: response.razorpay_payment_id,
+						razorpaySignature: response.razorpay_signature
 					});
-					if (!patchResult.ok) {
+					if (!confirmResult.ok) {
+						toastStore.show(confirmResult.error.message, 'error');
 						isPaying = false;
 						return;
 					}
-					cart_store.set({ valid: false, itemCount: 0 });
+					cart_store.set({ valid: true, itemCount: 0 });
 					isPaying = false;
-					goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
+					goto(`/summary/success/${cartId}/${response.razorpay_payment_id}`);
 				},
 				modal: {
 					ondismiss: function () {
@@ -163,14 +130,8 @@
 			rzp1.open();
 			rzp1.on('payment.failed', async function (response: unknown) {
 				const failedResponse = response as {
-					error?: { metadata?: { order_id?: string } };
+					error?: { metadata?: { order_id?: string }; description?: string };
 				};
-				if (!cartData) {
-					isPaying = false;
-					rzp1.close();
-					goto('/summary/failure');
-					return;
-				}
 				isPaying = false;
 				rzp1.close();
 				const orderId = failedResponse.error?.metadata?.order_id;
@@ -179,11 +140,11 @@
 					return;
 				}
 				try {
-					await fetch(`/summary/failure/${cartData.id}/${orderId}`, { method: 'POST' });
+					await failCheckout(fetch, orderId, failedResponse.error?.description);
 				} catch {
 					// Still navigate so the user sees the failure page.
 				}
-				window.location.href = `/summary/failure/${cartData.id}/${orderId}`;
+				window.location.href = `/summary/failure/${cartId}/${orderId}`;
 			});
 		} catch (e: unknown) {
 			toastStore.show(
@@ -274,96 +235,44 @@
 					<div class="space-y-4 p-5">
 						{#if hasItems}
 							<div class="max-h-60 space-y-3 overflow-y-auto pr-1">
-								{#each cartItems as item (item.product_id)}
-									{#await getProductDetails(item.product_id)}
-										<div class="border-b border-border pb-3 last:border-0 last:pb-0">
-											<div class="flex items-center justify-between gap-3">
-												<div class="flex min-w-0 flex-1 items-center gap-3">
-													<span
-														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
-														{item.qty}
-													</span>
-													<Skeleton class="size-10 shrink-0 rounded-md" />
-													<div class="min-w-0 flex-1 space-y-1.5">
-														<Skeleton class="h-4 w-3/4 max-w-[140px] rounded-sm" />
-														<Skeleton class="h-3 w-1/2 max-w-[90px] rounded-sm" />
-													</div>
-												</div>
-												<span class="shrink-0 text-sm font-medium text-foreground">
-													₹{(item.price * item.qty).toLocaleString('en-IN')}
+								{#each cartItems as item (item.productId)}
+									<div class="border-b border-border pb-3 last:border-0 last:pb-0">
+										<div class="flex items-center justify-between gap-3">
+											<div class="flex min-w-0 flex-1 items-center gap-3">
+												<span
+													class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
+													{item.qty}
 												</span>
-											</div>
-										</div>
-									{:then product}
-										<div class="border-b border-border pb-3 last:border-0 last:pb-0">
-											<div class="flex items-center justify-between gap-3">
-												<div class="flex min-w-0 flex-1 items-center gap-3">
-													<span
-														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
-														{item.qty}
-													</span>
-													{#if product}
-														<a
-															href={productHref(product.name, item.product_id)}
-															class="size-10 shrink-0 overflow-hidden rounded-md">
-															{#if product.images?.length}
-																<PlaceholderImage
-																	src={product.images[0].url}
-																	alt={product.name}
-																	class="size-10" />
-															{:else}
-																<div
-																	class="flex size-10 items-center justify-center rounded-md bg-muted">
-																	<Package
-																		class="size-4 text-muted-foreground"
-																		aria-hidden="true" />
-																</div>
-															{/if}
-														</a>
+												<a
+													href={productHref(item.name, item.productId)}
+													class="size-10 shrink-0 overflow-hidden rounded-md">
+													{#if item.imageUrl}
+														<PlaceholderImage src={item.imageUrl} alt={item.name} class="size-10" />
 													{:else}
 														<div
-															class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+															class="flex size-10 items-center justify-center rounded-md bg-muted">
 															<Package class="size-4 text-muted-foreground" aria-hidden="true" />
 														</div>
 													{/if}
-													<div class="min-w-0">
-														{#if product}
-															<a
-																href={productHref(product.name, item.product_id)}
-																class="block truncate text-sm font-medium text-foreground hover:text-foreground/80">
-																{product.name}
-															</a>
-														{:else}
-															<p class="truncate text-sm font-medium text-foreground">
-																Item #{item.product_id.substring(0, 8)}
-															</p>
-														{/if}
-														{#if product?.author}
-															<p class="truncate text-xs text-muted-foreground">
-																by @{product.author}
-															</p>
-														{/if}
-														<p class="text-xs text-muted-foreground">
-															₹{item.price.toLocaleString('en-IN')} × {item.qty}
-														</p>
-													</div>
+												</a>
+												<div class="min-w-0">
+													<a
+														href={productHref(item.name, item.productId)}
+														class="block truncate text-sm font-medium text-foreground hover:text-foreground/80">
+														{item.name}
+													</a>
+													<p class="text-xs text-muted-foreground">
+														₹{item.unitPrice.toLocaleString('en-IN')} × {item.qty}
+													</p>
 												</div>
-												<span class="shrink-0 text-sm font-semibold text-foreground">
-													₹{(item.price * item.qty).toLocaleString('en-IN')}
-												</span>
 											</div>
+											<span class="shrink-0 text-sm font-semibold text-foreground">
+												₹{(item.unitPrice * item.qty).toLocaleString('en-IN')}
+											</span>
 										</div>
-									{:catch}
-										<div
-											class="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-											<Package class="size-4 shrink-0" aria-hidden="true" />
-											<span>Could not load item details.</span>
-										</div>
-									{/await}
+									</div>
 								{/each}
 							</div>
-						{:else}
-							<CheckoutLineSkeleton count={2} />
 						{/if}
 
 						<div class="flex items-center justify-between text-sm">
@@ -379,14 +288,14 @@
 								<p class="text-xs text-muted-foreground">India-wide flat rate</p>
 							</div>
 							<span class="font-medium text-foreground">
-								₹{DELIVERY_FLAT_FEE.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+								₹{deliveryFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
 							</span>
 						</div>
 
 						<div class="flex items-center justify-between">
 							<span class="font-medium text-foreground">Total</span>
 							<span class="text-xl font-semibold text-foreground">
-								₹{(subtotal + DELIVERY_FLAT_FEE).toLocaleString('en-IN', {
+								₹{cartTotal.toLocaleString('en-IN', {
 									minimumFractionDigits: 2
 								})}
 							</span>
