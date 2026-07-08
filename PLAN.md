@@ -75,6 +75,19 @@
   allowlisted); typed `printFilesApi`; stuck-download-loading bug fixed;
   **Supabase Edge Functions DELETED** (upload/download-model-request).
 
+- **2026-07-08 — wu-3c merged (`16ff6ff`)**: print-request payments on the API —
+  amounts exclusively from maker-authored quotes, confirm bound to the
+  order-created amount (quote-drift logged), HMAC-first, FOR UPDATE + stage
+  claim, purchases parity, cross-order replay blocked; legacy 3dp payment
+  `+server.ts` DELETED.
+- **2026-07-08 — wu-3d merged (`09549d7`)**: portal mutations server-side —
+  `POST /print-requests/:id/actions` (role/stage transition map, server-set
+  `by: 'maker'` → quote-forgery vector closed), `POST /chats/messages`
+  (participant-checked, actor-derived sender), CreatorStats recalculated
+  server-side on completion, `paid_externally` shippable, statsUpdate 403s
+  non-owners. **PHASE 3 COMPLETE.** Chat read-receipts remain client-side
+  (RLS-dependent — Phase 4).
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
