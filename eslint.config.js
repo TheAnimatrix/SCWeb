@@ -29,12 +29,8 @@ export default ts.config(
 		}
 	},
 	{
+		files: ['src/lib/components/ModelViewer.svelte'],
 		rules: {
-			'@typescript-eslint/no-explicit-any': 'off',
-			'@typescript-eslint/ban-ts-comment': 'off',
-			'svelte/require-each-key': 'off',
-			'svelte/no-at-html-tags': 'off',
-			'svelte/no-unused-svelte-ignore': 'off',
 			'svelte/no-dom-manipulating': 'off'
 		}
 	},

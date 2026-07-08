@@ -37,9 +37,9 @@
 		addressValid?: boolean;
 		address?: Address;
 		address_old?: Address;
-		onDelete?: any;
-		onSave?: any;
-		onEditStart?: any;
+		onDelete?: (isCloseOnly: boolean) => void;
+		onSave?: (isChanged: boolean, addr: Address) => boolean;
+		onEditStart?: () => boolean;
 		class?: string;
 	}
 

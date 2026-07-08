@@ -5,7 +5,7 @@ import { createBrowserClient, isBrowser } from '@supabase/ssr';
 export const load: LayoutLoad = async ({ fetch, data, depends }) => {
 	depends('supabase:auth');
 
-	const supabase_lt = isBrowser()
+	const supabase = isBrowser()
 		? createBrowserClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY, {
 				global: {
 					fetch
@@ -14,15 +14,15 @@ export const load: LayoutLoad = async ({ fetch, data, depends }) => {
 		: null;
 
 	let session = data.session;
-	if (supabase_lt) {
+	if (supabase) {
 		const {
 			data: { session: clientSession }
-		} = await supabase_lt.auth.getSession();
+		} = await supabase.auth.getSession();
 		session = clientSession ?? data.session;
 	}
 
 	return {
-		supabase_lt,
+		supabase,
 		session,
 		user: data.user,
 		username: data.username,

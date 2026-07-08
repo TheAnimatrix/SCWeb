@@ -49,7 +49,7 @@
 				</Select.Trigger>
 				<Select.Content class="mt-2 border-0 bg-scpurpled3 text-white text-xl">
 					<Select.Group>
-						{#each productSelect as p}
+						{#each productSelect as p (p.value)}
 							{#if p.value == 'V1'}
 								<Select.Item disabled value={p.value} label={p.label}>{p.value}</Select.Item>
 							{:else}

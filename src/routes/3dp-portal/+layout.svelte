@@ -25,7 +25,7 @@
 	<nav
 		class="mx-auto mb-6 flex max-w-7xl flex-wrap justify-center gap-2 border-b border-border px-4 pb-6"
 		aria-label="Portal navigation">
-		{#each navItems as { href, label, Icon }}
+		{#each navItems as { href, label, Icon } (href)}
 			<button
 				type="button"
 				onclick={() => {

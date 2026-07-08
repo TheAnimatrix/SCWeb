@@ -1,5 +1,8 @@
 <script lang="ts">
-	import type { SupabaseClient } from '@supabase/supabase-js';
+	import type { RealtimeChannel } from '@supabase/supabase-js';
+	import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { Json } from '../../../../supabase/types';
+	import type { PrintRequestEvent } from '$lib/types/printRequest';
 	import Icon from '@iconify/svelte';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import { toastStore } from '$lib/client/toastStore';
@@ -11,9 +14,10 @@
 	import { cn } from '$lib/utils';
 
 	let {
-		supabase_lt,
+		supabase,
 		session
-	}: { supabase_lt: SupabaseClient; session: { data: { user: { id: string } } } | null } = $props();
+	}: { supabase: TypedSupabaseClient; session: { data: { user: { id: string } } } | null } =
+		$props();
 
 	interface PrintRequest {
 		id: string;
@@ -23,7 +27,7 @@
 		quote: number | null;
 		user_id: string | null;
 		username?: string | null;
-		model_metadata: any;
+		model_metadata: Json | null;
 		model_data: {
 			color: string;
 			scale: string;
@@ -32,12 +36,7 @@
 			infill: string;
 			walls: string;
 		};
-		events?: {
-			type: string;
-			reason: string;
-			timestamp: string;
-			by: 'maker' | 'user' | 'SC Team';
-		}[];
+		events?: PrintRequestEvent[];
 		update_count?: number;
 	}
 
@@ -50,14 +49,14 @@
 	let downloadProgress = $state(0);
 
 	let orderUnreadCounts = $state<Record<string, number>>({});
-	let chatSubscription: any = null;
+	let chatSubscription: RealtimeChannel | null = null;
 
 	async function downloadModel(printRequestId: string, modelPath: string, index: number) {
-		let modelName: any = modelPath.split('/').pop()?.split('.');
-		let modelName2 = modelName?.[modelName.length - 2]?.split('_');
-		modelName = `${modelName2?.[modelName2.length - 1]}.${modelName?.[modelName.length - 1]}`;
+		const pathParts = modelPath.split('/').pop()?.split('.') ?? [];
+		const nameParts = pathParts[pathParts.length - 2]?.split('_') ?? [];
+		const modelName = `${nameParts[nameParts.length - 1]}.${pathParts[pathParts.length - 1]}`;
 		if (!modelPath || !printRequestId) return;
-		const { data: userRes, error: userErr } = await supabase_lt.auth.getSession();
+		const { data: userRes, error: userErr } = await supabase.auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('You must be logged in to request a quote', 'error');
 			return;
@@ -111,8 +110,8 @@
 			console.log(result);
 			orders = result.orders || [];
 			page = result.page || 1;
-		} catch (e: any) {
-			error = e.message || 'Unknown error';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Unknown error';
 			orders = [];
 		} finally {
 			isLoading = false;
@@ -173,7 +172,7 @@
 			return;
 		}
 		// Query all unread messages for these orders
-		const { data } = await supabase_lt
+		const { data } = await supabase
 			.from('Chat')
 			.select('relationship_id')
 			.in('relationship_id', orderIds)
@@ -183,7 +182,9 @@
 		const counts: Record<string, number> = {};
 		if (Array.isArray(data)) {
 			for (const row of data) {
-				counts[row.relationship_id] = (counts[row.relationship_id] || 0) + 1;
+				const relId = row.relationship_id;
+				if (!relId) continue;
+				counts[relId] = (counts[relId] || 0) + 1;
 			}
 		}
 		orderUnreadCounts = counts;
@@ -191,7 +192,7 @@
 
 	function subscribeToChat() {
 		if (!session?.data?.user?.id) return;
-		chatSubscription = supabase_lt
+		chatSubscription = supabase
 			.channel('realtime-chat-global')
 			.on(
 				'postgres_changes',
@@ -222,7 +223,7 @@
 	onMount(() => {
 		subscribeToChat();
 		return () => {
-			if (chatSubscription) supabase_lt.removeChannel(chatSubscription);
+			if (chatSubscription) supabase.removeChannel(chatSubscription);
 		};
 	});
 </script>
@@ -275,7 +276,7 @@
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-border">
-						{#each orders as order, index}
+						{#each orders as order, index (order.id)}
 							<tr
 								class="cursor-pointer transition-colors hover:bg-muted/20"
 								onclick={() => goto(`/3dp-portal/maker/${order.id}`)}>

@@ -13,6 +13,7 @@
 		RelatedProducts
 	} from '$lib/components/product';
 	import type { Product } from '$lib/types/product';
+	import { productUserRef } from '$lib/types/product';
 	import { getPurchasableLimit } from '$lib/utils/stock';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
@@ -25,7 +26,7 @@
 	let { data } = $props();
 
 	function supabase() {
-		return requireBrowserSupabase(data.supabase_lt);
+		return requireBrowserSupabase(data.supabase);
 	}
 
 	const productItem = $derived(data.product ? (data.product as unknown as Product) : undefined);
@@ -185,8 +186,9 @@
 	});
 
 	const slug = $derived(productItem?.name.replaceAll(' ', '_').toLowerCase() ?? '');
-	const makerName = $derived(productItem?.author ?? productItem?.users?.username ?? 'unknown');
-	const makerLocation = $derived(productItem?.users?.city ?? '—');
+	const productUser = $derived(productUserRef(productItem?.users ?? null));
+	const makerName = $derived(productItem?.author ?? productUser?.username ?? 'unknown');
+	const makerLocation = $derived(productUser?.city ?? '—');
 	const memberSince = $derived(
 		productItem
 			? new Date(productItem.created_at).toLocaleDateString('en-US', {

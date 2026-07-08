@@ -6,7 +6,7 @@
 	interface Props {
 		product: Product;
 		href: string;
-		onClick: any;
+		onClick?: (event: MouseEvent) => void;
 	}
 
 	let { product, href, onClick }: Props = $props();
@@ -79,7 +79,7 @@
 		<!-- Tags -->
 		{#if product.tags && product.tags.length > 0}
 			<div class="mt-4 flex flex-wrap gap-2">
-				{#each product.tags as t}
+				{#each product.tags as t (t.tag)}
 					<span
 						class="text-xs bg-[#252525] hover:bg-[#353535] text-gray-300 py-1 px-2 rounded-full transition-colors">
 						{t.tag}

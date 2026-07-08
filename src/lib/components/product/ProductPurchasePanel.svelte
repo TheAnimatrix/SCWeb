@@ -6,6 +6,7 @@
 	import { buildProductTags } from '$lib/utils/productTypeTag';
 	import { getPurchasableLimit, isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import type { Product } from '$lib/types/product';
+	import { productUserRef } from '$lib/types/product';
 
 	interface VariantOption {
 		id: string;
@@ -51,7 +52,7 @@
 	const purchasableLimit = $derived(getPurchasableLimit(product.stock));
 	const displayTags = $derived(buildProductTags(product.type, product.tags));
 	const hasRating = $derived(product.rating?.rating != null && product.rating.rating > 0);
-	const makerName = $derived(product.author ?? product.users?.username);
+	const makerName = $derived(product.author ?? productUserRef(product.users)?.username);
 	const shopHref = $derived(makerName ? `/crafts?q=${encodeURIComponent(makerName)}` : null);
 
 	const trustItems = $derived([

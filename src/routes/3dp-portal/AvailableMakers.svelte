@@ -11,13 +11,13 @@
 	import Timer from '@lucide/svelte/icons/timer';
 	import Users from '@lucide/svelte/icons/users';
 	import AlertCircle from '@lucide/svelte/icons/circle-alert';
-	import type { SupabaseClient } from '@supabase/supabase-js';
+	import type { TypedSupabaseClient } from '$lib/types/database';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
 	let {
-		supabase_lt,
+		supabase,
 		model,
 		color = $bindable('#525252'),
 		material = $bindable(null),
@@ -27,7 +27,7 @@
 		walls,
 		requestQuoteCompleter
 	}: {
-		supabase_lt: SupabaseClient;
+		supabase: TypedSupabaseClient;
 		model: File | null;
 		color: string;
 		material: string | null;
@@ -165,9 +165,9 @@
 	onMount(async () => {
 		loading = true;
 		try {
-			const { data: user } = await supabase_lt.auth.getUser();
+			const { data: user } = await supabase.auth.getUser();
 			currentUserId = user.user?.id ?? '';
-			const response = await supabase_lt.rpc('get_creator_full_profile');
+			const response = await supabase.rpc('get_creator_full_profile');
 
 			if (response.error) {
 				error = 'Failed to load makers.';
@@ -175,10 +175,8 @@
 				return;
 			}
 
-			makers = response.data.filter(
-				(maker: { filaments?: unknown }) =>
-					Array.isArray(maker.filaments) && maker.filaments.length > 0
-			) as Maker[];
+			const profileRows = Array.isArray(response.data) ? response.data : [];
+			makers = (profileRows as unknown[]).filter(isMakerRow);
 			makers.forEach((maker: Maker) => {
 				const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
 				if (Array.isArray(maker.filaments)) {
@@ -210,6 +208,31 @@
 	function averageRating(reviews: Maker['reviews']) {
 		if (!reviews?.length) return null;
 		return (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1);
+	}
+
+	function isFilamentEntry(value: unknown): value is { color: string; material_type: string } {
+		return (
+			typeof value === 'object' &&
+			value !== null &&
+			typeof (value as { color?: unknown }).color === 'string' &&
+			typeof (value as { material_type?: unknown }).material_type === 'string'
+		);
+	}
+
+	function isMakerRow(row: unknown): row is Maker {
+		if (!row || typeof row !== 'object') return false;
+		const candidate = row as Record<string, unknown>;
+		return (
+			typeof candidate.maker_id === 'string' &&
+			typeof candidate.crafter_name === 'string' &&
+			typeof candidate.tier === 'string' &&
+			typeof candidate.price_rank === 'number' &&
+			typeof candidate.delivery_rank === 'number' &&
+			Array.isArray(candidate.filaments) &&
+			candidate.filaments.length > 0 &&
+			candidate.filaments.every(isFilamentEntry) &&
+			Array.isArray(candidate.reviews)
+		);
 	}
 </script>
 
@@ -252,7 +275,7 @@
 			</div>
 		{:else}
 			<div class="mt-6 space-y-3">
-				{#each makers as maker}
+				{#each makers as maker (maker.maker_id)}
 					{@const isSelf = maker.maker_id === currentUserId}
 					{@const isExpanded = expandedMaker === maker.maker_id}
 					{@const rating = averageRating(maker.reviews)}
@@ -340,14 +363,14 @@
 
 								<PortalSectionLabel label="Filament color" />
 								<div class="mt-2 space-y-3">
-									{#each Object.keys(maker.filaments) as mat}
+									{#each Object.keys(maker.filaments) as mat (mat)}
 										<div class="rounded-md border border-border bg-muted/20 p-3">
 											<div class="mb-2 flex items-center gap-2">
 												<Printer class="size-3.5 text-muted-foreground" strokeWidth={1.5} />
 												<span class="text-xs font-medium text-foreground">{mat}</span>
 											</div>
 											<div class="flex flex-wrap gap-2">
-												{#each maker.filaments[mat] as filament}
+												{#each maker.filaments[mat] as filament, index (`${mat}-${index}-${filament.color}`)}
 													<button
 														type="button"
 														class={cn(

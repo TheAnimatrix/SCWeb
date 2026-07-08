@@ -1,8 +1,4 @@
-import type {
-	DownloadUrlResponse,
-	UploadMetadata,
-	UploadPrintFileResponse
-} from '@scweb/api/contracts';
+import type { DownloadUrlResponse } from '@scweb/api/contracts';
 
 export type PrintFilesApiError =
 	| { kind: 'file_too_large'; message: string }
@@ -119,26 +115,6 @@ async function apiRequest<T>(
 	}
 
 	return { ok: true, data: body as T };
-}
-
-export async function uploadModel(
-	fetchFn: typeof fetch,
-	file: File,
-	metadata: UploadMetadata
-): Promise<PrintFilesApiResult<UploadPrintFileResponse>> {
-	const formData = new FormData();
-	formData.append('model_file', file);
-	formData.append('maker_id', metadata.maker_id);
-	formData.append('color', metadata.color);
-	formData.append('material', metadata.material);
-	formData.append('quality', metadata.quality);
-	formData.append('scale', metadata.scale);
-	formData.append('infill', metadata.infill);
-
-	return apiRequest<UploadPrintFileResponse>(fetchFn, '/print-files/upload', {
-		method: 'POST',
-		body: formData
-	});
 }
 
 export async function getModelDownloadUrl(

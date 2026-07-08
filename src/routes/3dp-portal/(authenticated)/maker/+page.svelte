@@ -74,9 +74,9 @@
 		</p>
 	</header>
 
-	{#if makerStatus === 'approved' && data.supabase_lt}
+	{#if makerStatus === 'approved' && data.supabase}
 		<ApprovedMakerPortal
-			supabase_lt={data.supabase_lt}
+			supabase={data.supabase}
 			{session}
 			makerName={data.makerData?.name ?? undefined} />
 	{:else if makerStatus === 'pending' || $page.form?.success}

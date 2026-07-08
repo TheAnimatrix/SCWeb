@@ -127,6 +127,7 @@
 				<section id={section.id} class="policy-section">
 					<h2 class="text-sm font-semibold tracking-tight">{section.title}</h2>
 					<div class="policy-prose mt-2 text-sm leading-relaxed text-muted-foreground">
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- snarkdown on trusted static policy markdown -->
 						{@html snarkdown(section.content)}
 					</div>
 				</section>

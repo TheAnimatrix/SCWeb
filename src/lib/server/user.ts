@@ -1,8 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { TypedSupabaseClient } from '$lib/types/database';
 
 /** Returns the authenticated user's id, or null when anonymous. */
 export async function getAuthenticatedUserId(
-	supabase: SupabaseClient<any, 'public', any>
+	supabase: TypedSupabaseClient
 ): Promise<string | null> {
 	const {
 		data: { user }
@@ -16,7 +16,7 @@ export async function getAuthenticatedUserId(
  * @param supabase - Supabase client object.
  * @returns - True if the user is logged in, false otherwise.
  */
-export async function checkUser(supabase: SupabaseClient<any, 'public', any>): Promise<boolean> {
+export async function checkUser(supabase: TypedSupabaseClient): Promise<boolean> {
 	/**
 	 * If the Supabase client is invalid, return false.
 	 */

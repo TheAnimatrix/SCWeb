@@ -125,13 +125,13 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 			})[];
 
 		for (const item of updatedCart.list as LegacyCartItem[]) {
-			const result_get_stock = await locals.supabaseAdmin
+			const stockResult = await locals.supabaseAdmin
 				.from('products')
 				.select()
 				.eq('id', item.product_id);
 			const foundItem = cartSnapshot.find((i) => i.product_id === item.product_id);
-			if (foundItem && result_get_stock.data?.[0]?.name) {
-				foundItem.product_name = result_get_stock.data[0].name;
+			if (foundItem && stockResult.data?.[0]?.name) {
+				foundItem.product_name = stockResult.data[0].name;
 			}
 		}
 
@@ -158,12 +158,12 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 		}
 
 		for (const item of updatedCart.list as LegacyCartItem[]) {
-			const result_get_stock = await locals.supabaseAdmin
+			const stockResult = await locals.supabaseAdmin
 				.from('products')
 				.select()
 				.eq('id', item.product_id);
-			if (result_get_stock?.data?.length) {
-				const currentStock = parseProductStock(result_get_stock.data[0].stock);
+			if (stockResult?.data?.length) {
+				const currentStock = parseProductStock(stockResult.data[0].stock);
 				if (!isOnDemand(currentStock)) {
 					await locals.supabaseAdmin
 						.from('products')

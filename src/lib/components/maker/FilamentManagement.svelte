@@ -2,7 +2,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import Icon from '@iconify/svelte';
 	import Plus from '@lucide/svelte/icons/plus';
-	import type { SupabaseClient } from '@supabase/supabase-js';
+	import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { Filament, FilamentFormData } from '$lib/types/filament';
 	import { onMount } from 'svelte';
 	import FilamentFormModal from './FilamentFormModal.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -11,24 +12,14 @@
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
-	// Define the expected structure for a filament object (can be imported from a types file later)
-	interface Filament {
-		id?: string | number; // Optional ID for reactivity if available in the JSONB
-		name: string;
-		brand: string;
-		material_type: string;
-		color: string;
-		quantity_kg: number;
-		temp_key?: string | number; // Added for {#each} key
-	}
-
+	// Define the expected structure for a filament object
 	// Props expected from the parent component
 	let {
-		supabase_lt,
+		supabase,
 		session,
 		onUpdate
 	}: {
-		supabase_lt: SupabaseClient;
+		supabase: TypedSupabaseClient;
 		session: { data: { user: { id: string } } } | null;
 		onUpdate: () => void;
 	} = $props();
@@ -41,7 +32,7 @@
 	// Modal State
 	let isModalOpen = $state(false);
 	let modalMode = $state<'add' | 'edit'>('add');
-	let currentFilament = $state<Partial<Filament>>({}); // Filament being edited - Use correct interface
+	let currentFilament = $state<Partial<FilamentFormData>>({});
 
 	// State for delete confirmation dialog
 	let isDeleteDialogOpen = $state(false);
@@ -76,7 +67,7 @@
 			filamentInventory = [];
 
 			try {
-				const { data, error } = await supabase_lt
+				const { data, error } = await supabase
 					.from('UserFilament')
 					.select('*')
 					.eq('owner_id', session?.data?.user?.id)
@@ -93,9 +84,9 @@
 				} else {
 					filamentInventory = [];
 				}
-			} catch (e: any) {
+			} catch (e: unknown) {
 				console.error('Exception fetching filament data:', e);
-				filamentError = `An error occurred: ${e.message}`;
+				filamentError = `An error occurred: ${e instanceof Error ? e.message : 'Unknown error'}`;
 			} finally {
 				isLoadingFilaments = false;
 			}
@@ -122,7 +113,7 @@
 		// Use correct interface
 		modalMode = 'edit';
 		// Create a copy to avoid direct mutation if needed, ensure all fields are present
-		currentFilament = { ...filamentToEdit };
+		currentFilament = { ...filamentToEdit } as Partial<FilamentFormData>;
 		isModalOpen = true;
 	}
 
@@ -133,7 +124,7 @@
 	}
 
 	// Update handleSaveFilament to insert/update UserFilament
-	async function handleSaveFilament(savedData: any) {
+	async function handleSaveFilament(savedData: FilamentFormData) {
 		if (!session?.data?.user?.id) return;
 		let isEdit = Boolean(savedData.id);
 		let payload = {
@@ -148,13 +139,13 @@
 		};
 		let result;
 		if (isEdit) {
-			const { error } = await supabase_lt
+			const { error } = await supabase
 				.from('UserFilament')
 				.update(payload)
-				.eq('id', savedData.id);
+				.eq('id', String(savedData.id));
 			result = { error };
 		} else {
-			const { error } = await supabase_lt.from('UserFilament').insert([payload]);
+			const { error } = await supabase.from('UserFilament').insert([payload]);
 			result = { error };
 		}
 		if (!result.error) {
@@ -166,9 +157,9 @@
 	}
 
 	// Update handleDeleteFilament to delete from UserFilament
-	async function handleDeleteFilament(filamentToDelete: any) {
+	async function handleDeleteFilament(filamentToDelete: Filament) {
 		if (!filamentToDelete.id) return;
-		const { error } = await supabase_lt.from('UserFilament').delete().eq('id', filamentToDelete.id);
+		const { error } = await supabase.from('UserFilament').delete().eq('id', filamentToDelete.id);
 		if (!error) {
 			await fetchFilamentData();
 		} else {
@@ -217,7 +208,7 @@
 				class="mt-3 flex flex-col gap-y-2"
 				in:slide={{ duration: 200, easing: cubicOut }}
 				out:slide={{ duration: 200, easing: cubicOut }}>
-				{#each ['You will not be displayed on the marketplace if you have no filaments in your inventory', 'Only the colors you have in your inventory will be displayed in the marketplace', 'Only the material types you have in your inventory will be displayed in the marketplace', 'Please keep your inventory updated to avoid wasting customer time'] as item, index}
+				{#each ['You will not be displayed on the marketplace if you have no filaments in your inventory', 'Only the colors you have in your inventory will be displayed in the marketplace', 'Only the material types you have in your inventory will be displayed in the marketplace', 'Please keep your inventory updated to avoid wasting customer time'] as item, index (index)}
 					<p class="flex items-start gap-2 text-sm text-muted-foreground">
 						<span
 							class="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-muted font-mono text-xs text-foreground">
@@ -346,7 +337,7 @@
 	bind:filament={currentFilament}
 	onSave={handleSaveFilament}
 	onClose={closeModal}
-	{supabase_lt} />
+	{supabase} />
 
 <ConfirmDialog
 	bind:open={isDeleteDialogOpen}

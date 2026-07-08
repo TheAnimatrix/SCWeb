@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		open: boolean;
@@ -10,8 +11,8 @@
 		closeOnBackdropClick?: boolean;
 		closeOnEsc?: boolean;
 		close?: () => void;
-		trigger: (open: boolean, handleClose: () => void) => any;
-		content: (handleClose: () => void) => any;
+		trigger: Snippet<[boolean, () => void]>;
+		content: Snippet<[() => void]>;
 	}
 
 	let {

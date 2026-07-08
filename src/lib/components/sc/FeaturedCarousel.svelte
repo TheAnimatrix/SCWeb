@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Product } from '$lib/types/product';
+	import { productUserRef } from '$lib/types/product';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Package from '@lucide/svelte/icons/package';
@@ -23,7 +24,7 @@
 	const activeProduct = $derived(products[activeIndex]);
 
 	function makerName(product: Product) {
-		return product.author ?? product.users?.username ?? 'unknown';
+		return product.author ?? productUserRef(product.users)?.username ?? 'unknown';
 	}
 
 	function formatPrice(product: Product) {

@@ -26,7 +26,7 @@
 		disabled = false,
 		class: className = '',
 		...rest
-	}: Props & Record<string, any> = $props();
+	}: Props & Record<string, unknown> = $props();
 
 	// State
 	let checkoutHover = $state(false);
@@ -60,7 +60,10 @@
 			isPressed = false;
 		}, 150);
 		// Call parent onclick if provided
-		rest.onclick?.(e);
+		const onclick = rest.onclick;
+		if (typeof onclick === 'function') {
+			onclick(e);
+		}
 	}
 	function handleMouseOver() {
 		if (hoverable && !isPressed) {
@@ -83,7 +86,7 @@
 	style={`transform: scale(${scale})`}
 	class={`relative font-bold text-xl overflow-hidden ${buttonBgColor} rounded-lg shadow-none hover:shadow-lg transition-all duration-300 disabled:opacity-30 ${pulseEffect ? 'animate-pulse' : ''} ${className}`}
 	{...rest}>
-	{#each ripples as ripple}
+	{#each ripples as ripple (ripple.x + ripple.y + ripple.size)}
 		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<span
 			class="absolute rounded-full pointer-events-none"

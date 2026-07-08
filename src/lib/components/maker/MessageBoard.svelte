@@ -1,7 +1,9 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import Send from '@lucide/svelte/icons/send';
-	import type { SupabaseClient } from '@supabase/supabase-js';
+	import type { RealtimeChannel } from '@supabase/supabase-js';
+	import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { ChatMessage } from '$lib/types/chat';
 	import { onMount, tick } from 'svelte';
 	import { Filter } from 'bad-words';
 	import { sendChatMessage } from '$lib/client/portalApi';
@@ -12,25 +14,25 @@
 
 	let {
 		orderId,
-		supabase_lt,
+		supabase,
 		session,
 		receiverId,
 		disabled,
 		paynow
 	}: {
 		orderId: string;
-		supabase_lt: SupabaseClient;
+		supabase: TypedSupabaseClient;
 		session: { data: { user: { id: string } } } | null;
 		receiverId: string;
 		disabled: boolean;
 		paynow?: () => void;
 	} = $props();
 
-	let messages = $state<any[]>([]);
+	let messages = $state<ChatMessage[]>([]);
 	let newMessage = $state('');
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let subscription: any = null;
+	let subscription: RealtimeChannel | null = null;
 	let scrollContainer: HTMLDivElement | null = $state(null);
 	let page = $state(0);
 	let pageSize = 15;
@@ -79,7 +81,7 @@
 			previousScrollTop = scrollContainer.scrollTop;
 		}
 
-		const { data, error: fetchError } = await supabase_lt
+		const { data, error: fetchError } = await supabase
 			.from('Chat')
 			.select('*', { count: 'exact' })
 			.eq('relationship_id', orderId)
@@ -166,7 +168,7 @@
 				clearTimeout(debounceChatReadTimer);
 			}
 			debounceChatReadTimer = setTimeout(() => {
-				supabase_lt
+				supabase
 					.from('Chat')
 					.update({ status: 'read' })
 					.eq('relationship_id', orderId)
@@ -179,19 +181,20 @@
 	});
 
 	function subscribeToMessages() {
-		subscription = supabase_lt
+		subscription = supabase
 			.channel('realtime-chat-channel')
 			.on(
 				'postgres_changes',
 				{ event: '*', schema: 'public', table: 'Chat', filter: `relationship_id=eq.${orderId}` },
 				(payload) => {
+					const row = payload.new as ChatMessage;
 					if (payload.eventType === 'INSERT') {
-						messages = [...messages, payload.new];
-						newChatIds.push(payload.new.chat_id);
+						messages = [...messages, row];
+						newChatIds.push(row.chat_id);
 					}
 					if (payload.eventType === 'UPDATE') {
 						messages = messages.map((msg) => {
-							if (msg.chat_id === payload.new.chat_id) return payload.new;
+							if (msg.chat_id === row.chat_id) return row;
 							return msg;
 						});
 					}
@@ -204,7 +207,7 @@
 		fetchMessages(true);
 		subscribeToMessages();
 		if (session?.data?.user?.id) {
-			supabase_lt
+			supabase
 				.from('Chat')
 				.update({ status: 'read' })
 				.eq('relationship_id', orderId)
@@ -213,7 +216,7 @@
 				.then(() => {});
 		}
 		return () => {
-			if (subscription) supabase_lt.removeChannel(subscription);
+			if (subscription) supabase.removeChannel(subscription);
 		};
 	});
 
@@ -240,7 +243,7 @@
 				(msg) => msg.recipient_id === session.data.user.id && msg.status === 'sent'
 			);
 			if (unread.length > 0) {
-				supabase_lt
+				supabase
 					.from('Chat')
 					.update({ status: 'read' })
 					.eq('relationship_id', orderId)
@@ -316,9 +319,9 @@
 						{@const isOwn = msg.sender_id === session?.data?.user?.id}
 						<div class={cn('flex flex-col', isOwn ? 'items-end' : 'items-start')}>
 							{#if msg.message_type === 'action'}
-								{@const actionObj = JSON.parse(msg.message)}
+								{@const actionObj = JSON.parse(msg.message ?? '{}')}
 								{#if actionObj.action === 'shipped'}
-									{@const shippedObj = JSON.parse(msg.message)}
+									{@const shippedObj = JSON.parse(msg.message ?? '{}')}
 									<div
 										class={cn(
 											'flex max-w-xs flex-col items-start break-words rounded-md border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-foreground',
@@ -373,7 +376,7 @@
 									</div>
 								{/if}
 							{:else if msg.message_type === 'quote'}
-								{@const quoteObj = JSON.parse(msg.message)}
+								{@const quoteObj = JSON.parse(msg.message ?? '{}')}
 								<div
 									class={cn(
 										'flex max-w-xs flex-col break-words rounded-md border border-border bg-card px-3 py-2 text-sm',
@@ -406,12 +409,12 @@
 							{:else}
 								<div
 									class={cn(
-										'max-w-xs break-words rounded-md px-3 py-2 text-sm',
+										'max-w-xs whitespace-pre-wrap break-words rounded-md px-3 py-2 text-sm',
 										isOwn
 											? 'bg-foreground text-background'
 											: 'border border-border bg-card text-foreground'
 									)}>
-									{@html filter.clean(msg.message)}
+									{filter.clean(msg.message ?? '')}
 								</div>
 							{/if}
 

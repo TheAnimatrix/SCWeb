@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Orders } from '$lib/types/product.js';
+	import type { PrintRequestEvent } from '$lib/types/printRequest';
 	import { navigating, page } from '$app/state';
 	import { OrderCardSkeleton, ProseSkeleton, ScButton } from '$lib/components/sc';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -14,7 +15,7 @@
 
 	let { data } = $props();
 	function supabase() {
-		return requireBrowserSupabase(data.supabase_lt);
+		return requireBrowserSupabase(data.supabase);
 	}
 
 	let orders: Orders = $state([]);
@@ -91,7 +92,7 @@
 			</div>
 
 			<ul class="divide-y divide-border">
-				{#each orders as order, i}
+				{#each orders as order, i (order.id)}
 					{@const shipping_address =
 						typeof order.shipping_address === 'string'
 							? JSON.parse(order.shipping_address ?? '{}')
@@ -288,7 +289,7 @@
 																	<span class="rounded border border-border px-1.5 py-0.5"
 																		>{printRequest.data.material}</span>
 																{/if}
-																{#each Object.entries(printRequest.data.model_data) as [key, value]}
+																{#each Object.entries(printRequest.data.model_data) as [key, value] (key)}
 																	{#if !['color', 'quality', 'scale', 'infill', 'walls'].includes(key) && value}
 																		<span class="rounded border border-border px-1.5 py-0.5"
 																			>{key}: {value}</span>
@@ -302,9 +303,9 @@
 															<span class="font-mono text-xs text-muted-foreground">events</span>
 															<div class="mt-1 space-y-1">
 																{#each printRequest.data.events
-																	.filter((e: any) => e.type !== 'order_created')
-																	.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-																	.slice(0, 3) as event}
+																	.filter((e: PrintRequestEvent) => e.type !== 'order_created')
+																	.sort((a: PrintRequestEvent, b: PrintRequestEvent) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+																	.slice(0, 3) as event (event.timestamp + event.type)}
 																	<div class="rounded-md border border-border px-2 py-1.5 text-xs">
 																		<div class="flex items-center justify-between gap-2">
 																			<span class="capitalize"
@@ -338,7 +339,7 @@
 									</div>
 								{:else}
 									<div class="divide-y divide-border border-t border-border">
-										{#each order.item_snapshot as item}
+										{#each order.item_snapshot as item (item.product_id + item.qty)}
 											<a
 												href={`/${order.cart_id}/craft/item=${item.product_id}`}
 												class="grid gap-2 p-3 text-sm transition-colors hover:bg-secondary/50 md:grid-cols-3 md:gap-4">

@@ -1,7 +1,7 @@
 <script lang="ts">
-	interface Props {
-		[key: string]: any;
-	}
+	import type { SVGAttributes } from 'svelte/elements';
+
+	type Props = SVGAttributes<SVGElement>;
 
 	let { ...props }: Props = $props();
 </script>

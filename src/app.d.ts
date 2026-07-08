@@ -7,16 +7,18 @@
 import type { Session, User } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../supabase/types';
+import type { RazorpayCheckoutOptions, RazorpayPaymentFailedResponse } from '$lib/types/razorpay';
 
 // for information about these interfaces
 declare global {
 	interface RazorpayInstance {
 		open(): void;
 		close(): void;
+		on(event: 'payment.failed', handler: (response: RazorpayPaymentFailedResponse) => void): void;
 		on(event: string, handler: (response: unknown) => void): void;
 	}
 
-	const Razorpay: new (options: Record<string, unknown>) => RazorpayInstance;
+	const Razorpay: new (options: RazorpayCheckoutOptions) => RazorpayInstance;
 
 	namespace App {
 		interface Locals {

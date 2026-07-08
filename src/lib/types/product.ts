@@ -1,5 +1,19 @@
+export interface ProductUser {
+	username?: string | null;
+	city?: string | null;
+	tier?: string | null;
+}
+
+/** Normalize joined `users` relation from product queries (object or single-element array). */
+export function productUserRef(
+	users: ProductUser | ProductUser[] | null | undefined
+): ProductUser | null {
+	if (!users) return null;
+	return Array.isArray(users) ? (users[0] ?? null) : users;
+}
+
 export interface Product {
-	users: any;
+	users: ProductUser | ProductUser[] | null;
 	id: string;
 	name: string;
 	images: { url: string }[];

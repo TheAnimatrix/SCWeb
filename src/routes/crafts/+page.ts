@@ -12,7 +12,8 @@ import {
 	applyTagFilter,
 	filterBrowsableStandaloneTags,
 	filterBrowsableTagGroups,
-	normalizeTagKey
+	normalizeTagKey,
+	parseProductTags
 } from '$lib/utils/browseTags';
 
 function normalizeFilterTag(raw: string): string {
@@ -25,8 +26,11 @@ function normalizeFilterTag(raw: string): string {
 }
 import type { PageLoad } from './$types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ProductsSelectQuery } from '$lib/types/database';
+import type { Database } from '../../../supabase/types';
 
-type ProductQuery = any;
+type ProductQuery = ProductsSelectQuery;
+type TypedSupabaseClient = SupabaseClient<Database>;
 
 const PAGE_SIZE = 12;
 const PRODUCT_SELECT = '*, users(username)';
@@ -122,17 +126,22 @@ function applySort(query: ProductQuery, sort: BrowseSort) {
 	}
 }
 
-async function getTagCatalog(supabase: SupabaseClient) {
+async function getTagCatalog(supabase: TypedSupabaseClient) {
 	const result = await supabase.from('products').select('tags, type');
 
 	if (result.error) {
 		return { groups: [], standalone: [], allOptions: [] };
 	}
 
-	return buildTagGroups(result.data ?? []);
+	return buildTagGroups(
+		(result.data ?? []).map((row) => ({
+			tags: parseProductTags(row.tags),
+			type: row.type
+		}))
+	);
 }
 
-async function getCategoryCounts(supabase: SupabaseClient): Promise<CategoryCounts> {
+async function getCategoryCounts(supabase: TypedSupabaseClient): Promise<CategoryCounts> {
 	const [allResult, productsResult, sparesResult, fleaResult] = await Promise.all([
 		supabase.from('products').select('*', { count: 'exact', head: true }),
 		supabase.from('products').select('*', { count: 'exact', head: true }).eq('type', 'product'),
@@ -149,7 +158,7 @@ async function getCategoryCounts(supabase: SupabaseClient): Promise<CategoryCoun
 }
 
 export const load: PageLoad = async ({ parent, url }) => {
-	const { supabase_lt } = await parent();
+	const { supabase } = await parent();
 	const filters = parseFilters(url.searchParams);
 
 	const emptyResult = {
@@ -165,22 +174,22 @@ export const load: PageLoad = async ({ parent, url }) => {
 		allTagOptions: [] as TagOption[]
 	};
 
-	if (!supabase_lt) {
+	if (!supabase) {
 		return emptyResult;
 	}
 
-	const tagCatalog = await getTagCatalog(supabase_lt);
+	const tagCatalog = await getTagCatalog(supabase);
 	const tagGroups = filterBrowsableTagGroups(tagCatalog.groups);
 	const standaloneTags = filterBrowsableStandaloneTags(tagCatalog.standalone);
 	const allTagOptions = tagCatalog.allOptions;
-	const categoryCounts = await getCategoryCounts(supabase_lt);
+	const categoryCounts = await getCategoryCounts(supabase);
 	const activeFilters: BrowseFilters = {
 		...filters,
 		tag:
 			filters.tag && allTagOptions.some((option) => option.key === filters.tag) ? filters.tag : null
 	};
 
-	let countQuery = supabase_lt.from('products').select(PRODUCT_SELECT, {
+	let countQuery = supabase.from('products').select(PRODUCT_SELECT, {
 		count: 'exact',
 		head: true
 	});
@@ -203,7 +212,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 	const totalPages = totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 0;
 	const currentPage = totalPages > 0 ? Math.min(filters.page, totalPages) : 1;
 
-	let dataQuery = supabase_lt.from('products').select(PRODUCT_SELECT);
+	let dataQuery = supabase.from('products').select(PRODUCT_SELECT);
 	dataQuery = applyFilters(dataQuery, activeFilters, allTagOptions);
 	dataQuery = applySort(dataQuery, activeFilters.sort);
 

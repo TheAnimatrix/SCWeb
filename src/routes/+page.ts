@@ -43,9 +43,9 @@ async function loadRecentByType(
 }
 
 export const load: PageLoad = async ({ parent }) => {
-	const { supabase_lt } = await parent();
+	const { supabase } = await parent();
 
-	if (!supabase_lt) {
+	if (!supabase) {
 		return {
 			recentProducts: [] as Product[],
 			recentSpares: [] as Product[],
@@ -63,12 +63,12 @@ export const load: PageLoad = async ({ parent }) => {
 		listingsResult,
 		makersResult
 	] = await Promise.all([
-		loadRecentByType(supabase_lt, 'product'),
-		loadRecentByType(supabase_lt, 'spare'),
-		loadRecentByType(supabase_lt, 'flea-market'),
-		supabase_lt.from('constants').select().eq('key', 'BANNERS'),
-		supabase_lt.from('products').select('id', { count: 'exact', head: true }),
-		supabase_lt.from('users').select('id', { count: 'exact', head: true })
+		loadRecentByType(supabase, 'product'),
+		loadRecentByType(supabase, 'spare'),
+		loadRecentByType(supabase, 'flea-market'),
+		supabase.from('constants').select().eq('key', 'BANNERS'),
+		supabase.from('products').select('id', { count: 'exact', head: true }),
+		supabase.from('users').select('id', { count: 'exact', head: true })
 	]);
 	let featuredProducts: Product[] = [];
 
@@ -76,7 +76,7 @@ export const load: PageLoad = async ({ parent }) => {
 	const bannerProductIds = getBannerProductIds(banners);
 
 	if (bannerProductIds.length > 0) {
-		const featuredResult = await supabase_lt
+		const featuredResult = await supabase
 			.from('products')
 			.select(PRODUCT_SELECT)
 			.in('id', bannerProductIds);
@@ -97,7 +97,7 @@ export const load: PageLoad = async ({ parent }) => {
 	}
 
 	if (featuredProducts.length === 0) {
-		const fallbackResult = await supabase_lt
+		const fallbackResult = await supabase
 			.from('products')
 			.select(PRODUCT_SELECT)
 			.order('created_at', { ascending: false })

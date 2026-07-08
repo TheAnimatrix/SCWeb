@@ -77,9 +77,9 @@
 			});
 		}
 
-		if (!data.supabase_lt) return;
+		if (!data.supabase) return;
 
-		const supabaseClient = data.supabase_lt;
+		const supabaseClient = data.supabase;
 
 		getCart(fetch).then((cart) => {
 			if (cart.ok) {
@@ -130,6 +130,7 @@
 </script>
 
 <svelte:head>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- vite-plugin-pwa generated manifest link -->
 	{@html webManifestLink}
 </svelte:head>
 
