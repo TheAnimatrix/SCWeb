@@ -2,7 +2,7 @@
 	import { goto, invalidate } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import { type Writable } from 'svelte/store';
-	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
 	import UserCircle from '@lucide/svelte/icons/user-circle';
 	import LogIn from '@lucide/svelte/icons/log-in';
 	import Receipt from '@lucide/svelte/icons/receipt';
@@ -92,8 +92,15 @@
 			const { razorpayOrderId, amountPaise } = orderResult.data;
 			const cartId = cartData.id;
 
+			const razorpayKey = env.PUBLIC_RAZORPAY_ID;
+			if (!razorpayKey) {
+				toastStore.show('Payment is not configured. Please contact support.', 'error');
+				isPaying = false;
+				return;
+			}
+
 			const options = {
-				key: PUBLIC_RAZORPAY_ID,
+				key: razorpayKey,
 				amount: amountPaise,
 				currency: 'INR',
 				name: 'SelfCrafted',

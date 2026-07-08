@@ -5,7 +5,7 @@
 	import Download from '@lucide/svelte/icons/download';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import Star from '@lucide/svelte/icons/star';
-	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
 	import { performPrintRequestAction } from '$lib/client/portalApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
@@ -158,8 +158,14 @@
 				return false;
 			}
 
+			const razorpayKey = env.PUBLIC_RAZORPAY_ID;
+			if (!razorpayKey) {
+				toastStore.show('Payment is not configured. Please contact support.', 'error');
+				return false;
+			}
+
 			var options = {
-				key: PUBLIC_RAZORPAY_ID, // Enter the Key ID generated from the Dashboard
+				key: razorpayKey, // Enter the Key ID generated from the Dashboard
 				amount: amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
 				currency: 'INR',
 				name: 'SelfCrafted',

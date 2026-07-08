@@ -1,12 +1,32 @@
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 import type { LayoutLoad } from './$types';
 import { createBrowserClient, isBrowser } from '@supabase/ssr';
+
+function getPublicSupabaseUrl(): string {
+	const url = env.PUBLIC_SUPABASE_URL;
+	if (!url) {
+		throw new Error(
+			'PUBLIC_SUPABASE_URL is not set. Configure it as a runtime environment variable.'
+		);
+	}
+	return url;
+}
+
+function getPublicSupabaseAnonKey(): string {
+	const key = env.PUBLIC_SUPABASE_KEY;
+	if (!key) {
+		throw new Error(
+			'PUBLIC_SUPABASE_KEY is not set. Configure it as a runtime environment variable.'
+		);
+	}
+	return key;
+}
 
 export const load: LayoutLoad = async ({ fetch, data, depends }) => {
 	depends('supabase:auth');
 
 	const supabase = isBrowser()
-		? createBrowserClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY, {
+		? createBrowserClient(getPublicSupabaseUrl(), getPublicSupabaseAnonKey(), {
 				global: {
 					fetch
 				}
