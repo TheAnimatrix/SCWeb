@@ -64,6 +64,17 @@
   `get_cart_by_uid`/`update_cart_by_id` RPCs + jsonb list column) runs only
   AFTER live verification.
 
+- **2026-07-08 — wu-3a merged (`96e5ced`)**: print-file endpoints in the API —
+  streaming-capped uploads (50MB, forged content-length safe), structural STL
+  sniffing, CSPRNG storage keys, race-safe `upload_quota` table
+  (migration `api/drizzle/0002_...`, UTC day boundary — intentional change),
+  row-authorized signed download URLs, compensating quota decrement + orphan
+  cleanup on partial failure.
+- **2026-07-08 — wu-3b merged (`918a1c4`)**: all four frontend callers swapped to
+  the API via the proxy (streaming, 60s upload timeout, `print-files`
+  allowlisted); typed `printFilesApi`; stuck-download-loading bug fixed;
+  **Supabase Edge Functions DELETED** (upload/download-model-request).
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
