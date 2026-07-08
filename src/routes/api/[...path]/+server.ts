@@ -4,7 +4,8 @@ import {
 	buildProxyTargetUrl,
 	getProxyTimeoutMs,
 	isAllowedProxyMethod,
-	isAllowedProxyPath
+	isAllowedProxyPath,
+	isPublicReadProxyPath
 } from '$lib/server/api-proxy';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 
@@ -52,9 +53,11 @@ async function proxyRequest(event: RequestEvent) {
 		headers.set('cookie', `${CLIENT_ID_COOKIE_NAME}=${clientId}`);
 	}
 
-	const { session } = await locals.safeGetSession();
-	if (session?.access_token) {
-		headers.set('authorization', `Bearer ${session.access_token}`);
+	if (!isPublicReadProxyPath(params.path, request.method)) {
+		const { session } = await locals.safeGetSession();
+		if (session?.access_token) {
+			headers.set('authorization', `Bearer ${session.access_token}`);
+		}
 	}
 
 	const method = request.method;

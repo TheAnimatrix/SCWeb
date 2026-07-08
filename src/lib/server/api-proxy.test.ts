@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildProxyTargetUrl, getProxyTimeoutMs, isAllowedProxyPath } from './api-proxy';
+import { buildProxyTargetUrl, getProxyTimeoutMs, isAllowedProxyPath, isPublicReadProxyPath } from './api-proxy';
 
 const API_ORIGIN = 'http://localhost:3001';
 
@@ -14,6 +14,9 @@ describe('isAllowedProxyPath', () => {
 		expect(isAllowedProxyPath('print-payments/abc/confirm')).toBe(true);
 		expect(isAllowedProxyPath('print-requests/abc/actions')).toBe(true);
 		expect(isAllowedProxyPath('chats/messages')).toBe(true);
+		expect(isAllowedProxyPath('catalog/home')).toBe(true);
+		expect(isAllowedProxyPath('constants/FILTYPES')).toBe(true);
+		expect(isAllowedProxyPath('products/abc/reviews')).toBe(true);
 	});
 
 	it('rejects paths outside the allowlist', () => {
@@ -31,6 +34,19 @@ describe('isAllowedProxyPath', () => {
 
 	it('allows normal paths without dot segments', () => {
 		expect(isAllowedProxyPath('cart/items/abc')).toBe(true);
+	});
+});
+
+describe('isPublicReadProxyPath', () => {
+	it('allows public catalog GET paths without auth', () => {
+		expect(isPublicReadProxyPath('catalog/home', 'GET')).toBe(true);
+		expect(isPublicReadProxyPath('products/abc/reviews', 'GET')).toBe(true);
+		expect(isPublicReadProxyPath('constants/FILTYPES', 'GET')).toBe(true);
+	});
+
+	it('requires auth for cart and mutations', () => {
+		expect(isPublicReadProxyPath('cart', 'GET')).toBe(false);
+		expect(isPublicReadProxyPath('catalog/home', 'POST')).toBe(false);
 	});
 });
 

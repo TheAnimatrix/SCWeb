@@ -1,5 +1,5 @@
 export const ALLOWED_PROXY_PATH =
-	/^(cart|checkout|print-files|print-payments|print-requests|chats)(\/|$)/;
+	/^(cart|checkout|print-files|print-payments|print-requests|chats|catalog|constants|products)(\/|$)/;
 
 const UPLOAD_TIMEOUT_MS = 60_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -49,4 +49,10 @@ export function buildProxyTargetUrl(apiOrigin: string, path: string, search: str
 
 export function isAllowedProxyMethod(method: string): boolean {
 	return ALLOWED_METHODS.has(method);
+}
+
+/** Public catalog reads — no auth token needed; skipping session lookup saves ~100–300ms. */
+export function isPublicReadProxyPath(path: string | undefined, method: string): boolean {
+	if (method !== 'GET' || !path) return false;
+	return /^(catalog|constants|products)(\/|$)/.test(path);
 }
