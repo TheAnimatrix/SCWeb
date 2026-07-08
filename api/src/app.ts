@@ -12,6 +12,7 @@ import { cartRoutes } from './routes/cart.js';
 import { checkoutRoutes } from './routes/checkout.js';
 import { healthRoutes } from './routes/health.js';
 import { printFilesRoutes } from './routes/print-files.js';
+import { printPaymentsRoutes } from './routes/print-payments.js';
 import { createCartStore, type CartStore } from './services/cart-store.js';
 import { createCheckoutStore, type CheckoutStore } from './services/checkout-store.js';
 import {
@@ -20,6 +21,10 @@ import {
 	isFilesConfigured,
 	type PrintFilesStore
 } from './services/print-files-store.js';
+import {
+	createPrintPaymentsStore,
+	type PrintPaymentsStore
+} from './services/print-payments-store.js';
 import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
 import type { AppVariables } from './types/context.js';
 
@@ -29,6 +34,7 @@ type CreateAppOptions = {
 	cartStore?: CartStore;
 	checkoutStore?: CheckoutStore;
 	printFilesStore?: PrintFilesStore | null;
+	printPaymentsStore?: PrintPaymentsStore;
 	razorpayClient?: RazorpayClient;
 };
 
@@ -38,6 +44,7 @@ export function createApp({
 	cartStore,
 	checkoutStore,
 	printFilesStore,
+	printPaymentsStore,
 	razorpayClient
 }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
@@ -60,6 +67,16 @@ export function createApp({
 				? createPrintFilesStore(db, createSupabaseStorage(env))
 				: null
 			: printFilesStore;
+	const resolvedPrintPaymentsStore =
+		printPaymentsStore ??
+		createPrintPaymentsStore(
+			db,
+			resolvedRazorpayClient ?? {
+				async createOrder() {
+					throw new Error('Razorpay client is not configured');
+				}
+			}
+		);
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
@@ -67,6 +84,7 @@ export function createApp({
 		c.set('cartStore', resolvedCartStore);
 		c.set('checkoutStore', resolvedCheckoutStore);
 		c.set('printFilesStore', resolvedPrintFilesStore);
+		c.set('printPaymentsStore', resolvedPrintPaymentsStore);
 		await next();
 	});
 
@@ -90,6 +108,7 @@ export function createApp({
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
 	app.route('/', printFilesRoutes);
+	app.route('/', printPaymentsRoutes);
 
 	app.onError(errorHandler);
 

@@ -1,4 +1,4 @@
-export const ALLOWED_PROXY_PATH = /^(cart|checkout|print-files)(\/|$)/;
+export const ALLOWED_PROXY_PATH = /^(cart|checkout|print-files|print-payments)(\/|$)/;
 
 const UPLOAD_TIMEOUT_MS = 60_000;
 const DEFAULT_TIMEOUT_MS = 10_000;

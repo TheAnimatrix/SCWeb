@@ -4,6 +4,7 @@ import type { Database } from '../db/index.js';
 import type { CartStore } from '../services/cart-store.js';
 import type { CheckoutStore } from '../services/checkout-store.js';
 import type { PrintFilesStore } from '../services/print-files-store.js';
+import type { PrintPaymentsStore } from '../services/print-payments-store.js';
 
 export type Actor = {
 	userId: string | null;
@@ -16,6 +17,7 @@ export type AppVariables = {
 	cartStore: CartStore;
 	checkoutStore: CheckoutStore;
 	printFilesStore: PrintFilesStore | null;
+	printPaymentsStore: PrintPaymentsStore;
 	requestId: string;
 	actor: Actor;
 	user: User | null;
