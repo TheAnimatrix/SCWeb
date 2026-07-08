@@ -6,4 +6,6 @@ export { cartItems } from './cartItems.js';
 export { CART_STATUS_VALUES, carts } from './carts.js';
 export { orderItems } from './orderItems.js';
 export { ORDER_STATUS_VALUES, orders } from './orders.js';
+export { printrequests } from './printrequests.js';
 export { products } from './products.js';
+export { uploadQuota } from './uploadQuota.js';

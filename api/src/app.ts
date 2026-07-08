@@ -11,8 +11,15 @@ import { requestIdMiddleware } from './middleware/request-id.js';
 import { cartRoutes } from './routes/cart.js';
 import { checkoutRoutes } from './routes/checkout.js';
 import { healthRoutes } from './routes/health.js';
+import { printFilesRoutes } from './routes/print-files.js';
 import { createCartStore, type CartStore } from './services/cart-store.js';
 import { createCheckoutStore, type CheckoutStore } from './services/checkout-store.js';
+import {
+	createPrintFilesStore,
+	createSupabaseStorage,
+	isFilesConfigured,
+	type PrintFilesStore
+} from './services/print-files-store.js';
 import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
 import type { AppVariables } from './types/context.js';
 
@@ -21,10 +28,18 @@ type CreateAppOptions = {
 	db: Database;
 	cartStore?: CartStore;
 	checkoutStore?: CheckoutStore;
+	printFilesStore?: PrintFilesStore | null;
 	razorpayClient?: RazorpayClient;
 };
 
-export function createApp({ env, db, cartStore, checkoutStore, razorpayClient }: CreateAppOptions) {
+export function createApp({
+	env,
+	db,
+	cartStore,
+	checkoutStore,
+	printFilesStore,
+	razorpayClient
+}: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
 	const resolvedCartStore = cartStore ?? createCartStore(db);
 	const resolvedRazorpayClient =
@@ -39,12 +54,19 @@ export function createApp({ env, db, cartStore, checkoutStore, razorpayClient }:
 						throw new Error('Razorpay client is not configured');
 					}
 				}));
+	const resolvedPrintFilesStore =
+		printFilesStore === undefined
+			? isFilesConfigured(env)
+				? createPrintFilesStore(db, createSupabaseStorage(env))
+				: null
+			: printFilesStore;
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
 		c.set('db', db);
 		c.set('cartStore', resolvedCartStore);
 		c.set('checkoutStore', resolvedCheckoutStore);
+		c.set('printFilesStore', resolvedPrintFilesStore);
 		await next();
 	});
 
@@ -67,6 +89,7 @@ export function createApp({ env, db, cartStore, checkoutStore, razorpayClient }:
 	app.route('/', healthRoutes);
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
+	app.route('/', printFilesRoutes);
 
 	app.onError(errorHandler);
 
