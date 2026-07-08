@@ -40,6 +40,18 @@
   per-cart-resilient backfill script. Migration `api/drizzle/0001_...` and
   `db:backfill-carts` are **not yet applied/run** — user applies when ready.
 
+- **2026-07-08 — wu-2b merged (`67811a8`)**: cart endpoints — `GET /cart`,
+  `PUT /cart/items/:productId` (transactional, stock ceiling, lazy creation,
+  `FOR UPDATE`), `POST /cart/merge` (clientId-match guard, clamp-all invariant);
+  PGlite integration tests against the real store.
+- **2026-07-08 — wu-2c merged (`56d7c1d`)**: checkout endpoints —
+  `POST /checkout/order` (snapshot + idempotent re-entry with total refresh),
+  `POST /checkout/confirm` (HMAC-first, `FOR UPDATE` + atomic paid claim BEFORE
+  stock decrement — concurrent double-decrement impossible), `POST /checkout/fail`
+  (paid never downgraded). 71 api tests. **Runtime prerequisites still on user:**
+  apply `api/drizzle/0001_...`, run `db:backfill-carts`, fix `POSTGRES_URL`
+  to the session pooler.
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
