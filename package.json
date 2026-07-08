@@ -6,7 +6,8 @@
 		"api"
 	],
 	"scripts": {
-		"dev": "vite dev --host",
+		"dev": "concurrently -n web,api -c blue,magenta \"vite dev --host\" \"npm run dev -w @scweb/api\"",
+		"dev:web": "vite dev --host",
 		"dev:api": "npm run dev -w @scweb/api",
 		"build": "vite build",
 		"build:api": "npm run build -w @scweb/api",
@@ -37,6 +38,7 @@
 		"@typescript-eslint/parser": "^8.27.0",
 		"@vite-pwa/sveltekit": "^1.1.0",
 		"bits-ui": "^1.4.4",
+		"concurrently": "^10.0.3",
 		"eslint": "^9.23.0",
 		"eslint-config-prettier": "^10.1.1",
 		"eslint-plugin-svelte": "^3.3.3",

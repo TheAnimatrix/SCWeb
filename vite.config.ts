@@ -53,6 +53,12 @@ export default defineConfig({
 				'./src/routes/+layout.svelte',
 				'./src/routes/+layout.ts',
 				'./src/lib/components/ui/**/*.svelte',
+				'./src/lib/components/product/**/*.svelte',
+				'./src/lib/components/sc/**/*.svelte',
+				'./src/lib/components/fundamental/HTMLWrapper.svelte',
+				'./src/routes/[craft_name]/craft/item=[item]/+page.svelte',
+				'./src/routes/crafts/+page.svelte',
+				'./src/routes/+page.svelte',
 				'./src/routes/3dp-portal/**/*.svelte'
 			]
 		}
