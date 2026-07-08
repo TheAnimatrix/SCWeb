@@ -10,6 +10,7 @@ export { default as FeatureModule } from './FeatureModule.svelte';
 export { default as ReviewCard } from './ReviewCard.svelte';
 export { default as TrustSignals } from './TrustSignals.svelte';
 export { default as MakerCard } from './MakerCard.svelte';
+export { default as GradientGlowCard } from './GradientGlowCard.svelte';
 export { default as Pagination } from './Pagination.svelte';
 export { default as FilterSidebar } from './FilterSidebar.svelte';
 export { default as SearchBar } from './SearchBar.svelte';

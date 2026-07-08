@@ -31,7 +31,7 @@
 	}
 </script>
 
-<div class={cn('space-y-3', className)}>
+<div class={cn('min-w-0 space-y-3', className)}>
 	<div class="overflow-hidden rounded-lg border border-border bg-card">
 		<div class="relative aspect-[4/3] overflow-hidden">
 			{#key indicatorCur}
@@ -53,7 +53,7 @@
 	</div>
 
 	{#if indicatorMax > 1}
-		<div class="flex flex-wrap gap-2" role="tablist" aria-label="Product images">
+		<div class="flex min-w-0 flex-wrap gap-2" role="tablist" aria-label="Product images">
 			{#each images as image, index (image.url + index)}
 				<button
 					type="button"

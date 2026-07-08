@@ -19,9 +19,11 @@
 		addToCartMsg?: string;
 		variants?: VariantOption[];
 		variantsLoading?: boolean;
+		isRefreshing?: boolean;
 		onIncrement?: () => void;
 		onDecrement?: () => void;
 		onAddToCart?: () => void;
+		onVariantNavigate?: (href: string) => void;
 		class?: string;
 	}
 
@@ -32,9 +34,11 @@
 		addToCartMsg = '',
 		variants = [],
 		variantsLoading = false,
+		isRefreshing = false,
 		onIncrement,
 		onDecrement,
 		onAddToCart,
+		onVariantNavigate,
 		class: className
 	}: Props = $props();
 
@@ -54,7 +58,17 @@
 	const trustItems = $derived(['Ships from verified maker', 'Replacement support on eligible orders']);
 
 	const shortDescription = $derived.by(() => {
-		const doc = product.documentation?.at(0)?.data;
+		const docEntry = product.documentation?.at(0);
+		const doc = docEntry?.data;
+
+		if (docEntry?.isMDUrl || (doc && /^https?:\/\//i.test(doc))) {
+			const faqAnswer = product.faq?.at(0)?.answer;
+			if (faqAnswer) {
+				return faqAnswer.length > 220 ? `${faqAnswer.slice(0, 217)}...` : faqAnswer;
+			}
+			return 'Handcrafted hardware from an independent maker on SelfCrafted.';
+		}
+
 		if (!doc || doc.length > 220) {
 			return doc ? `${doc.slice(0, 217)}...` : 'Handcrafted hardware from an independent maker on SelfCrafted.';
 		}
@@ -64,15 +78,47 @@
 	function handleVariantChange(event: Event) {
 		const target = event.currentTarget as HTMLSelectElement;
 		const selected = variants.find((variant) => variant.id === target.value);
-		if (selected) {
-			window.location.href = selected.href;
+		if (selected && selected.id !== product.id) {
+			onVariantNavigate?.(selected.href);
 		}
 	}
 </script>
 
-<div class={cn('space-y-5 rounded-lg border border-border bg-card p-5 md:p-6', className)}>
+<div
+	class={cn('min-w-0 space-y-5 rounded-lg border border-border bg-card p-5 md:p-6', className)}
+	aria-busy={isRefreshing}
+>
+	{#if isRefreshing}
+		<div class="space-y-5" aria-hidden="true">
+			<div class="space-y-3">
+				<Skeleton class="h-8 w-4/5 rounded-sm" />
+				<Skeleton class="h-4 w-1/3 rounded-sm" />
+				<div class="flex flex-wrap gap-2">
+					<Skeleton class="h-6 w-16 rounded-full" />
+					<Skeleton class="h-6 w-20 rounded-full" />
+				</div>
+				<div class="flex flex-wrap gap-2">
+					<Skeleton class="h-6 w-24 rounded-full" />
+					<Skeleton class="h-6 w-28 rounded-full" />
+				</div>
+			</div>
+			<Skeleton class="h-16 w-full rounded-sm" />
+			{#if variants.length > 1}
+				<div class="space-y-2">
+					<Skeleton class="h-4 w-16 rounded-sm" />
+					<Skeleton class="h-10 w-full rounded-md" />
+				</div>
+			{/if}
+			<Skeleton class="h-9 w-32 rounded-sm" />
+			<div class="flex gap-2">
+				<Skeleton class="h-10 w-28 rounded-md" />
+				<Skeleton class="h-10 flex-1 rounded-md" />
+				<Skeleton class="h-10 w-10 rounded-md" />
+			</div>
+		</div>
+	{:else}
 	<div class="space-y-3">
-		<h1 class="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+		<h1 class="break-words text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
 			{product.name}
 		</h1>
 
@@ -125,7 +171,7 @@
 		</div>
 	</div>
 
-	<div class="prose prose-sm max-w-none text-sm leading-relaxed text-muted-foreground prose-a:text-[#71C8E2] prose-a:no-underline hover:prose-a:underline">
+	<div class="prose prose-sm max-w-none break-words text-sm leading-relaxed text-muted-foreground prose-a:break-all">
 		<HTMLWrapper html={shortDescription} />
 	</div>
 
@@ -140,8 +186,9 @@
 			<select
 				id="variant-select"
 				value={product.id}
+				disabled={isRefreshing}
 				onchange={handleVariantChange}
-				class="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus:border-foreground/30 focus:outline-none"
+				class="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus:border-foreground/30 focus:outline-none disabled:cursor-wait disabled:opacity-60"
 			>
 				{#each variants as variant (variant.id)}
 					<option value={variant.id}>{variant.label}</option>
@@ -161,8 +208,8 @@
 		</p>
 	</div>
 
-	<div class="flex flex-wrap items-stretch gap-2">
-		<div class="flex items-center rounded-md border border-border bg-card">
+	<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+		<div class="flex w-fit items-center rounded-md border border-border bg-card">
 			<button
 				type="button"
 				class="flex h-10 w-10 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
@@ -186,8 +233,9 @@
 			</button>
 		</div>
 
+		<div class="flex min-w-0 gap-2">
 		<ScButton
-			class="min-h-10 flex-1 font-mono text-sm disabled:pointer-events-none disabled:opacity-50"
+			class="min-h-10 min-w-0 flex-1 whitespace-normal font-mono text-sm disabled:pointer-events-none disabled:opacity-50"
 			onclick={isOutOfStock ? undefined : onAddToCart}
 			arrow
 		>
@@ -197,7 +245,7 @@
 		<button
 			type="button"
 			class={cn(
-				'flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted',
+				'flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted',
 				favorited && 'border-foreground text-foreground'
 			)}
 			aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
@@ -206,6 +254,7 @@
 		>
 			<Heart class={cn('h-4 w-4', favorited && 'fill-current')} />
 		</button>
+		</div>
 	</div>
 
 	<div
@@ -224,4 +273,5 @@
 	</div>
 
 	<TrustSignals items={trustItems} />
+	{/if}
 </div>

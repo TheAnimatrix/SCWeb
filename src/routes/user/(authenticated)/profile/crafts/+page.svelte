@@ -17,8 +17,8 @@
 </script>
 
 {#if isLoading}
-	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-hidden="true">
-		{#each Array(3) as _, i (i)}
+	<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
+		{#each Array(4) as _, i (i)}
 			<ProductCardSkeleton />
 		{/each}
 	</div>

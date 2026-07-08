@@ -17,7 +17,7 @@
 	}: Props = $props();
 </script>
 
-<div class="grid w-full grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 {className}">
+<div class="grid w-full grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4 {className}">
 	{#each products as product, index (product.id)}
 		<ProductCard
 			{product}

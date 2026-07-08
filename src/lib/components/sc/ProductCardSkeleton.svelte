@@ -17,9 +17,9 @@
 	aria-hidden="true"
 >
 	<Skeleton class="aspect-[4/3] w-full rounded-none border-0" />
-	<div class="flex flex-col gap-2 p-4">
-		<Skeleton class="h-4 w-3/4 rounded-sm" />
-		<Skeleton class="h-3 w-1/2 rounded-sm" />
-		<Skeleton class="mt-1 h-5 w-1/4 rounded-sm" />
+	<div class="flex flex-col gap-1.5 p-3">
+		<Skeleton class="h-3.5 w-3/4 rounded-sm" />
+		<Skeleton class="h-2.5 w-1/2 rounded-sm" />
+		<Skeleton class="mt-0.5 h-4 w-1/4 rounded-sm" />
 	</div>
 </article>

@@ -40,9 +40,9 @@
 		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
 	}
 
-	const listingPreview = $derived(data.recentProducts.slice(0, 3));
-	const sparesPreview = $derived(data.recentSpares.slice(0, 3));
-	const fleaMarketPreview = $derived(data.recentFleaMarket.slice(0, 3));
+	const listingPreview = $derived(data.recentProducts.slice(0, 4));
+	const sparesPreview = $derived(data.recentSpares.slice(0, 4));
+	const fleaMarketPreview = $derived(data.recentFleaMarket.slice(0, 4));
 	const featuredProducts = $derived(data.featuredProducts);
 
 	const listingSectionMeta = [
@@ -162,13 +162,13 @@
 				</div>
 
 			{#if isLoading}
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-3" aria-hidden="true">
-					{#each Array(3) as _, i (i)}
+				<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
+					{#each Array(4) as _, i (i)}
 						<ProductCardSkeleton />
 					{/each}
 				</div>
 			{:else if section.items.length > 0}
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+				<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4">
 					{#each section.items as product (product.id)}
 						<ProductCard {product} href={productHref(product)} />
 					{/each}

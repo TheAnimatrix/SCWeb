@@ -16,6 +16,11 @@ export function getTabFlyIn(): FlyParams {
 	return { y: 10, duration: TAB_TRANSITION_DURATION, easing: cubicOut };
 }
 
+export function getTabFlyOut(): FlyParams {
+	if (prefersReducedMotion()) return { duration: 0 };
+	return { y: -8, duration: TAB_TRANSITION_OUT_DURATION, easing: cubicOut };
+}
+
 export function getTabFadeOut(): FadeParams {
 	if (prefersReducedMotion()) return { duration: 0 };
 	return { duration: TAB_TRANSITION_OUT_DURATION };

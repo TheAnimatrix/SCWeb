@@ -102,6 +102,11 @@
 	.tab-panel-animate[data-state='active'] {
 		animation: none;
 	}
+
+	.animate-accordion-down,
+	.animate-accordion-up {
+		animation: none;
+	}
 }
 
 @layer base {

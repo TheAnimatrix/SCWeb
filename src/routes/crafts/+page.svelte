@@ -152,7 +152,7 @@
 				<div class="min-w-0">
 					{#if isRefreshing}
 						<div
-							class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+							class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4"
 							aria-busy="true"
 							aria-label="Loading crafts"
 						>
@@ -161,7 +161,7 @@
 							{/each}
 						</div>
 					{:else if data.products.length > 0}
-						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4">
 							{#each data.products as product (product.id)}
 								<ProductCard {product} href={productHref(product)} />
 							{/each}

@@ -9,6 +9,7 @@
 	import type { SupabaseClient } from '@supabase/supabase-js';
 
 	type TabId = 'description' | 'docs' | 'reviews';
+	type DocSectionId = 'documentation' | 'faq' | 'costing' | 'shipping';
 
 	interface Review {
 		id: string;
@@ -36,12 +37,28 @@
 	}: Props = $props();
 
 	let activeTab = $state<TabId>('description');
+	let activeDocSection = $state<DocSectionId>('documentation');
 
 	const tabs = $derived([
 		{ id: 'description' as const, label: 'description' },
 		{ id: 'docs' as const, label: 'docs & firmware' },
 		{ id: 'reviews' as const, label: `reviews (${reviews.length})` }
 	]);
+
+	const docSections = $derived([
+		{ id: 'documentation' as const, label: 'documentation' },
+		{ id: 'faq' as const, label: 'faq' },
+		{ id: 'costing' as const, label: 'costing' },
+		{ id: 'shipping' as const, label: 'shipping' }
+	]);
+
+	const tagButtonClass = (isActive: boolean) =>
+		cn(
+			'rounded-md px-3 py-1.5 font-mono text-xs transition-all duration-200',
+			isActive
+				? 'bg-foreground text-background'
+				: 'text-muted-foreground hover:bg-muted hover:text-foreground'
+		);
 </script>
 
 <section class={cn('space-y-4', className)}>
@@ -51,12 +68,7 @@
 				type="button"
 				role="tab"
 				aria-selected={activeTab === tab.id}
-				class={cn(
-					'rounded-md px-3 py-1.5 font-mono text-xs transition-colors',
-					activeTab === tab.id
-						? 'bg-foreground text-background'
-						: 'text-muted-foreground hover:bg-muted hover:text-foreground'
-				)}
+				class={tagButtonClass(activeTab === tab.id)}
 				onclick={() => (activeTab = tab.id)}
 			>
 				{tab.label}
@@ -76,7 +88,7 @@
 			<div class="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 				<div class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6">
 					{#if activeTab === 'description'}
-						<div class="prose prose-sm max-w-none text-foreground">
+						<div class="prose prose-sm max-w-none break-words text-foreground prose-a:break-all">
 							{#if product.documentation?.at(0)?.isMDUrl && product.documentation?.at(0)?.data}
 								{#await fetch(product.documentation.at(0)?.data ?? '')}
 									<ProseSkeleton class="py-4" />
@@ -100,85 +112,93 @@
 							{/if}
 						</div>
 					{:else}
-						<div class="space-y-6 text-sm text-foreground">
-							<div>
-								<h3 class="mb-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-									documentation
-								</h3>
-								{#if product.documentation?.at(1)?.data}
-									<div class="whitespace-pre-wrap">{product.documentation.at(1)?.data}</div>
-								{:else}
-									<p class="text-muted-foreground">No documentation available.</p>
-								{/if}
+						<div class="space-y-4 text-sm text-foreground">
+							<div
+								class="flex flex-wrap gap-2 border-b border-border pb-3"
+								role="tablist"
+								aria-label="Documentation sections"
+							>
+								{#each docSections as section (section.id)}
+									<button
+										type="button"
+										role="tab"
+										aria-selected={activeDocSection === section.id}
+										class={tagButtonClass(activeDocSection === section.id)}
+										onclick={() => (activeDocSection = section.id)}
+									>
+										{section.label}
+									</button>
+								{/each}
 							</div>
 
-							{#if product.faq && product.faq.length > 0}
-								<div>
-									<h3 class="mb-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">faq</h3>
-									<Accordion.Root class="w-full" type="multiple">
-										{#each product.faq as faq, index (faq.question + index)}
-											<Accordion.Item value="faq-{index}" class="border-b border-border last:border-0">
-												<Accordion.Trigger class="text-sm font-medium hover:no-underline">
-													{faq.question}
-												</Accordion.Trigger>
-												<Accordion.Content class="text-sm text-muted-foreground">
-													{faq.answer}
-												</Accordion.Content>
-											</Accordion.Item>
-										{/each}
-									</Accordion.Root>
-								</div>
-							{/if}
-
-							<div>
-								<h3 class="mb-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-									costing
-								</h3>
-								{#if product.documentation?.at(2)?.data && product.documentation?.at(2)?.isMDUrl}
-									{#await fetch(product.documentation.at(2)?.data ?? '')}
-										<ProseSkeleton lines={4} />
-									{:then response}
-										{#if response.ok}
-											{#await response.text()}
-												<ProseSkeleton lines={4} />
-											{:then text}
-												<HTMLWrapper html={text} />
-											{/await}
-										{:else}
-											<p class="text-muted-foreground">No costing details available.</p>
-										{/if}
-									{/await}
-								{:else if product.documentation?.at(2)?.data}
-									<HTMLWrapper html={product.documentation.at(2)?.data ?? ''} />
+							<TabPanelTransition tabKey={activeDocSection}>
+								{#if activeDocSection === 'documentation'}
+									{#if product.documentation?.at(1)?.data}
+										<div class="whitespace-pre-wrap">{product.documentation.at(1)?.data}</div>
+									{:else}
+										<p class="text-muted-foreground">No documentation available.</p>
+									{/if}
+								{:else if activeDocSection === 'faq'}
+									{#if product.faq && product.faq.length > 0}
+										<Accordion.Root class="w-full" type="multiple">
+											{#each product.faq as faq, index (faq.question + index)}
+												<Accordion.Item value="faq-{index}" class="border-b border-border last:border-0">
+													<Accordion.Trigger
+														class="items-start gap-3 py-4 text-left text-sm font-medium hover:no-underline"
+													>
+														<span class="min-w-0 flex-1 text-left">{faq.question}</span>
+													</Accordion.Trigger>
+													<Accordion.Content class="text-sm text-muted-foreground">
+														{faq.answer}
+													</Accordion.Content>
+												</Accordion.Item>
+											{/each}
+										</Accordion.Root>
+									{:else}
+										<p class="text-muted-foreground">No FAQ available.</p>
+									{/if}
+								{:else if activeDocSection === 'costing'}
+									{#if product.documentation?.at(2)?.data && product.documentation?.at(2)?.isMDUrl}
+										{#await fetch(product.documentation.at(2)?.data ?? '')}
+											<ProseSkeleton lines={4} />
+										{:then response}
+											{#if response.ok}
+												{#await response.text()}
+													<ProseSkeleton lines={4} />
+												{:then text}
+													<HTMLWrapper html={text} />
+												{/await}
+											{:else}
+												<p class="text-muted-foreground">No costing details available.</p>
+											{/if}
+										{/await}
+									{:else if product.documentation?.at(2)?.data}
+										<HTMLWrapper html={product.documentation.at(2)?.data ?? ''} />
+									{:else}
+										<p class="text-muted-foreground">No costing details available.</p>
+									{/if}
 								{:else}
-									<p class="text-muted-foreground">No costing details available.</p>
+									{#if product.documentation?.at(3)?.data && product.documentation?.at(3)?.isMDUrl}
+										{#await fetch(product.documentation.at(3)?.data ?? '')}
+											<ProseSkeleton lines={4} />
+										{:then response}
+											{#if response.ok}
+												{#await response.text()}
+													<ProseSkeleton lines={4} />
+												{:then text}
+													<HTMLWrapper html={text} />
+												{/await}
+											{:else}
+												<p class="text-muted-foreground">No shipping details available.</p>
+											{/if}
+										{/await}
+									{:else if product.documentation?.at(3)?.data}
+										<HTMLWrapper html={product.documentation.at(3)?.data ?? ''} />
+									{:else}
+										<p class="text-muted-foreground">No shipping details available.</p>
+									{/if}
 								{/if}
-							</div>
-
-							<div>
-								<h3 class="mb-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-									shipping
-								</h3>
-								{#if product.documentation?.at(3)?.data && product.documentation?.at(3)?.isMDUrl}
-									{#await fetch(product.documentation.at(3)?.data ?? '')}
-										<ProseSkeleton lines={4} />
-									{:then response}
-										{#if response.ok}
-											{#await response.text()}
-												<ProseSkeleton lines={4} />
-											{:then text}
-												<HTMLWrapper html={text} />
-											{/await}
-										{:else}
-											<p class="text-muted-foreground">No shipping details available.</p>
-										{/if}
-									{/await}
-								{:else if product.documentation?.at(3)?.data}
-									<HTMLWrapper html={product.documentation.at(3)?.data ?? ''} />
-								{:else}
-									<p class="text-muted-foreground">No shipping details available.</p>
-								{/if}
-							</div>
+							</TabPanelTransition>
 						</div>
 					{/if}
 				</div>

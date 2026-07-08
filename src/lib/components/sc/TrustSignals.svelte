@@ -13,7 +13,7 @@
 	{#each items as item (item)}
 		<li class="flex items-start gap-2">
 			<span class="mt-0.5 shrink-0 font-mono text-foreground" aria-hidden="true">✓</span>
-			<span>{item}</span>
+			<span class="min-w-0 break-words">{item}</span>
 		</li>
 	{/each}
 </ul>

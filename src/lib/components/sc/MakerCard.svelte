@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
-	import ScButton from './ScButton.svelte';
+	import GradientGlowCard from './GradientGlowCard.svelte';
+	import MetaChip from './MetaChip.svelte';
 
 	interface Props {
 		name: string;
@@ -8,35 +9,64 @@
 		craftCount: number;
 		memberSince: string;
 		shopHref: string;
+		avatarUrl?: string | null;
 		class?: string;
 	}
 
-	let { name, location, craftCount, memberSince, shopHref, class: className }: Props = $props();
+	let {
+		name,
+		location,
+		craftCount,
+		memberSince,
+		shopHref,
+		avatarUrl = null,
+		class: className
+	}: Props = $props();
+
+	let avatarFailed = $state(false);
 
 	const initial = $derived(name.charAt(0).toUpperCase());
+	const showAvatar = $derived(Boolean(avatarUrl && !avatarFailed));
+	const showLocation = $derived(Boolean(location && location !== '—'));
+	const craftLabel = $derived(`${craftCount} craft${craftCount === 1 ? '' : 's'}`);
 </script>
 
-<div class={cn('rounded-lg border border-border bg-card p-4', className)}>
-	<div class="flex items-start gap-4">
-		<div
-			class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-muted font-mono text-sm font-medium uppercase text-foreground"
-			aria-hidden="true"
-		>
+<GradientGlowCard href={shopHref} class={cn(className)}>
+	<div
+		class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-scpurple/25 bg-background/80 font-mono text-xs font-semibold uppercase text-foreground shadow-[0_0_0_1px_hsl(var(--background))]"
+		aria-hidden="true"
+	>
+		{#if showAvatar}
+			<img
+				src={avatarUrl}
+				alt=""
+				class="size-full object-cover"
+				referrerpolicy="no-referrer"
+				onerror={() => {
+					avatarFailed = true;
+				}}
+			/>
+		{:else}
 			{initial}
-		</div>
+		{/if}
+	</div>
 
-		<div class="min-w-0 flex-1 space-y-1">
-			<h3 class="truncate text-sm font-medium text-foreground">{name}</h3>
-			<p class="font-mono text-xs text-muted-foreground">{location}</p>
-			<p class="font-mono text-xs text-muted-foreground">
-				{craftCount} crafts · member since {memberSince}
-			</p>
+	<div class="min-w-0 flex-1">
+		<div class="flex min-w-0 items-baseline gap-1.5">
+			<span class="truncate text-sm font-medium text-foreground">{name}</span>
+			{#if showLocation}
+				<span class="shrink-0 font-mono text-[11px] text-muted-foreground">{location}</span>
+			{/if}
+		</div>
+		<div class="mt-1 flex flex-wrap items-center gap-1.5">
+			<MetaChip tone="muted" class="py-0 text-[10px]">{craftLabel}</MetaChip>
+			<MetaChip tone="muted" class="py-0 text-[10px]">since {memberSince}</MetaChip>
 		</div>
 	</div>
 
-	<div class="mt-4">
-		<ScButton variant="ghost" href={shopHref} arrow class="text-sm">
-			view_shop
-		</ScButton>
-	</div>
-</div>
+	<span
+		class="hidden shrink-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground sm:inline"
+	>
+		view_shop →
+	</span>
+</GradientGlowCard>

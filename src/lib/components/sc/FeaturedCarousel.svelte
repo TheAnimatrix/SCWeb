@@ -2,6 +2,8 @@
 	import type { Product } from '$lib/types/product';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Package from '@lucide/svelte/icons/package';
+	import Star from '@lucide/svelte/icons/star';
 	import PlaceholderImage from './PlaceholderImage.svelte';
 
 	interface Props {
@@ -14,8 +16,10 @@
 
 	let activeIndex = $state(0);
 	let paused = $state(false);
+	let prefersReducedMotion = $state(false);
 
 	const hasMultiple = $derived(products.length > 1);
+	const autoPlayEnabled = $derived(hasMultiple && interval > 0 && !paused && !prefersReducedMotion);
 	const activeProduct = $derived(products[activeIndex]);
 
 	function makerName(product: Product) {
@@ -62,11 +66,28 @@
 	});
 
 	$effect(() => {
-		if (!hasMultiple || interval <= 0 || paused) return;
+		if (typeof window === 'undefined') return;
+
+		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+		prefersReducedMotion = media.matches;
+
+		const onChange = (event: MediaQueryListEvent) => {
+			prefersReducedMotion = event.matches;
+		};
+
+		media.addEventListener('change', onChange);
+		return () => media.removeEventListener('change', onChange);
+	});
+
+	$effect(() => {
+		if (!autoPlayEnabled) return;
 
 		const count = products.length;
+		let index = activeIndex;
+
 		const timer = setInterval(() => {
-			activeIndex = (activeIndex + 1) % count;
+			index = (index + 1) % count;
+			activeIndex = index;
 		}, interval);
 
 		return () => clearInterval(timer);
@@ -96,33 +117,9 @@
 		}}
 	>
 		<div
-			class="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground"
+			class="border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground"
 		>
 			<span class="glow-text">Featured</span>
-
-			{#if hasMultiple}
-				<div class="flex items-center gap-1">
-					<span class="mr-2 font-mono normal-case tracking-normal">
-						{activeIndex + 1} / {products.length}
-					</span>
-					<button
-						type="button"
-						class="inline-flex size-7 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
-						aria-label="Previous featured craft"
-						onclick={goPrev}
-					>
-						<ChevronLeft class="size-4" />
-					</button>
-					<button
-						type="button"
-						class="inline-flex size-7 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
-						aria-label="Next featured craft"
-						onclick={goNext}
-					>
-						<ChevronRight class="size-4" />
-					</button>
-				</div>
-			{/if}
 		</div>
 
 		<div class="overflow-hidden">
@@ -137,8 +134,8 @@
 						aria-hidden={product.id !== activeProduct.id}
 						tabindex={product.id === activeProduct.id ? 0 : -1}
 					>
-						<div class="grid grid-cols-[minmax(0,96px)_1fr] sm:grid-cols-[minmax(0,160px)_1fr]">
-							<div class="aspect-square overflow-hidden sm:aspect-auto sm:min-h-full">
+						<div class="grid grid-cols-[minmax(0,42%)_1fr] sm:grid-cols-[minmax(0,240px)_1fr]">
+							<div class="aspect-[4/5] overflow-hidden sm:min-h-full">
 								<PlaceholderImage
 									src={product.images?.[0]?.url ?? null}
 									alt={product.name}
@@ -152,33 +149,34 @@
 										{product.name}
 									</h2>
 
-									<dl class="space-y-1 font-mono text-xs sm:space-y-1.5 sm:text-sm">
-										<div class="flex gap-2">
-											<dt class="shrink-0 text-muted-foreground">maker:</dt>
-											<dd class="truncate text-foreground">@{makerName(product)}</dd>
-										</div>
-										<div class="flex gap-2">
-											<dt class="shrink-0 text-muted-foreground">stock:</dt>
-											<dd class="text-foreground">{product.stock.count} units</dd>
-										</div>
+									<div class="space-y-1 text-sm text-muted-foreground">
+										<p class="truncate text-foreground">@{makerName(product)}</p>
+										<p class="inline-flex items-center gap-1">
+											<Package class="size-3.5 shrink-0" aria-hidden="true" />
+											{product.stock.count} units
+										</p>
 										{#if product.rating}
-											<div class="flex gap-2">
-												<dt class="shrink-0 text-muted-foreground">rating:</dt>
-												<dd class="text-foreground">
-													{product.rating.rating} / {product.rating.count} reviews
-												</dd>
-											</div>
+											<p class="inline-flex items-center gap-1">
+												<Star
+													class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+													aria-hidden="true"
+												/>
+												{product.rating.rating}
+												<span class="text-muted-foreground">
+													({product.rating.count} review{product.rating.count === 1 ? '' : 's'})
+												</span>
+											</p>
 										{/if}
-									</dl>
+									</div>
 								</div>
 
 								<div class="text-right">
 									{#if formatOldPrice(product)}
-										<p class="font-mono text-sm text-muted-foreground line-through">
+										<p class="text-sm font-medium text-muted-foreground line-through">
 											₹{formatOldPrice(product)}
 										</p>
 									{/if}
-									<p class="font-mono text-lg font-semibold tracking-tight text-foreground sm:text-2xl">
+									<p class="text-xl font-bold tracking-tight text-foreground sm:text-3xl">
 										₹{formatPrice(product)}
 									</p>
 								</div>
@@ -190,18 +188,38 @@
 		</div>
 
 		{#if hasMultiple}
-			<div class="flex justify-center gap-1.5 border-t border-border px-4 py-3">
-				{#each products as product, index (product.id)}
-					<button
-						type="button"
-						class="h-1.5 rounded-full transition-all {index === activeIndex
-							? 'w-5 bg-foreground'
-							: 'w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'}"
-						aria-label="Go to featured craft {index + 1}"
-						aria-current={index === activeIndex ? 'true' : undefined}
-						onclick={() => goTo(index)}
-					></button>
-				{/each}
+			<div class="flex items-center justify-center gap-3 border-t border-border px-4 py-3">
+				<button
+					type="button"
+					class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+					aria-label="Previous featured craft"
+					onclick={goPrev}
+				>
+					<ChevronLeft class="size-4" />
+				</button>
+
+				<div class="flex items-center gap-1.5">
+					{#each products as product, index (product.id)}
+						<button
+							type="button"
+							class="h-1.5 rounded-full transition-all {index === activeIndex
+								? 'w-5 bg-foreground'
+								: 'w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'}"
+							aria-label="Go to featured craft {index + 1}"
+							aria-current={index === activeIndex ? 'true' : undefined}
+							onclick={() => goTo(index)}
+						></button>
+					{/each}
+				</div>
+
+				<button
+					type="button"
+					class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+					aria-label="Next featured craft"
+					onclick={goNext}
+				>
+					<ChevronRight class="size-4" />
+				</button>
 			</div>
 		{/if}
 	</div>
