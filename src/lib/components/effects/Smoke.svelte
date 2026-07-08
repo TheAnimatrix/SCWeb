@@ -74,9 +74,9 @@
 		accentRgb: Rgb | null;
 	}
 
-	let smokeCanvas: HTMLCanvasElement = $state();
-	let accentCanvas: HTMLCanvasElement = $state();
-	let colorHelper: HTMLDivElement = $state();
+	let smokeCanvas = $state<HTMLCanvasElement>();
+	let accentCanvas = $state<HTMLCanvasElement>();
+	let colorHelper = $state<HTMLDivElement>();
 
 	function snap(value: number) {
 		return Math.round(value / gridSize) * gridSize;
@@ -149,19 +149,25 @@
 	onMount(() => {
 		if (!smokeCanvas || !accentCanvas || !colorHelper) return;
 
-		const ctx = smokeCanvas.getContext('2d');
-		const accentCtx = accentCanvas.getContext('2d');
-		if (!ctx || !accentCtx) return;
+		const canvas = smokeCanvas;
+		const accentCanvasEl = accentCanvas;
+
+		const rawCtx = canvas.getContext('2d');
+		const rawAccentCtx = accentCanvasEl.getContext('2d');
+		if (!rawCtx || !rawAccentCtx) return;
+
+		const paintCtx: CanvasRenderingContext2D = rawCtx;
+		const glowCtx: CanvasRenderingContext2D = rawAccentCtx;
 
 		let frameId = 0;
 		let frame = 0;
 		let time = 0;
 
 		const resizeCanvas = () => {
-			smokeCanvas.width = smokeCanvas.offsetWidth;
-			smokeCanvas.height = smokeCanvas.offsetHeight;
-			accentCanvas.width = accentCanvas.offsetWidth;
-			accentCanvas.height = accentCanvas.offsetHeight;
+			canvas.width = canvas.offsetWidth;
+			canvas.height = canvas.offsetHeight;
+			accentCanvasEl.width = accentCanvasEl.offsetWidth;
+			accentCanvasEl.height = accentCanvasEl.offsetHeight;
 		};
 
 		resizeCanvas();
@@ -179,8 +185,8 @@
 		});
 
 		if (variant === 'brutalist' || variant === 'fabric') {
-			ctx.imageSmoothingEnabled = false;
-			accentCtx.imageSmoothingEnabled = false;
+			paintCtx.imageSmoothingEnabled = false;
+			glowCtx.imageSmoothingEnabled = false;
 		}
 
 		const softParticles: SoftParticle[] = [];
@@ -191,8 +197,8 @@
 		function initFabricDots() {
 			fabricDots.length = 0;
 			const spacing = gridSize;
-			const cols = Math.max(1, Math.ceil(smokeCanvas.width / spacing));
-			const rows = Math.max(1, Math.ceil(smokeCanvas.height / spacing) + 10);
+			const cols = Math.max(1, Math.ceil(canvas.width / spacing));
+			const rows = Math.max(1, Math.ceil(canvas.height / spacing) + 10);
 			const target = Math.max(1, particleCount);
 			const seen = new Set<string>();
 			let guard = 0;
@@ -229,7 +235,7 @@
 		if (variant === 'brutalist') {
 			for (let i = 0; i < wispCount; i++) {
 				const wisp = createBrutalistWisp();
-				wisp.y = smokeCanvas.height * (0.35 + Math.random() * 0.75);
+				wisp.y = canvas.height * (0.35 + Math.random() * 0.75);
 				wisp.age = Math.floor(Math.random() * 180);
 				wisp.spread = 1 + wisp.age * 0.006;
 				brutalistWisps.push(wisp);
@@ -242,12 +248,12 @@
 
 		function respawnFabricDot(dot: FabricDot) {
 			const spacing = gridSize;
-			const cols = Math.max(1, Math.ceil(smokeCanvas.width / spacing));
+			const cols = Math.max(1, Math.ceil(canvas.width / spacing));
 			const alpha = cellAlpha();
 			const accent = rollAccentParticle(alpha >= 1 ? 0.85 : 0.07);
 
 			dot.x = Math.floor(Math.random() * cols) * spacing;
-			dot.y = smokeCanvas.height + Math.random() * spacing * 6;
+			dot.y = canvas.height + Math.random() * spacing * 6;
 			dot.alpha = alpha;
 			dot.phase = Math.random() * Math.PI * 2;
 			dot.drift = (Math.random() - 0.5) * 0.015;
@@ -274,17 +280,10 @@
 				const rgb = particleDrawRgb(particleRgb, particle.accentRgb, particle.isAccent);
 
 				if (particle.isAccent) {
-					drawGlowRadialBlob(
-						accentCtx,
-						particle.x,
-						particle.y,
-						particle.radius,
-						rgb,
-						particle.alpha
-					);
+					drawGlowRadialBlob(glowCtx, particle.x, particle.y, particle.radius, rgb, particle.alpha);
 				} else {
-					ctx.beginPath();
-					const gradient = ctx.createRadialGradient(
+					paintCtx.beginPath();
+					const gradient = paintCtx.createRadialGradient(
 						particle.x,
 						particle.y,
 						0,
@@ -296,15 +295,15 @@
 					gradient.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${particle.alpha})`);
 					gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
 
-					ctx.fillStyle = gradient;
-					ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-					ctx.fill();
+					paintCtx.fillStyle = gradient;
+					paintCtx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+					paintCtx.fill();
 				}
 
 				if (
 					particle.y < -particle.radius ||
 					particle.x < -particle.radius ||
-					particle.x > smokeCanvas.width + particle.radius
+					particle.x > canvas.width + particle.radius
 				) {
 					softParticles[i] = createSoftParticle();
 				}
@@ -337,12 +336,12 @@
 					const rgb = particleDrawRgb(particleRgb, cell.accentRgb, cell.isAccent);
 
 					if (cell.isAccent) {
-						ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${cell.alpha})`;
-						ctx.fillRect(px, py, gridSize, gridSize);
-						drawGlowRect(accentCtx, px, py, gridSize, gridSize, rgb, cell.alpha);
+						paintCtx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${cell.alpha})`;
+						paintCtx.fillRect(px, py, gridSize, gridSize);
+						drawGlowRect(glowCtx, px, py, gridSize, gridSize, rgb, cell.alpha);
 					} else {
-						ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${cell.alpha})`;
-						ctx.fillRect(px, py, gridSize, gridSize);
+						paintCtx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${cell.alpha})`;
+						paintCtx.fillRect(px, py, gridSize, gridSize);
 					}
 				}
 
@@ -355,7 +354,7 @@
 		function updateFabric() {
 			time += 0.005;
 			const spacing = gridSize;
-			const height = smokeCanvas.height;
+			const height = canvas.height;
 
 			for (const dot of fabricDots) {
 				dot.y -= 0.07 + dot.drift;
@@ -388,12 +387,12 @@
 				const py = snap(y);
 
 				if (dot.isAccent) {
-					ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-					ctx.fillRect(px, py, gridSize, gridSize);
-					drawGlowRect(accentCtx, px, py, gridSize, gridSize, rgb, alpha);
+					paintCtx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+					paintCtx.fillRect(px, py, gridSize, gridSize);
+					drawGlowRect(glowCtx, px, py, gridSize, gridSize, rgb, alpha);
 				} else {
-					ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-					ctx.fillRect(px, py, gridSize, gridSize);
+					paintCtx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+					paintCtx.fillRect(px, py, gridSize, gridSize);
 				}
 			}
 		}
@@ -401,8 +400,8 @@
 		function updateSmoke() {
 			if (!colorHelper) return;
 
-			ctx.clearRect(0, 0, smokeCanvas.width, smokeCanvas.height);
-			accentCtx.clearRect(0, 0, accentCanvas.width, accentCanvas.height);
+			paintCtx.clearRect(0, 0, canvas.width, canvas.height);
+			glowCtx.clearRect(0, 0, accentCanvasEl.width, accentCanvasEl.height);
 
 			if (variant === 'brutalist') {
 				updateBrutalist();

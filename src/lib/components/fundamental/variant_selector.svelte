@@ -1,8 +1,13 @@
 <script lang="ts">
 	import * as Select from '$lib/components/ui/select';
 
+	interface ProductOption {
+		value: string;
+		label: string;
+	}
+
 	interface Props {
-		productSelect?: any;
+		productSelect?: ProductOption[];
 		defaultSelected?: number;
 	}
 
@@ -13,12 +18,18 @@
 		],
 		defaultSelected = 1
 	}: Props = $props();
-	let productSelected = $state(productSelect[defaultSelected]);
+	let productSelected = $state(
+		productSelect[defaultSelected]?.value ?? productSelect[0]?.value ?? ''
+	);
 
 	let isFocused = $state(false);
 	let focused = (openstate: boolean) => {
 		isFocused = openstate;
 	};
+
+	const selectedLabel = $derived(
+		productSelect.find((option) => option.value === productSelected)?.label ?? 'Select a variant'
+	);
 </script>
 
 <div>
@@ -27,9 +38,14 @@
 			class="{isFocused ? 'top_line' : 'top_line_inactive'} w-[50%] self-start ml-4 animate_base">
 		</div>
 		<div class="flex justify-between items-center">
-			<Select.Root portal={null} bind:selected={productSelected} onOpenChange={focused}>
+			<Select.Root
+				type="single"
+				name="variant"
+				items={productSelect}
+				bind:value={productSelected}
+				onOpenChange={focused}>
 				<Select.Trigger class="w-[100%] border-opacity-0 m-1 ml-2">
-					<Select.Value placeholder="Select a variant" data-select-value="V1" />
+					<span data-select-value={productSelected}>{selectedLabel}</span>
 				</Select.Trigger>
 				<Select.Content class="mt-2 border-0 bg-scpurpled3 text-white text-xl">
 					<Select.Group>
@@ -42,7 +58,6 @@
 						{/each}
 					</Select.Group>
 				</Select.Content>
-				<Select.Input name="variant" />
 			</Select.Root>
 		</div>
 	</div>

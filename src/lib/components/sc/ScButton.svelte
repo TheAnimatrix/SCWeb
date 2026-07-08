@@ -13,6 +13,7 @@
 		onclick?: (event: MouseEvent) => void;
 		class?: string;
 		arrow?: boolean;
+		disabled?: boolean;
 		children?: Snippet;
 	}
 
@@ -24,6 +25,7 @@
 		onclick,
 		class: className,
 		arrow = false,
+		disabled = false,
 		children
 	}: Props = $props();
 
@@ -42,6 +44,7 @@
 	{target}
 	{rel}
 	{onclick}
+	{disabled}
 	variant="ghost"
 	class={cn(variantClasses[variant], className)}>
 	{@render children?.()}
