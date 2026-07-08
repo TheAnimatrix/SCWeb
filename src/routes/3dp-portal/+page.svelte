@@ -4,6 +4,7 @@
 	import CircleHelp from '@lucide/svelte/icons/circle-help';
 	import Wrench from '@lucide/svelte/icons/wrench';
 	import { toastStore } from '$lib/client/toastStore';
+	import { mapPrintFilesError } from '$lib/client/printFilesApi';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import { ScButton, TagBadge, Skeleton } from '$lib/components/sc';
 	import {
@@ -397,9 +398,13 @@
 			return;
 		}
 
-		const jwt = userRes.session.access_token;
+		if (!model) {
+			toastStore.show('Please select a model file', 'error');
+			if (onProgress) onProgress(null);
+			return;
+		}
 
-		// Build FormData for edge function
+		// Build FormData for API upload
 		const formData = new FormData();
 		formData.append('maker_id', maker_id);
 		formData.append('color', color);
@@ -407,39 +412,37 @@
 		formData.append('quality', quality);
 		formData.append('scale', String(scale));
 		formData.append('infill', String(infill));
-		formData.append('walls', String(walls));
-		if (model) formData.append('model_file', model);
+		formData.append('model_file', model);
 
 		try {
 			// Use XMLHttpRequest for upload progress
 			const xhr = new XMLHttpRequest();
-			xhr.open(
-				'POST',
-				'https://pfeewicqoxkuwnbuxnoz.supabase.co/functions/v1/upload-model-request'
-			);
-			xhr.setRequestHeader('Authorization', `Bearer ${jwt}`);
+			xhr.open('POST', '/api/print-files/upload');
 			xhr.upload.onprogress = (event) => {
 				if (event.lengthComputable && onProgress) {
 					const percent = Math.round((event.loaded / event.total) * 100);
 					onProgress(percent);
 				}
 			};
-			const promise = new Promise<{ ok: boolean; json: any }>((resolve, reject) => {
-				xhr.onload = () => {
-					let json;
-					try {
-						json = JSON.parse(xhr.responseText);
-					} catch {
-						json = {};
-					}
-					resolve({ ok: xhr.status >= 200 && xhr.status < 300, json });
-				};
-				xhr.onerror = () => reject(new Error('Network error'));
-			});
+			const promise = new Promise<{ ok: boolean; status: number; json: unknown }>(
+				(resolve, reject) => {
+					xhr.onload = () => {
+						let json: unknown;
+						try {
+							json = JSON.parse(xhr.responseText);
+						} catch {
+							json = {};
+						}
+						resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json });
+					};
+					xhr.onerror = () => reject(new Error('Network error'));
+				}
+			);
 			xhr.send(formData);
-			const { ok, json: result } = await promise;
+			const { ok, status, json } = await promise;
 			if (!ok) {
-				toastStore.show(result.error || 'Failed to create quote request', 'error');
+				const error = mapPrintFilesError(status, json);
+				toastStore.show(error.message, 'error');
 				if (onProgress) onProgress(null);
 				return;
 			}

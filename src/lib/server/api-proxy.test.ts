@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { buildProxyTargetUrl, isAllowedProxyPath } from './api-proxy';
+import { buildProxyTargetUrl, getProxyTimeoutMs, isAllowedProxyPath } from './api-proxy';
 
 const API_ORIGIN = 'http://localhost:3001';
 
 describe('isAllowedProxyPath', () => {
-	it('allows cart and checkout paths', () => {
+	it('allows cart, checkout, and print-files paths', () => {
 		expect(isAllowedProxyPath('cart')).toBe(true);
 		expect(isAllowedProxyPath('cart/items/abc')).toBe(true);
 		expect(isAllowedProxyPath('checkout/order')).toBe(true);
+		expect(isAllowedProxyPath('print-files/upload')).toBe(true);
+		expect(isAllowedProxyPath('print-files/abc/download-url')).toBe(true);
 	});
 
 	it('rejects paths outside the allowlist', () => {
@@ -15,6 +17,14 @@ describe('isAllowedProxyPath', () => {
 		expect(isAllowedProxyPath('@attacker.example')).toBe(false);
 		expect(isAllowedProxyPath('..%2f..')).toBe(false);
 		expect(isAllowedProxyPath(undefined)).toBe(false);
+	});
+});
+
+describe('getProxyTimeoutMs', () => {
+	it('uses a longer timeout for print-files uploads', () => {
+		expect(getProxyTimeoutMs('print-files/upload')).toBe(60_000);
+		expect(getProxyTimeoutMs('print-files/abc/download-url')).toBe(10_000);
+		expect(getProxyTimeoutMs('cart')).toBe(10_000);
 	});
 });
 

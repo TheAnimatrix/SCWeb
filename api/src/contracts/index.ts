@@ -36,6 +36,12 @@ export {
 } from './checkout.js';
 export { rupeesToPaise } from './money.js';
 export {
+	type DownloadUrlResponse,
+	type UploadMetadata,
+	type UploadPrintFileResponse,
+	uploadMetadataSchema
+} from './print-files.js';
+export {
 	ON_DEMAND_PURCHASE_LIMIT,
 	canFulfillQuantity,
 	getPurchasableLimit,
