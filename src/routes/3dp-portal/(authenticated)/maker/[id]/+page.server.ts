@@ -32,14 +32,19 @@ export const load: PageServerLoad = async ({
 	}
 
 	//fetch username of user
-	const { data: userData, error: userError2 } = await supabaseAdmin
-		.from('users')
-		.select('username')
-		.eq('id', printRequest.user_id)
-		.single();
+	let username = 'The user';
+	if (printRequest.user_id) {
+		const { data: userData, error: userError2 } = await supabaseAdmin
+			.from('users')
+			.select('username')
+			.eq('id', printRequest.user_id)
+			.single();
+
+		username = userError2 ? 'The user' : (userData?.username ?? 'The user');
+	}
 
 	return {
 		printRequest,
-		username: userError2 ? 'The user' : userData?.username
+		username
 	};
 };

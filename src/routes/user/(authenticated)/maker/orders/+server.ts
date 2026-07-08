@@ -15,7 +15,7 @@ export const GET = async ({ url, locals: { supabase, supabaseAdmin } }) => {
 
 	const { data, error } = await supabaseAdmin
 		.from('printrequests')
-		.select('id, created_at, model, request_stage, model_data, user_id')
+		.select('id, created_at, model, request_stage, quote, model_metadata, model_data, user_id')
 		.eq('creator_id', userId)
 		.order('created_at', { ascending: false })
 		.range(from, to);
@@ -43,7 +43,7 @@ export const GET = async ({ url, locals: { supabase, supabaseAdmin } }) => {
 
 	const ordersWithUsernames = orders.map((order) => ({
 		...order,
-		username: usernames[order.user_id] ?? null
+		username: order.user_id ? (usernames[order.user_id] ?? null) : null
 	}));
 
 	return json({ orders: ordersWithUsernames, page, pageSize });

@@ -26,16 +26,23 @@ export interface PrintRequestEvent {
 
 export interface PrintRequest {
 	id: string;
-	user_id: string;
+	user_id: string | null;
 	creator_id: string | null;
 	request_stage: string | null;
 	created_at: string;
+	last_updated?: string | null;
+	update_count?: number | null;
 	model: string | null;
+	model_metadata?: Json | null;
 	model_data: PrintModelData;
 	events: PrintRequestEvent[];
-	quote_amount?: number | null;
-	quote_currency?: string | null;
+	quote_updates?: number | null;
+	initial_quote?: number | null;
+	quote?: number | null;
+	filament_color?: string | null;
+	request_metadata?: Json | null;
 	order_id?: string | null;
+	payment_id?: string | null;
 	address?: unknown;
 	[key: string]: unknown;
 }
