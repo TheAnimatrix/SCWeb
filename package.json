@@ -19,6 +19,7 @@
 		"format": "prettier --write .",
 		"generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
 		"test:integration": "playwright test",
+		"test:e2e": "playwright test",
 		"test:unit": "vitest"
 	},
 	"devDependencies": {

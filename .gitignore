@@ -14,3 +14,6 @@ mcp.json
 dev-dist/
 api/dist/
 .cursor/rules/
+test-results/
+playwright-report/
+playwright/.cache/
