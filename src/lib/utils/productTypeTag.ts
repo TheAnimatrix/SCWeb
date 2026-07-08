@@ -18,7 +18,10 @@ export function getProductTypeLabel(type?: string | null): string {
 }
 
 function normalizeTag(value: string): string {
-	return value.trim().toLowerCase().replace(/[\s_-]+/g, '');
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[\s_-]+/g, '');
 }
 
 export { normalizeTag };
@@ -30,7 +33,8 @@ export function isTypeDuplicateTag(tagLabel: string, type?: string | null): bool
 	const typeCandidates = [type, getProductTypeLabel(type)].map(normalizeTag);
 
 	return typeCandidates.some(
-		(candidate) => candidate === tagNorm || tagNorm.includes(candidate) || candidate.includes(tagNorm)
+		(candidate) =>
+			candidate === tagNorm || tagNorm.includes(candidate) || candidate.includes(tagNorm)
 	);
 }
 

@@ -61,28 +61,22 @@
 	)}
 	style:--glow-rgb={flavor.glow}
 	onmouseenter={() => (hovered = true)}
-	onmouseleave={() => (hovered = false)}
->
+	onmouseleave={() => (hovered = false)}>
 	<div
 		class="pointer-events-none absolute inset-0 z-0 size-full bg-background transition-[clip-path] duration-[1800ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
 		style:clip-path={hovered ? 'inset(0% round 0px)' : 'inset(50% round 50%)'}
-		aria-hidden="true"
-	>
-		<SparklePixels
-			class="size-full"
-			active={hovered}
-			intensity={0.58}
-			palette={flavor.palette}
-		/>
+		aria-hidden="true">
+		<SparklePixels class="size-full" active={hovered} intensity={0.58} palette={flavor.palette} />
 	</div>
 
-	<h3 class="feature-glow-title relative z-10 text-base font-medium text-foreground" class:is-glowing={hovered}>
+	<h3
+		class="feature-glow-title relative z-10 text-base font-medium text-foreground"
+		class:is-glowing={hovered}>
 		{title}
 	</h3>
 	<p
 		class="feature-glow-desc relative z-10 text-sm leading-relaxed text-muted-foreground"
-		class:is-glowing={hovered}
-	>
+		class:is-glowing={hovered}>
 		{description}
 	</p>
 </article>

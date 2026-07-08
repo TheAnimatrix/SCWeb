@@ -1,9 +1,5 @@
 import { SUPABASE_KEY } from '$env/static/private';
-import {
-	PUBLIC_IS_PRODUCTION,
-	PUBLIC_SUPABASE_KEY,
-	PUBLIC_SUPABASE_URL
-} from '$env/static/public';
+import { PUBLIC_IS_PRODUCTION, PUBLIC_SUPABASE_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { createServerClient } from '@supabase/ssr';
 import type { Handle } from '@sveltejs/kit';
 import { v4 as uuidv4 } from 'uuid';

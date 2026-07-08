@@ -10,6 +10,8 @@
 	let { align = 'left', class: className }: Props = $props();
 </script>
 
-<div class={cn('flex', align === 'right' ? 'justify-end' : 'justify-start', className)} aria-hidden="true">
+<div
+	class={cn('flex', align === 'right' ? 'justify-end' : 'justify-start', className)}
+	aria-hidden="true">
 	<Skeleton class="h-10 w-48 max-w-[75%] rounded-lg" />
 </div>

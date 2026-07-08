@@ -11,18 +11,22 @@
 		class?: string;
 	}
 
-	let { material, quality, scale, strengthLabel, infill, color, class: className }: Props = $props();
+	let {
+		material,
+		quality,
+		scale,
+		strengthLabel,
+		infill,
+		color,
+		class: className
+	}: Props = $props();
 
 	const qualityLabel = $derived(quality.split(' ')[0]);
 </script>
 
 <div
-	class={cn(
-		'rounded-lg border border-border bg-muted/20 px-4 py-3',
-		className
-	)}
-	aria-label="Current print configuration"
->
+	class={cn('rounded-lg border border-border bg-muted/20 px-4 py-3', className)}
+	aria-label="Current print configuration">
 	<p class="mb-2.5 text-xs font-medium text-muted-foreground">Current configuration</p>
 	<dl class="grid grid-cols-2 gap-x-3 gap-y-3">
 		<div class="min-w-0">
@@ -35,11 +39,15 @@
 		</div>
 		<div class="min-w-0">
 			<dt class="text-[11px] leading-none text-muted-foreground">Scale</dt>
-			<dd class="mt-1 break-words text-sm font-medium tabular-nums text-foreground">{scale.toFixed(2)}×</dd>
+			<dd class="mt-1 break-words text-sm font-medium tabular-nums text-foreground">
+				{scale.toFixed(2)}×
+			</dd>
 		</div>
 		<div class="min-w-0">
 			<dt class="text-[11px] leading-none text-muted-foreground">Strength</dt>
-			<dd class="mt-1 break-words text-sm font-medium text-foreground">{strengthLabel} ({infill}%)</dd>
+			<dd class="mt-1 break-words text-sm font-medium text-foreground">
+				{strengthLabel} ({infill}%)
+			</dd>
 		</div>
 		{#if color}
 			<div class="col-span-2 min-w-0">
@@ -48,8 +56,7 @@
 					<span
 						class="size-4 shrink-0 rounded-sm border border-border shadow-sm"
 						style="background-color: {color}"
-						aria-hidden="true"
-					></span>
+						aria-hidden="true"></span>
 					<span class="min-w-0 break-words">Selected</span>
 				</dd>
 			</div>

@@ -13,7 +13,7 @@
 </script>
 
 <div class={cn('space-y-2.5', className)} aria-hidden="true">
-	{#each Array(lines) as _, i (i)}
+	{#each [...Array(lines).keys()] as i (i)}
 		<Skeleton class={cn('h-3 rounded-sm', widths[i % widths.length])} />
 	{/each}
 </div>

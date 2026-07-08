@@ -23,10 +23,10 @@
 	let sortedEvents = $derived(
 		req.events
 			? [...req.events]
-				.filter((event: any) => event.type !== 'order_created')
-				.sort(
-					(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-				)
+					.filter((event: any) => event.type !== 'order_created')
+					.sort(
+						(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+					)
 			: []
 	);
 	$effect(() => {
@@ -72,17 +72,6 @@
 			)[0]?.extra?.quote
 	);
 
-	const STAGES = [
-		'cancelled',
-		'requested',
-		'quoted',
-		'actionable',
-		'paid',
-		'paid_externally',
-		'completed',
-		'in dispute'
-	];
-
 	const STAGE_STYLES: Record<string, string> = {
 		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
 		requested: 'border-border bg-muted/40 text-foreground',
@@ -104,7 +93,8 @@
 		requested: 'You have requested a quote for a 3D print. Please wait for the maker to quote you.',
 		quoted: 'A maker has quoted you. Please review the quote and accept or reject it.',
 		actionable: 'Maker has requested an action from you. Please take action on the request.',
-		shipped: 'The maker has shipped the 3D print. Please wait for it to be delivered and then mark it as delivered. We kindly request you to leave a review for the maker after the delivery.',
+		shipped:
+			'The maker has shipped the 3D print. Please wait for it to be delivered and then mark it as delivered. We kindly request you to leave a review for the maker after the delivery.',
 		paid: 'You have paid for the 3D print. Please wait for the maker to complete the print.',
 		paid_externally:
 			'You have paid for the 3D print externally. Please wait for the maker to complete the print.',
@@ -157,7 +147,7 @@
 	}
 
 	async function openRazorpayDialog(order_id: string, amount: number) {
-		try{
+		try {
 			var options = {
 				key: PUBLIC_RAZORPAY_ID, // Enter the Key ID generated from the Dashboard
 				amount: amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
@@ -220,7 +210,7 @@
 				window.location.href = `/summary/failure/${req.id}/${response.error.metadata.order_id}`;
 				return;
 			});
-		}catch(e){
+		} catch (e) {
 			// Explicitly type caught error as unknown
 			console.error('Error during payment process:', e);
 			// Provide more specific error feedback if possible
@@ -296,7 +286,7 @@
 				downloading = false;
 				downloadProgress = 0;
 			}
-		} catch (e) {
+		} catch {
 			alert('Error downloading model');
 		} finally {
 			// Only reset if not downloading (handled in xhr events)
@@ -312,7 +302,6 @@
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
 		if (!req || !data.session?.data?.user?.id || !cancelReason.trim()) return;
-		const prevSelectedId = req.id;
 		//repull the order data
 		const updatedOrder = await data.supabase_lt
 			.from('printrequests')
@@ -409,8 +398,8 @@
 	});
 
 	// --- Highlight/Scroll helpers ---
-	let addressSelectorRef : HTMLDivElement | null = $state(null);
-	let payButtonRef : HTMLButtonElement | null = $state(null);
+	let addressSelectorRef: HTMLDivElement | null = $state(null);
+	let payButtonRef: HTMLButtonElement | null = $state(null);
 	let highlightAddress = $state(false);
 	let highlightPay = $state(false);
 
@@ -562,10 +551,7 @@
 				.eq('id', userReview.id)
 				.select('*');
 		} else {
-			result = await data.supabase_lt
-				.from('CreatorReviews')
-				.insert(payload)
-				.select('*');
+			result = await data.supabase_lt.from('CreatorReviews').insert(payload).select('*');
 		}
 		if (result.error) {
 			reviewError = result.error.message;
@@ -608,8 +594,7 @@
 	<button
 		type="button"
 		onclick={() => goto('/3dp-portal/user')}
-		class="mb-6 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-	>
+		class="mb-6 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
 		<ArrowLeft class="size-3.5" strokeWidth={1.5} />
 		back_to_requests
 	</button>
@@ -648,8 +633,7 @@
 							color:
 							<span
 								class="inline-block size-3 rounded-sm border border-border"
-								style={`background-color:${req.model_data.color}`}
-							></span>
+								style={`background-color:${req.model_data.color}`}></span>
 						</span>
 					</MetaChip>
 					<MetaChip>material: {req.model_data.material}</MetaChip>
@@ -667,8 +651,7 @@
 						class={cn(
 							'inline-flex items-center rounded-md border px-2.5 py-1 font-mono text-xs capitalize',
 							stageStyle(req.request_stage)
-						)}
-					>
+						)}>
 						{req.request_stage?.replaceAll('_', ' ') ?? 'pending'}
 					</span>
 					<p class="text-sm leading-relaxed text-muted-foreground">
@@ -685,7 +668,7 @@
 					{:else if userReview}
 						<div class="mt-2 space-y-3">
 							<div class="flex items-center gap-1">
-								{#each Array(5) as _, i (i)}
+								{#each [...Array(5).keys()] as i (i)}
 									<Star
 										class={cn(
 											'size-4',
@@ -693,8 +676,7 @@
 												? 'fill-foreground text-foreground'
 												: 'text-muted-foreground/40'
 										)}
-										strokeWidth={1.5}
-									/>
+										strokeWidth={1.5} />
 								{/each}
 							</div>
 							<p class="text-sm text-foreground">{userReview.comment}</p>
@@ -719,14 +701,12 @@
 					<button
 						type="button"
 						class="relative inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-						onclick={() => (messageBoardOpen = true)}
-					>
+						onclick={() => (messageBoardOpen = true)}>
 						<MessageSquare class="size-4" strokeWidth={1.5} />
 						Message
 						{#if unreadCount > 0}
 							<span
-								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-[10px] text-destructive-foreground"
-							>
+								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-[10px] text-destructive-foreground">
 								{unreadCount}
 							</span>
 						{/if}
@@ -740,8 +720,7 @@
 								e.stopPropagation();
 								downloadModel();
 							}}
-							disabled={downloading}
-						>
+							disabled={downloading}>
 							<span class="inline-flex items-center gap-2">
 								<Download class="size-4" strokeWidth={1.5} />
 								{downloading
@@ -754,8 +733,8 @@
 								<div class="h-1 w-full overflow-hidden rounded-full bg-border">
 									<div
 										class="h-full rounded-full bg-foreground transition-all duration-200"
-										style={`width: ${downloadProgress}%`}
-									></div>
+										style={`width: ${downloadProgress}%`}>
+									</div>
 								</div>
 							{/if}
 						</button>
@@ -766,8 +745,7 @@
 						href="https://discord.gg/k6CC6GTR4g"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="justify-center"
-					>
+						class="justify-center">
 						Help on Discord
 					</ScButton>
 
@@ -775,14 +753,16 @@
 						<ScButton
 							variant="secondary"
 							class="justify-center border-destructive/30 text-destructive hover:bg-destructive/5"
-							onclick={() => (cancelDialogOpen = true)}
-						>
+							onclick={() => (cancelDialogOpen = true)}>
 							Cancel request
 						</ScButton>
 					{/if}
 
 					{#if req.request_stage === 'shipped'}
-						<ScButton variant="secondary" class="justify-center" onclick={() => (completeDialogOpen = true)}>
+						<ScButton
+							variant="secondary"
+							class="justify-center"
+							onclick={() => (completeDialogOpen = true)}>
 							<CheckCircle class="mr-1.5 size-4" strokeWidth={1.5} />
 							Mark as delivered
 						</ScButton>
@@ -796,15 +776,13 @@
 					<div
 						bind:this={addressSelectorRef}
 						class="mt-2 rounded-md"
-						class:highlight-animation={highlightAddress}
-					>
+						class:highlight-animation={highlightAddress}>
 						<AddressInputSelector
 							email={data.session.data.user.email}
 							userExists={true}
 							addresses={data.addresses}
 							bind:address={validAddress}
-							bind:addressValid
-						/>
+							bind:addressValid />
 					</div>
 					<button
 						type="button"
@@ -814,8 +792,7 @@
 						class:ring-offset-2={highlightPay}
 						disabled={payLoading}
 						bind:this={payButtonRef}
-						onclick={() => payQuote(latestQuote)}
-					>
+						onclick={() => payQuote(latestQuote)}>
 						{payLoading ? 'Processing…' : `Pay ${latestQuote}₹`}
 					</button>
 				</PortalCard>
@@ -834,8 +811,7 @@
 										: event.type === 'paid'
 											? 'border-border bg-muted/30'
 											: 'border-border bg-card'
-								)}
-							>
+								)}>
 								<div class="flex items-center justify-between gap-3">
 									<span class="font-mono text-xs text-foreground capitalize">
 										{event.type.replaceAll('_', ' ')}
@@ -855,7 +831,9 @@
 								{/if}
 								{#if event.extra}
 									{#if event.extra.quote}
-										<p class="mt-1 font-mono text-xs text-foreground">quote: {event.extra.quote}₹</p>
+										<p class="mt-1 font-mono text-xs text-foreground">
+											quote: {event.extra.quote}₹
+										</p>
 									{/if}
 									{#if event.extra.payment_id_a}
 										<p class="mt-1 font-mono text-xs text-muted-foreground">
@@ -892,7 +870,8 @@
 {#if messageBoardOpen}
 	<Drawer.Root bind:open={messageBoardOpen}>
 		<Drawer.Trigger class="hidden" />
-		<Drawer.Content class="mx-auto flex h-[100vh] max-w-3xl flex-col border-border bg-background sm:h-[80vh]">
+		<Drawer.Content
+			class="mx-auto flex h-[100vh] max-w-3xl flex-col border-border bg-background sm:h-[80vh]">
 			<MessageBoard
 				orderId={req.id}
 				supabase_lt={data.supabase_lt}
@@ -903,8 +882,7 @@
 					messageBoardOpen = false;
 					highlightPayButton();
 					toastStore.show('Select address and click pay now', 'info');
-				}}
-			/>
+				}} />
 		</Drawer.Content>
 	</Drawer.Root>
 {/if}
@@ -924,8 +902,7 @@
 				type="button"
 				class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
 				onclick={onConfirmCancel}
-				disabled={!cancelReason.trim()}
-			>
+				disabled={!cancelReason.trim()}>
 				Confirm
 			</button>
 		</Dialog.Footer>
@@ -940,7 +917,10 @@
 				Are you sure you want to mark this order as completed? This action cannot be undone.
 			</Dialog.Description>
 		</Dialog.Header>
-		<Textarea bind:value={completeReason} class="mt-4 w-full" placeholder="(Optional) Add a note…" />
+		<Textarea
+			bind:value={completeReason}
+			class="mt-4 w-full"
+			placeholder="(Optional) Add a note…" />
 		<Dialog.Footer class="gap-2">
 			<ScButton variant="secondary" onclick={onCancelComplete}>Cancel</ScButton>
 			<ScButton onclick={onConfirmComplete}>Confirm</ScButton>
@@ -957,15 +937,14 @@
 			<div>
 				<p class="mb-2 font-mono text-xs text-muted-foreground">rating</p>
 				<div class="flex gap-1">
-					{#each Array(5) as _, i (i)}
+					{#each [...Array(5).keys()] as i (i)}
 						<button type="button" onclick={() => (reviewRating = i + 1)} class="p-1">
 							<Star
 								class={cn(
 									'size-5',
 									i < reviewRating ? 'fill-foreground text-foreground' : 'text-muted-foreground/40'
 								)}
-								strokeWidth={1.5}
-							/>
+								strokeWidth={1.5} />
 						</button>
 					{/each}
 				</div>
@@ -975,8 +954,7 @@
 				<Textarea
 					bind:value={reviewComment}
 					class="min-h-24 w-full"
-					placeholder="Share your experience…"
-				/>
+					placeholder="Share your experience…" />
 			</div>
 			{#if reviewError}
 				<p class="text-sm text-destructive">{reviewError}</p>
@@ -1006,8 +984,7 @@
 			<button
 				type="button"
 				class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
-				onclick={deleteReview}
-			>
+				onclick={deleteReview}>
 				Delete review
 			</button>
 		</Dialog.Footer>

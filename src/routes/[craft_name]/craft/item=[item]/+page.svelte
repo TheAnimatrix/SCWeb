@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { goto, preloadData, invalidate } from '$app/navigation';
 	import { navigating, page } from '$app/state';
-	import { writable, type Writable } from 'svelte/store';
+	import type { Writable } from 'svelte/store';
 	import { changeCart, type CartG, type CartItem } from '$lib/client/cart';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { MakerCard, ProseSkeleton, Skeleton } from '$lib/components/sc';
@@ -142,7 +142,7 @@
 	});
 
 	$effect(() => {
-		productItem.id;
+		void productItem.id;
 		variantNavigating = false;
 		indicatorCur = 0;
 		cartQty = 1;
@@ -225,77 +225,73 @@
 </script>
 
 <div class="mx-auto w-full min-w-0 max-w-7xl px-4 py-8 md:py-12">
-		<Breadcrumbs
-			items={[
-				{ label: 'home', href: '/' },
-				{ label: 'crafts', href: '/crafts' },
-				{ label: 'products', href: '/crafts' },
-				{ label: slug }
-			]}
-		/>
+	<Breadcrumbs
+		items={[
+			{ label: 'home', href: '/' },
+			{ label: 'crafts', href: '/crafts' },
+			{ label: 'products', href: '/crafts' },
+			{ label: slug }
+		]} />
 
-		<div class="mt-6 grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-start">
-			<div class="min-w-0 space-y-4">
-				{#if isRefreshing}
-					<div class="space-y-3" aria-busy="true" aria-label="Loading product images">
-						<Skeleton class="aspect-[4/3] w-full rounded-lg" />
-						<div class="flex flex-wrap gap-2">
-							{#each Array(3) as _, index (index)}
-								<Skeleton class="h-16 w-16 rounded-md" />
-							{/each}
-						</div>
-					</div>
-				{:else}
-					<ProductGallery product={productItem} bind:indicatorCur />
-				{/if}
-
-				<MakerCard
-					name={makerName}
-					location={makerLocation}
-					craftCount={1}
-					{memberSince}
-					{shopHref}
-					avatarUrl={data.makerAvatarUrl}
-				/>
-			</div>
-
-			<ProductPurchasePanel
-				class="min-w-0"
-				product={productItem}
-				bind:cartQty
-				{addToCartSuccess}
-				{addToCartMsg}
-				{variants}
-				{variantsLoading}
-				{isRefreshing}
-				onVariantNavigate={handleVariantNavigate}
-				onIncrement={incCart}
-				onDecrement={decCart}
-				onAddToCart={cartSubmit}
-			/>
-		</div>
-
-		<div class="mt-10">
+	<div class="mt-6 grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-start">
+		<div class="min-w-0 space-y-4">
 			{#if isRefreshing}
-				<div class="space-y-4" aria-busy="true" aria-label="Loading product details">
-					<div class="flex flex-wrap gap-2 border-b border-border pb-3">
-						{#each Array(3) as _, index (index)}
-							<Skeleton class="h-8 w-24 rounded-md" />
+				<div class="space-y-3" aria-busy="true" aria-label="Loading product images">
+					<Skeleton class="aspect-[4/3] w-full rounded-lg" />
+					<div class="flex flex-wrap gap-2">
+						{#each [...Array(3).keys()] as index (index)}
+							<Skeleton class="h-16 w-16 rounded-md" />
 						{/each}
 					</div>
-					<ProseSkeleton class="rounded-lg border border-border bg-card p-5 md:p-6" lines={8} />
 				</div>
 			{:else}
-				<ProductDetailTabs
-					product={productItem}
-					bind:reviews
-					initialReviews={data.reviews ?? []}
-					supabase={data.supabase_lt}
-				/>
+				<ProductGallery product={productItem} bind:indicatorCur />
 			{/if}
+
+			<MakerCard
+				name={makerName}
+				location={makerLocation}
+				craftCount={1}
+				{memberSince}
+				{shopHref}
+				avatarUrl={data.makerAvatarUrl} />
 		</div>
 
-		<div class="mt-12">
-			<RelatedProducts product={productItem} supabase={data.supabase_lt} />
-		</div>
+		<ProductPurchasePanel
+			class="min-w-0"
+			product={productItem}
+			bind:cartQty
+			{addToCartSuccess}
+			{addToCartMsg}
+			{variants}
+			{variantsLoading}
+			{isRefreshing}
+			onVariantNavigate={handleVariantNavigate}
+			onIncrement={incCart}
+			onDecrement={decCart}
+			onAddToCart={cartSubmit} />
+	</div>
+
+	<div class="mt-10">
+		{#if isRefreshing}
+			<div class="space-y-4" aria-busy="true" aria-label="Loading product details">
+				<div class="flex flex-wrap gap-2 border-b border-border pb-3">
+					{#each [...Array(3).keys()] as index (index)}
+						<Skeleton class="h-8 w-24 rounded-md" />
+					{/each}
+				</div>
+				<ProseSkeleton class="rounded-lg border border-border bg-card p-5 md:p-6" lines={8} />
+			</div>
+		{:else}
+			<ProductDetailTabs
+				product={productItem}
+				bind:reviews
+				initialReviews={data.reviews ?? []}
+				supabase={data.supabase_lt} />
+		{/if}
+	</div>
+
+	<div class="mt-12">
+		<RelatedProducts product={productItem} supabase={data.supabase_lt} />
+	</div>
 </div>

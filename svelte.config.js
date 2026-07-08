@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
 
@@ -9,15 +9,11 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		// adapter-auto only supports some environments, see https://kit.svelte.dev/docs/adapter-auto for a list.
-		// If your environment is not supported or you settled on a specific environment, switch out the adapter.
-		// See https://kit.svelte.dev/docs/adapters for more information about adapters.
 		adapter: adapter(),
 		serviceWorker: {
 			register: false
 		},
 		alias: {
-			$lib: path.resolve('./src/lib'),
 			$pages: path.resolve('./src/routes'),
 			'@scweb/api': path.resolve('./api/src/index.ts'),
 			'@scweb/api/client': path.resolve('./api/src/client.ts')

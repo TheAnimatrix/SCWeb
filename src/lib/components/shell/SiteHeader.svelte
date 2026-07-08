@@ -49,9 +49,7 @@
 
 	const isSignedIn = $derived(userProfile !== null);
 	const logoVariant = $derived($theme === 'light' ? 'light' : 'dark');
-	const profileInitial = $derived(
-		userProfile?.displayName?.charAt(0).toUpperCase() ?? '?'
-	);
+	const profileInitial = $derived(userProfile?.displayName?.charAt(0).toUpperCase() ?? '?');
 
 	function isActive(href: string): boolean {
 		return currentPath === href || currentPath.startsWith(`${href}/`);
@@ -73,9 +71,7 @@
 
 	function profileLinkClass(): string {
 		return `inline-flex items-center gap-2 text-sm font-medium transition-colors ${
-			isActive(userRoute)
-				? 'text-foreground'
-				: 'text-foreground/75 hover:text-foreground'
+			isActive(userRoute) ? 'text-foreground' : 'text-foreground/75 hover:text-foreground'
 		}`;
 	}
 
@@ -163,20 +159,17 @@
 			<a
 				href={userRoute}
 				class={profileLinkClass()}
-				aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}
-			>
+				aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}>
 				{#if isSignedIn && userProfile}
 					<span
 						class="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-foreground bg-muted"
-						aria-hidden="true"
-					>
+						aria-hidden="true">
 						{#if userProfile.avatarUrl}
 							<img
 								src={userProfile.avatarUrl}
 								alt=""
 								class="size-full object-cover"
-								referrerpolicy="no-referrer"
-							/>
+								referrerpolicy="no-referrer" />
 						{:else}
 							<span class="font-mono text-xs font-medium uppercase text-foreground">
 								{profileInitial}
@@ -192,8 +185,7 @@
 			<a
 				href="/cart"
 				class={cartLinkClass()}
-				aria-label="{cartCount} {cartCount === 1 ? 'item' : 'items'} in cart"
-			>
+				aria-label="{cartCount} {cartCount === 1 ? 'item' : 'items'} in cart">
 				<ShoppingCart class="size-4 shrink-0" aria-hidden="true" />
 				{cartCount}
 			</a>
@@ -207,8 +199,7 @@
 				class="inline-flex size-9 items-center justify-center text-foreground"
 				aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
 				aria-expanded={mobileMenuOpen}
-				onclick={toggleMobileMenu}
-			>
+				onclick={toggleMobileMenu}>
 				{#if mobileMenuOpen}
 					<X class="size-5" />
 				{:else}
@@ -217,7 +208,6 @@
 			</button>
 		</div>
 	</div>
-
 </header>
 
 {#if mobileMenuOpen}
@@ -227,8 +217,7 @@
 		aria-label="Close menu"
 		onclick={closeMobileMenu}
 		in:sheetBackdropIn
-		out:sheetBackdropOut
-	></button>
+		out:sheetBackdropOut></button>
 
 	<div
 		class="fixed inset-x-0 bottom-0 z-[51] flex max-h-[85vh] flex-col rounded-t-xl border-t border-border bg-background shadow-2xl md:hidden"
@@ -237,8 +226,7 @@
 		aria-label="Mobile navigation"
 		in:sheetPanelIn
 		out:sheetPanelOut
-		onoutroend={onMobileMenuOutroEnd}
-	>
+		onoutroend={onMobileMenuOutroEnd}>
 		<div class="flex shrink-0 justify-center pt-3 pb-1" aria-hidden="true">
 			<div class="h-1 w-10 rounded-full bg-muted"></div>
 		</div>
@@ -265,20 +253,17 @@
 				<a
 					href={userRoute}
 					class={mobileCtaClass('secondary')}
-					aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}
-				>
+					aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}>
 					{#if isSignedIn && userProfile}
 						<span
 							class="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full border border-foreground bg-muted"
-							aria-hidden="true"
-						>
+							aria-hidden="true">
 							{#if userProfile.avatarUrl}
 								<img
 									src={userProfile.avatarUrl}
 									alt=""
 									class="size-full object-cover"
-									referrerpolicy="no-referrer"
-								/>
+									referrerpolicy="no-referrer" />
 							{:else}
 								<span class="font-mono text-[10px] font-medium uppercase text-foreground">
 									{profileInitial}
@@ -295,14 +280,12 @@
 				<a
 					href="/cart"
 					class={mobileCtaClass('primary')}
-					aria-label="{cartCount} {cartCount === 1 ? 'item' : 'items'} in cart"
-				>
+					aria-label="{cartCount} {cartCount === 1 ? 'item' : 'items'} in cart">
 					<ShoppingCart class="size-4 shrink-0" aria-hidden="true" />
 					Cart
 					{#if cartCount > 0}
 						<span
-							class="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums"
-						>
+							class="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums">
 							{cartCount}
 						</span>
 					{/if}

@@ -14,13 +14,11 @@
 				{ label: 'home', href: '/' },
 				{ label: 'checkout', href: '/checkout' },
 				{ label: 'payment failed' }
-			]}
-		/>
+			]} />
 
 		<div class="mt-8 text-center">
 			<div
-				class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-950"
-			>
+				class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
 				<CircleX class="size-7 text-red-600 dark:text-red-400" aria-hidden="true" />
 			</div>
 			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Payment unsuccessful</h1>
@@ -43,8 +41,7 @@
 						target="_blank"
 						rel="noopener noreferrer"
 						variant="secondary"
-						class="w-full justify-center"
-					>
+						class="w-full justify-center">
 						<Mail class="mr-2 inline size-4" aria-hidden="true" />
 						Contact support
 					</ScButton>

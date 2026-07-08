@@ -12,12 +12,7 @@
 	import Package from '@lucide/svelte/icons/package';
 	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { Breadcrumbs } from '$lib/components/shell';
-	import {
-		CheckoutLineSkeleton,
-		PlaceholderImage,
-		ScButton,
-		Skeleton
-	} from '$lib/components/sc';
+	import { CheckoutLineSkeleton, PlaceholderImage, ScButton, Skeleton } from '$lib/components/sc';
 	import { type CartG, type Cart } from '$lib/client/cart';
 	import { newAddress, validateAddress, type Address } from '$lib/types/product';
 	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
@@ -161,25 +156,26 @@
 				return;
 			}
 			rzp1.open();
-			rzp1.on('payment.failed', async function (response: {
-				error: { metadata: { order_id: string } };
-			}) {
-				if (!cartData) {
+			rzp1.on(
+				'payment.failed',
+				async function (response: { error: { metadata: { order_id: string } } }) {
+					if (!cartData) {
+						isPaying = false;
+						rzp1.close();
+						goto('/summary/failure');
+						return;
+					}
 					isPaying = false;
 					rzp1.close();
-					goto('/summary/failure');
-					return;
+					const orderId = response.error.metadata.order_id;
+					try {
+						await fetch(`/summary/failure/${cartData.id}/${orderId}`, { method: 'POST' });
+					} catch {
+						// Still navigate so the user sees the failure page.
+					}
+					window.location.href = `/summary/failure/${cartData.id}/${orderId}`;
 				}
-				isPaying = false;
-				rzp1.close();
-				const orderId = response.error.metadata.order_id;
-				try {
-					await fetch(`/summary/failure/${cartData.id}/${orderId}`, { method: 'POST' });
-				} catch {
-					// Still navigate so the user sees the failure page.
-				}
-				window.location.href = `/summary/failure/${cartData.id}/${orderId}`;
-			});
+			);
 		} catch (e: unknown) {
 			toastStore.show(
 				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
@@ -201,8 +197,7 @@
 				{ label: 'home', href: '/' },
 				{ label: 'cart', href: '/cart' },
 				{ label: 'checkout' }
-			]}
-		/>
+			]} />
 
 		<div class="mt-6 flex flex-col gap-2 border-b border-border pb-6">
 			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Checkout</h1>
@@ -222,7 +217,8 @@
 							<div class="min-w-0 flex-1">
 								<h2 class="text-sm font-medium text-foreground">Account benefits</h2>
 								<p class="mt-1 text-sm text-muted-foreground">
-									Sign in for faster checkout, order tracking, saved addresses, and exclusive offers.
+									Sign in for faster checkout, order tracking, saved addresses, and exclusive
+									offers.
 								</p>
 								<div class="mt-4">
 									<ScButton href="/user/sign" variant="secondary">
@@ -247,8 +243,7 @@
 							userExists={data.userExists}
 							addresses={data.addresses}
 							bind:address={validAddress}
-							bind:addressValid
-						/>
+							bind:addressValid />
 					</div>
 				{:else}
 					<AddressInputSelector
@@ -256,8 +251,7 @@
 						userExists={data.userExists}
 						addresses={data.addresses}
 						bind:address={validAddress}
-						bind:addressValid
-					/>
+						bind:addressValid />
 				{/if}
 			</div>
 
@@ -277,8 +271,7 @@
 											<div class="flex items-center justify-between gap-3">
 												<div class="flex min-w-0 flex-1 items-center gap-3">
 													<span
-														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
-													>
+														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
 														{item.qty}
 													</span>
 													<Skeleton class="size-10 shrink-0 rounded-md" />
@@ -297,36 +290,30 @@
 											<div class="flex items-center justify-between gap-3">
 												<div class="flex min-w-0 flex-1 items-center gap-3">
 													<span
-														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
-													>
+														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
 														{item.qty}
 													</span>
 													{#if product}
 														<a
 															href={productHref(product.name, item.product_id)}
-															class="size-10 shrink-0 overflow-hidden rounded-md"
-														>
+															class="size-10 shrink-0 overflow-hidden rounded-md">
 															{#if product.images?.length}
 																<PlaceholderImage
 																	src={product.images[0].url}
 																	alt={product.name}
-																	class="size-10"
-																/>
+																	class="size-10" />
 															{:else}
 																<div
-																	class="flex size-10 items-center justify-center rounded-md bg-muted"
-																>
+																	class="flex size-10 items-center justify-center rounded-md bg-muted">
 																	<Package
 																		class="size-4 text-muted-foreground"
-																		aria-hidden="true"
-																	/>
+																		aria-hidden="true" />
 																</div>
 															{/if}
 														</a>
 													{:else}
 														<div
-															class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted"
-														>
+															class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
 															<Package class="size-4 text-muted-foreground" aria-hidden="true" />
 														</div>
 													{/if}
@@ -334,8 +321,7 @@
 														{#if product}
 															<a
 																href={productHref(product.name, item.product_id)}
-																class="block truncate text-sm font-medium text-foreground hover:text-foreground/80"
-															>
+																class="block truncate text-sm font-medium text-foreground hover:text-foreground/80">
 																{product.name}
 															</a>
 														{:else}
@@ -360,8 +346,7 @@
 										</div>
 									{:catch}
 										<div
-											class="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground"
-										>
+											class="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
 											<Package class="size-4 shrink-0" aria-hidden="true" />
 											<span>Could not load item details.</span>
 										</div>
@@ -402,8 +387,7 @@
 							type="button"
 							class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
 							disabled={!hasItems || !addressValid || isPaying}
-							onclick={payNow}
-						>
+							onclick={payNow}>
 							{isPaying ? 'Opening payment…' : 'Proceed to payment'}
 							{#if !isPaying}
 								<span aria-hidden="true">→</span>
@@ -418,8 +402,7 @@
 						</div>
 
 						<div
-							class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground"
-						>
+							class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
 							<span class="inline-flex items-center gap-1">
 								<ShieldCheck class="size-3.5" aria-hidden="true" />
 								Secure

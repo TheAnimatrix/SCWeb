@@ -8,22 +8,22 @@ export const GET = async (event) => {
 		locals: { supabase }
 	} = event;
 
-    const code = url.searchParams.get('code')
+	const code = url.searchParams.get('code');
 
-    if (code) {
-      await supabase.auth.exchangeCodeForSession(code)
-    }
+	if (code) {
+		await supabase.auth.exchangeCodeForSession(code);
+	}
 
 	const token_hash = url.searchParams.get('token_hash') as string;
 	const type = url.searchParams.get('type') as string;
 
-  if (token_hash && type) {
-    const { error } = await supabase.auth.getUser()
-    if (!error) {
-      throw redirect(303, `/`);
-    }
-  }
+	if (token_hash && type) {
+		const { error } = await supabase.auth.getUser();
+		if (!error) {
+			throw redirect(303, `/`);
+		}
+	}
 
-  // return the user to an error page with some instructions
-  throw redirect(303, '/error');
+	// return the user to an error page with some instructions
+	throw redirect(303, '/error');
 };

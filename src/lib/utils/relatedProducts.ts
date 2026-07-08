@@ -28,10 +28,7 @@ export async function fetchRelatedProducts(
 	const related: Product[] = [];
 
 	if (product.type === 'product') {
-		const { data } = await supabase
-			.from('products')
-			.select(PRODUCT_SELECT)
-			.eq('rel', product.id);
+		const { data } = await supabase.from('products').select(PRODUCT_SELECT).eq('rel', product.id);
 		addUniqueProducts(related, seen, data as Product[]);
 	} else if (product.rel) {
 		const [parentResult, siblingsResult] = await Promise.all([
@@ -83,8 +80,5 @@ export function relatedProductsLayoutClass(className?: string): string {
 
 /** Two-up on small screens; fixed ~224px cards from sm up (no grow). */
 export function relatedProductItemClass(className?: string): string {
-	return cn(
-		'flex-[0_0_calc(50%-0.375rem)] sm:flex-[0_0_14rem]',
-		className
-	);
+	return cn('flex-[0_0_calc(50%-0.375rem)] sm:flex-[0_0_14rem]', className);
 }

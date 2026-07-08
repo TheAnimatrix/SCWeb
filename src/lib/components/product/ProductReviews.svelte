@@ -36,14 +36,13 @@
 	let reviewRating = $state(5);
 	let reviewComment = $state('');
 	let isSubmittingReview = $state(false);
-	let reviewSuccess = $state<boolean | null>(null);
 	let reviewError = $state('');
 	let isEditingReview = $state(false);
 	let showDeleteConfirmation = $state(false);
 	let currentUserId = $state<string | null>(null);
 
 	const userReview = $derived(
-		currentUserId ? reviews.find((review) => review.user_id === currentUserId) ?? null : null
+		currentUserId ? (reviews.find((review) => review.user_id === currentUserId) ?? null) : null
 	);
 
 	$effect(() => {
@@ -111,7 +110,6 @@
 
 			if (result.error) throw result.error;
 
-			reviewSuccess = true;
 			showReviewModal = false;
 
 			if (result.data && result.data.length > 0) {
@@ -135,7 +133,6 @@
 			reviewRating = 5;
 			isEditingReview = false;
 		} catch (error) {
-			reviewSuccess = false;
 			reviewError =
 				error instanceof Error ? error.message : 'Failed to submit review. Please try again.';
 		} finally {
@@ -168,16 +165,14 @@
 					<button
 						type="button"
 						class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:bg-muted"
-						onclick={editReview}
-					>
+						onclick={editReview}>
 						<Pencil class="h-3.5 w-3.5" />
 						edit_review
 					</button>
 					<button
 						type="button"
 						class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-destructive transition-colors hover:bg-muted"
-						onclick={() => (showDeleteConfirmation = true)}
-					>
+						onclick={() => (showDeleteConfirmation = true)}>
 						<Trash2 class="h-3.5 w-3.5" />
 						delete
 					</button>
@@ -185,8 +180,7 @@
 					<button
 						type="button"
 						class="inline-flex items-center gap-1 rounded-md border border-border bg-foreground px-3 py-1.5 font-mono text-xs text-background transition-colors hover:bg-foreground/90"
-						onclick={openCreateModal}
-					>
+						onclick={openCreateModal}>
 						add_review
 					</button>
 				{/if}
@@ -202,8 +196,7 @@
 					username={review.users?.username ?? 'anonymous'}
 					timeAgo={formatTimeAgo(review.created_at)}
 					comment={review.comment}
-					class={review.user_id === userReview?.user_id ? 'border-foreground/30' : undefined}
-				/>
+					class={review.user_id === userReview?.user_id ? 'border-foreground/30' : undefined} />
 			{/each}
 		</div>
 	{:else}
@@ -214,8 +207,7 @@
 				<button
 					type="button"
 					class="mt-4 inline-flex items-center rounded-md border border-border bg-foreground px-3 py-1.5 font-mono text-xs text-background"
-					onclick={openCreateModal}
-				>
+					onclick={openCreateModal}>
 					add_review
 				</button>
 			{/if}
@@ -234,8 +226,7 @@
 				type="button"
 				class="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
 				onclick={() => (showReviewModal = false)}
-				aria-label="Close review modal"
-			>
+				aria-label="Close review modal">
 				<X class="h-5 w-5" />
 			</button>
 
@@ -247,13 +238,12 @@
 				<div>
 					<span class="mb-2 block font-mono text-xs text-muted-foreground">rating</span>
 					<div class="flex gap-1">
-						{#each Array(5) as _, index (index)}
+						{#each [...Array(5).keys()] as index (index)}
 							<button
 								type="button"
 								class="px-1 font-mono text-lg transition-colors"
 								onclick={() => (reviewRating = index + 1)}
-								aria-label="Rate {index + 1} stars"
-							>
+								aria-label="Rate {index + 1} stars">
 								<span class={index < reviewRating ? 'text-foreground' : 'text-muted-foreground/40'}>
 									★
 								</span>
@@ -270,8 +260,7 @@
 						id="review-comment"
 						bind:value={reviewComment}
 						class="min-h-32 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-foreground/30 focus:outline-none"
-						placeholder="Share your experience with this product..."
-					></textarea>
+						placeholder="Share your experience with this product..."></textarea>
 				</div>
 
 				{#if reviewError}
@@ -282,16 +271,14 @@
 					<button
 						type="button"
 						class="flex-1 rounded-md border border-border bg-card px-4 py-2 font-mono text-sm text-foreground hover:bg-muted"
-						onclick={() => (showReviewModal = false)}
-					>
+						onclick={() => (showReviewModal = false)}>
 						cancel
 					</button>
 					<button
 						type="button"
 						class="flex flex-1 items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2 font-mono text-sm text-background hover:bg-foreground/90 disabled:opacity-50"
 						disabled={isSubmittingReview}
-						onclick={submitReview}
-					>
+						onclick={submitReview}>
 						{isSubmittingReview
 							? 'submitting…'
 							: isEditingReview
@@ -316,15 +303,13 @@
 				<button
 					type="button"
 					class="flex-1 rounded-md border border-border bg-card px-4 py-2 font-mono text-sm text-foreground hover:bg-muted"
-					onclick={() => (showDeleteConfirmation = false)}
-				>
+					onclick={() => (showDeleteConfirmation = false)}>
 					cancel
 				</button>
 				<button
 					type="button"
 					class="flex flex-1 items-center justify-center gap-2 rounded-md bg-destructive px-4 py-2 font-mono text-sm text-white hover:bg-destructive/90"
-					onclick={deleteReview}
-				>
+					onclick={deleteReview}>
 					<Trash2 class="h-4 w-4" />
 					delete_review
 				</button>

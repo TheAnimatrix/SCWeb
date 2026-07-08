@@ -17,32 +17,32 @@ Selfcrafted is a web application designed to provide users with an engaging and 
 
 1. Clone the repository:
 
-    ```bash
-    git clone https://github.com/TheAnimatrix/SCWeb.git
-    cd SCWeb
-    ```
+   ```bash
+   git clone https://github.com/TheAnimatrix/SCWeb.git
+   cd SCWeb
+   ```
 
 2. Install dependencies:
 
-    ```bash
-    npm install
-    ```
+   ```bash
+   npm install
+   ```
 
 3. Set up environment variables:
 
-    - Create a `.env` file in the root directory.
-    - Add your Supabase URL and public API key:
+   - Create a `.env` file in the root directory.
+   - Add your Supabase URL and public API key:
 
-        ```
-        VITE_SUPABASE_URL=your-supabase-url
-        VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-        ```
+     ```
+     VITE_SUPABASE_URL=your-supabase-url
+     VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+     ```
 
 4. Start the development server:
 
-    ```bash
-    npm run dev
-    ```
+   ```bash
+   npm run dev
+   ```
 
 5. Open your browser and navigate to `http://localhost:5173` to view the application.
 

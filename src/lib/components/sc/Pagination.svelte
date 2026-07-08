@@ -11,9 +11,7 @@
 
 	let { currentPage, totalPages, onPageChange, hrefForPage, class: className }: Props = $props();
 
-	const pages = $derived(
-		Array.from({ length: Math.max(0, totalPages) }, (_, index) => index + 1)
-	);
+	const pages = $derived(Array.from({ length: Math.max(0, totalPages) }, (_, index) => index + 1));
 
 	function handlePageClick(page: number, event: MouseEvent) {
 		if (page === currentPage) {
@@ -36,8 +34,7 @@
 						page === currentPage
 							? 'border-black bg-black text-white'
 							: 'border-border bg-card text-foreground hover:border-foreground/30'
-					)}
-				>
+					)}>
 					{page}
 				</a>
 			{:else}
@@ -51,8 +48,7 @@
 						page === currentPage
 							? 'border-black bg-black text-white'
 							: 'border-border bg-card text-foreground hover:border-foreground/30'
-					)}
-				>
+					)}>
 					{page}
 				</button>
 			{/if}

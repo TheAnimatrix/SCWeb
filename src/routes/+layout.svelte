@@ -5,7 +5,7 @@
 	import { goto, invalidate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import '../app.css';
-	import { writable, type Writable } from 'svelte/store';
+	import type { Writable } from 'svelte/store';
 	import { onMount, setContext, getContext } from 'svelte';
 	import Toast from '$lib/components/common/Toast.svelte';
 	import { removePostLoginURL } from '$lib/client/postLogin';
@@ -17,9 +17,7 @@
 
 	const webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
 
-	const userRoute = $derived(
-		data.session?.user ? '/user/profile/account' : '/user/sign'
-	);
+	const userRoute = $derived(data.session?.user ? '/user/profile/account' : '/user/sign');
 
 	const userProfile = $derived.by(() => {
 		const authUser = data.session?.user;
@@ -86,15 +84,17 @@
 			}
 		});
 
-		const { data: authListener } = data.supabase_lt.auth.onAuthStateChange(async (event, newSession) => {
-			if (newSession?.expires_at !== data.session?.expires_at) {
-				invalidate('supabase:auth');
-			}
+		const { data: authListener } = data.supabase_lt.auth.onAuthStateChange(
+			async (event, newSession) => {
+				if (newSession?.expires_at !== data.session?.expires_at) {
+					invalidate('supabase:auth');
+				}
 
-			if (event === 'SIGNED_OUT') {
-				goto('/user/sign', { replaceState: true });
+				if (event === 'SIGNED_OUT') {
+					goto('/user/sign', { replaceState: true });
+				}
 			}
-		});
+		);
 
 		return () => authListener.subscription.unsubscribe();
 	});

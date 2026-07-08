@@ -34,8 +34,7 @@
 <GradientGlowCard href={shopHref} class={cn(className)}>
 	<div
 		class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-scpurple/25 bg-background/80 font-mono text-xs font-semibold uppercase text-foreground shadow-[0_0_0_1px_hsl(var(--background))]"
-		aria-hidden="true"
-	>
+		aria-hidden="true">
 		{#if showAvatar}
 			<img
 				src={avatarUrl}
@@ -44,8 +43,7 @@
 				referrerpolicy="no-referrer"
 				onerror={() => {
 					avatarFailed = true;
-				}}
-			/>
+				}} />
 		{:else}
 			{initial}
 		{/if}
@@ -65,8 +63,7 @@
 	</div>
 
 	<span
-		class="hidden shrink-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground sm:inline"
-	>
+		class="hidden shrink-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground sm:inline">
 		view_shop →
 	</span>
 </GradientGlowCard>

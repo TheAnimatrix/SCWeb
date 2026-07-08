@@ -15,8 +15,6 @@
 	}
 
 	let { steps, current, class: className }: Props = $props();
-
-	const currentIndex = $derived(steps.findIndex((s) => s.id === current));
 </script>
 
 <ol class={cn('flex flex-wrap items-center gap-2', className)} aria-label="Portal steps">
@@ -30,8 +28,7 @@
 						: step.done
 							? 'border-border bg-card text-foreground'
 							: 'border-border bg-muted/40 text-muted-foreground'
-				)}
-			>
+				)}>
 				<span
 					class={cn(
 						'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold',
@@ -40,8 +37,7 @@
 							: step.done
 								? 'border-foreground bg-foreground text-background'
 								: 'border-border'
-					)}
-				>
+					)}>
 					{#if step.done && step.id !== current}
 						<Check class="size-3" strokeWidth={2.5} />
 					{:else}

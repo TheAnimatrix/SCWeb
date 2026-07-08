@@ -136,8 +136,8 @@
 
 	::view-transition-new(root) {
 		z-index: 2;
-		animation: theme-reveal var(--theme-transition-duration, 450ms)
-			cubic-bezier(0.4, 0, 0.2, 1) forwards;
+		animation: theme-reveal var(--theme-transition-duration, 450ms) cubic-bezier(0.4, 0, 0.2, 1)
+			forwards;
 	}
 
 	@keyframes theme-reveal {
@@ -296,7 +296,11 @@
 
 	body {
 		@apply bg-background font-sans text-foreground antialiased;
-		font-family: figtree, system-ui, -apple-system, sans-serif;
+		font-family:
+			figtree,
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	.font-mono {

@@ -40,11 +40,7 @@ describe('applyTagFilter', () => {
 
 		applyTagFilter(query, '3d_printer/probe', tagOptions);
 
-		expect(contains).toHaveBeenNthCalledWith(
-			1,
-			'tags',
-			JSON.stringify([{ tag: '3d_printer' }])
-		);
+		expect(contains).toHaveBeenNthCalledWith(1, 'tags', JSON.stringify([{ tag: '3d_printer' }]));
 		expect(contains).toHaveBeenNthCalledWith(2, 'tags', JSON.stringify([{ tag: 'probes' }]));
 	});
 });

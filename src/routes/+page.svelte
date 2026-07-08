@@ -80,7 +80,8 @@
 <div class="min-h-screen bg-background text-foreground">
 	<DotGrid class="relative overflow-hidden border-b border-border">
 		<Smoke variant="fabric" opacity={1} particleCount={150} gridSize={8} />
-		<div class="relative z-10 mx-auto grid max-w-7xl gap-12 px-4 py-16 md:grid-cols-2 md:items-center md:py-24">
+		<div
+			class="relative z-10 mx-auto grid max-w-7xl gap-12 px-4 py-16 md:grid-cols-2 md:items-center md:py-24">
 			<div class="flex flex-col gap-8">
 				<div class="space-y-4">
 					<h1 class="text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-6xl">
@@ -99,7 +100,7 @@
 
 				<dl class="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-6 font-mono text-sm">
 					{#if isLoading}
-						{#each Array(3) as _, i (i)}
+						{#each [...Array(3).keys()] as i (i)}
 							<Skeleton class="h-4 w-28 rounded-sm" />
 						{/each}
 					{:else}
@@ -125,8 +126,7 @@
 				<FeaturedCarousel products={featuredProducts} {productHref} />
 			{:else}
 				<div
-					class="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8"
-				>
+					class="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8">
 					<p class="font-mono text-sm text-muted-foreground">no featured craft yet</p>
 				</div>
 			{/if}
@@ -136,11 +136,7 @@
 	<section class="border-b border-border bg-background">
 		<div class="mx-auto grid max-w-7xl auto-rows-fr grid-cols-1 md:grid-cols-3">
 			{#each features as feature, i (feature.title)}
-				<FeatureModule
-					title={feature.title}
-					description={feature.description}
-					index={i}
-				/>
+				<FeatureModule title={feature.title} description={feature.description} index={i} />
 			{/each}
 		</div>
 	</section>
@@ -148,40 +144,39 @@
 	<div class="mx-auto max-w-7xl space-y-10 px-4 pb-16 pt-16">
 		{#each listingSections as section (section.title)}
 			<section>
-				<div class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+				<div
+					class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
 					<div
-						class="flex items-center gap-2.5 rounded-md bg-foreground px-2.5 py-1 text-background"
-					>
+						class="flex items-center gap-2.5 rounded-md bg-foreground px-2.5 py-1 text-background">
 						<Icon icon={section.icon} class="size-3.5 shrink-0" aria-hidden="true" />
 						<h2 class="text-sm font-medium">{section.title}</h2>
 					</div>
 					<ScButton href={section.browseHref} variant="ghost" arrow>Browse all</ScButton>
 				</div>
 
-			{#if isLoading}
-				<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
-					{#each Array(4) as _, i (i)}
-						<ProductCardSkeleton />
-					{/each}
-				</div>
-			{:else if section.items.length > 0}
-				<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4">
-					{#each section.items as product (product.id)}
-						<ProductCard {product} href={productHref(product)} />
-					{/each}
-				</div>
-			{:else}
-				<div
-					class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center"
-				>
-					<p class="text-sm text-muted-foreground">{section.emptyMessage}</p>
-					{#if section.id === 'products'}
-						<div class="mt-4">
-							<ScButton href="/crafting" variant="secondary">Start selling</ScButton>
-						</div>
-					{/if}
-				</div>
-			{/if}
+				{#if isLoading}
+					<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
+						{#each [...Array(4).keys()] as i (i)}
+							<ProductCardSkeleton />
+						{/each}
+					</div>
+				{:else if section.items.length > 0}
+					<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4">
+						{#each section.items as product (product.id)}
+							<ProductCard {product} href={productHref(product)} />
+						{/each}
+					</div>
+				{:else}
+					<div
+						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center">
+						<p class="text-sm text-muted-foreground">{section.emptyMessage}</p>
+						{#if section.id === 'products'}
+							<div class="mt-4">
+								<ScButton href="/crafting" variant="secondary">Start selling</ScButton>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</section>
 		{/each}
 	</div>

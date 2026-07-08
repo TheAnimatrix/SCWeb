@@ -130,8 +130,7 @@
 						size="sm"
 						wrapperClass="mt-1"
 						placeholder="Full name"
-						bind:value={editableAddress.name}
-					/>
+						bind:value={editableAddress.name} />
 				</div>
 
 				<div>
@@ -142,8 +141,7 @@
 						size="sm"
 						wrapperClass="mt-1"
 						placeholder="House no, street, area"
-						bind:value={editableAddress.line1}
-					/>
+						bind:value={editableAddress.line1} />
 				</div>
 
 				<div>
@@ -156,8 +154,7 @@
 						size="sm"
 						wrapperClass="mt-1"
 						placeholder="Landmark, apt, suite"
-						bind:value={editableAddress.line2}
-					/>
+						bind:value={editableAddress.line2} />
 				</div>
 
 				<div class="grid grid-cols-3 gap-2">
@@ -168,8 +165,7 @@
 							type="text"
 							size="sm"
 							wrapperClass="mt-1"
-							bind:value={editableAddress.city}
-						/>
+							bind:value={editableAddress.city} />
 					</div>
 					<div>
 						<label for="{uniqueId}-pincode" class={labelClass}>pincode</label>
@@ -180,8 +176,7 @@
 							wrapperClass="mt-1"
 							bind:value={editableAddress.pincode}
 							maxlength={6}
-							inputmode="numeric"
-						/>
+							inputmode="numeric" />
 					</div>
 					<div>
 						<label for="{uniqueId}-state" class={labelClass}>state</label>
@@ -190,8 +185,7 @@
 							type="text"
 							size="sm"
 							wrapperClass="mt-1"
-							bind:value={editableAddress.state}
-						/>
+							bind:value={editableAddress.state} />
 					</div>
 				</div>
 
@@ -206,19 +200,28 @@
 						placeholder="10-digit number"
 						bind:value={editableAddress.phone}
 						maxlength={14}
-						inputmode="tel"
-					/>
+						inputmode="tel" />
 				</div>
 			</div>
 		{/if}
 
 		<div class="flex shrink-0 gap-1">
 			{#if !isEditing}
-				<Button variant="ghost" size="icon" class="size-8" onclick={handleEditRequest} aria-label="Edit">
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-8"
+					onclick={handleEditRequest}
+					aria-label="Edit">
 					<Pencil class="size-3.5" />
 				</Button>
 			{:else}
-				<Button variant="ghost" size="icon" class="size-8" onclick={handleSaveRequest} aria-label="Save">
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-8"
+					onclick={handleSaveRequest}
+					aria-label="Save">
 					<Check class="size-3.5" />
 				</Button>
 			{/if}
@@ -227,8 +230,7 @@
 				size="icon"
 				class="size-8 text-destructive hover:text-destructive"
 				onclick={isEditing ? () => onCancel() : () => onDelete()}
-				aria-label={isEditing ? 'Cancel' : 'Delete'}
-			>
+				aria-label={isEditing ? 'Cancel' : 'Delete'}>
 				{#if isEditing}
 					<X class="size-3.5" />
 				{:else}

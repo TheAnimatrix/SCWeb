@@ -98,15 +98,13 @@
 		<div
 			bind:this={navAnchor}
 			class="mt-4"
-			style:height={isPinned && navHeight > 0 ? `${navHeight}px` : undefined}
-		>
+			style:height={isPinned && navHeight > 0 ? `${navHeight}px` : undefined}>
 			<nav
 				bind:this={navEl}
 				aria-label="Policy sections"
 				class="policy-tabs border-b border-border bg-background {isPinned
 					? 'policy-tabs--pinned'
-					: '-mx-4'}"
-			>
+					: '-mx-4'}">
 				<div class="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-4">
 					{#each sections as section, i (section.id)}
 						<button
@@ -115,8 +113,7 @@
 								{activeSection === i
 								? 'border-foreground text-foreground'
 								: 'border-transparent text-muted-foreground hover:text-foreground'}"
-							onclick={() => scrollToSection(i)}
-						>
+							onclick={() => scrollToSection(i)}>
 							{section.label}
 						</button>
 					{/each}

@@ -15,11 +15,7 @@
 
 <div class={cn('tab-panel-transition grid', className)}>
 	{#key tabKey}
-		<div
-			class="col-start-1 row-start-1 min-w-0"
-			in:fly={getTabFlyIn()}
-			out:fly={getTabFlyOut()}
-		>
+		<div class="col-start-1 row-start-1 min-w-0" in:fly={getTabFlyIn()} out:fly={getTabFlyOut()}>
 			{@render children()}
 		</div>
 	{/key}

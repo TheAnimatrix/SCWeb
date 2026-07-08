@@ -23,9 +23,7 @@ describe('verifyRazorpaySignature', () => {
 	});
 
 	it('rejects a wrong-length signature without throwing', () => {
-		expect(() =>
-			verifyRazorpaySignature(orderId, paymentId, 'tooshort', secret)
-		).not.toThrow();
+		expect(() => verifyRazorpaySignature(orderId, paymentId, 'tooshort', secret)).not.toThrow();
 		expect(verifyRazorpaySignature(orderId, paymentId, 'tooshort', secret)).toBe(false);
 	});
 

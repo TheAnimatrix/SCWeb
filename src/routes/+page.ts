@@ -62,15 +62,21 @@ export const load: PageLoad = async ({ parent }) => {
 		};
 	}
 
-	const [recentProducts, recentSpares, recentFleaMarket, bannersResult, listingsResult, makersResult] =
-		await Promise.all([
-			loadRecentByType(supabase_lt, 'product'),
-			loadRecentByType(supabase_lt, 'spare'),
-			loadRecentByType(supabase_lt, 'flea-market'),
-			supabase_lt.from('constants').select().eq('key', 'BANNERS'),
-			supabase_lt.from('products').select('id', { count: 'exact', head: true }),
-			supabase_lt.from('users').select('id', { count: 'exact', head: true })
-		]);
+	const [
+		recentProducts,
+		recentSpares,
+		recentFleaMarket,
+		bannersResult,
+		listingsResult,
+		makersResult
+	] = await Promise.all([
+		loadRecentByType(supabase_lt, 'product'),
+		loadRecentByType(supabase_lt, 'spare'),
+		loadRecentByType(supabase_lt, 'flea-market'),
+		supabase_lt.from('constants').select().eq('key', 'BANNERS'),
+		supabase_lt.from('products').select('id', { count: 'exact', head: true }),
+		supabase_lt.from('users').select('id', { count: 'exact', head: true })
+	]);
 	let featuredProducts: Product[] = [];
 
 	const banners = bannersResult.data?.[0]?.value as Banner[] | undefined;

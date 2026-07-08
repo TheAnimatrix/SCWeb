@@ -1,11 +1,13 @@
 # Cart System Design Document
 
 ## Overview
+
 The cart system is implemented using SvelteKit (Svelte5 runes mode), TailwindCSS for styling, and Supabase for backend data storage and RPC logic. It supports both authenticated and guest users, with cart persistence and synchronization via Supabase.
 
 ---
 
 ## Data Model
+
 - **Cart**: `{ id, list, status, price, last_updated }`
   - `id`: Unique cart identifier (per user or client).
   - `list`: Array of cart items (`{ product_id, price, qty }`).
@@ -18,12 +20,15 @@ The cart system is implemented using SvelteKit (Svelte5 runes mode), TailwindCSS
 ---
 
 ## Core Flow
+
 ### 1. Cart Initialization
+
 - On page load or user action, `getActiveCart(supabase, clientId)` is called.
   - If a cart exists for the client/user, it is fetched.
   - If not, a new cart is created in Supabase (`cart` table, status `active`).
 
 ### 2. Adding/Updating/Removing Items
+
 - `changeCart(supabase, cart_store, changed, changedItemStock, clientId, absoluteStockChange)`
   - Fetches the current cart.
   - Locates the item in the cart list:
@@ -34,23 +39,27 @@ The cart system is implemented using SvelteKit (Svelte5 runes mode), TailwindCSS
   - Updates the UI store (`cart_store`) with new item count.
 
 ### 3. Cart UI
+
 - Cart page (`/cart`) displays items, allows quantity changes, and removal.
 - Uses Svelte5 runes for reactivity and context for cart state.
 - Order summary is shown with subtotal, shipping, and total.
 - Checkout button navigates to `/checkout`.
 
 ### 4. Checkout & Order Creation
+
 - On checkout, the cart is validated and a payment order is created (Razorpay integration).
 - On payment success, cart status is updated to `paid`, stock is decremented, and a purchase record is created.
 - On failure, user is redirected to a failure summary page.
 
 ### 5. Guest vs Authenticated Users
+
 - Cart is always stored in Supabase, keyed by `client_id` (for guests) or user id (for logged-in users).
 - There is commented-out logic for localStorage fallback, but it is not active.
 
 ---
 
 ## Supabase Functions
+
 - `get_cart_by_uid`: Fetches cart by client/user id.
 - `update_cart_by_id`: Updates cart list and status.
 - Cart table stores all cart data, including list as JSON.
@@ -58,6 +67,7 @@ The cart system is implemented using SvelteKit (Svelte5 runes mode), TailwindCSS
 ---
 
 ## UI/UX
+
 - All cart and checkout pages use TailwindCSS for styling.
 - Svelte5 runes mode is used for reactivity and event handling.
 - Cart icon in the header shows item count (reactive).
@@ -66,6 +76,7 @@ The cart system is implemented using SvelteKit (Svelte5 runes mode), TailwindCSS
 ---
 
 ## Possible Issues
+
 - **Race Conditions**: Multiple rapid updates may cause inconsistent cart state.
 - **Stock Sync**: Stock is checked both when updating the cart and at purchase time. However, overselling is still possible if multiple users purchase the same item simultaneously, due to the lack of transactional locking or atomic stock decrement.
 - **Guest Cart Persistence**: No localStorage fallback is active; guests lose cart if clientId changes or session is lost.
@@ -77,7 +88,9 @@ The cart system is implemented using SvelteKit (Svelte5 runes mode), TailwindCSS
 ---
 
 ## Suggestions for Improvement / Redesign
+
 ### If Remade from Scratch
+
 - **LocalStorage Fallback**: Implement localStorage for guests, sync to Supabase on login.
 - **Optimistic UI**: Update UI immediately, then sync to backend; rollback on error.
 - **Cart Merging**: On login, merge guest and user carts.
@@ -91,5 +104,6 @@ The cart system is implemented using SvelteKit (Svelte5 runes mode), TailwindCSS
 ---
 
 ## References
+
 - Svelte5 runes mode, TailwindCSS, Supabase RPC, Razorpay integration.
-- See `src/lib/client/cart.ts`, `src/routes/(cart)/cart/+page.svelte`, and related files for implementation details. 
+- See `src/lib/client/cart.ts`, `src/routes/(cart)/cart/+page.svelte`, and related files for implementation details.

@@ -6,7 +6,6 @@
 	import * as Drawer from '$lib/components/ui/drawer';
 	import { PortalSectionLabel, ParameterChip } from '$lib/components/portal';
 	import { ChipGridSkeleton, ScButton, ScInput, Skeleton } from '$lib/components/sc';
-	import { cn } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import ColorPicker from './ColorPicker.svelte';
 	import type { SupabaseClient } from '@supabase/supabase-js';
@@ -255,23 +254,20 @@
 		<ScButton
 			variant="secondary"
 			class="w-full justify-center sm:w-auto"
-			onclick={() => (showPresetDropdown = !showPresetDropdown)}
-		>
+			onclick={() => (showPresetDropdown = !showPresetDropdown)}>
 			{showPresetDropdown ? 'Hide presets' : 'Choose preset'}
 		</ScButton>
 
 		{#if showPresetDropdown}
 			<div
-				class="absolute inset-x-0 top-full z-50 mt-2 max-h-[50vh] overflow-auto rounded-md border border-border bg-card p-4 shadow-sm"
-			>
+				class="absolute inset-x-0 top-full z-50 mt-2 max-h-[50vh] overflow-auto rounded-md border border-border bg-card p-4 shadow-sm">
 				<div class="mb-3 flex items-center justify-between gap-2">
 					<PortalSectionLabel label="filament_presets" class="mb-0" />
 					<button
 						type="button"
 						class="text-muted-foreground transition-colors hover:text-foreground"
 						onclick={() => (showPresetDropdown = false)}
-						aria-label="Close presets"
-					>
+						aria-label="Close presets">
 						<X class="size-4" strokeWidth={1.5} />
 					</button>
 				</div>
@@ -279,11 +275,10 @@
 					placeholder="Search preset…"
 					bind:value={presetSearch}
 					wrapperClass="mb-3"
-					glow={false}
-				/>
+					glow={false} />
 				{#if presetLoading}
 					<div class="flex flex-col gap-2 py-2" aria-hidden="true">
-						{#each Array(4) as _, i (i)}
+						{#each [...Array(4).keys()] as i (i)}
 							<Skeleton class="h-12 w-full rounded-md" />
 						{/each}
 					</div>
@@ -297,8 +292,7 @@
 							<button
 								type="button"
 								class="rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-muted/40"
-								onclick={() => selectPreset(preset)}
-							>
+								onclick={() => selectPreset(preset)}>
 								<span class="font-medium text-foreground">{preset.brand} {preset.name}</span>
 								<span class="mt-0.5 block font-mono text-xs text-muted-foreground">
 									{preset.material_type}
@@ -344,8 +338,7 @@
 					<button
 						type="button"
 						class="font-mono text-xs text-muted-foreground underline-offset-2 hover:underline"
-						onclick={clearType}
-					>
+						onclick={clearType}>
 						change
 					</button>
 				</div>
@@ -366,8 +359,7 @@
 			<div class="mt-2 flex items-center gap-3">
 				<span
 					class="inline-block size-8 rounded-full border border-border"
-					style="background-color: {formData.color}"
-				></span>
+					style="background-color: {formData.color}"></span>
 				<ScButton variant="secondary" onclick={() => (showColorDialog = true)}>Pick color</ScButton>
 			</div>
 			{#if errors.color}
@@ -384,8 +376,7 @@
 					onmousedown={() => startHoldStep('quantity_kg', -0.1)}
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
-					aria-label="Decrease quantity"
-				>
+					aria-label="Decrease quantity">
 					<Minus class="size-4" strokeWidth={1.5} />
 				</button>
 				<input
@@ -395,16 +386,14 @@
 					min="0"
 					bind:value={formData.quantity_kg}
 					required
-					class="h-10 w-24 rounded-md border border-border bg-card text-center text-sm text-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10"
-				/>
+					class="h-10 w-24 rounded-md border border-border bg-card text-center text-sm text-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10" />
 				<button
 					type="button"
 					class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted"
 					onmousedown={() => startHoldStep('quantity_kg', 0.1)}
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
-					aria-label="Increase quantity"
-				>
+					aria-label="Increase quantity">
 					<Plus class="size-4" strokeWidth={1.5} />
 				</button>
 			</div>
@@ -422,8 +411,7 @@
 					onmousedown={() => startHoldStep('cost_kg', -10)}
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
-					aria-label="Decrease cost"
-				>
+					aria-label="Decrease cost">
 					<Minus class="size-4" strokeWidth={1.5} />
 				</button>
 				<input
@@ -434,16 +422,14 @@
 					bind:value={formData.cost_kg}
 					required
 					placeholder="999"
-					class="h-10 w-28 rounded-md border border-border bg-card text-center text-sm text-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10"
-				/>
+					class="h-10 w-28 rounded-md border border-border bg-card text-center text-sm text-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10" />
 				<button
 					type="button"
 					class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted"
 					onmousedown={() => startHoldStep('cost_kg', 10)}
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
-					aria-label="Increase cost"
-				>
+					aria-label="Increase cost">
 					<Plus class="size-4" strokeWidth={1.5} />
 				</button>
 			</div>
@@ -455,8 +441,7 @@
 				type="url"
 				label="product_link"
 				bind:value={formData.product_link}
-				placeholder="https://… (optional)"
-			/>
+				placeholder="https://… (optional)" />
 		</div>
 	</form>
 {/snippet}
@@ -468,8 +453,7 @@
 			type="submit"
 			form="filament-form"
 			class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-			disabled={isSaving}
-		>
+			disabled={isSaving}>
 			{#if isSaving}
 				Saving…
 			{:else}
@@ -495,7 +479,8 @@
 	</Drawer.Root>
 {:else}
 	<Dialog.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
-		<Dialog.Content class="max-h-[90vh] w-[95vw] overflow-hidden border-border bg-card p-0 sm:max-w-lg">
+		<Dialog.Content
+			class="max-h-[90vh] w-[95vw] overflow-hidden border-border bg-card p-0 sm:max-w-lg">
 			<Dialog.Header class="border-b border-border px-6 py-4">
 				<Dialog.Title class="font-mono text-sm text-foreground">{title}</Dialog.Title>
 			</Dialog.Header>
@@ -519,6 +504,5 @@
 		}}
 		on:cancel={() => {
 			showColorDialog = false;
-		}}
-	/>
+		}} />
 {/if}

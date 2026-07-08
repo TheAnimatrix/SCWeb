@@ -114,7 +114,14 @@
 					context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
 					context.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${particle.opacity})`;
 					context.fill();
-					drawGlowCircle(accentContext, particle.x, particle.y, particle.radius, rgb, particle.opacity);
+					drawGlowCircle(
+						accentContext,
+						particle.x,
+						particle.y,
+						particle.radius,
+						rgb,
+						particle.opacity
+					);
 				} else {
 					context.beginPath();
 					context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
@@ -162,7 +169,9 @@
 	});
 </script>
 
-<div class={cn('pointer-events-none absolute inset-0 z-0 h-full w-full', className)} aria-hidden="true">
+<div
+	class={cn('pointer-events-none absolute inset-0 z-0 h-full w-full', className)}
+	aria-hidden="true">
 	<canvas bind:this={canvas} class="h-full w-full" style:mix-blend-mode={blendMode}></canvas>
 	<canvas bind:this={accentCanvas} class="accent-glow-canvas h-full w-full"></canvas>
 </div>

@@ -12,9 +12,11 @@
 	let req = $state(data.printRequest);
 	let sortedEvents = $derived(
 		req.events
-			? [...req.events].filter((event: any) => event.type !== 'order_created').sort(
-					(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-				)
+			? [...req.events]
+					.filter((event: any) => event.type !== 'order_created')
+					.sort(
+						(a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+					)
 			: []
 	);
 	$effect(() => {
@@ -31,16 +33,6 @@
 	let modelName = req.model?.split('/').pop().split('.');
 	let modelName2 = modelName[modelName.length - 2].split('_');
 	modelName = `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}`;
-	const STAGES = [
-		'cancelled',
-		'requested',
-		'quoted',
-		'actionable',
-		'paid',
-		'paid_externally',
-		'completed',
-		'in dispute'
-	];
 
 	// Add a mapping for stage colors
 	const STAGE_COLORS: { [key: string]: string } = {
@@ -53,19 +45,6 @@
 		completed: 'bg-gray-500/10 text-gray-300 border-gray-400/20',
 		'in dispute': 'bg-yellow-500/10 text-yellow-400 border-yellow-400/20',
 		default: 'bg-accent/10 text-accent border-accent/10'
-	};
-
-	const STAGE_DESCRIPTIONS: { [key: string]: string } = {
-		cancelled: 'The request has been cancelled.',
-		requested: 'The user has requested a quote for a 3D print. Please provide a quote.',
-		quoted: 'You have quoted the user. Please wait for them to review and accept or reject it.',
-		actionable: 'You have requested an action from the user. Please wait for their response.',
-		paid: 'The user has paid for the 3D print. Please complete the print and ship it.',
-		paid_externally: 'The user has paid for the 3D print externally. Please complete the print and ship it.',
-		completed:
-			'The user has acknowledged the receipt of the 3D print. Please wait for their review.',
-		'in dispute': 'The request is in dispute. Our Team will intervene to resolve the dispute.',
-		default: 'The request is in default.'
 	};
 
 	async function quoteOrder() {
@@ -107,17 +86,17 @@
 			shippedError = 'Please provide either Tracking ID or Tracking Link.';
 			return;
 		}
-		
+
 		if (trackingLink.trim() && !isValidUrl(trackingLink)) {
 			shippedError = 'Please provide a valid tracking link.';
 			return;
 		}
-		
+
 		function isValidUrl(string: string) {
 			try {
 				new URL(string);
 				return true;
-			} catch (_) {
+			} catch {
 				return false;
 			}
 		}
@@ -257,7 +236,7 @@
 				downloading = false;
 				downloadProgress = 0;
 			}
-		} catch (e) {
+		} catch {
 			alert('Error downloading model');
 		} finally {
 			// Only reset if not downloading (handled in xhr events)
@@ -343,7 +322,6 @@
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
 		if (!req.id || !data.session?.data?.user?.id || !cancelReason.trim()) return;
-		const prevSelectedId = req.id;
 		//repull the order data
 		const updatedOrder = await data.supabase_lt
 			.from('printrequests')
@@ -413,7 +391,10 @@
 			case 'paid_externally':
 				return { msg: 'Order was paid externally. Confirm and proceed.', turn: 'maker' };
 			case 'shipped':
-				return { msg: 'Order is shipped. No further action needed. This order will be closed when user marks it delivered or in 21 days, whichever comes first.', turn: 'user' };
+				return {
+					msg: 'Order is shipped. No further action needed. This order will be closed when user marks it delivered or in 21 days, whichever comes first.',
+					turn: 'user'
+				};
 			case 'in dispute':
 				return { msg: 'Order is in dispute. Await resolution.', turn: 'SC Team' };
 			case 'completed':
@@ -655,47 +636,59 @@
 
 		<!-- Event history header-->
 		{#if sortedEvents && sortedEvents.length > 0}
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
-			<div class="flex flex-col gap-2">
-				{#each sortedEvents as event}
-					<div class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm {event.type === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-400/20' : ''} {event.type == 'paid' ? 'bg-green-500/10 text-green-400 border-green-400/20' : ''}">
-						<div class="flex items-center justify-between text-white/80">
-							<span class="font-medium"
-								>Event : <span class="capitalize">{event.type}</span></span>
-							<span class="text-gray-400 text-xs"
-								>{new Date(event.timestamp).toLocaleString(undefined, {
-									hour: '2-digit',
-									minute: '2-digit',
-									year: 'numeric',
-									month: 'short',
-									day: 'numeric'
-								})}</span>
+			<div class="flex flex-col h-full mt-4 w-full">
+				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
+				<div class="flex flex-col gap-2">
+					{#each sortedEvents as event}
+						<div
+							class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm {event.type ===
+							'cancelled'
+								? 'bg-red-500/10 text-red-400 border-red-400/20'
+								: ''} {event.type == 'paid'
+								? 'bg-green-500/10 text-green-400 border-green-400/20'
+								: ''}">
+							<div class="flex items-center justify-between text-white/80">
+								<span class="font-medium"
+									>Event : <span class="capitalize">{event.type}</span></span>
+								<span class="text-gray-400 text-xs"
+									>{new Date(event.timestamp).toLocaleString(undefined, {
+										hour: '2-digit',
+										minute: '2-digit',
+										year: 'numeric',
+										month: 'short',
+										day: 'numeric'
+									})}</span>
+							</div>
+							{#if event.reason}
+								<div class="text-gray-400 mt-1 text-xs">Message : {event.reason}</div>
+							{/if}
+							{#if event.extra}
+								{#if event.extra.quote}
+									<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
+								{/if}
+								{#if event.extra.payment_id_a}
+									<div class="text-gray-400 mt-1 font-semibold">
+										Order ID : {event.extra.payment_id_a}
+									</div>
+								{/if}
+								{#if event.extra.payment_id_b}
+									<div class="text-gray-400 mt-1 font-semibold">
+										Payment ID : {event.extra.payment_id_b}
+									</div>
+								{/if}
+								{#if event.extra.amount}
+									<div class="text-gray-400 mt-1 font-semibold">
+										Amount : {(event.extra.amount / 100).toFixed(2)}₹
+									</div>
+								{/if}
+							{/if}
+							<div class="text-accent/80 text-xs mt-1">
+								by <span class="capitalize">{event.by == 'user' ? 'user' : 'you'}</span>
+							</div>
 						</div>
-						{#if event.reason}
-							<div class="text-gray-400 mt-1 text-xs">Message : {event.reason}</div>
-						{/if}
-						{#if event.extra}
-							{#if event.extra.quote}
-								<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
-							{/if}
-							{#if event.extra.payment_id_a}
-								<div class="text-gray-400 mt-1 font-semibold">Order ID : {event.extra.payment_id_a}</div>
-							{/if}
-							{#if event.extra.payment_id_b}
-								<div class="text-gray-400 mt-1 font-semibold">Payment ID : {event.extra.payment_id_b}</div>
-							{/if}
-							{#if event.extra.amount}
-								<div class="text-gray-400 mt-1 font-semibold">Amount : {(event.extra.amount/100).toFixed(2)}₹</div>
-							{/if}
-						{/if}
-						<div class="text-accent/80 text-xs mt-1">
-							by <span class="capitalize">{event.by == 'user' ? 'user' : 'you'}</span>
-						</div>
-					</div>
-				{/each}
+					{/each}
+				</div>
 			</div>
-		</div>
 		{:else}
 			<div class="flex flex-col h-full mt-4 w-full">
 				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
@@ -789,34 +782,33 @@
 		<Dialog.Header>
 			<Dialog.Title>Mark as Shipped</Dialog.Title>
 			<Dialog.Description>
-				Please provide the shipping details. <span class="text-yellow-400">Either Tracking ID or Tracking Link is required.</span>
+				Please provide the shipping details. <span class="text-yellow-400"
+					>Either Tracking ID or Tracking Link is required.</span>
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex flex-col gap-3 mt-4">
-			<label class="text-sm text-gray-300 font-medium">Courier Name<span class="text-red-400">*</span></label>
+			<label class="text-sm text-gray-300 font-medium"
+				>Courier Name<span class="text-red-400">*</span></label>
 			<input
 				type="text"
 				bind:value={courierName}
 				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
 				placeholder="e.g. Bluedart, Delhivery, etc."
-				disabled={shippedLoading}
-			/>
+				disabled={shippedLoading} />
 			<label class="text-sm text-gray-300 font-medium">Tracking ID</label>
 			<input
 				type="text"
 				bind:value={trackingId}
 				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
 				placeholder="e.g. 1234567890"
-				disabled={shippedLoading}
-			/>
+				disabled={shippedLoading} />
 			<label class="text-sm text-gray-300 font-medium">Tracking Link</label>
 			<input
 				type="url"
 				bind:value={trackingLink}
 				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
 				placeholder="e.g. https://courier.com/track/123456"
-				disabled={shippedLoading}
-			/>
+				disabled={shippedLoading} />
 			{#if shippedError}
 				<div class="text-red-400 text-xs mt-1">{shippedError}</div>
 			{/if}
@@ -825,13 +817,11 @@
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors border border-white/10"
 				onclick={onCancelShipped}
-				disabled={shippedLoading}
-			>Cancel</button>
+				disabled={shippedLoading}>Cancel</button>
 			<button
 				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 				onclick={onConfirmShipped}
-				disabled={shippedLoading}
-			>
+				disabled={shippedLoading}>
 				{#if !shippedLoading}
 					<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
 				{/if}

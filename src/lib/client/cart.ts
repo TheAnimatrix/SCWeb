@@ -5,7 +5,7 @@
 
 import type { CResult } from '$lib/types/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {  writable, type Writable } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
 
 //create cart type { cart_id((if signed in)/(if signed out store in localstorage)), cart_list:{product_id, quantity}[], cart_purchased }
 export interface Cart {
@@ -117,7 +117,6 @@ export function resolveCartQuantityChange(params: {
  * @returns - True if the change was successful, false if not
  */
 export async function changeCart(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	supabase: SupabaseClient<any, 'public', any>,
 	cart_store: Writable<CartG>,
 	changed: CartItem,

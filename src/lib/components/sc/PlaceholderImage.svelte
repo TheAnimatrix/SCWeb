@@ -21,11 +21,12 @@
 </script>
 
 {#if showPlaceholder}
-	<div
-		class={cn('sc-stripes h-full w-full', className)}
-		role="img"
-		aria-label={alt}
-	></div>
+	<div class={cn('sc-stripes h-full w-full', className)} role="img" aria-label={alt}></div>
 {:else}
-	<img {src} {alt} class={cn('h-full w-full object-cover', className)} {loading} onerror={handleError} />
+	<img
+		{src}
+		{alt}
+		class={cn('h-full w-full object-cover', className)}
+		{loading}
+		onerror={handleError} />
 {/if}

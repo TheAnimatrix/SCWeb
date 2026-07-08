@@ -42,24 +42,23 @@
 					{#if filamentData && !filamentData.error && filamentData.data.length > 0}
 						{#if filamentData.data.some((filament) => filament.quantity_kg <= 0)}
 							<span
-								class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning"
-							>
+								class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning">
 								<AlertCircle class="size-4 shrink-0" strokeWidth={2} />
 								Unlisted — add quantity to be visible
 							</span>
 						{:else}
 							<span
-								class="relative inline-flex items-center gap-2 overflow-hidden rounded-md border-2 border-foreground bg-foreground px-3 py-1.5 text-sm font-semibold text-background shadow-sm"
-							>
-								<span class="sc-stripes-bold pointer-events-none absolute inset-0 opacity-20" aria-hidden="true"></span>
+								class="relative inline-flex items-center gap-2 overflow-hidden rounded-md border-2 border-foreground bg-foreground px-3 py-1.5 text-sm font-semibold text-background shadow-sm">
+								<span
+									class="sc-stripes-bold pointer-events-none absolute inset-0 opacity-20"
+									aria-hidden="true"></span>
 								<CircleCheck class="relative size-4 shrink-0" strokeWidth={2.25} />
 								<span class="relative">Listed · visible to customers</span>
 							</span>
 						{/if}
 					{:else}
 						<span
-							class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning"
-						>
+							class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning">
 							<AlertCircle class="size-4 shrink-0" strokeWidth={2} />
 							Unlisted — add filaments to be visible
 						</span>
@@ -74,8 +73,7 @@
 		{session}
 		onUpdate={() => {
 			key++;
-		}}
-	/>
+		}} />
 
 	<OrderManagement {supabase_lt} {session} />
 </div>

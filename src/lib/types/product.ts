@@ -17,9 +17,9 @@ export interface Product {
 	uid: string;
 	price: { old: number; new: number };
 	author?: string;
-	type:string;
-	guarantee:string;
-	rel : string;
+	type: string;
+	guarantee: string;
+	rel: string;
 }
 
 export interface Address {
@@ -36,8 +36,7 @@ export interface Address {
 }
 
 export const newAddress = (): Address => {
-	return {
-	};
+	return {};
 };
 
 export interface Order {
@@ -54,7 +53,7 @@ export interface Order {
 	id: number;
 	amount: number;
 	cart_id: string | null;
-	item_snapshot: {product_name: string, product_id: string, qty: number, price: number}[];
+	item_snapshot: { product_name: string; product_id: string; qty: number; price: number }[];
 }
 export const compareAddress = (a: Address, b: Address) => {
 	if (a.id != b.id) return false;
@@ -70,12 +69,11 @@ export const compareAddress = (a: Address, b: Address) => {
 
 export type Orders = Order[];
 
-export function validateAddress(address: Address,checkEmail?:boolean): string | null {
-
-	if(checkEmail === true)
-	if(!address.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email)) {
-		return 'Please enter a valid email address.';
-	}
+export function validateAddress(address: Address, checkEmail?: boolean): string | null {
+	if (checkEmail === true)
+		if (!address.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email)) {
+			return 'Please enter a valid email address.';
+		}
 
 	if (!address.name || address.name.length < 4 || address.name.length > 35) {
 		return 'Name should be between 4 and 35 characters long.';

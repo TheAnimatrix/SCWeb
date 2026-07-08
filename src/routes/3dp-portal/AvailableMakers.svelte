@@ -11,7 +11,6 @@
 	import Timer from '@lucide/svelte/icons/timer';
 	import Users from '@lucide/svelte/icons/users';
 	import AlertCircle from '@lucide/svelte/icons/circle-alert';
-	import Icon from '@iconify/svelte';
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
@@ -176,7 +175,9 @@
 				return;
 			}
 
-			makers = response.data.filter((maker: Maker) => maker.filaments && maker.filaments.length > 0);
+			makers = response.data.filter(
+				(maker: Maker) => maker.filaments && maker.filaments.length > 0
+			);
 			makers.forEach((maker: Maker) => {
 				const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
 				if (Array.isArray(maker.filaments)) {
@@ -230,8 +231,7 @@
 
 		{#if !hasModel}
 			<div
-				class="mt-4 flex items-start gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-3"
-			>
+				class="mt-4 flex items-start gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-3">
 				<AlertCircle class="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
 				<p class="text-sm text-muted-foreground">
 					Upload a model above to unlock maker selection and quote requests.
@@ -261,8 +261,7 @@
 							'overflow-hidden rounded-lg border bg-card transition-colors',
 							isExpanded ? cn('shadow-sm', tierStyle.cardExpanded) : tierStyle.card,
 							isSelf && 'opacity-60'
-						)}
-					>
+						)}>
 						<button
 							type="button"
 							class={cn(
@@ -270,14 +269,17 @@
 								tierStyle.buttonHover
 							)}
 							onclick={() => toggleMaker(maker.maker_id)}
-							aria-expanded={isExpanded}
-						>
+							aria-expanded={isExpanded}>
 							<div class="flex min-w-0 items-center gap-3">
 								<TierBadge tier={maker.tier} iconOnly class="size-10" />
 								<div class="min-w-0">
 									<div class="truncate font-medium text-foreground">{maker.crafter_name}</div>
-									<div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-										<span>{maker.number_of_printers ?? 0} printer{maker.number_of_printers === 1 ? '' : 's'}</span>
+									<div
+										class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+										<span
+											>{maker.number_of_printers ?? 0} printer{maker.number_of_printers === 1
+												? ''
+												: 's'}</span>
 										<span>{maker.completed_orders ?? 0} orders</span>
 										{#if maker.max_printer_size}
 											<span>{maker.max_printer_size} max</span>
@@ -305,7 +307,8 @@
 						</button>
 
 						{#if isSelf}
-							<div class="border-t border-border bg-muted/30 px-4 py-2 text-sm text-muted-foreground">
+							<div
+								class="border-t border-border bg-muted/30 px-4 py-2 text-sm text-muted-foreground">
 								You can't request a quote from yourself.
 							</div>
 						{/if}
@@ -314,8 +317,7 @@
 							<div
 								class={cn('border-t border-border px-4 pb-4 pt-3', isSelf && 'pointer-events-none')}
 								in:slide={{ duration: 200, easing: cubicOut }}
-								out:slide={{ duration: 200, easing: cubicOut }}
-							>
+								out:slide={{ duration: 200, easing: cubicOut }}>
 								<div class="mb-4 flex flex-wrap gap-2">
 									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
 										Affordability {maker.price_rank}/5
@@ -327,8 +329,7 @@
 										{@const response = formatResponseTime(maker.avg_quote_time)}
 										{#if response}
 											<span
-												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs"
-											>
+												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
 												<Timer class="size-3" strokeWidth={1.5} />
 												Response {response}
 											</span>
@@ -359,12 +360,10 @@
 															material = mat;
 														}}
 														aria-label="Select {mat} {filament.color}"
-														title="{mat} · {filament.color}"
-													>
+														title="{mat} · {filament.color}">
 														<span
 															class="block size-full rounded-[4px]"
-															style="background-color: {filament.color};"
-														></span>
+															style="background-color: {filament.color};"></span>
 													</button>
 												{/each}
 											</div>
@@ -388,8 +387,7 @@
 												infill,
 												walls
 											);
-										}}
-									>
+										}}>
 										{#if loadingQuote === maker.maker_id}
 											{#if uploadProgress[maker.maker_id] != null}
 												Requesting quote… {uploadProgress[maker.maker_id]}%
@@ -407,8 +405,8 @@
 										<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
 											<div
 												class="h-full rounded-full bg-foreground transition-all duration-300"
-												style="width: {uploadProgress[maker.maker_id]}%"
-											></div>
+												style="width: {uploadProgress[maker.maker_id]}%">
+											</div>
 										</div>
 									{/if}
 								</div>

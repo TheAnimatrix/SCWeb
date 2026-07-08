@@ -6,8 +6,7 @@ export const TAB_TRANSITION_OUT_DURATION = 150;
 
 function prefersReducedMotion(): boolean {
 	return (
-		typeof window !== 'undefined' &&
-		window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 	);
 }
 

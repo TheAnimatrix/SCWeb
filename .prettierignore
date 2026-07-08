@@ -2,3 +2,10 @@
 pnpm-lock.yaml
 package-lock.json
 yarn.lock
+
+# Build / generated output
+.svelte-kit
+build
+dev-dist/
+api/dist/
+api/drizzle

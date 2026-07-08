@@ -65,8 +65,7 @@
 						href="https://github.com/TheAnimatrix/SCWeb"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors hover:decoration-foreground"
-					>
+						class="text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors hover:decoration-foreground">
 						fork us on github.
 					</a>
 				</p>
@@ -76,8 +75,7 @@
 						target="_blank"
 						rel="noopener noreferrer"
 						class="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-						aria-label="{githubStars} GitHub stars on SCWeb"
-					>
+						aria-label="{githubStars} GitHub stars on SCWeb">
 						<Star class="size-3 fill-current" aria-hidden="true" />
 						<span>{githubStars} {githubStars === 1 ? 'star' : 'stars'}</span>
 					</a>
@@ -93,10 +91,7 @@
 								<a
 									href={link.href}
 									class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-									{...(link.external
-										? { target: '_blank', rel: 'noopener noreferrer' }
-										: {})}
-								>
+									{...link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {}}>
 									{link.label}
 								</a>
 							</li>
@@ -107,8 +102,7 @@
 		</div>
 
 		<div
-			class="mt-12 flex flex-col gap-2 border-t border-border pt-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
-		>
+			class="mt-12 flex flex-col gap-2 border-t border-border pt-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
 			<p>© 2026 selfcrafted_india</p>
 			<PwaInstallButton />
 			<p>made_with_care // the_animatrix</p>

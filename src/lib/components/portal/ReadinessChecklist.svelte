@@ -23,8 +23,7 @@
 		'rounded-md border px-4 py-3',
 		allDone ? 'border-foreground/20 bg-muted/20' : 'border-border bg-card',
 		className
-	)}
->
+	)}>
 	<p class="mb-2 text-xs font-medium text-muted-foreground">Before requesting a quote</p>
 	<ul class="space-y-1.5">
 		{#each items as item (item.label)}

@@ -97,7 +97,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 		}
 
 		const updatedCart = result.data[0];
-		let cartSnapshot: (CartItem & { product_name: string })[] = updatedCart.list as (CartItem & {
+		const cartSnapshot: (CartItem & { product_name: string })[] = updatedCart.list as (CartItem & {
 			product_name: string;
 		})[];
 

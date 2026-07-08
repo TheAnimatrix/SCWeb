@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
 	import * as Select from '$lib/components/ui/select';
 
 	interface Props {
@@ -7,21 +6,26 @@
 		defaultSelected?: number;
 	}
 
-	let { productSelect = [
-		{ value: 'V1', label: 'V1' },
-		{ value: 'V2', label: 'V2' }
-	], defaultSelected = 1 }: Props = $props();
+	let {
+		productSelect = [
+			{ value: 'V1', label: 'V1' },
+			{ value: 'V2', label: 'V2' }
+		],
+		defaultSelected = 1
+	}: Props = $props();
 	let productSelected = $state(productSelect[defaultSelected]);
 
 	let isFocused = $state(false);
-	let focused = (openstate:boolean)=>{
+	let focused = (openstate: boolean) => {
 		isFocused = openstate;
-	}
+	};
 </script>
 
 <div>
 	<div class="flex flex-col bg-scpurpled3 w-fit min-w-[50%] rounded-xl">
-		<div class="{isFocused?"top_line":"top_line_inactive"} w-[50%] self-start ml-4 animate_base"></div>
+		<div
+			class="{isFocused ? 'top_line' : 'top_line_inactive'} w-[50%] self-start ml-4 animate_base">
+		</div>
 		<div class="flex justify-between items-center">
 			<Select.Root portal={null} bind:selected={productSelected} onOpenChange={focused}>
 				<Select.Trigger class="w-[100%] border-opacity-0 m-1 ml-2">
@@ -38,7 +42,7 @@
 						{/each}
 					</Select.Group>
 				</Select.Content>
-				<Select.Input name="variant"/>
+				<Select.Input name="variant" />
 			</Select.Root>
 		</div>
 	</div>
@@ -52,7 +56,7 @@
 		background: linear-gradient(270deg, #9350e9 5.55%, #b378ff 91.01%, #b378ff 91.01%);
 		box-shadow: 0px 9px 34px 6px rgba(224, 157, 255, 0.31);
 	}
-	.top_line_inactive{
+	.top_line_inactive {
 		height: 1.5px;
 		border-radius: 2px;
 		@apply bg-scpurple;

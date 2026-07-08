@@ -1,4 +1,3 @@
-/* eslint-disable no-irregular-whitespace */
 const origin: string = `* **Frustration with the Maker Ecosystem**: <br/>  Born out of frustration with the challenges in India's maker ecosystem, including import bans, high customs fees, and lack of local tooling options.
 
 * **Impact on Individual Makers**: <br/>  Individual makers face difficulties due to these issues, affecting their ability to pursue their passion and contribute to innovation.

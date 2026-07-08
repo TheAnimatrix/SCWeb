@@ -61,7 +61,7 @@
 	}
 
 	$effect(() => {
-		products;
+		void products;
 		activeIndex = 0;
 	});
 
@@ -96,137 +96,128 @@
 
 {#if activeProduct}
 	<div class="relative isolate">
-	<div
-		class="glow-ring pointer-events-none absolute -inset-0.5 -z-10 rounded-lg opacity-40 blur-md"
-		aria-hidden="true"
-	></div>
-	<div
-		class="overflow-hidden rounded-lg border border-border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-		role="region"
-		aria-roledescription="carousel"
-		aria-label="Featured crafts"
-		tabindex="0"
-		onkeydown={handleKeydown}
-		onmouseenter={() => (paused = true)}
-		onmouseleave={() => (paused = false)}
-		onfocusin={() => (paused = true)}
-		onfocusout={(event) => {
-			if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-				paused = false;
-			}
-		}}
-	>
 		<div
-			class="border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground"
-		>
-			<span class="glow-text">Featured</span>
+			class="glow-ring pointer-events-none absolute -inset-0.5 -z-10 rounded-lg opacity-40 blur-md"
+			aria-hidden="true">
 		</div>
-
-		<div class="overflow-hidden">
+		<div
+			class="overflow-hidden rounded-lg border border-border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+			role="region"
+			aria-roledescription="carousel"
+			aria-label="Featured crafts"
+			tabindex="0"
+			onkeydown={handleKeydown}
+			onmouseenter={() => (paused = true)}
+			onmouseleave={() => (paused = false)}
+			onfocusin={() => (paused = true)}
+			onfocusout={(event) => {
+				if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+					paused = false;
+				}
+			}}>
 			<div
-				class="flex transition-transform duration-300 ease-out"
-				style:transform="translateX(-{activeIndex * 100}%)"
-			>
-				{#each products as product (product.id)}
-					<a
-						href={productHref(product)}
-						class="group block w-full shrink-0 transition-colors hover:border-foreground/30"
-						aria-hidden={product.id !== activeProduct.id}
-						tabindex={product.id === activeProduct.id ? 0 : -1}
-					>
-						<div class="grid grid-cols-[minmax(0,42%)_1fr] sm:grid-cols-[minmax(0,240px)_1fr]">
-							<div class="aspect-[4/5] overflow-hidden sm:min-h-full">
-								<PlaceholderImage
-									src={product.images?.[0]?.url ?? null}
-									alt={product.name}
-									class="transition-transform duration-500 group-hover:scale-105"
-								/>
-							</div>
+				class="border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground">
+				<span class="glow-text">Featured</span>
+			</div>
 
-							<div class="flex min-w-0 flex-col justify-between gap-3 p-4 sm:gap-4 sm:p-6">
-								<div class="space-y-2 sm:space-y-3">
-									<h2 class="text-base font-medium leading-snug text-foreground sm:text-xl">
-										{product.name}
-									</h2>
+			<div class="overflow-hidden">
+				<div
+					class="flex transition-transform duration-300 ease-out"
+					style:transform="translateX(-{activeIndex * 100}%)">
+					{#each products as product (product.id)}
+						<a
+							href={productHref(product)}
+							class="group block w-full shrink-0 transition-colors hover:border-foreground/30"
+							aria-hidden={product.id !== activeProduct.id}
+							tabindex={product.id === activeProduct.id ? 0 : -1}>
+							<div class="grid grid-cols-[minmax(0,42%)_1fr] sm:grid-cols-[minmax(0,240px)_1fr]">
+								<div class="aspect-[4/5] overflow-hidden sm:min-h-full">
+									<PlaceholderImage
+										src={product.images?.[0]?.url ?? null}
+										alt={product.name}
+										class="transition-transform duration-500 group-hover:scale-105" />
+								</div>
 
-									<div class="space-y-1 text-sm text-muted-foreground">
-										<p class="truncate text-foreground">@{makerName(product)}</p>
-										<p class="inline-flex items-center gap-1">
-											<Package class="size-3.5 shrink-0" aria-hidden="true" />
-											{product.stock.count} units
-										</p>
-										{#if product.rating}
+								<div class="flex min-w-0 flex-col justify-between gap-3 p-4 sm:gap-4 sm:p-6">
+									<div class="space-y-2 sm:space-y-3">
+										<h2 class="text-base font-medium leading-snug text-foreground sm:text-xl">
+											{product.name}
+										</h2>
+
+										<div class="space-y-1 text-sm text-muted-foreground">
+											<p class="truncate text-foreground">@{makerName(product)}</p>
 											<p class="inline-flex items-center gap-1">
-												<Star
-													class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
-													aria-hidden="true"
-												/>
-												{product.rating.rating}
-												<span class="text-muted-foreground">
-													({product.rating.count} review{product.rating.count === 1 ? '' : 's'})
-												</span>
+												<Package class="size-3.5 shrink-0" aria-hidden="true" />
+												{product.stock.count} units
+											</p>
+											{#if product.rating}
+												<p class="inline-flex items-center gap-1">
+													<Star
+														class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+														aria-hidden="true" />
+													{product.rating.rating}
+													<span class="text-muted-foreground">
+														({product.rating.count} review{product.rating.count === 1 ? '' : 's'})
+													</span>
+												</p>
+											{/if}
+										</div>
+									</div>
+
+									<div class="text-right">
+										{#if formatOldPrice(product)}
+											<p class="text-sm font-medium text-muted-foreground line-through">
+												₹{formatOldPrice(product)}
 											</p>
 										{/if}
+										<p class="text-xl font-bold tracking-tight text-foreground sm:text-3xl">
+											₹{formatPrice(product)}
+										</p>
 									</div>
 								</div>
-
-								<div class="text-right">
-									{#if formatOldPrice(product)}
-										<p class="text-sm font-medium text-muted-foreground line-through">
-											₹{formatOldPrice(product)}
-										</p>
-									{/if}
-									<p class="text-xl font-bold tracking-tight text-foreground sm:text-3xl">
-										₹{formatPrice(product)}
-									</p>
-								</div>
 							</div>
-						</div>
-					</a>
-				{/each}
-			</div>
-		</div>
-
-		{#if hasMultiple}
-			<div class="flex items-center justify-center gap-3 border-t border-border px-4 py-3">
-				<button
-					type="button"
-					class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
-					aria-label="Previous featured craft"
-					onclick={goPrev}
-				>
-					<ChevronLeft class="size-4" />
-				</button>
-
-				<div class="flex items-center gap-1.5">
-					{#each products as product, index (product.id)}
-						<button
-							type="button"
-							class="h-1.5 rounded-full transition-all {index === activeIndex
-								? 'w-5 bg-foreground'
-								: 'w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'}"
-							aria-label="Go to featured craft {index + 1}"
-							aria-current={index === activeIndex ? 'true' : undefined}
-							onclick={() => goTo(index)}
-						></button>
+						</a>
 					{/each}
 				</div>
-
-				<button
-					type="button"
-					class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
-					aria-label="Next featured craft"
-					onclick={goNext}
-				>
-					<ChevronRight class="size-4" />
-				</button>
 			</div>
-		{/if}
-	</div>
-	<div
-		class="glow-ring glow-border pointer-events-none absolute inset-0 rounded-lg opacity-80"
-		aria-hidden="true"
-	></div>
+
+			{#if hasMultiple}
+				<div class="flex items-center justify-center gap-3 border-t border-border px-4 py-3">
+					<button
+						type="button"
+						class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+						aria-label="Previous featured craft"
+						onclick={goPrev}>
+						<ChevronLeft class="size-4" />
+					</button>
+
+					<div class="flex items-center gap-1.5">
+						{#each products as product, index (product.id)}
+							<button
+								type="button"
+								class="h-1.5 rounded-full transition-all {index === activeIndex
+									? 'w-5 bg-foreground'
+									: 'w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'}"
+								aria-label="Go to featured craft {index + 1}"
+								aria-current={index === activeIndex ? 'true' : undefined}
+								onclick={() => goTo(index)}></button>
+						{/each}
+					</div>
+
+					<button
+						type="button"
+						class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+						aria-label="Next featured craft"
+						onclick={goNext}>
+						<ChevronRight class="size-4" />
+					</button>
+				</div>
+			{/if}
+		</div>
+		<div
+			class="glow-ring glow-border pointer-events-none absolute inset-0 rounded-lg opacity-80"
+			aria-hidden="true">
+		</div>
 	</div>
 {/if}
 

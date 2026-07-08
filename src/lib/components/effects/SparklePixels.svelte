@@ -108,9 +108,7 @@
 			const strength = Math.max(0, Math.min(1, intensity));
 
 			for (const sparkle of sparkles) {
-				const twinkleMod = sparkle.twinkle
-					? 0.7 + Math.sin(time * 3 + sparkle.phase) * 0.3
-					: 1;
+				const twinkleMod = sparkle.twinkle ? 0.7 + Math.sin(time * 3 + sparkle.phase) * 0.3 : 1;
 				const alpha = sparkle.baseAlpha * twinkleMod * strength;
 				if (alpha < 0.03) continue;
 
@@ -155,5 +153,4 @@
 	bind:this={canvas}
 	class={cn('pointer-events-none absolute inset-0 z-0 h-full w-full', className)}
 	style:mix-blend-mode={blendMode}
-	aria-hidden="true"
-></canvas>
+	aria-hidden="true"></canvas>

@@ -105,7 +105,8 @@
 		--gg-glow-noise-opacity: 0.5;
 		--gg-noise-fine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.05' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
 		--gg-noise-coarse: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3C/svg%3E");
-		--gg-glow-gradient: radial-gradient(
+		--gg-glow-gradient:
+			radial-gradient(
 				ellipse 130% 95% at 50% -18%,
 				rgb(232 121 249 / calc(var(--gg-magenta) * var(--gg-color-scale))),
 				transparent 78%

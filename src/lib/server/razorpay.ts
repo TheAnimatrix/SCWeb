@@ -9,9 +9,7 @@ export function verifyRazorpaySignature(
 	signature: string,
 	secret: string
 ): boolean {
-	const expected = createHmac('sha256', secret)
-		.update(`${orderId}|${paymentId}`)
-		.digest('hex');
+	const expected = createHmac('sha256', secret).update(`${orderId}|${paymentId}`).digest('hex');
 
 	const normalizedSignature = signature.trim().toLowerCase();
 
@@ -20,10 +18,7 @@ export function verifyRazorpaySignature(
 	}
 
 	try {
-		return timingSafeEqual(
-			Buffer.from(expected, 'utf8'),
-			Buffer.from(normalizedSignature, 'utf8')
-		);
+		return timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(normalizedSignature, 'utf8'));
 	} catch {
 		return false;
 	}

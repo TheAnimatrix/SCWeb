@@ -15,7 +15,7 @@ export const load: LayoutLoad = async ({ route, parent, url }) => {
 		// }
 	} else {
 		if (route.id?.includes('/(authenticated)/')) {
-            const postLoginRedirect = `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`;
+			const postLoginRedirect = `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`;
 			redirect(303, postLoginRedirect);
 		}
 	}

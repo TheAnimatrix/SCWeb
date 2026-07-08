@@ -9,9 +9,7 @@
 	let { label, class: className }: Props = $props();
 
 	const displayLabel = $derived(
-		label
-			.replace(/_/g, ' ')
-			.replace(/\b\w/g, (char) => char.toUpperCase())
+		label.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 	);
 </script>
 

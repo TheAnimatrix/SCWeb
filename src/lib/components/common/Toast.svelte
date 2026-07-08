@@ -52,11 +52,9 @@
 		in:fly={{ y: 16, duration: 300, easing: cubicOut }}
 		out:fade={{ duration: 150 }}
 		role="status"
-		aria-live="polite"
-	>
+		aria-live="polite">
 		<div
-			class="pointer-events-auto overflow-hidden rounded-md border border-border bg-card shadow-lg"
-		>
+			class="pointer-events-auto overflow-hidden rounded-md border border-border bg-card shadow-lg">
 			<div class="flex items-start gap-3 p-4">
 				<div class={cn('mt-0.5 shrink-0', config.iconColor)} aria-hidden="true">
 					<IconComponent class="size-4" />
@@ -73,8 +71,7 @@
 					type="button"
 					class="inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					aria-label="Dismiss notification"
-					onclick={toastStore.hide}
-				>
+					onclick={toastStore.hide}>
 					<X class="size-3.5" />
 				</button>
 			</div>

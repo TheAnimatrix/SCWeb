@@ -274,7 +274,14 @@
 				const rgb = particleDrawRgb(particleRgb, particle.accentRgb, particle.isAccent);
 
 				if (particle.isAccent) {
-					drawGlowRadialBlob(accentCtx, particle.x, particle.y, particle.radius, rgb, particle.alpha);
+					drawGlowRadialBlob(
+						accentCtx,
+						particle.x,
+						particle.y,
+						particle.radius,
+						rgb,
+						particle.alpha
+					);
 				} else {
 					ctx.beginPath();
 					const gradient = ctx.createRadialGradient(
@@ -367,9 +374,7 @@
 				}
 
 				const topFade =
-					y < height * 0.15
-						? Math.max(dot.isAccent ? 0.45 : 0, y / (height * 0.15))
-						: 1;
+					y < height * 0.15 ? Math.max(dot.isAccent ? 0.45 : 0, y / (height * 0.15)) : 1;
 				const baseAlpha = dot.alpha * (0.2 + fall * 0.55) * topFade;
 				const alpha = dot.isAccent ? Math.min(1, baseAlpha * 1.35) : baseAlpha;
 
@@ -431,13 +436,9 @@
 <div
 	class="smoke-container pointer-events-none absolute inset-0 z-0 overflow-hidden"
 	class:brutalist={variant === 'brutalist'}
-	style="opacity: {opacity}"
->
+	style="opacity: {opacity}">
 	<div bind:this={colorHelper} class="hidden" style="background-color: {resolvedColor}"></div>
-	<canvas
-		bind:this={smokeCanvas}
-		class="h-full w-full"
-		style="mix-blend-mode: {resolvedBlendMode}"
+	<canvas bind:this={smokeCanvas} class="h-full w-full" style="mix-blend-mode: {resolvedBlendMode}"
 	></canvas>
 	<canvas bind:this={accentCanvas} class="accent-glow-canvas" aria-hidden="true"></canvas>
 	{#if variant === 'brutalist'}
@@ -445,8 +446,8 @@
 		<div
 			class="brutalist-grid pointer-events-none absolute inset-0"
 			style="background-size: {gridSize}px {gridSize}px"
-			aria-hidden="true"
-		></div>
+			aria-hidden="true">
+		</div>
 	{/if}
 </div>
 

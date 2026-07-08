@@ -14,15 +14,14 @@
 </script>
 
 <span
-		class={cn(
+	class={cn(
 		'inline-flex max-w-full items-center rounded-md border text-xs font-medium',
 		emphasized
 			? 'relative overflow-hidden border-foreground/25 bg-muted px-2.5 py-1 font-semibold text-foreground'
 			: cn('px-2 py-0.5', tintClass),
 		className
 	)}
-	data-emphasized={emphasized || undefined}
->
+	data-emphasized={emphasized || undefined}>
 	{#if emphasized}
 		<span class="sc-stripes-bold pointer-events-none absolute inset-0" aria-hidden="true"></span>
 	{/if}

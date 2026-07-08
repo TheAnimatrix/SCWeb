@@ -17,9 +17,7 @@
 	let container = $state<HTMLElement | null>(null);
 
 	const showInstall = $derived(
-		browser &&
-			!isStandaloneDisplayMode() &&
-			($installEvent !== null || isIosDevice())
+		browser && !isStandaloneDisplayMode() && ($installEvent !== null || isIosDevice())
 	);
 
 	onMount(() => {
@@ -61,8 +59,7 @@
 			}}
 			disabled={$installing}
 			aria-expanded={showIosInstructions}
-			aria-haspopup={isIosDevice() && !$installEvent ? 'dialog' : undefined}
-		>
+			aria-haspopup={isIosDevice() && !$installEvent ? 'dialog' : undefined}>
 			<Download class="size-3" aria-hidden="true" />
 			<span>{$installing ? 'installing…' : 'install_app'}</span>
 		</button>
@@ -71,8 +68,7 @@
 			<div
 				role="region"
 				aria-label="Install on iOS"
-				class="absolute bottom-full right-0 z-50 mb-2 w-56 rounded-md border border-border bg-card p-3 shadow-lg"
-			>
+				class="absolute bottom-full right-0 z-50 mb-2 w-56 rounded-md border border-border bg-card p-3 shadow-lg">
 				<p class="mb-2 text-xs text-muted-foreground">Add to your home screen:</p>
 				<ol class="space-y-1.5 text-xs text-muted-foreground">
 					<li class="flex items-center gap-2">
