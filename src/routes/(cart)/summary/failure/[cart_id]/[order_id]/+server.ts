@@ -53,11 +53,15 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 		return json({ error: false, message: 'Payment already marked failed' });
 	}
 
+	if (cart.status !== 'payment_pending') {
+		return json({ error: true, message: 'Cart is not awaiting payment' }, { status: 400 });
+	}
+
 	const { error: updateError } = await locals.supabaseAdmin
 		.from('cart')
 		.update({ status: 'failed' })
 		.eq('id', cartId)
-		.neq('status', 'paid');
+		.eq('status', 'payment_pending');
 
 	if (updateError) {
 		return json({ error: true, message: updateError.message }, { status: 400 });

@@ -86,6 +86,10 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 			return json({ error: false, message: 'ok' });
 		}
 
+		if (cartData.status !== 'payment_pending') {
+			return json({ error: true, message: 'Invalid cart state for payment' }, { status: 400 });
+		}
+
 		if (await purchaseAlreadyPaid(locals.supabaseAdmin, paymentIdB)) {
 			return json({ error: false, message: 'ok' });
 		}
@@ -99,14 +103,17 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 				status: 'paid'
 			})
 			.eq('id', cartData.id)
-			.eq('status', cartData.status ?? 'active')
+			.eq('status', 'payment_pending')
 			.select();
 
 		if (result.error) {
 			return json({ error: true, message: result.error.message }, { status: 400 });
 		}
 		if (!result.data?.length) {
-			return json({ error: false, message: 'ok' });
+			if (await purchaseAlreadyPaid(locals.supabaseAdmin, paymentIdB)) {
+				return json({ error: false, message: 'ok' });
+			}
+			return json({ error: true, message: 'Payment already finalized' }, { status: 409 });
 		}
 
 		const updatedCart = result.data[0];
@@ -122,20 +129,6 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 			const foundItem = cartSnapshot.find((i) => i.product_id === item.product_id);
 			if (foundItem && result_get_stock.data?.[0]?.name) {
 				foundItem.product_name = result_get_stock.data[0].name;
-			}
-			if (result_get_stock?.data?.length) {
-				const currentStock = result_get_stock.data[0].stock;
-				if (!isOnDemand(currentStock)) {
-					await locals.supabaseAdmin
-						.from('products')
-						.update({
-							stock: {
-								count: currentStock.count - item.qty,
-								status: currentStock.status
-							}
-						})
-						.eq('id', item.product_id);
-				}
 			}
 		}
 
@@ -159,6 +152,27 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 				return json({ error: false, message: 'ok' });
 			}
 			return json({ error: true, message: purchaseError.message }, { status: 400 });
+		}
+
+		for (const item of updatedCart.list as CartItem[]) {
+			const result_get_stock = await locals.supabaseAdmin
+				.from('products')
+				.select()
+				.eq('id', item.product_id);
+			if (result_get_stock?.data?.length) {
+				const currentStock = result_get_stock.data[0].stock;
+				if (!isOnDemand(currentStock)) {
+					await locals.supabaseAdmin
+						.from('products')
+						.update({
+							stock: {
+								count: currentStock.count - item.qty,
+								status: currentStock.status
+							}
+						})
+						.eq('id', item.product_id);
+				}
+			}
 		}
 
 		return json({ error: false, message: 'ok' });
@@ -198,6 +212,32 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
 		if (orderData.status === 'paid') {
 			return json({ error: true, message: 'Order already paid' }, { status: 400 });
+		}
+
+		if (orderData.status === 'payment_pending') {
+			if (orderData.payment_id_a && orderData.price) {
+				return json(
+					{
+						error: false,
+						message: 'Order already created',
+						orderId: orderData.payment_id_a,
+						amount: orderData.price * 100
+					},
+					{ status: 200 }
+				);
+			}
+			return json({ error: true, message: 'Cart is already awaiting payment' }, { status: 409 });
+		}
+
+		if (orderData.status === 'failed') {
+			return json(
+				{ error: true, message: 'Cart payment failed; please start a new order' },
+				{ status: 400 }
+			);
+		}
+
+		if (orderData.status !== 'active') {
+			return json({ error: true, message: 'Invalid cart state for checkout' }, { status: 400 });
 		}
 
 		if ((orderData.list ?? []).length <= 0) {
@@ -242,7 +282,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 				currency: 'INR',
 				receipt: orderData.id
 			});
-			await locals.supabaseAdmin
+			const updateResult = await locals.supabaseAdmin
 				.from('cart')
 				.update({
 					payment_id_a: paymentOrderResult.id,
@@ -250,7 +290,43 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 					price: totalPrice,
 					status: 'payment_pending'
 				})
-				.eq('id', orderData.id);
+				.eq('id', orderData.id)
+				.eq('status', 'active')
+				.select();
+
+			if (updateResult.error) {
+				return json({ error: true, message: updateResult.error.message }, { status: 400 });
+			}
+
+			if (!updateResult.data?.length) {
+				const refreshed = await locals.supabaseAdmin
+					.from('cart')
+					.select()
+					.eq('id', orderData.id)
+					.maybeSingle();
+
+				if (
+					refreshed.data?.status === 'payment_pending' &&
+					refreshed.data.payment_id_a &&
+					refreshed.data.price
+				) {
+					return json(
+						{
+							error: false,
+							message: 'Order already created',
+							orderId: refreshed.data.payment_id_a,
+							amount: refreshed.data.price * 100
+						},
+						{ status: 200 }
+					);
+				}
+
+				return json(
+					{ error: true, message: 'Unable to start checkout for this cart' },
+					{ status: 409 }
+				);
+			}
+
 			return json(
 				{
 					error: false,

@@ -13,12 +13,17 @@ export function verifyRazorpaySignature(
 		.update(`${orderId}|${paymentId}`)
 		.digest('hex');
 
-	if (expected.length !== signature.length) {
+	const normalizedSignature = signature.trim().toLowerCase();
+
+	if (expected.length !== normalizedSignature.length) {
 		return false;
 	}
 
 	try {
-		return timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(signature, 'utf8'));
+		return timingSafeEqual(
+			Buffer.from(expected, 'utf8'),
+			Buffer.from(normalizedSignature, 'utf8')
+		);
 	} catch {
 		return false;
 	}

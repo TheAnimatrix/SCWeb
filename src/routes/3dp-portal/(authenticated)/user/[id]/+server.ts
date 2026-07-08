@@ -188,6 +188,10 @@ export const PATCH = (async ({ params, request, locals, cookies }) => {
 		return json({ error: 'Order id mismatch' }, { status: 400 });
 	}
 
+	if (!printRequest.order_id) {
+		return json({ error: 'No payment order found for this request' }, { status: 400 });
+	}
+
 	if (await purchaseAlreadyPaid(supabaseAdmin, payment_id_b)) {
 		return json({ success: true }, { status: 200 });
 	}
@@ -195,6 +199,27 @@ export const PATCH = (async ({ params, request, locals, cookies }) => {
 	const latestQuote = getLatestQuote(printRequest.events);
 	if (latestQuote === null) {
 		return json({ error: 'No valid quote found for this request' }, { status: 400 });
+	}
+
+	const purchaseInsert = {
+		payment_status: 'paid',
+		payment_method: 'razorpay:PrintRequest',
+		payment_id: payment_id_a,
+		payment_id_b: payment_id_b,
+		billing_address: printRequest.address?.billing,
+		shipping_address: printRequest.address?.shipping,
+		client_id: cookies.get(CLIENT_ID_COOKIE_NAME) ?? 'N/A',
+		cart_id: id,
+		amount: latestQuote,
+		uid: user.id
+	};
+
+	const { error: purchaseError } = await supabaseAdmin.from('purchases').insert([purchaseInsert]);
+	if (purchaseError) {
+		if (purchaseError.code === '23505') {
+			return json({ success: true }, { status: 200 });
+		}
+		return json({ error: 'Error adding purchase record' }, { status: 500 });
 	}
 
 	const newEvent = {
@@ -226,27 +251,6 @@ export const PATCH = (async ({ params, request, locals, cookies }) => {
 
 	if (updateError) {
 		return json({ error: 'Error updating print request' }, { status: 500 });
-	}
-
-	const purchaseInsert = {
-		payment_status: 'paid',
-		payment_method: 'razorpay:PrintRequest',
-		payment_id: payment_id_a,
-		payment_id_b: payment_id_b,
-		billing_address: printRequest.address?.billing,
-		shipping_address: printRequest.address?.shipping,
-		client_id: cookies.get(CLIENT_ID_COOKIE_NAME) ?? 'N/A',
-		cart_id: id,
-		amount: latestQuote,
-		uid: user.id
-	};
-
-	const { error: purchaseError } = await supabaseAdmin.from('purchases').insert([purchaseInsert]);
-	if (purchaseError) {
-		if (purchaseError.code === '23505') {
-			return json({ success: true }, { status: 200 });
-		}
-		return json({ error: 'Error adding purchase record' }, { status: 500 });
 	}
 
 	return json({ success: true }, { status: 200 });
