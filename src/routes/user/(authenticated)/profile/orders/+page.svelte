@@ -18,9 +18,8 @@
 		return requireBrowserSupabase(data.supabase);
 	}
 
-	let orders: Orders = $state([]);
-	orders = data.orders;
-	let visible = $state(Array(orders.length).fill(false));
+	let orders: Orders = $state(data.orders);
+	let visible = $state(Array(data.orders.length).fill(false));
 
 	const isPageLoading = $derived(
 		page.url.pathname.startsWith('/user/profile/orders') && !!navigating.to

@@ -148,7 +148,7 @@
 	});
 
 	// Add ModelViewer reference
-	let modelViewer: ModelViewer;
+	let modelViewer = $state<ModelViewer | undefined>(undefined);
 
 	const portalSteps = $derived([
 		{ id: 'upload', label: 'Upload', done: modelLoaded },
@@ -744,10 +744,6 @@
 </div>
 
 <style>
-	input[type='number'] {
-		-moz-appearance: textfield;
-	}
-
 	input::-webkit-outer-spin-button,
 	input::-webkit-inner-spin-button {
 		-webkit-appearance: none;

@@ -66,7 +66,7 @@
 		try {
 			const result = await getModelDownloadUrl(fetch, printRequestId);
 			if (!result.ok) {
-				alert(result.error.message);
+				toastStore.show(result.error.message, 'error');
 				downloading = -1;
 				downloadProgress = 0;
 				return;
@@ -79,10 +79,10 @@
 					downloading = -1;
 					downloadProgress = 0;
 				},
-				onError: (message) => alert(message)
+				onError: (message) => toastStore.show(message, 'error')
 			});
 		} catch {
-			alert('Error downloading model');
+			toastStore.show('Error downloading model', 'error');
 			downloading = -1;
 			downloadProgress = 0;
 		}

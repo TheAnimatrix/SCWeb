@@ -102,20 +102,10 @@
 			aria-hidden="true">
 		</div>
 		<div
-			class="overflow-hidden rounded-lg border border-border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+			class="overflow-hidden rounded-lg border border-border bg-card"
 			role="region"
 			aria-roledescription="carousel"
-			aria-label="Featured crafts"
-			tabindex="0"
-			onkeydown={handleKeydown}
-			onmouseenter={() => (paused = true)}
-			onmouseleave={() => (paused = false)}
-			onfocusin={() => (paused = true)}
-			onfocusout={(event) => {
-				if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-					paused = false;
-				}
-			}}>
+			aria-label="Featured crafts">
 			<div
 				class="border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground">
 				<span class="glow-text">Featured</span>
@@ -130,7 +120,16 @@
 							href={productHref(product)}
 							class="group block w-full shrink-0 transition-colors hover:border-foreground/30"
 							aria-hidden={product.id !== activeProduct.id}
-							tabindex={product.id === activeProduct.id ? 0 : -1}>
+							tabindex={product.id === activeProduct.id ? 0 : -1}
+							onmouseenter={() => (paused = true)}
+							onmouseleave={() => (paused = false)}
+							onfocus={() => (paused = true)}
+							onblur={(event) => {
+								if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+									paused = false;
+								}
+							}}
+							onkeydown={handleKeydown}>
 							<div class="grid grid-cols-[minmax(0,42%)_1fr] sm:grid-cols-[minmax(0,240px)_1fr]">
 								<div class="aspect-[4/5] overflow-hidden sm:min-h-full">
 									<PlaceholderImage
@@ -188,6 +187,11 @@
 						type="button"
 						class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
 						aria-label="Previous featured craft"
+						onmouseenter={() => (paused = true)}
+						onmouseleave={() => (paused = false)}
+						onfocus={() => (paused = true)}
+						onblur={() => (paused = false)}
+						onkeydown={handleKeydown}
 						onclick={goPrev}>
 						<ChevronLeft class="size-4" />
 					</button>
@@ -201,6 +205,11 @@
 									: 'w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'}"
 								aria-label="Go to featured craft {index + 1}"
 								aria-current={index === activeIndex ? 'true' : undefined}
+								onmouseenter={() => (paused = true)}
+								onmouseleave={() => (paused = false)}
+								onfocus={() => (paused = true)}
+								onblur={() => (paused = false)}
+								onkeydown={handleKeydown}
 								onclick={() => goTo(index)}></button>
 						{/each}
 					</div>
@@ -209,6 +218,11 @@
 						type="button"
 						class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
 						aria-label="Next featured craft"
+						onmouseenter={() => (paused = true)}
+						onmouseleave={() => (paused = false)}
+						onfocus={() => (paused = true)}
+						onblur={() => (paused = false)}
+						onkeydown={handleKeydown}
 						onclick={goNext}>
 						<ChevronRight class="size-4" />
 					</button>
