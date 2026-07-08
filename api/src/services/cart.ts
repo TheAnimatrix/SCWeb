@@ -120,6 +120,8 @@ export function computeCartTotals(
 export type ProductSnapshot = {
 	id: string;
 	name: string | null;
+	author: string | null;
+	guarantee: string | null;
 	price: { new: number; old: number } | null;
 	stock: unknown;
 	images: { url: string }[] | null;
@@ -138,6 +140,8 @@ export function mapProductToCartItem(product: ProductSnapshot, qty: number): Car
 		productId: product.id,
 		qty,
 		name: product.name ?? '',
+		author: product.author,
+		guarantee: product.guarantee,
 		imageUrl,
 		unitPrice,
 		stock: {

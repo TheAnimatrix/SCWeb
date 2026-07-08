@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
 	import { type Writable } from 'svelte/store';
-	import type { Session, SupabaseClient } from '@supabase/supabase-js';
+	import type { CartView } from '@scweb/api/contracts';
 	import Minus from '@lucide/svelte/icons/minus';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -13,9 +13,8 @@
 	import Lock from '@lucide/svelte/icons/lock';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import { Breadcrumbs } from '$lib/components/shell';
-	import { ScButton, StockBar, Skeleton, PlaceholderImage } from '$lib/components/sc';
-	import { changeCart, type Cart, type CartG } from '$lib/client/cart';
-	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
+	import { ScButton, StockBar, PlaceholderImage } from '$lib/components/sc';
+	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { cn } from '$lib/utils';
 	import { canFulfillQuantity, getPurchasableLimit, isOnDemand } from '$lib/utils/stock';
@@ -26,28 +25,26 @@
 		data
 	}: {
 		data: {
-			cart: { data: Cart; error: boolean };
-			supabase_lt: SupabaseClient;
-			clientId: string;
-			session: Session | null;
+			cart: CartView | null;
+			apiError: boolean;
 		};
 	} = $props();
 
-	let cartDetails: Cart | undefined = $state(data.cart.data);
+	let cartDetails: CartView | null = $state(data.cart);
 	let isUpdatingCart = $state(false);
 	let highlightedRow: number | null = $state(null);
-	let quantityList = $state(data.cart.data?.list?.map((item) => item.qty.toString()) ?? []);
-	let cartSubtotal = $state(calculateCartSubtotal(data.cart.data?.list ?? []));
-	let productDetailsCache: Record<string, any> = {};
+	let quantityList = $state(data.cart?.items.map((item) => item.qty.toString()) ?? []);
 
-	const cartItems = $derived(cartDetails?.list ?? []);
+	const cartItems = $derived(cartDetails?.items ?? []);
 	const hasItems = $derived(cartItems.length > 0);
+	const cartSubtotal = $derived(cartDetails?.subtotal ?? 0);
+	const deliveryFee = $derived(cartDetails?.deliveryFee ?? 0);
+	const cartTotal = $derived(cartDetails?.total ?? 0);
 
 	$effect(() => {
-		if (data.cart.data) {
-			cartDetails = data.cart.data;
-			quantityList = data.cart.data.list?.map((item) => item.qty.toString()) ?? [];
-			cartSubtotal = calculateCartSubtotal(data.cart.data.list ?? []);
+		if (data.cart) {
+			cartDetails = data.cart;
+			quantityList = data.cart.items.map((item) => item.qty.toString());
 		}
 	});
 
@@ -55,66 +52,47 @@
 		return `/${name.replaceAll(' ', '_')}/craft/item=${id}`;
 	}
 
-	async function getItemDetails(itemId: string) {
-		if (productDetailsCache[itemId]) return productDetailsCache[itemId];
-		const result = await data.supabase_lt.from('products').select('*').eq('id', itemId);
-		if (result.data && result.data[0]) {
-			productDetailsCache[itemId] = result.data[0];
-			return result.data[0];
-		}
-		return null;
-	}
-
-	function calculateCartSubtotal(list: { price: number; qty: number }[]) {
-		let total = 0;
-		list.forEach((item) => {
-			total += item.price * item.qty;
-		});
-		return total;
-	}
-
 	function calculateTotalPrice(itemPrice: number, itemQuantity: number) {
 		return itemPrice * itemQuantity;
 	}
 
-	function isStockAvailable(stock: { count: number; status?: string }, itemQuantity: number) {
+	function isStockAvailable(
+		stock: { count: number; status?: string | null },
+		itemQuantity: number
+	) {
 		return canFulfillQuantity(stock, itemQuantity);
 	}
 
 	async function updateCartQuantity(
 		index: number,
 		quantity: number,
-		stock: { count: number; status?: string }
+		stock: { count: number; status?: string | null }
 	) {
 		if (isUpdatingCart) return;
-		if (!cartDetails?.list) return;
+		if (!cartDetails?.items) return;
 
+		const item = cartDetails.items[index];
 		const limit = getPurchasableLimit(stock);
 
 		if (!isNaN(quantity) && isStockAvailable(stock, quantity)) {
 			isUpdatingCart = true;
-			const product = { ...cartDetails.list[index] };
-			product.qty = quantity;
 
 			try {
-				const success = await changeCart(
-					data.supabase_lt,
-					cart_store,
-					product,
-					limit,
-					data.clientId,
-					true
-				);
-				if (!success.error) {
+				const result = await setCartItem(fetch, item.productId, quantity, 'set');
+				if (result.ok) {
+					cartDetails = result.data.cart;
+					syncCartStore(cart_store, result.data.cart);
 					await invalidate('cart:change');
 					highlightRow(index);
 				} else {
-					toastStore.show(success.data, 'error');
-					quantityList[index] = cartDetails.list[index].qty.toString();
+					toastStore.show(result.error.message, 'error');
+					quantityList[index] = cartDetails.items[index].qty.toString();
 				}
 			} catch (err) {
 				console.error('Error updating cart:', err);
-				quantityList[index] = cartDetails.list[index].qty.toString();
+				if (cartDetails) {
+					quantityList[index] = cartDetails.items[index].qty.toString();
+				}
 			} finally {
 				isUpdatingCart = false;
 			}
@@ -123,19 +101,27 @@
 				? `Sorry! you can only order up to ${limit} units of this made-to-order item at a time.`
 				: `Sorry! we only have ${stock.count} units at the moment.`;
 			toastStore.show(message, 'error');
-			quantityList[index] = cartDetails.list[index].qty.toString();
+			quantityList[index] = cartDetails.items[index].qty.toString();
 		}
 	}
 
-	async function updateQuantity(event: Event, i: number, result: any) {
+	async function updateQuantity(
+		_event: Event,
+		i: number,
+		stock: { count: number; status?: string | null }
+	) {
 		const inputQuantity = parseInt(quantityList[i]);
-		await updateCartQuantity(i, inputQuantity, result.stock);
+		await updateCartQuantity(i, inputQuantity, stock);
 	}
 
 	const debounceIncrementDecrement: Map<number, ReturnType<typeof setTimeout>> = new Map();
 
-	async function incrementDecrementQuantity(isIncrement: boolean, i: number, result: any) {
-		if (!cartDetails?.list) return;
+	async function incrementDecrementQuantity(
+		isIncrement: boolean,
+		i: number,
+		stock: { count: number; status?: string | null }
+	) {
+		if (!cartDetails?.items) return;
 		let quantity = +(quantityList[i] ?? 0);
 		if (isIncrement) quantity++;
 		else quantity = quantity > 0 ? quantity - 1 : 0;
@@ -145,36 +131,31 @@
 		debounceIncrementDecrement.set(
 			i,
 			setTimeout(() => {
-				updateCartQuantity(i, quantity, result.stock);
+				updateCartQuantity(i, quantity, stock);
 			}, 400)
 		);
 	}
 
-	async function removeItem(i: number, result: any) {
+	async function removeItem(i: number) {
 		if (isUpdatingCart) return;
-		if (!cartDetails?.list) return;
+		if (!cartDetails?.items) return;
 		isUpdatingCart = true;
-		const product = { ...cartDetails.list[i] };
-		product.qty = 0;
 
 		try {
-			const success = await changeCart(
-				data.supabase_lt,
-				cart_store,
-				product,
-				getPurchasableLimit(result.stock),
-				data.clientId,
-				true
-			);
-			if (!success.error) {
+			const result = await setCartItem(fetch, cartDetails.items[i].productId, 0, 'set');
+			if (result.ok) {
+				cartDetails = result.data.cart;
+				syncCartStore(cart_store, result.data.cart);
 				await invalidate('cart:change');
 			} else {
-				toastStore.show(success.data, 'error');
-				quantityList[i] = cartDetails.list[i].qty.toString();
+				toastStore.show(result.error.message, 'error');
+				quantityList[i] = cartDetails.items[i].qty.toString();
 			}
 		} catch (err) {
 			console.error('Error removing item:', err);
-			quantityList[i] = cartDetails.list[i].qty.toString();
+			if (cartDetails) {
+				quantityList[i] = cartDetails.items[i].qty.toString();
+			}
 		} finally {
 			isUpdatingCart = false;
 		}
@@ -188,19 +169,13 @@
 	}
 
 	async function checkOut() {
-		if (!cartDetails?.list) return;
+		if (!cartDetails?.items) return;
 
-		for (let i = 0; i < cartDetails.list.length; i++) {
-			const item = cartDetails.list[i];
-			const cached = await getItemDetails(item.product_id);
-			if (!cached) {
-				toastStore.show("Couldn't verify stock for an item — try again", 'error');
-				return;
-			}
-			if (!isStockAvailable(cached.stock, item.qty)) {
-				const message = isOnDemand(cached.stock)
-					? `Sorry! you can only order up to ${getPurchasableLimit(cached.stock)} units of ${cached.name} at a time.`
-					: `Sorry! we only have ${cached.stock.count} unit${cached.stock.count > 1 ? 's' : ''} of ${cached.name} at the moment.`;
+		for (const item of cartDetails.items) {
+			if (!isStockAvailable(item.stock, item.qty)) {
+				const message = isOnDemand(item.stock)
+					? `Sorry! you can only order up to ${getPurchasableLimit(item.stock)} units of ${item.name} at a time.`
+					: `Sorry! we only have ${item.stock.count} unit${item.stock.count > 1 ? 's' : ''} of ${item.name} at the moment.`;
 				toastStore.show(message, 'error');
 				return;
 			}
@@ -216,7 +191,9 @@
 		<div class="mt-6 flex flex-col gap-2 border-b border-border pb-6">
 			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Your cart</h1>
 			<p class="text-sm text-muted-foreground">
-				{#if hasItems}
+				{#if data.apiError}
+					We could not reach the cart service.
+				{:else if hasItems}
 					Review your items before checkout.
 				{:else}
 					Your cart is empty — browse crafts to get started.
@@ -226,7 +203,16 @@
 
 		<div class="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
 			<div class="flex-1 space-y-4">
-				{#if !hasItems}
+				{#if data.apiError}
+					<div
+						class="flex flex-col items-start gap-4 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground sm:flex-row sm:items-center">
+						<div class="flex items-center gap-3">
+							<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
+							<p>Could not load your cart. Try refreshing the page.</p>
+						</div>
+						<ScButton variant="secondary" onclick={() => invalidate('cart:change')}>Retry</ScButton>
+					</div>
+				{:else if !hasItems}
 					<div
 						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-20 text-center">
 						<div class="mb-4 rounded-full bg-muted p-4">
@@ -244,124 +230,102 @@
 						</div>
 					</div>
 				{:else}
-					{#each cartItems as productItem, i (productItem.product_id)}
-						{#await getItemDetails(productItem.product_id)}
-							<div
-								class="overflow-hidden rounded-lg border border-border bg-card"
-								aria-hidden="true">
-								<div class="flex flex-col sm:flex-row">
-									<Skeleton
-										class="aspect-[4/3] sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px] rounded-none border-0" />
-									<div class="flex flex-1 flex-col gap-3 p-5">
-										<Skeleton class="h-5 w-2/3 rounded-sm" />
-										<Skeleton class="h-4 w-1/3 rounded-sm" />
-										<Skeleton class="mt-auto h-8 w-32 rounded-sm" />
-									</div>
-								</div>
-							</div>
-						{:then result}
-							{@const inStock = isStockAvailable(result.stock, productItem.qty)}
-							{@const purchasableLimit = getPurchasableLimit(result.stock)}
-							{@const onDemand = isOnDemand(result.stock)}
-							<article
-								class={cn(
-									'overflow-hidden rounded-lg border border-border bg-card transition-colors',
-									highlightedRow === i && 'bg-muted/40',
-									!inStock && 'opacity-70'
-								)}>
-								<div class="flex flex-col sm:flex-row">
-									<a
-										href={productHref(result.name, productItem.product_id)}
-										class="relative aspect-[4/3] overflow-hidden sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px]">
-										<PlaceholderImage
-											src={result.images[0]?.url}
-											alt={result.name}
-											class="transition-transform duration-300 hover:scale-105" />
-									</a>
+					{#each cartItems as item, i (item.productId)}
+						{@const inStock = isStockAvailable(item.stock, item.qty)}
+						{@const purchasableLimit = getPurchasableLimit(item.stock)}
+						{@const onDemand = isOnDemand(item.stock)}
+						<article
+							class={cn(
+								'overflow-hidden rounded-lg border border-border bg-card transition-colors',
+								highlightedRow === i && 'bg-muted/40',
+								!inStock && 'opacity-70'
+							)}>
+							<div class="flex flex-col sm:flex-row">
+								<a
+									href={productHref(item.name, item.productId)}
+									class="relative aspect-[4/3] overflow-hidden sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px]">
+									<PlaceholderImage
+										src={item.imageUrl ?? undefined}
+										alt={item.name}
+										class="transition-transform duration-300 hover:scale-105" />
+								</a>
 
-									<div class="flex flex-1 flex-col gap-4 p-5">
-										<div class="flex items-start justify-between gap-4">
-											<div class="min-w-0 space-y-1">
-												<a
-													href={productHref(result.name, productItem.product_id)}
-													class="text-lg font-medium leading-snug text-foreground transition-colors hover:text-foreground/80">
-													{result.name}
-												</a>
+								<div class="flex flex-1 flex-col gap-4 p-5">
+									<div class="flex items-start justify-between gap-4">
+										<div class="min-w-0 space-y-1">
+											<a
+												href={productHref(item.name, item.productId)}
+												class="text-lg font-medium leading-snug text-foreground transition-colors hover:text-foreground/80">
+												{item.name}
+											</a>
+											{#if item.author}
 												<p class="font-mono text-xs text-muted-foreground">
-													by @{result.author}
+													by @{item.author}
 												</p>
-											</div>
-
-											<p class="shrink-0 font-mono text-lg font-semibold text-foreground">
-												₹{calculateTotalPrice(result.price.new, productItem.qty).toLocaleString(
-													'en-IN'
-												)}
-											</p>
+											{/if}
 										</div>
 
-										{#if onDemand}
-											<p class="font-mono text-xs text-amber-700 dark:text-amber-300">
-												Made to order — ships after production
-											</p>
-										{:else}
-											<StockBar count={result.stock.count} />
-										{/if}
+										<p class="shrink-0 font-mono text-lg font-semibold text-foreground">
+											₹{calculateTotalPrice(item.unitPrice, item.qty).toLocaleString('en-IN')}
+										</p>
+									</div>
 
-										{#if result.guarantee}
-											<p class="text-xs text-muted-foreground">{result.guarantee}</p>
-										{/if}
+									{#if onDemand}
+										<p class="font-mono text-xs text-amber-700 dark:text-amber-300">
+											Made to order — ships after production
+										</p>
+									{:else}
+										<StockBar count={item.stock.count} />
+									{/if}
 
-										<div
-											class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-											<div class="flex items-center">
-												<button
-													type="button"
-													onclick={() => incrementDecrementQuantity(false, i, result)}
-													class="inline-flex size-8 items-center justify-center rounded-l-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-													aria-label="Decrease quantity"
-													disabled={isUpdatingCart}>
-													<Minus class="size-4" />
-												</button>
+									{#if item.guarantee}
+										<p class="text-xs text-muted-foreground">{item.guarantee}</p>
+									{/if}
 
-												<input
-													type="number"
-													bind:value={quantityList[i]}
-													min="1"
-													max={purchasableLimit}
-													class="h-8 w-12 border-y border-border bg-card text-center font-mono text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
-													disabled={isUpdatingCart}
-													onchange={(e) => updateQuantity(e, i, result)} />
+									<div
+										class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+										<div class="flex items-center">
+											<button
+												type="button"
+												onclick={() => incrementDecrementQuantity(false, i, item.stock)}
+												class="inline-flex size-8 items-center justify-center rounded-l-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+												aria-label="Decrease quantity"
+												disabled={isUpdatingCart}>
+												<Minus class="size-4" />
+											</button>
 
-												<button
-													type="button"
-													onclick={() => incrementDecrementQuantity(true, i, result)}
-													class="inline-flex size-8 items-center justify-center rounded-r-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-													aria-label="Increase quantity"
-													disabled={isUpdatingCart}>
-													<Plus class="size-4" />
-												</button>
-											</div>
+											<input
+												type="number"
+												bind:value={quantityList[i]}
+												min="1"
+												max={purchasableLimit}
+												class="h-8 w-12 border-y border-border bg-card text-center font-mono text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
+												disabled={isUpdatingCart}
+												onchange={(e) => updateQuantity(e, i, item.stock)} />
 
 											<button
 												type="button"
-												onclick={() => removeItem(i, result)}
-												class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-												aria-label="Remove item"
+												onclick={() => incrementDecrementQuantity(true, i, item.stock)}
+												class="inline-flex size-8 items-center justify-center rounded-r-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+												aria-label="Increase quantity"
 												disabled={isUpdatingCart}>
-												<Trash2 class="size-4" />
-												Remove
+												<Plus class="size-4" />
 											</button>
 										</div>
+
+										<button
+											type="button"
+											onclick={() => removeItem(i)}
+											class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+											aria-label="Remove item"
+											disabled={isUpdatingCart}>
+											<Trash2 class="size-4" />
+											Remove
+										</button>
 									</div>
 								</div>
-							</article>
-						{:catch}
-							<div
-								class="flex items-center gap-3 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
-								<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
-								<p>Could not load this item. Try refreshing the page.</p>
 							</div>
-						{/await}
+						</article>
 					{/each}
 				{/if}
 			</div>
@@ -388,14 +352,14 @@
 									<p class="text-xs text-muted-foreground">India-wide flat rate</p>
 								</div>
 								<span class="font-mono text-foreground">
-									₹{DELIVERY_FLAT_FEE.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+									₹{deliveryFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
 								</span>
 							</div>
 
 							<div class="flex items-center justify-between">
 								<span class="font-medium text-foreground">Total</span>
 								<span class="font-mono text-xl font-semibold text-foreground">
-									₹{(cartSubtotal + DELIVERY_FLAT_FEE).toLocaleString('en-IN', {
+									₹{cartTotal.toLocaleString('en-IN', {
 										minimumFractionDigits: 2
 									})}
 								</span>

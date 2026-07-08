@@ -8,5 +8,15 @@ export {
 	type CartItemInput,
 	type CartOrderStatus
 } from './contracts/index.js';
+export type {
+	CartItemView,
+	CartView,
+	CheckoutAddress,
+	ConfirmCheckoutResponse,
+	CreateCheckoutOrderResponse,
+	FailCheckoutResponse,
+	GetCartResponse,
+	MergeCartResponse
+} from './contracts/index.js';
 export { requireAuth } from './middleware/require-auth.js';
 export { signClientId, verifyClientIdCookie } from './lib/client-id.js';

@@ -72,6 +72,8 @@ async function seedProduct(db: Database, id: string, stockCount: number, name = 
 	await db.insert(products).values({
 		id,
 		name,
+		author: 'test_maker',
+		guarantee: '7-day guarantee',
 		price: { new: 100, old: 120 },
 		stock: { count: stockCount, status: 'in stock' },
 		images: [{ url: 'https://example.com/item.png' }]
@@ -140,6 +142,8 @@ describe('CartStore (PGlite)', () => {
 
 			expect(guestView.cart?.items).toHaveLength(1);
 			expect(guestView.cart?.items[0]?.productId).toBe(PRODUCT_2);
+			expect(guestView.cart?.items[0]?.author).toBe('test_maker');
+			expect(guestView.cart?.items[0]?.guarantee).toBe('7-day guarantee');
 			expect(userView.cart?.items).toHaveLength(1);
 			expect(userView.cart?.items[0]?.productId).toBe(PRODUCT_1);
 			expect(crossGuestView.cart).toBeNull();

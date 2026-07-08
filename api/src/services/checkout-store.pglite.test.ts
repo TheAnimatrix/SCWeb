@@ -88,6 +88,8 @@ async function seedProduct(
 	await db.insert(products).values({
 		id,
 		name,
+		author: 'test_maker',
+		guarantee: '7-day guarantee',
 		price: { new: 100, old: 120 },
 		stock: { count: stockCount, status },
 		images: [{ url: 'https://example.com/item.png' }]

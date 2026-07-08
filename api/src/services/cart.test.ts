@@ -122,6 +122,8 @@ describe('buildCartView', () => {
 				product: {
 					id: 'p1',
 					name: 'Widget',
+					author: 'maker_one',
+					guarantee: '30-day replacement',
 					price: { new: 100, old: 120 },
 					stock: { count: 5, status: 'in stock' },
 					images: [{ url: 'https://example.com/a.png' }]
@@ -132,5 +134,7 @@ describe('buildCartView', () => {
 		expect(view.subtotal).toBe(200);
 		expect(view.total).toBe(299);
 		expect(view.items[0]?.imageUrl).toBe('https://example.com/a.png');
+		expect(view.items[0]?.author).toBe('maker_one');
+		expect(view.items[0]?.guarantee).toBe('30-day replacement');
 	});
 });

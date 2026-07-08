@@ -1,6 +1,11 @@
 import Razorpay from 'razorpay';
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { type CartItem } from '$lib/client/cart';
+
+type LegacyCartItem = {
+	product_id: string;
+	price: number;
+	qty: number;
+};
 import type { Product } from '$lib/types/product';
 import { canFulfillQuantity, isOnDemand, parseProductStock } from '$lib/utils/stock';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
@@ -97,11 +102,12 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 		}
 
 		const updatedCart = result.data[0];
-		const cartSnapshot: (CartItem & { product_name: string })[] = updatedCart.list as (CartItem & {
-			product_name: string;
-		})[];
+		const cartSnapshot: (LegacyCartItem & { product_name: string })[] =
+			updatedCart.list as (LegacyCartItem & {
+				product_name: string;
+			})[];
 
-		for (const item of updatedCart.list as CartItem[]) {
+		for (const item of updatedCart.list as LegacyCartItem[]) {
 			const result_get_stock = await locals.supabaseAdmin
 				.from('products')
 				.select()
@@ -134,7 +140,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 			return json({ error: true, message: purchaseError.message }, { status: 400 });
 		}
 
-		for (const item of updatedCart.list as CartItem[]) {
+		for (const item of updatedCart.list as LegacyCartItem[]) {
 			const result_get_stock = await locals.supabaseAdmin
 				.from('products')
 				.select()
@@ -226,7 +232,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		}
 
 		let totalPrice = 0;
-		const itemList = cartList as CartItem[];
+		const itemList = cartList as LegacyCartItem[];
 		for (const item of itemList) {
 			const productResult = await locals.supabaseAdmin
 				.from('products')

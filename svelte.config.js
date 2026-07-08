@@ -16,7 +16,8 @@ const config = {
 		alias: {
 			$pages: path.resolve('./src/routes'),
 			'@scweb/api': path.resolve('./api/src/index.ts'),
-			'@scweb/api/client': path.resolve('./api/src/client.ts')
+			'@scweb/api/client': path.resolve('./api/src/client.ts'),
+			'@scweb/api/contracts': path.resolve('./api/src/contracts/index.ts')
 		}
 	}
 };
