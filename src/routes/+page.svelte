@@ -16,7 +16,9 @@
 
 	let { data } = $props();
 
-	const isLoading = $derived(!!navigating.to && navigating.to.url.pathname === '/');
+	const isLoading = $derived(
+		data.pending || (!!navigating.to && navigating.to.url.pathname === '/')
+	);
 
 	const features = [
 		{
@@ -155,7 +157,10 @@
 				</div>
 
 				{#if isLoading}
-					<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
+					<div
+						class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4"
+						aria-busy="true"
+						aria-label="Loading {section.title.toLowerCase()}">
 						{#each [...Array(4).keys()] as i (i)}
 							<ProductCardSkeleton />
 						{/each}

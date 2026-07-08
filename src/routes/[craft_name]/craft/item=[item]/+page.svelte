@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { getContext } from 'svelte';
-	import { goto, preloadData, invalidate } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import type { Writable } from 'svelte/store';
 	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
+	import { getProductVariants } from '$lib/client/catalogApi';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { MakerCard, ProseSkeleton, Skeleton } from '$lib/components/sc';
 	import {
@@ -15,7 +17,6 @@
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
 	import { getPurchasableLimit } from '$lib/utils/stock';
-	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	interface VariantOption {
 		id: string;
@@ -24,10 +25,6 @@
 	}
 
 	let { data } = $props();
-
-	function supabase() {
-		return requireBrowserSupabase(data.supabase);
-	}
 
 	const productItem = $derived(data.product ? (data.product as unknown as Product) : undefined);
 	let indicatorCur = $state(0);
@@ -47,6 +44,7 @@
 	let variants = $state<VariantOption[]>([]);
 	let variantsLoading = $state(true);
 	let variantNavigating = $state(false);
+	let loadedVariantsForId = $state<string | null>(null);
 
 	const isRefreshing = $derived(
 		variantNavigating ||
@@ -64,69 +62,20 @@
 	async function handleVariantNavigate(href: string) {
 		if (!productItem || href === productHref(productItem)) return;
 		variantNavigating = true;
-		await goto(href, { keepFocus: true, noScroll: true });
+		try {
+			await goto(href, { keepFocus: true, noScroll: true });
+		} finally {
+			variantNavigating = false;
+		}
 	}
 
-	async function loadVariants(product: Product) {
+	async function loadVariants(productId: string) {
+		if (!browser) return;
 		variantsLoading = true;
 		try {
-			const currentVariant: VariantOption = {
-				id: product.id,
-				label: product.name,
-				href: productHref(product)
-			};
-
-			if (product.type === 'product') {
-				const result = await supabase().from('products').select('*').eq('rel', product.id);
-				if (result.data && !result.error && result.data.length > 0) {
-					variants = [
-						currentVariant,
-						...result.data.map((item: Product) => ({
-							id: item.id,
-							label: item.name,
-							href: productHref(item)
-						}))
-					];
-					return;
-				}
-			} else if (product.rel) {
-				const result = await supabase().from('products').select('*').eq('rel', product.rel);
-				const parentResult = await supabase()
-					.from('products')
-					.select('*')
-					.eq('id', product.rel)
-					.maybeSingle();
-
-				const options: VariantOption[] = [];
-				if (parentResult.data) {
-					options.push({
-						id: parentResult.data.id,
-						label: parentResult.data.name,
-						href: productHref(parentResult.data)
-					});
-				}
-
-				if (result.data && !result.error) {
-					for (const item of result.data) {
-						if (!options.some((option) => option.id === item.id)) {
-							options.push({
-								id: item.id,
-								label: item.name,
-								href: productHref(item)
-							});
-						}
-					}
-				}
-
-				if (!options.some((option) => option.id === product.id)) {
-					options.push(currentVariant);
-				}
-
-				variants = options;
-				return;
-			}
-
-			variants = [];
+			const result = await getProductVariants(fetch, productId);
+			variants = result.ok ? result.data.variants : [];
+			loadedVariantsForId = productId;
 		} finally {
 			variantsLoading = false;
 		}
@@ -158,28 +107,23 @@
 		}));
 	}
 
+	const mappedReviews = $derived(mapPageReviews(data.reviews));
+
 	$effect(() => {
-		const product = productItem;
-		reviews = mapPageReviews(data.reviews);
-		if (product) void loadVariants(product);
+		const next = mappedReviews;
+		reviews = next;
 	});
 
 	$effect(() => {
 		const product = productItem;
-		if (variantsLoading || !product) return;
-
-		for (const variant of variants) {
-			if (variant.id !== product.id) {
-				void preloadData(variant.href);
-			}
-		}
+		if (!browser || !product) return;
+		if (loadedVariantsForId === product.id) return;
+		void loadVariants(product.id);
 	});
 
 	$effect(() => {
-		const product = productItem;
-		if (!product) return;
-		void product.id;
-		variantNavigating = false;
+		const productId = productItem?.id;
+		if (!productId) return;
 		indicatorCur = 0;
 		cartQty = 1;
 		addToCartSuccess = null;
@@ -200,15 +144,6 @@
 	const shopHref = $derived(`/crafts?q=${encodeURIComponent(makerName)}`);
 
 	let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-	$effect(() => {
-		const product = productItem;
-		const newItemId = page.params.item;
-		const productId = product?.id;
-		if (newItemId && productId && newItemId !== productId) {
-			window.location.reload();
-		}
-	});
 
 	function incCart() {
 		if (cartQty < cartQtyMax) {
@@ -285,8 +220,7 @@
 					location={makerLocation}
 					craftCount={1}
 					{memberSince}
-					{shopHref}
-					avatarUrl={data.makerAvatarUrl} />
+					{shopHref} />
 			</div>
 
 			<ProductPurchasePanel
@@ -320,13 +254,13 @@
 				<ProductDetailTabs
 					product={productItem}
 					bind:reviews
-					initialReviews={mapPageReviews(data.reviews)}
-					supabase={supabase()} />
+					initialReviews={mappedReviews}
+					supabase={data.supabase} />
 			{/if}
 		</div>
 
 		<div class="mt-12">
-			<RelatedProducts product={productItem} supabase={supabase()} />
+			<RelatedProducts product={productItem} />
 		</div>
 	{/if}
 </div>

@@ -18,7 +18,7 @@
 		productId: string;
 		reviews?: Review[];
 		initialReviews?: Review[];
-		supabase: SupabaseClient;
+		supabase: SupabaseClient | null;
 		class?: string;
 		compact?: boolean;
 	}
@@ -52,6 +52,7 @@
 	});
 
 	$effect(() => {
+		if (!supabase) return;
 		void supabase.auth.getUser().then((result) => {
 			currentUserId = result.data.user?.id ?? null;
 		});
@@ -76,6 +77,7 @@
 	}
 
 	async function submitReview() {
+		if (!supabase) return;
 		if (!reviewComment.trim()) {
 			reviewError = 'Please enter a review comment';
 			return;
@@ -141,7 +143,7 @@
 	}
 
 	async function deleteReview() {
-		if (!userReview) return;
+		if (!supabase || !userReview) return;
 
 		try {
 			const result = await supabase.from('reviews').delete().eq('id', userReview.id);
@@ -176,7 +178,7 @@
 						<Trash2 class="h-3.5 w-3.5" />
 						delete
 					</button>
-				{:else}
+				{:else if supabase}
 					<button
 						type="button"
 						class="inline-flex items-center gap-1 rounded-md border border-border bg-foreground px-3 py-1.5 font-mono text-xs text-background transition-colors hover:bg-foreground/90"
@@ -203,7 +205,7 @@
 		<div class="rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
 			<p class="font-mono text-sm text-muted-foreground">no_reviews_yet</p>
 			<p class="mt-1 text-sm text-foreground">Be the first to review this product.</p>
-			{#if !compact}
+			{#if !compact && supabase}
 				<button
 					type="button"
 					class="mt-4 inline-flex items-center rounded-md border border-border bg-foreground px-3 py-1.5 font-mono text-xs text-background"
