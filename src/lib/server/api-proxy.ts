@@ -1,4 +1,15 @@
-export const ALLOWED_PROXY_PATH = /^(cart|checkout)(\/|$)/;
+export const ALLOWED_PROXY_PATH = /^(cart|checkout|print-files)(\/|$)/;
+
+const UPLOAD_TIMEOUT_MS = 60_000;
+const DEFAULT_TIMEOUT_MS = 10_000;
+
+export function getProxyTimeoutMs(path: string | undefined): number {
+	if (path === 'print-files/upload') {
+		return UPLOAD_TIMEOUT_MS;
+	}
+
+	return DEFAULT_TIMEOUT_MS;
+}
 
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE']);
 

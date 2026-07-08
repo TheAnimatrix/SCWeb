@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import { CLIENT_ID_COOKIE_NAME } from '$lib/constants/cookies';
 import {
 	buildProxyTargetUrl,
+	getProxyTimeoutMs,
 	isAllowedProxyMethod,
 	isAllowedProxyPath
 } from '$lib/server/api-proxy';
@@ -60,14 +61,16 @@ async function proxyRequest(event: RequestEvent) {
 	}
 
 	const method = request.method;
-	const body = method !== 'GET' ? await request.arrayBuffer() : undefined;
+	const body = method !== 'GET' && request.body ? request.body : undefined;
+	const timeoutMs = getProxyTimeoutMs(params.path);
 
 	try {
 		const response = await fetch(targetUrl, {
 			method,
 			headers,
 			body,
-			signal: AbortSignal.timeout(10_000)
+			...(body ? { duplex: 'half' as const } : {}),
+			signal: AbortSignal.timeout(timeoutMs)
 		});
 
 		const responseContentType = response.headers.get('content-type');

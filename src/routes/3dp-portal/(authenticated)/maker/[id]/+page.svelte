@@ -2,6 +2,7 @@
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
 	import Icon from '@iconify/svelte';
 	import { toastStore } from '$lib/client/toastStore';
+	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -184,73 +185,36 @@
 	}
 
 	async function downloadModel() {
-		if (!req?.model) return;
+		if (!req?.model || !req?.id) return;
 		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('You must be logged in to request a quote', 'error');
 			return;
 		}
-		const jwt = userRes.session.access_token;
-		if (!jwt) {
-			alert('Session expired or not found. Please log in again.');
-			downloading = false;
-			return;
-		}
 		downloading = true;
 		downloadProgress = 0;
 		try {
-			const res = await fetch(
-				'https://pfeewicqoxkuwnbuxnoz.supabase.co/functions/v1/download-model-request',
-				{
-					method: 'POST',
-					headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
-					body: JSON.stringify({ model_url: req.model })
-				}
-			);
-			const result = await res.json();
-			if (result?.url) {
-				// Use XMLHttpRequest for progress tracking
-				const xhr = new XMLHttpRequest();
-				xhr.open('GET', result.url, true);
-				xhr.responseType = 'blob';
-				xhr.onprogress = (event) => {
-					if (event.lengthComputable) {
-						downloadProgress = Math.round((event.loaded / event.total) * 100);
-					}
-				};
-				xhr.onload = function () {
-					if (xhr.status === 200) {
-						const url = window.URL.createObjectURL(xhr.response);
-						const a = document.createElement('a');
-						a.href = url;
-						a.download = displayModelName;
-						document.body.appendChild(a);
-						a.click();
-						setTimeout(() => {
-							window.URL.revokeObjectURL(url);
-							document.body.removeChild(a);
-						}, 100);
-					} else {
-						alert('Failed to download file');
-					}
-					downloading = false;
-					downloadProgress = 0;
-				};
-				xhr.onerror = function () {
-					alert('Error downloading model');
-					downloading = false;
-					downloadProgress = 0;
-				};
-				xhr.send();
-			} else {
-				alert(result?.error || 'Failed to get download link');
+			const result = await getModelDownloadUrl(fetch, req.id);
+			if (!result.ok) {
+				alert(result.error.message);
 				downloading = false;
 				downloadProgress = 0;
+				return;
 			}
+			triggerSignedUrlDownload(result.data.url, displayModelName, {
+				onProgress: (percent) => {
+					downloadProgress = percent;
+				},
+				onComplete: () => {
+					downloading = false;
+					downloadProgress = 0;
+				},
+				onError: (message) => alert(message)
+			});
 		} catch {
 			alert('Error downloading model');
-		} finally {
-			// Only reset if not downloading (handled in xhr events)
+			downloading = false;
+			downloadProgress = 0;
 		}
 	}
 
