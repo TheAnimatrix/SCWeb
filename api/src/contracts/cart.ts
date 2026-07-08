@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { productStockSchema } from './stock-schemas.js';
+
+export const DELIVERY_FLAT_FEE = 99;
 
 export const CART_ORDER_STATUS = {
 	ACTIVE: 'active',
@@ -18,3 +21,57 @@ export const cartItemSchema = z.object({
 });
 
 export type CartItemInput = z.infer<typeof cartItemSchema>;
+
+export const cartItemViewSchema = z.object({
+	productId: z.string(),
+	qty: z.number().int().positive(),
+	name: z.string(),
+	imageUrl: z.string().nullable(),
+	unitPrice: z.number().int(),
+	stock: productStockSchema
+});
+
+export type CartItemView = z.infer<typeof cartItemViewSchema>;
+
+export const cartViewSchema = z.object({
+	id: z.string(),
+	status: z.string(),
+	items: z.array(cartItemViewSchema),
+	subtotal: z.number().int(),
+	deliveryFee: z.number().int(),
+	total: z.number().int()
+});
+
+export type CartView = z.infer<typeof cartViewSchema>;
+
+export const getCartResponseSchema = z.object({
+	cart: cartViewSchema.nullable()
+});
+
+export type GetCartResponse = z.infer<typeof getCartResponseSchema>;
+
+export const upsertCartItemBodySchema = z.object({
+	qty: z.number().int().min(0),
+	mode: z.enum(['set', 'add'])
+});
+
+export type UpsertCartItemBody = z.infer<typeof upsertCartItemBodySchema>;
+
+export const mergeCartBodySchema = z.object({
+	clientId: z.string().min(1)
+});
+
+export type MergeCartBody = z.infer<typeof mergeCartBodySchema>;
+
+export const mergeCartResponseSchema = z.object({
+	merged: z.boolean()
+});
+
+export type MergeCartResponse = z.infer<typeof mergeCartResponseSchema>;
+
+export const insufficientStockErrorSchema = z.object({
+	error: z.literal('insufficient_stock'),
+	limit: z.number().int()
+});
+
+export type InsufficientStockError = z.infer<typeof insufficientStockErrorSchema>;

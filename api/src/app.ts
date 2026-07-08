@@ -8,20 +8,25 @@ import { identityMiddleware } from './middleware/identity.js';
 import { loggingMiddleware } from './middleware/logging.js';
 import { rateLimitMiddleware } from './middleware/rate-limit.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
+import { cartRoutes } from './routes/cart.js';
 import { healthRoutes } from './routes/health.js';
+import { createCartStore, type CartStore } from './services/cart-store.js';
 import type { AppVariables } from './types/context.js';
 
 type CreateAppOptions = {
 	env: Env;
 	db: Database;
+	cartStore?: CartStore;
 };
 
-export function createApp({ env, db }: CreateAppOptions) {
+export function createApp({ env, db, cartStore }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
+	const resolvedCartStore = cartStore ?? createCartStore(db);
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
 		c.set('db', db);
+		c.set('cartStore', resolvedCartStore);
 		await next();
 	});
 
@@ -42,6 +47,7 @@ export function createApp({ env, db }: CreateAppOptions) {
 	app.use('*', csrfMiddleware());
 
 	app.route('/', healthRoutes);
+	app.route('/', cartRoutes);
 
 	app.onError(errorHandler);
 
