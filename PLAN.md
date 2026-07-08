@@ -22,6 +22,24 @@
   switch it to the Session pooler connection string, then run
   `npm run db:pull -w @scweb/api`.
 
+- **2026-07-08 — wu-0c merged (`8d8a240`)**: cart UI bugs fixed — `isUpdatingCart`
+  deadlock, `checkOut()` crash, negative-qty persistence (extracted
+  `resolveCartQuantityChange` pure fn), errors surfaced via toast; +6 tests.
+- **2026-07-08 — wu-0d merged (`e5fc190`)**: quality gates — `npm run build`,
+  `npm run lint` (ESLint 9 flat config; deferred debt in `LINT_DEBT.md`),
+  prettier sweep, `.env.example` complete, `$lib` alias fixed,
+  `@sveltejs/adapter-node` (Dokploy).
+- **2026-07-08 — wu-0e merged (`6051483`)**: svelte-check **0 errors** (was 128);
+  corrected `Chat`/`printrequests` types against the live DB; declared behavior
+  fixes: failure redirect guards, pay-button NaN gate, maker-orders username
+  query. **PHASE 0 COMPLETE.**
+- **2026-07-08 — wu-2a merged (`514ed27`)**: Phase 2 schema — `carts`,
+  `cart_items`, `orders`, `order_items` with partial unique indexes, status
+  CHECKs, UNIQUE razorpay ids; **money convention: whole INR rupees at rest,
+  paise only at the Razorpay boundary (`rupeesToPaise`)**; idempotent
+  per-cart-resilient backfill script. Migration `api/drizzle/0001_...` and
+  `db:backfill-carts` are **not yet applied/run** — user applies when ready.
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
