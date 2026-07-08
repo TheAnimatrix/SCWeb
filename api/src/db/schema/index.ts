@@ -3,7 +3,7 @@
 
 export { cart } from './cart.js';
 export { cartItems } from './cartItems.js';
-export { carts2 } from './carts.js';
+export { CART_STATUS_VALUES, carts } from './carts.js';
 export { orderItems } from './orderItems.js';
 export { ORDER_STATUS_VALUES, orders } from './orders.js';
 export { products } from './products.js';

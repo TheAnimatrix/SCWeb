@@ -1,11 +1,12 @@
 import { config } from 'dotenv';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import type { IndexColumn } from 'drizzle-orm/pg-core';
 import { resolve } from 'node:path';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
 import { createDb } from '../db/index.js';
 import { cart } from '../db/schema/cart.js';
 import { cartItems } from '../db/schema/cartItems.js';
-import { carts2 } from '../db/schema/carts.js';
+import { carts } from '../db/schema/carts.js';
 
 config({ path: resolve(process.cwd(), '../.env') });
 config({ path: resolve(process.cwd(), '.env') });
@@ -14,6 +15,11 @@ process.env.DATABASE_URL ??= process.env.POSTGRES_URL;
 type LegacyCartItem = {
 	product_id?: string;
 	qty?: number;
+};
+
+type SkippedCart = {
+	legacyCartId: string;
+	reason: string;
 };
 
 function ownerKey(row: { uid: string | null; clientId: string | null }): string | null {
@@ -30,6 +36,15 @@ function updatedAtValue(updatedAt: string | null, createdAt: string): string {
 	return updatedAt ?? createdAt;
 }
 
+function skipReason(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+/** Maps partial-index `targetWhere` to drizzle's onConflictDoNothing `where` clause. */
+function partialUniqueConflict(target: IndexColumn, targetWhere: SQL) {
+	return { target, where: targetWhere };
+}
+
 async function main() {
 	const { loadEnv } = await import('../env.js');
 	const env = loadEnv();
@@ -37,7 +52,7 @@ async function main() {
 
 	let insertedCarts = 0;
 	let insertedItems = 0;
-	let skippedCarts = 0;
+	const skipped: SkippedCart[] = [];
 
 	try {
 		const legacyCarts = await db
@@ -73,99 +88,111 @@ async function main() {
 			const clientId = legacy.clientId;
 
 			if (!userId && !clientId) {
-				skippedCarts++;
+				skipped.push({ legacyCartId: legacy.id, reason: 'no owner (user_id and client_id both null)' });
 				continue;
 			}
 
-			const [alreadyMigrated] = await db
-				.select({ id: carts2.id })
-				.from(carts2)
-				.where(
-					and(
-						eq(carts2.status, CART_ORDER_STATUS.ACTIVE),
-						userId
-							? eq(carts2.userId, userId)
-							: and(isNull(carts2.userId), eq(carts2.clientId, clientId!))
+			try {
+				const [alreadyMigrated] = await db
+					.select({ id: carts.id })
+					.from(carts)
+					.where(
+						and(
+							eq(carts.status, CART_ORDER_STATUS.ACTIVE),
+							userId
+								? eq(carts.userId, userId)
+								: and(isNull(carts.userId), eq(carts.clientId, clientId!))
+						)
 					)
-				)
-				.limit(1);
+					.limit(1);
 
-			if (alreadyMigrated) {
-				skippedCarts++;
-				continue;
-			}
-
-			const items = parseLegacyList(legacy.list).filter(
-				(item): item is { product_id: string; qty: number } =>
-					typeof item.product_id === 'string' &&
-					typeof item.qty === 'number' &&
-					item.qty >= 1
-			);
-
-			if (items.length === 0) {
-				skippedCarts++;
-				continue;
-			}
-
-			const migrated = await db.transaction(async (tx) => {
-				const conflictTarget = userId
-					? {
-							target: carts2.userId,
-							where: sql`status = 'active' AND user_id IS NOT NULL`
-						}
-					: {
-							target: carts2.clientId,
-							where: sql`status = 'active' AND user_id IS NULL`
-						};
-
-				const [newCart] = await tx
-					.insert(carts2)
-					.values({
-						userId,
-						clientId,
-						status: CART_ORDER_STATUS.ACTIVE,
-						createdAt: legacy.createdAt,
-						updatedAt: updatedAtValue(legacy.updatedAt, legacy.createdAt)
-					})
-					.onConflictDoNothing(conflictTarget)
-					.returning({ id: carts2.id });
-
-				if (!newCart) {
-					return { cartInserted: false, itemCount: 0 };
+				if (alreadyMigrated) {
+					skipped.push({ legacyCartId: legacy.id, reason: 'already migrated' });
+					continue;
 				}
 
-				let itemCount = 0;
-				for (const item of items) {
-					const inserted = await tx
-						.insert(cartItems)
+				const items = parseLegacyList(legacy.list).filter(
+					(item): item is { product_id: string; qty: number } =>
+						typeof item.product_id === 'string' &&
+						typeof item.qty === 'number' &&
+						Number.isInteger(item.qty) &&
+						item.qty >= 1
+				);
+
+				if (items.length === 0) {
+					skipped.push({ legacyCartId: legacy.id, reason: 'no valid line items' });
+					continue;
+				}
+
+				const migrated = await db.transaction(async (tx) => {
+					const active = CART_ORDER_STATUS.ACTIVE;
+					const conflictTarget = userId
+						? partialUniqueConflict(
+								carts.userId,
+								sql`status = ${active} AND user_id IS NOT NULL`
+							)
+						: partialUniqueConflict(
+								carts.clientId,
+								sql`status = ${active} AND user_id IS NULL`
+							);
+
+					const [newCart] = await tx
+						.insert(carts)
 						.values({
-							cartId: newCart.id,
-							productId: item.product_id,
-							qty: item.qty
+							userId,
+							clientId,
+							status: CART_ORDER_STATUS.ACTIVE,
+							createdAt: legacy.createdAt,
+							updatedAt: updatedAtValue(legacy.updatedAt, legacy.createdAt)
 						})
-						.onConflictDoNothing()
-						.returning({ cartId: cartItems.cartId });
+						.onConflictDoNothing(conflictTarget)
+						.returning({ id: carts.id });
 
-					if (inserted.length > 0) {
-						itemCount++;
+					if (!newCart) {
+						return { cartInserted: false, itemCount: 0 };
 					}
+
+					let itemCount = 0;
+					for (const item of items) {
+						const inserted = await tx
+							.insert(cartItems)
+							.values({
+								cartId: newCart.id,
+								productId: item.product_id,
+								qty: item.qty
+							})
+							.onConflictDoNothing()
+							.returning({ cartId: cartItems.cartId });
+
+						if (inserted.length > 0) {
+							itemCount++;
+						}
+					}
+
+					return { cartInserted: true, itemCount };
+				});
+
+				if (!migrated.cartInserted) {
+					skipped.push({ legacyCartId: legacy.id, reason: 'conflict on insert (active cart already exists)' });
+					continue;
 				}
 
-				return { cartInserted: true, itemCount };
-			});
-
-			if (!migrated.cartInserted) {
-				skippedCarts++;
-				continue;
+				insertedCarts++;
+				insertedItems += migrated.itemCount;
+			} catch (error) {
+				skipped.push({ legacyCartId: legacy.id, reason: skipReason(error) });
 			}
-
-			insertedCarts++;
-			insertedItems += migrated.itemCount;
 		}
 
-		console.log(
-			`Backfill complete: ${insertedCarts} carts, ${insertedItems} items inserted; ${skippedCarts} carts skipped.`
-		);
+		console.log(`Backfill complete: ${insertedCarts} carts migrated, ${insertedItems} items inserted.`);
+		if (skipped.length > 0) {
+			console.log(`Skipped (${skipped.length}):`);
+			for (const entry of skipped) {
+				console.log(`  - ${entry.legacyCartId}: ${entry.reason}`);
+			}
+		} else {
+			console.log('Skipped: none');
+		}
 	} finally {
 		await close();
 	}

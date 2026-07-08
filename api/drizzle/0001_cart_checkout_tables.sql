@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS "carts" (
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "carts_owner_check" CHECK ((user_id IS NOT NULL OR client_id IS NOT NULL))
+	CONSTRAINT "carts_owner_check" CHECK ((user_id IS NOT NULL OR client_id IS NOT NULL)),
+	CONSTRAINT "carts_status_check" CHECK (status IN ('active', 'payment_pending', 'paid', 'failed', 'fulfilled', 'cancelled', 'refunded'))
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "cart_items" (
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS "orders" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "orders_razorpay_order_id_unique" UNIQUE("razorpay_order_id"),
+	CONSTRAINT "orders_razorpay_payment_id_unique" UNIQUE("razorpay_payment_id"),
 	CONSTRAINT "orders_status_check" CHECK (status IN ('payment_pending', 'paid', 'failed', 'fulfilled', 'cancelled', 'refunded'))
 );
 --> statement-breakpoint
@@ -48,6 +50,14 @@ CREATE TABLE IF NOT EXISTS "order_items" (
 	CONSTRAINT "order_items_order_id_product_id_pk" PRIMARY KEY("order_id","product_id"),
 	CONSTRAINT "order_items_qty_check" CHECK (qty > 0)
 );
+--> statement-breakpoint
+COMMENT ON COLUMN "orders"."subtotal" IS 'Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary.';
+--> statement-breakpoint
+COMMENT ON COLUMN "orders"."delivery_fee" IS 'Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary.';
+--> statement-breakpoint
+COMMENT ON COLUMN "orders"."total" IS 'Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary.';
+--> statement-breakpoint
+COMMENT ON COLUMN "order_items"."unit_price" IS 'Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary.';
 --> statement-breakpoint
 DO $$ BEGIN
 	ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_cart_id_carts_id_fk" FOREIGN KEY ("cart_id") REFERENCES "public"."carts"("id") ON DELETE cascade ON UPDATE no action;

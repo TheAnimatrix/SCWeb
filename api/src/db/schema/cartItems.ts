@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { check, integer, pgTable, primaryKey, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { carts2 } from './carts.js';
+import { carts } from './carts.js';
 import { products } from './products.js';
 
 export const cartItems = pgTable(
@@ -8,7 +8,7 @@ export const cartItems = pgTable(
 	{
 		cartId: uuid('cart_id')
 			.notNull()
-			.references(() => carts2.id, { onDelete: 'cascade' }),
+			.references(() => carts.id, { onDelete: 'cascade' }),
 		productId: uuid('product_id')
 			.notNull()
 			.references(() => products.id),
