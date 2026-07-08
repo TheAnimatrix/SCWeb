@@ -109,6 +109,22 @@
   GitHub Actions CI (lint/check/unit/build/e2e), placeholder tests removed.
   **PHASE 5 (obs+tests scope) COMPLETE.** Test counts: 63 root unit + 155 api + 9 e2e.
 
+- **2026-07-08 — wu-6a (`b066fb0`), wu-6b (`8807330`), wu-6c (`32a4291`) merged**:
+  Phase 6 complete — proxy dot-segment rejection, fee constant deduped,
+  single-image Dockerfile for Dokploy (web:3000 + api:3001, two domains,
+  runtime-only secrets — verified via no-.env build simulation; real
+  `docker build` still pending, daemon was down locally), ALL deferred lint
+  rules re-enabled and `LINT_DEBT.md` deleted, shared domain types (`any`
+  eliminated), `supabase_lt` rename, dead code/commented blocks purged,
+  **two pre-existing stored-XSS holes fixed** (chat `{@html}` → plain text;
+  creator product HTML now DOMPurify-sanitized), a11y warnings 17→0 with
+  keyboard nav preserved, alerts→toasts, Razorpay/model-viewer error states.
+  **ALL CODE-SCOPE PHASES (0–6) COMPLETE.** Final gates: build/lint/
+  svelte-check 0/0, 65 root + 155 api unit tests, 9 e2e (+2 DB-gated).
+  Remaining work is runtime/decision-gated: see DEPLOY_NOTES.md (user actions),
+  then RLS integration tests + live smoke + Phase 2 legacy cleanup unit;
+  open decisions: Razorpay webhooks, payouts model, backups (user-owned).
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
