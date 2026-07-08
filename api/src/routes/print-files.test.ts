@@ -4,6 +4,7 @@ import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
 import { createPrintFilesRoutes } from './print-files.js';
 import type { PrintFilesStore, PrintRequestRow } from '../services/print-files-store.js';
+import { BODY_READ_SLACK_BYTES, MAX_STL_SIZE_BYTES } from '../services/print-files.js';
 import type { Actor, AppVariables } from '../types/context.js';
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
@@ -187,6 +188,35 @@ describe('print-files routes', () => {
 		expect(response.status).toBe(413);
 	});
 
+	it('returns 413 when Content-Length is forged smaller than the streamed body', async () => {
+		const app = createTestApp({ userId: USER_ID, clientId: null }, fakeStore());
+		const oversized = new Uint8Array(MAX_STL_SIZE_BYTES + BODY_READ_SLACK_BYTES + 1);
+		const query = new URLSearchParams({ ...validMetadata(), filename: 'model.stl' });
+		const response = await app.request(`/print-files/upload?${query.toString()}`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/octet-stream',
+				'Content-Length': '64'
+			},
+			body: oversized
+		});
+
+		expect(response.status).toBe(413);
+	});
+
+	it('returns 413 for oversized raw uploads without Content-Length', async () => {
+		const app = createTestApp({ userId: USER_ID, clientId: null }, fakeStore());
+		const oversized = new Uint8Array(MAX_STL_SIZE_BYTES + BODY_READ_SLACK_BYTES + 1);
+		const query = new URLSearchParams({ ...validMetadata(), filename: 'model.stl' });
+		const response = await app.request(`/print-files/upload?${query.toString()}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/octet-stream' },
+			body: oversized
+		});
+
+		expect(response.status).toBe(413);
+	});
+
 	it('returns 429 when quota is exceeded', async () => {
 		const uploadPrintFile = vi.fn(async () => ({
 			ok: false as const,
@@ -210,7 +240,10 @@ describe('print-files routes', () => {
 			user_id: USER_ID,
 			creator_id: MAKER_ID,
 			model: `models/${USER_ID}/file.stl`,
-			model_metadata: { originalFilename: 'model.stl' },
+			model_metadata: {
+				fileName: `${USER_ID}/file.stl`,
+				originalFilename: 'model.stl'
+			},
 			model_data: validMetadata(),
 			request_stage: 'requested',
 			created_at: new Date().toISOString()

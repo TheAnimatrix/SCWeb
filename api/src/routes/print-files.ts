@@ -1,9 +1,14 @@
 import { Hono } from 'hono';
-import { uploadMetadataSchema, printRequestIdParamSchema } from '../contracts/print-files.js';
+import {
+	rawUploadQuerySchema,
+	uploadMetadataSchema,
+	printRequestIdParamSchema
+} from '../contracts/print-files.js';
 import { validateParam } from '../lib/validation.js';
 import { createLogger } from '../middleware/logging.js';
 import { requireAuth } from '../middleware/require-auth.js';
 import {
+	BODY_READ_SLACK_BYTES,
 	hasStlExtension,
 	isWithinSizeLimit,
 	MAX_STL_SIZE_BYTES,
@@ -12,6 +17,8 @@ import {
 } from '../services/print-files.js';
 import { isFilesConfigured, type PrintFilesStore } from '../services/print-files-store.js';
 import type { AppVariables } from '../types/context.js';
+
+const MAX_BODY_BYTES = MAX_STL_SIZE_BYTES + BODY_READ_SLACK_BYTES;
 
 function isMultipartRequest(contentType: string | undefined): boolean {
 	return contentType?.includes('multipart/form-data') ?? false;
@@ -29,14 +36,14 @@ function isRawUploadRequest(contentType: string | undefined): boolean {
 	);
 }
 
-async function readBodyWithLimit(
+async function readBoundedBody(
 	request: Request,
 	maxBytes: number
 ): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; status: 413 | 400 }> {
 	const contentLength = request.headers.get('content-length');
-	if (contentLength) {
+	if (contentLength !== null) {
 		const length = Number(contentLength);
-		if (!Number.isFinite(length) || length <= 0) {
+		if (!Number.isFinite(length) || length < 0) {
 			return { ok: false, status: 400 };
 		}
 		if (length > maxBytes) {
@@ -44,16 +51,48 @@ async function readBodyWithLimit(
 		}
 	}
 
-	const buffer = await request.arrayBuffer();
-	if (buffer.byteLength > maxBytes) {
-		return { ok: false, status: 413 };
-	}
-
-	if (buffer.byteLength === 0) {
+	if (!request.body) {
 		return { ok: false, status: 400 };
 	}
 
-	return { ok: true, bytes: new Uint8Array(buffer) };
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
+			}
+			if (!value) {
+				continue;
+			}
+
+			total += value.byteLength;
+			if (total > maxBytes) {
+				await reader.cancel();
+				return { ok: false, status: 413 };
+			}
+
+			chunks.push(value);
+		}
+	} catch {
+		return { ok: false, status: 400 };
+	}
+
+	if (total === 0) {
+		return { ok: false, status: 400 };
+	}
+
+	const bytes = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+
+	return { ok: true, bytes };
 }
 
 function parseUploadMetadata(fields: Record<string, FormDataEntryValue | string | undefined>) {
@@ -96,51 +135,70 @@ export function createPrintFilesRoutes(
 		let metadataResult: ReturnType<typeof parseUploadMetadata>;
 
 		if (isMultipartRequest(contentType)) {
-			const form = await c.req.parseBody({ all: true });
-			const modelFile = form.model_file;
+			const bodyResult = await readBoundedBody(c.req.raw, MAX_BODY_BYTES);
+			if (!bodyResult.ok) {
+				return c.json(
+					{ error: bodyResult.status === 413 ? 'file_too_large' : 'invalid_file' },
+					bodyResult.status
+				);
+			}
+
+			const parsedRequest = new Request(c.req.url, {
+				method: 'POST',
+				headers: { 'content-type': contentType! },
+				body: bodyResult.bytes
+			});
+			const form = await parsedRequest.formData();
+			const modelFile = form.get('model_file');
 
 			if (!(modelFile instanceof File)) {
 				return c.json({ error: 'invalid_file', message: 'model_file is required' }, 400);
-			}
-
-			if (!isWithinSizeLimit(modelFile.size)) {
-				return c.json({ error: 'file_too_large' }, modelFile.size > MAX_STL_SIZE_BYTES ? 413 : 400);
 			}
 
 			if (!hasStlExtension(modelFile.name)) {
 				return c.json({ error: 'invalid_file_type' }, 415);
 			}
 
-			metadataResult = parseUploadMetadata(form as Record<string, FormDataEntryValue>);
+			metadataResult = parseUploadMetadata(Object.fromEntries(form.entries()));
 			if (!metadataResult.success) {
 				return c.json({ error: 'invalid_metadata', issues: metadataResult.error.issues }, 400);
 			}
 
 			const arrayBuffer = await modelFile.arrayBuffer();
-			if (arrayBuffer.byteLength > MAX_STL_SIZE_BYTES) {
-				return c.json({ error: 'file_too_large' }, 413);
+			if (!isWithinSizeLimit(arrayBuffer.byteLength)) {
+				return c.json(
+					{ error: 'file_too_large' },
+					arrayBuffer.byteLength > MAX_STL_SIZE_BYTES ? 413 : 400
+				);
 			}
 
 			fileBytes = new Uint8Array(arrayBuffer);
 			originalFilename = sanitizeOriginalFilename(modelFile.name);
 		} else if (isRawUploadRequest(contentType)) {
-			const query = c.req.query();
-			const filename = query.filename ?? 'model.stl';
+			const queryResult = rawUploadQuerySchema.safeParse(c.req.query());
+			if (!queryResult.success) {
+				return c.json({ error: 'invalid_metadata', issues: queryResult.error.issues }, 400);
+			}
+
+			const { filename = 'model.stl', ...metadata } = queryResult.data;
+			metadataResult = { success: true, data: metadata };
 
 			if (!hasStlExtension(filename)) {
 				return c.json({ error: 'invalid_file_type' }, 415);
 			}
 
-			metadataResult = parseUploadMetadata(query);
-			if (!metadataResult.success) {
-				return c.json({ error: 'invalid_metadata', issues: metadataResult.error.issues }, 400);
-			}
-
-			const bodyResult = await readBodyWithLimit(c.req.raw, MAX_STL_SIZE_BYTES);
+			const bodyResult = await readBoundedBody(c.req.raw, MAX_BODY_BYTES);
 			if (!bodyResult.ok) {
 				return c.json(
 					{ error: bodyResult.status === 413 ? 'file_too_large' : 'invalid_file' },
 					bodyResult.status
+				);
+			}
+
+			if (!isWithinSizeLimit(bodyResult.bytes.byteLength)) {
+				return c.json(
+					{ error: 'file_too_large' },
+					bodyResult.bytes.byteLength > MAX_STL_SIZE_BYTES ? 413 : 400
 				);
 			}
 

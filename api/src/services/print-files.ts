@@ -1,4 +1,7 @@
 export const MAX_STL_SIZE_BYTES = 50 * 1024 * 1024;
+/** Extra bytes allowed for multipart boundaries/metadata when streaming the request body. */
+export const BODY_READ_SLACK_BYTES = 256 * 1024;
+export const ASCII_STL_FACET_PREFIX_BYTES = 4 * 1024;
 export const DEFAULT_DAILY_QUOTA = 3;
 export const SIGNED_URL_EXPIRY_SECONDS = 600;
 export const MODELS_BUCKET = 'models';
@@ -47,20 +50,21 @@ export function isAsciiStl(data: Uint8Array): boolean {
 		return false;
 	}
 
-	const prefix = new TextDecoder('ascii').decode(data.slice(0, 80)).trimStart().toLowerCase();
+	const headerLen = Math.min(data.length, 80);
+	const prefix = new TextDecoder('ascii')
+		.decode(data.slice(0, headerLen))
+		.trimStart()
+		.toLowerCase();
 	if (!prefix.startsWith('solid')) {
 		return false;
 	}
 
-	const text = new TextDecoder('utf-8', { fatal: false }).decode(data);
-	return text.includes('facet');
+	const facetLen = Math.min(data.length, ASCII_STL_FACET_PREFIX_BYTES);
+	const facetPrefix = new TextDecoder('utf-8', { fatal: false }).decode(data.slice(0, facetLen));
+	return facetPrefix.includes('facet');
 }
 
 export function validateStlContent(data: Uint8Array): boolean {
-	if (data.length < 84) {
-		return false;
-	}
-
 	if (isBinaryStl(data)) {
 		return true;
 	}

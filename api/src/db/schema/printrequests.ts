@@ -1,4 +1,13 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+	bigint,
+	doublePrecision,
+	integer,
+	jsonb,
+	pgTable,
+	text,
+	timestamp,
+	uuid
+} from 'drizzle-orm/pg-core';
 
 export const printrequests = pgTable('printrequests', {
 	id: uuid('id').primaryKey().defaultRandom(),
@@ -10,8 +19,8 @@ export const printrequests = pgTable('printrequests', {
 	model: text('model'),
 	modelMetadata: jsonb('model_metadata'),
 	quoteUpdates: integer('quote_updates'),
-	initialQuote: integer('initial_quote'),
-	quote: integer('quote'),
+	initialQuote: doublePrecision('initial_quote'),
+	quote: bigint('quote', { mode: 'number' }),
 	events: jsonb('events'),
 	filamentColor: text('filament_color'),
 	modelData: jsonb('model_data'),

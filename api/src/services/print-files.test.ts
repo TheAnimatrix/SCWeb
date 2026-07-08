@@ -46,6 +46,13 @@ describe('print-files pure logic', () => {
 			expect(validateStlContent(data)).toBe(true);
 		});
 
+		it('accepts tiny ASCII STL below the binary 84-byte minimum', () => {
+			const tinyAscii = 'solid\nfacet\nendsolid';
+			const data = new TextEncoder().encode(tinyAscii);
+			expect(data.length).toBeLessThan(84);
+			expect(validateStlContent(data)).toBe(true);
+		});
+
 		it('rejects junk data', () => {
 			const data = new TextEncoder().encode('not an stl file');
 			expect(validateStlContent(data)).toBe(false);

@@ -59,6 +59,7 @@ export interface PrintFilesStorage {
 		data: Uint8Array,
 		contentType: string
 	): Promise<{ ok: true } | { ok: false; message: string }>;
+	remove(bucketKey: string): Promise<{ ok: true } | { ok: false; message: string }>;
 	createSignedUrl(
 		bucketKey: string,
 		expiresInSeconds: number
@@ -86,6 +87,15 @@ export function createStorageFromClient(client: SupabaseClient): PrintFilesStora
 				upsert: false,
 				contentType
 			});
+
+			if (error) {
+				return { ok: false, message: error.message };
+			}
+
+			return { ok: true };
+		},
+		async remove(bucketKey) {
+			const { error } = await client.storage.from(MODELS_BUCKET).remove([bucketKey]);
 
 			if (error) {
 				return { ok: false, message: error.message };
@@ -148,11 +158,13 @@ async function consumeUploadQuota(
 	userId: string,
 	limit: number
 ): Promise<number | null> {
+	// Intentional UTC day boundary: CURRENT_DATE uses the database session timezone (UTC).
 	const result = await executeRows<{ count: number }>(
 		db,
 		sql`
 		INSERT INTO upload_quota (user_id, quota_date, count)
-		VALUES (${userId}, CURRENT_DATE, 1)
+		SELECT ${userId}, CURRENT_DATE, 1
+		WHERE ${limit} >= 1
 		ON CONFLICT (user_id, quota_date)
 		DO UPDATE SET count = upload_quota.count + 1
 		WHERE upload_quota.count < ${limit}
@@ -161,6 +173,21 @@ async function consumeUploadQuota(
 	);
 
 	return result[0]?.count ?? null;
+}
+
+async function releaseUploadQuota(db: Database, userId: string): Promise<void> {
+	await executeRows(
+		db,
+		sql`
+		UPDATE upload_quota
+		SET count = GREATEST(count - 1, 0)
+		WHERE user_id = ${userId} AND quota_date = CURRENT_DATE
+	`
+	);
+}
+
+function logUploadFailure(event: string, details: Record<string, unknown>): void {
+	console.error(JSON.stringify({ level: 'error', event, ...details }));
 }
 
 function mapPrintRequestRow(row: typeof printrequests.$inferSelect): PrintRequestRow {
@@ -193,24 +220,52 @@ export function createPrintFilesStore(db: Database, storage: PrintFilesStorage):
 			const uploadResult = await storage.upload(storageKey, input.fileBytes, 'application/sla');
 
 			if (!uploadResult.ok) {
+				await releaseUploadQuota(db, input.userId);
+				logUploadFailure('print-files.upload.storage_failed', {
+					userId: input.userId,
+					storageKey,
+					message: uploadResult.message,
+					quotaReleased: true
+				});
 				return { ok: false, status: 500, body: { error: 'upload_failed' } };
 			}
 
-			const [inserted] = await db
-				.insert(printrequests)
-				.values({
-					userId: input.userId,
-					creatorId: input.makerId,
-					model: modelPath,
-					modelData: input.modelData,
-					modelMetadata: {
-						originalFilename: input.originalFilename
-					},
-					requestStage: 'requested'
-				})
-				.returning();
+			try {
+				const [inserted] = await db
+					.insert(printrequests)
+					.values({
+						userId: input.userId,
+						creatorId: input.makerId,
+						model: modelPath,
+						modelData: input.modelData,
+						modelMetadata: {
+							fileName: storageKey,
+							originalFilename: input.originalFilename
+						},
+						requestStage: 'requested'
+					})
+					.returning();
 
-			return { ok: true, printRequest: mapPrintRequestRow(inserted) };
+				return { ok: true, printRequest: mapPrintRequestRow(inserted) };
+			} catch (error) {
+				const cleanup = await storage.remove(storageKey);
+				await releaseUploadQuota(db, input.userId);
+				logUploadFailure('print-files.upload.insert_failed', {
+					userId: input.userId,
+					storageKey,
+					error: error instanceof Error ? error.message : String(error),
+					quotaReleased: true
+				});
+				console.error(
+					JSON.stringify({
+						event: 'orphan_cleanup',
+						key: storageKey,
+						ok: cleanup.ok,
+						...(cleanup.ok ? {} : { message: cleanup.message })
+					})
+				);
+				return { ok: false, status: 500, body: { error: 'upload_failed' } };
+			}
 		},
 
 		async getDownloadUrl(actorUserId, printRequestId) {

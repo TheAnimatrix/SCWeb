@@ -59,6 +59,7 @@ function createBinaryStl(triangleCount: number): Uint8Array {
 function fakeStorage(): PrintFilesStorage {
 	return {
 		upload: vi.fn(async () => ({ ok: true as const })),
+		remove: vi.fn(async () => ({ ok: true as const })),
 		createSignedUrl: vi.fn(async () => ({
 			ok: true as const,
 			signedUrl: 'https://example.supabase.co/signed'
@@ -123,7 +124,10 @@ describe('print-files store (pglite)', () => {
 		expect(result.printRequest.model).toMatch(
 			/^models\/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\/.+\.stl$/
 		);
-		expect(result.printRequest.model_metadata).toEqual({ originalFilename: 'cube.stl' });
+		expect(result.printRequest.model_metadata).toEqual({
+			fileName: expect.stringMatching(/^aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\/.+\.stl$/),
+			originalFilename: 'cube.stl'
+		});
 		expect(result.printRequest.model_data).toEqual({
 			color: 'red',
 			material: 'PLA',
@@ -171,5 +175,107 @@ describe('print-files store (pglite)', () => {
 			.from(printrequests)
 			.where(eq(printrequests.userId, USER_ID));
 		expect(rows).toHaveLength(1);
+	});
+
+	it('blocks the first upload when the daily limit is zero', async () => {
+		await testDb.client.exec(`UPDATE users SET quote_daily_limit = 0 WHERE id = '${USER_ID}'`);
+
+		const storage = fakeStorage();
+		const store = createPrintFilesStore(testDb.db, storage);
+		const result = await store.uploadPrintFile({
+			userId: USER_ID,
+			makerId: MAKER_ID,
+			originalFilename: 'cube.stl',
+			fileBytes: createBinaryStl(1),
+			modelData: {
+				color: 'red',
+				material: 'PLA',
+				quality: '0.2',
+				scale: '1',
+				infill: '20'
+			}
+		});
+
+		expect(result.ok).toBe(false);
+		if (result.ok) {
+			return;
+		}
+		expect(result.status).toBe(429);
+
+		const rows = await testDb.db.select().from(printrequests);
+		expect(rows).toHaveLength(0);
+		expect(storage.upload).not.toHaveBeenCalled();
+	});
+
+	it('does not consume quota when storage upload fails', async () => {
+		const storage: PrintFilesStorage = {
+			upload: vi.fn(async () => ({ ok: false as const, message: 'storage down' })),
+			remove: vi.fn(async () => ({ ok: true as const })),
+			createSignedUrl: vi.fn(async () => ({
+				ok: true as const,
+				signedUrl: 'https://example.supabase.co/signed'
+			}))
+		};
+		const store = createPrintFilesStore(testDb.db, storage);
+		const result = await store.uploadPrintFile({
+			userId: USER_ID,
+			makerId: MAKER_ID,
+			originalFilename: 'cube.stl',
+			fileBytes: createBinaryStl(1),
+			modelData: {
+				color: 'red',
+				material: 'PLA',
+				quality: '0.2',
+				scale: '1',
+				infill: '20'
+			}
+		});
+
+		expect(result.ok).toBe(false);
+		if (result.ok) {
+			return;
+		}
+		expect(result.status).toBe(500);
+
+		const quotaRows = await testDb.client.query<{ count: number }>(
+			`SELECT count FROM upload_quota WHERE user_id = '${USER_ID}'`
+		);
+		expect(quotaRows.rows[0]?.count ?? 0).toBe(0);
+	});
+
+	it('attempts orphan cleanup when printrequests insert fails', async () => {
+		const storage = fakeStorage();
+		const store = createPrintFilesStore(testDb.db, storage);
+		const insertSpy = vi.spyOn(testDb.db, 'insert').mockImplementation(() => {
+			throw new Error('insert failed');
+		});
+
+		const result = await store.uploadPrintFile({
+			userId: USER_ID,
+			makerId: MAKER_ID,
+			originalFilename: 'cube.stl',
+			fileBytes: createBinaryStl(1),
+			modelData: {
+				color: 'red',
+				material: 'PLA',
+				quality: '0.2',
+				scale: '1',
+				infill: '20'
+			}
+		});
+
+		insertSpy.mockRestore();
+
+		expect(result.ok).toBe(false);
+		if (result.ok) {
+			return;
+		}
+		expect(result.status).toBe(500);
+		expect(storage.remove).toHaveBeenCalledOnce();
+
+		const quotaRows = await testDb.client.query<{ count: number }>(
+			`SELECT count FROM upload_quota WHERE user_id = '${USER_ID}'`
+		);
+		expect(quotaRows.rows[0]?.count ?? 0).toBe(0);
 	});
 });
