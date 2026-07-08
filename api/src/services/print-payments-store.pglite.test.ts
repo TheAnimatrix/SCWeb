@@ -74,6 +74,23 @@ ON purchases (payment_id_b)
 WHERE payment_status = 'paid';
 `;
 
+const AUDIT_LOG_STUB_SQL = `
+CREATE TABLE IF NOT EXISTS "audit_log" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"at" timestamp with time zone DEFAULT now() NOT NULL,
+	"actor_user_id" uuid,
+	"actor_client_id" text,
+	"entity_type" text NOT NULL,
+	"entity_id" text NOT NULL,
+	"action" text NOT NULL,
+	"from_state" text,
+	"to_state" text,
+	"provider_ids" jsonb,
+	"meta" jsonb
+);
+CREATE INDEX IF NOT EXISTS "audit_log_entity_type_entity_id_at_idx" ON "audit_log" ("entity_type", "entity_id", "at");
+`;
+
 type TestDb = {
 	client: PGlite;
 	db: Database;
@@ -83,6 +100,7 @@ async function createTestDb(): Promise<TestDb> {
 	const client = new PGlite();
 	await client.exec(PRINTREQUESTS_STUB_SQL);
 	await client.exec(PURCHASES_STUB_SQL);
+	await client.exec(AUDIT_LOG_STUB_SQL);
 
 	const db = drizzle(client, { schema }) as unknown as Database;
 	return { client, db };

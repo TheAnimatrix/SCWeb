@@ -9,6 +9,7 @@ import { printrequests } from '../db/schema/printrequests.js';
 import type { Actor } from '../types/context.js';
 import type { PrintRequestEvent } from './print-payments.js';
 import { recalculateCreatorStats } from './creator-stats.js';
+import { writeAudit } from './audit.js';
 import {
 	ACTION_TRANSITIONS,
 	appendEvent,
@@ -247,6 +248,16 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 						updateCount: sql`COALESCE(${printrequests.updateCount}, 0) + 1`
 					})
 					.where(eq(printrequests.id, printRequestId));
+
+				await writeAudit(tx, {
+					actorUserId: actorId,
+					actorClientId: actor.clientId,
+					entityType: 'print_request',
+					entityId: printRequestId,
+					action,
+					fromState: currentStage,
+					toState: nextStage
+				});
 
 				return {
 					ok: true as const,

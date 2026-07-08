@@ -27,6 +27,7 @@ import {
 	type CheckoutLine
 } from './checkout.js';
 import type { RazorpayClient } from './razorpay-client.js';
+import { writeAudit } from './audit.js';
 
 export type CreateOrderResult =
 	| { ok: true; response: CreateCheckoutOrderResponse }
@@ -259,6 +260,17 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 					await replaceOrderItems(tx, inserted.id, snapshots);
 
+					await writeAudit(tx, {
+						actorUserId: actor.userId,
+						actorClientId: actor.clientId,
+						entityType: 'order',
+						entityId: inserted.id,
+						action: 'created',
+						fromState: null,
+						toState: CART_ORDER_STATUS.PAYMENT_PENDING,
+						meta: { cartId: cart.id, total: totals.total }
+					});
+
 					await tx
 						.update(carts)
 						.set({
@@ -418,6 +430,20 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						};
 					}
 
+					await writeAudit(tx, {
+						actorUserId: actor.userId,
+						actorClientId: actor.clientId,
+						entityType: 'order',
+						entityId: order.id,
+						action: 'paid',
+						fromState: order.status,
+						toState: CART_ORDER_STATUS.PAID,
+						providerIds: {
+							razorpayOrderId,
+							razorpayPaymentId
+						}
+					});
+
 					const lines = await tx
 						.select({
 							productId: orderItems.productId,
@@ -528,6 +554,18 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 							updatedAt: sql`now()`
 						})
 						.where(eq(carts.id, order.cartId));
+
+					await writeAudit(tx, {
+						actorUserId: actor.userId,
+						actorClientId: actor.clientId,
+						entityType: 'order',
+						entityId: order.id,
+						action: 'failed',
+						fromState: CART_ORDER_STATUS.PAYMENT_PENDING,
+						toState: CART_ORDER_STATUS.FAILED,
+						providerIds: { razorpayOrderId },
+						meta: reason ? { reason } : null
+					});
 
 					console.warn(
 						JSON.stringify({

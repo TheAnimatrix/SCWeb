@@ -1,4 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
+import { createLogger } from '$lib/server/logger';
 import { parsePrintModelData } from '$lib/types/printRequest';
 
 // POST /3dp-portal/(authenticated)/maker/[id]/statsUpdate
@@ -19,9 +20,14 @@ import { parsePrintModelData } from '$lib/types/printRequest';
  * @param {Object} locals - Server locals containing Supabase instances
  * @returns {Response} JSON response with updated statistics or error
  */
-export const POST: RequestHandler = async ({ params, locals }) => {
+export const POST: RequestHandler = async ({ params, locals, route }) => {
 	const { id: maker_id } = params;
 	const supabase = locals.supabaseAdmin;
+	const log = createLogger({
+		requestId: locals.requestId,
+		route: route.id ?? undefined,
+		clientId: locals.clientId
+	});
 
 	const { session } = await locals.safeGetSession();
 	if (!session?.user) {
@@ -33,7 +39,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	}
 
 	if (!maker_id) {
-		console.error('Missing maker ID in request');
+		log.error('maker.stats_update.missing_maker_id');
 		return new Response(JSON.stringify({ error: 'Missing maker id' }), { status: 400 });
 	}
 
@@ -44,7 +50,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		.eq('creator_id', maker_id);
 
 	if (prError) {
-		console.error('Error fetching print requests:', prError.message);
+		log.error('maker.stats_update.print_requests_failed', { makerId: maker_id });
 		return new Response(JSON.stringify({ error: prError.message }), { status: 500 });
 	}
 
@@ -90,7 +96,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		.eq('maker_id', maker_id);
 
 	if (reviewError) {
-		console.error('Error fetching reviews:', reviewError.message);
+		log.error('maker.stats_update.reviews_failed', { makerId: maker_id });
 		return new Response(JSON.stringify({ error: reviewError.message }), { status: 500 });
 	}
 	const ratings = (reviews ?? []).map((r) => r.rating).filter((r) => typeof r === 'number');
@@ -107,7 +113,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	});
 
 	if (upsertError) {
-		console.error('Error updating creator stats:', upsertError.message);
+		log.error('maker.stats_update.upsert_failed', { makerId: maker_id });
 		return new Response(JSON.stringify({ error: upsertError.message }), { status: 500 });
 	}
 

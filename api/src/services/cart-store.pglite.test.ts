@@ -46,6 +46,11 @@ const migrationSql = readFileSync(
 	'utf8'
 );
 
+const auditMigrationSql = readFileSync(
+	resolve(import.meta.dirname, '../../drizzle/0004_audit_log.sql'),
+	'utf8'
+);
+
 type TestDb = {
 	client: PGlite;
 	db: Database;
@@ -61,6 +66,15 @@ async function createTestDb(): Promise<TestDb> {
 		.filter(Boolean);
 
 	for (const statement of statements) {
+		await client.exec(statement);
+	}
+
+	const auditStatements = auditMigrationSql
+		.split('--> statement-breakpoint')
+		.map((statement) => statement.trim())
+		.filter(Boolean);
+
+	for (const statement of auditStatements) {
 		await client.exec(statement);
 	}
 

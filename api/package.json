@@ -33,6 +33,7 @@
 	"dependencies": {
 		"@hono/node-server": "^1.14.1",
 		"@hono/zod-validator": "^0.5.0",
+		"@sentry/node": "^10.64.0",
 		"@supabase/supabase-js": "^2.49.1",
 		"dotenv": "^16.4.7",
 		"drizzle-orm": "^0.43.1",

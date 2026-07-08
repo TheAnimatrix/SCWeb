@@ -1,9 +1,23 @@
+import * as Sentry from '@sentry/sveltekit';
 import { SUPABASE_KEY } from '$env/static/private';
 import { PUBLIC_IS_PRODUCTION, PUBLIC_SUPABASE_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { env } from '$env/dynamic/private';
 import { createServerClient } from '@supabase/ssr';
-import type { Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { v4 as uuidv4 } from 'uuid';
 import { CLIENT_ID_COOKIE_NAME } from '$lib/constants/cookies';
+import { createLogger } from '$lib/server/logger';
+import { sanitizeRequestId } from '$lib/server/request-id';
+
+const sentryDsn = env.SENTRY_DSN;
+
+if (sentryDsn) {
+	Sentry.init({
+		dsn: sentryDsn,
+		tracesSampleRate: 0
+	});
+}
 
 function generateUniqueId(): string {
 	return uuidv4();
@@ -11,7 +25,10 @@ function generateUniqueId(): string {
 
 const isProduction = PUBLIC_IS_PRODUCTION !== 'false';
 
-export const handle: Handle = async ({ event, resolve }) => {
+const appHandle: Handle = async ({ event, resolve }) => {
+	const requestId = sanitizeRequestId(event.request.headers.get('x-request-id'));
+	event.locals.requestId = requestId;
+
 	const clientIdCookie = event.cookies.get(CLIENT_ID_COOKIE_NAME);
 	const clientId = clientIdCookie || generateUniqueId();
 
@@ -61,9 +78,43 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return { session, user };
 	};
 
-	return resolve(event, {
-		filterSerializedResponseHeaders(name) {
-			return name === 'content-range';
-		}
+	const log = createLogger({
+		requestId,
+		route: event.route.id ?? undefined,
+		clientId
 	});
+	const startedAt = Date.now();
+	log.info('request.start');
+
+	try {
+		const response = await resolve(event, {
+			filterSerializedResponseHeaders(name) {
+				return name === 'content-range';
+			}
+		});
+
+		log.info('request.end', {
+			status: response.status,
+			durationMs: Date.now() - startedAt
+		});
+
+		return response;
+	} catch (error) {
+		log.error('request.error', {
+			error: error instanceof Error ? error.message : String(error)
+		});
+		throw error;
+	}
+};
+
+export const handle = sentryDsn ? sequence(Sentry.sentryHandle(), appHandle) : appHandle;
+
+export const handleError: HandleServerError = ({ error, event }) => {
+	if (sentryDsn) {
+		Sentry.captureException(error, {
+			tags: {
+				requestId: event.locals.requestId ?? 'unknown'
+			}
+		});
+	}
 };
