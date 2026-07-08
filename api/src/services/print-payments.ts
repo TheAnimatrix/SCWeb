@@ -18,23 +18,52 @@ export function isPayablePrintRequestStage(
 	return PAYABLE_PRINT_REQUEST_STAGES.includes(stage as PayablePrintRequestStage);
 }
 
-export function getLatestQuote(events: unknown): number | null {
-	if (!Array.isArray(events)) return null;
+export type LatestQuoteRejection = 'no_quote' | 'invalid_quote';
 
-	const quotedEvents = events
+// Events are still client-writable until portal mutations move server-side (WU-3D) —
+// this is defense-in-depth, and WU-3D + RLS lockdown is the completing fix.
+export function getLatestQuoteRejection(events: unknown): LatestQuoteRejection | null {
+	if (!Array.isArray(events)) return 'no_quote';
+
+	const makerQuotedEvents = events
 		.filter(
 			(event): event is PrintRequestEvent =>
 				typeof event === 'object' &&
 				event !== null &&
 				(event as PrintRequestEvent).type === 'quoted' &&
+				(event as PrintRequestEvent).by === 'maker' &&
 				typeof (event as PrintRequestEvent).extra?.quote !== 'undefined'
 		)
 		.sort((a, b) => new Date(b.timestamp ?? 0).getTime() - new Date(a.timestamp ?? 0).getTime());
 
-	if (quotedEvents.length === 0) return null;
+	if (makerQuotedEvents.length === 0) return 'no_quote';
 
-	const quote = Number(quotedEvents[0]!.extra!.quote);
-	return Number.isFinite(quote) && quote > 0 ? quote : null;
+	const quote = Number(makerQuotedEvents[0]!.extra!.quote);
+	if (!Number.isFinite(quote) || !Number.isInteger(quote) || quote <= 0) {
+		return 'invalid_quote';
+	}
+
+	return null;
+}
+
+export function getLatestQuote(events: unknown): number | null {
+	const rejection = getLatestQuoteRejection(events);
+	if (rejection) return null;
+
+	if (!Array.isArray(events)) return null;
+
+	const makerQuotedEvents = events
+		.filter(
+			(event): event is PrintRequestEvent =>
+				typeof event === 'object' &&
+				event !== null &&
+				(event as PrintRequestEvent).type === 'quoted' &&
+				(event as PrintRequestEvent).by === 'maker' &&
+				typeof (event as PrintRequestEvent).extra?.quote !== 'undefined'
+		)
+		.sort((a, b) => new Date(b.timestamp ?? 0).getTime() - new Date(a.timestamp ?? 0).getTime());
+
+	return Number(makerQuotedEvents[0]!.extra!.quote);
 }
 
 export function normalizePrintEvents(events: unknown): PrintRequestEvent[] {

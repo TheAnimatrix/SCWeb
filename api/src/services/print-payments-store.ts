@@ -16,6 +16,8 @@ import {
 	buildPaidEvent,
 	buildPaymentFailedEvent,
 	getLatestQuote,
+	getLatestQuoteRejection,
+	getOrderCreatedAmount,
 	getPrintRequestAddressPart,
 	isPayablePrintRequestStage,
 	isPrintRequestOwnedBy,
@@ -29,14 +31,14 @@ export type CreatePrintPaymentOrderResult =
 	| { ok: false; status: 404; body: { error: 'not_found' } }
 	| { ok: false; status: 403; body: { error: 'forbidden' } }
 	| { ok: false; status: 409; body: { error: 'not_payable' } }
-	| { ok: false; status: 400; body: { error: 'no_quote' } }
+	| { ok: false; status: 400; body: { error: 'no_quote' | 'invalid_quote' } }
 	| { ok: false; status: 500; body: { error: 'razorpay_order_failed' } };
 
 export type ConfirmPrintPaymentResult =
 	| { ok: true; response: ConfirmPrintPaymentResponse }
 	| { ok: false; status: 404; body: { error: 'not_found' } }
 	| { ok: false; status: 403; body: { error: 'forbidden' } }
-	| { ok: false; status: 400; body: { error: 'order_mismatch' | 'no_order' | 'no_quote' } };
+	| { ok: false; status: 400; body: { error: 'order_mismatch' | 'no_order' | 'reorder_required' } };
 
 export type FailPrintPaymentResult =
 	| { ok: true; response: FailPrintPaymentResponse }
@@ -103,6 +105,10 @@ export function createPrintPaymentsStore(
 					return { kind: 'not_payable' as const };
 				}
 
+				const quoteRejection = getLatestQuoteRejection(row.events);
+				if (quoteRejection === 'invalid_quote') {
+					return { kind: 'invalid_quote' as const };
+				}
 				const latestQuote = getLatestQuote(row.events);
 				if (latestQuote === null) {
 					return { kind: 'no_quote' as const };
@@ -153,6 +159,9 @@ export function createPrintPaymentsStore(
 			if (prepared.kind === 'no_quote') {
 				return { ok: false, status: 400, body: { error: 'no_quote' } };
 			}
+			if (prepared.kind === 'invalid_quote') {
+				return { ok: false, status: 400, body: { error: 'invalid_quote' } };
+			}
 
 			if (prepared.kind === 'reuse') {
 				return {
@@ -165,6 +174,8 @@ export function createPrintPaymentsStore(
 				};
 			}
 
+			// Razorpay SDK call is intentionally outside the row lock; confirm binds to the
+			// persisted order_id so orphan Razorpay orders are harmless.
 			try {
 				const razorpayOrder = await razorpayClient.createOrder(
 					rupeesToPaise(prepared.amount),
@@ -249,43 +260,43 @@ export function createPrintPaymentsStore(
 						};
 					}
 
-					const latestQuote = getLatestQuote(row.events);
-					if (latestQuote === null) {
+					const orderAmount = getOrderCreatedAmount(row.events, row.orderId);
+					if (orderAmount === null) {
 						return {
 							ok: false as const,
 							status: 400 as const,
-							body: { error: 'no_quote' as const }
+							body: { error: 'reorder_required' as const }
 						};
 					}
 
-					const paidEvent = buildPaidEvent(razorpayOrderId, razorpayPaymentId, latestQuote);
+					const latestQuote = getLatestQuote(row.events);
+					if (latestQuote !== null && latestQuote !== orderAmount) {
+						console.warn(
+							JSON.stringify({
+								event: 'quote_drift',
+								printRequestId,
+								orderAmount,
+								latestQuote
+							})
+						);
+					}
+
+					const paidEvent = buildPaidEvent(razorpayOrderId, razorpayPaymentId, orderAmount);
 					const updatedEvents = [...normalizePrintEvents(row.events), paidEvent];
 
-					let claimed: { id: string }[];
-
-					try {
-						claimed = await tx
-							.update(printrequests)
-							.set({
-								requestStage: 'paid',
-								paymentId: razorpayPaymentId,
-								orderId: razorpayOrderId,
-								events: updatedEvents,
-								lastUpdated: sql`now()`
-							})
-							.where(
-								and(eq(printrequests.id, printRequestId), eq(printrequests.requestStage, 'quoted'))
-							)
-							.returning({ id: printrequests.id });
-					} catch (error) {
-						if (isUniqueViolation(error)) {
-							return {
-								ok: true as const,
-								response: { status: 'already_paid' as const }
-							};
-						}
-						throw error;
-					}
+					const claimed = await tx
+						.update(printrequests)
+						.set({
+							requestStage: 'paid',
+							paymentId: razorpayPaymentId,
+							orderId: razorpayOrderId,
+							events: updatedEvents,
+							lastUpdated: sql`now()`
+						})
+						.where(
+							and(eq(printrequests.id, printRequestId), eq(printrequests.requestStage, 'quoted'))
+						)
+						.returning({ id: printrequests.id });
 
 					if (claimed.length === 0) {
 						const [current] = await tx
@@ -317,7 +328,7 @@ export function createPrintPaymentsStore(
 						shippingAddress: getPrintRequestAddressPart(row.address, 'shipping'),
 						clientId: actor.clientId ?? 'N/A',
 						cartId: printRequestId,
-						amount: latestQuote,
+						amount: orderAmount,
 						uid: userId
 					};
 

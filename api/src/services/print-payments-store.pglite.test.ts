@@ -13,6 +13,7 @@ import type { RazorpayClient } from './razorpay-client.js';
 const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const OTHER_USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const PRINT_REQUEST_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const OTHER_PRINT_REQUEST_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const CLIENT_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
 const ADDRESS: CheckoutAddress = {
@@ -395,5 +396,110 @@ describe('PrintPaymentsStore (PGlite)', () => {
 		);
 
 		expect(result).toEqual({ ok: false, status: 403, body: { error: 'forbidden' } });
+	});
+
+	it('confirms at the order-created amount when maker re-quotes after order creation', async () => {
+		await seedQuotedPrintRequest(testDb.db, { quote: 2500 });
+
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay());
+		const actor = { userId: USER_ID, clientId: CLIENT_ID };
+
+		const created = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const [rowBeforeConfirm] = await testDb.db
+			.select()
+			.from(printrequests)
+			.where(eq(printrequests.id, PRINT_REQUEST_ID));
+
+		await testDb.db
+			.update(printrequests)
+			.set({
+				events: [
+					...(Array.isArray(rowBeforeConfirm?.events) ? rowBeforeConfirm.events : []),
+					{
+						by: 'maker',
+						type: 'quoted',
+						reason: 'Updated quote',
+						timestamp: '2026-01-03T00:00:00.000Z',
+						extra: { quote: 3000 }
+					}
+				]
+			})
+			.where(eq(printrequests.id, PRINT_REQUEST_ID));
+
+		const confirmed = await store.confirmPayment(
+			actor,
+			PRINT_REQUEST_ID,
+			created.response.razorpayOrderId,
+			'pay_drift'
+		);
+
+		expect(confirmed).toEqual({ ok: true, response: { status: 'paid' } });
+
+		const purchaseRows = await testDb.db.select().from(purchases);
+		expect(purchaseRows).toHaveLength(1);
+		expect(purchaseRows[0]?.amount).toBe(2500);
+
+		const [row] = await testDb.db
+			.select()
+			.from(printrequests)
+			.where(eq(printrequests.id, PRINT_REQUEST_ID));
+		expect(row?.events).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					type: 'paid',
+					extra: expect.objectContaining({ amount: 2500 })
+				})
+			])
+		);
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			JSON.stringify({
+				event: 'quote_drift',
+				printRequestId: PRINT_REQUEST_ID,
+				orderAmount: 2500,
+				latestQuote: 3000
+			})
+		);
+
+		warnSpy.mockRestore();
+	});
+
+	it('rejects cross-order replay with order_mismatch and writes nothing', async () => {
+		await seedQuotedPrintRequest(testDb.db, { id: PRINT_REQUEST_ID, quote: 2500 });
+		await seedQuotedPrintRequest(testDb.db, {
+			id: OTHER_PRINT_REQUEST_ID,
+			quote: 1800
+		});
+
+		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay());
+		const actor = { userId: USER_ID, clientId: CLIENT_ID };
+
+		const first = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+		const second = await store.createOrder(actor, OTHER_PRINT_REQUEST_ID, ADDRESS);
+		expect(first.ok).toBe(true);
+		expect(second.ok).toBe(true);
+		if (!first.ok || !second.ok) return;
+
+		const result = await store.confirmPayment(
+			actor,
+			PRINT_REQUEST_ID,
+			second.response.razorpayOrderId,
+			'pay_cross_replay'
+		);
+
+		expect(result).toEqual({ ok: false, status: 400, body: { error: 'order_mismatch' } });
+
+		const purchaseRows = await testDb.db.select().from(purchases);
+		expect(purchaseRows).toHaveLength(0);
+
+		const [row] = await testDb.db
+			.select()
+			.from(printrequests)
+			.where(eq(printrequests.id, PRINT_REQUEST_ID));
+		expect(row?.requestStage).toBe('quoted');
 	});
 });
