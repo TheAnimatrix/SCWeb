@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Product } from '$lib/types/product';
+	import { productUserRef } from '$lib/types/product';
 	import { cn } from '$lib/utils';
 	import { isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import PlaceholderImage from './PlaceholderImage.svelte';
@@ -18,8 +19,9 @@
 	const unavailable = $derived(isOutOfStock(product.stock));
 	const onDemand = $derived(isOnDemand(product.stock));
 
-	const makerName = $derived(product.author ?? product.users?.username ?? 'unknown');
-	const cityCode = $derived(product.users?.city ?? '');
+	const productUser = $derived(productUserRef(product.users));
+	const makerName = $derived(product.author ?? productUser?.username ?? 'unknown');
+	const cityCode = $derived(productUser?.city ?? '');
 	const rating = $derived(product.rating?.rating);
 	const formattedPrice = $derived(product.price.new.toLocaleString('en-IN'));
 	const formattedOldPrice = $derived(

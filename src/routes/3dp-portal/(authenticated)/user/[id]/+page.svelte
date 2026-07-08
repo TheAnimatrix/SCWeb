@@ -26,10 +26,11 @@
 	import { cn } from '$lib/utils';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { asPrintRequest } from '$lib/types/printRequest';
+	import type { CreatorReview } from '$lib/types/database';
 	let { data } = $props();
 
 	function supabase() {
-		return requireBrowserSupabase(data.supabase_lt);
+		return requireBrowserSupabase(data.supabase);
 	}
 
 	let req = $state(asPrintRequest(data.printRequest));
@@ -177,14 +178,8 @@
 				},
 				modal: {
 					ondismiss: async function () {
-						//remove order_created event from print request
-						// await supabase().from('printrequests').update({
-						// 	order_id: null,
-						// 	events: data.printRequest.events.filter((event: any) => event.type !== 'order_created')
-						// }).eq('id', req.id);
 						invalidate('3dp-portal:printrequest');
 						toastStore.show('Payment cancelled by User', 'warning');
-						return;
 					}
 				},
 				prefill: {},
@@ -192,21 +187,17 @@
 					color: '#2084fe'
 				}
 			};
-			// @ts-ignore - Razorpay is loaded from external script
 			var rzp1 = new Razorpay(options);
 			if (!rzp1) {
 				alert('Issue with Payment Provider, try again');
 				return;
 			}
-			// @ts-ignore - Razorpay is loaded from external script
 			rzp1.open();
-			// @ts-ignore - Razorpay is loaded from external script
-			rzp1.on('payment.failed', function (response: unknown) {
+			rzp1.on('payment.failed', function (response) {
 				const failedResponse = response as {
 					error?: { metadata?: { order_id?: string }; description?: string };
 				};
 				toastStore.show('Payment failed, please try again', 'error');
-				// @ts-ignore - Razorpay is loaded from external script
 				rzp1.close();
 				const orderId = req?.id;
 				const razorpayOrderId = failedResponse.error?.metadata?.order_id;
@@ -389,7 +380,7 @@
 	let reviewComment = $state('');
 	let reviewLoading = $state(false);
 	let reviewError = $state('');
-	let userReview: any = $state(null);
+	let userReview: CreatorReview | null = $state(null);
 
 	// Fetch review for this user, maker, and print request
 	async function fetchUserReview() {
@@ -408,7 +399,7 @@
 		reviewLoading = false;
 		if (userReview) {
 			reviewRating = userReview.rating;
-			reviewComment = userReview.comment;
+			reviewComment = userReview.comment ?? '';
 		}
 	}
 
@@ -421,7 +412,7 @@
 		reviewDialogOpen = true;
 		if (userReview) {
 			reviewRating = userReview.rating;
-			reviewComment = userReview.comment;
+			reviewComment = userReview.comment ?? '';
 		} else {
 			reviewRating = 5;
 			reviewComment = '';
@@ -777,7 +768,7 @@
 			class="mx-auto flex h-[100vh] max-w-3xl flex-col border-border bg-background sm:h-[80vh]">
 			<MessageBoard
 				orderId={req.id}
-				supabase_lt={supabase()}
+				supabase={supabase()}
 				session={data.session}
 				receiverId={req.creator_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'}

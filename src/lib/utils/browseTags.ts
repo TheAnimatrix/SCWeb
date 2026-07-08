@@ -1,4 +1,5 @@
 import type { TagGroup, TagOption } from '$lib/types/browse';
+import type { ProductsSelectQuery } from '$lib/types/database';
 import { isTypeDuplicateTag } from '$lib/utils/productTypeTag';
 
 type ProductTagSource = {
@@ -204,7 +205,10 @@ function tagContainsFilter(variant: string): string {
 	return JSON.stringify([{ tag: variant }]);
 }
 
-function applyContainsVariants(query: ProductQuery, variants: string[]): ProductQuery {
+function applyContainsVariants(
+	query: ProductsSelectQuery,
+	variants: string[]
+): ProductsSelectQuery {
 	if (variants.length === 0) return query;
 
 	if (variants.length === 1) {
@@ -215,9 +219,11 @@ function applyContainsVariants(query: ProductQuery, variants: string[]): Product
 	return query.or(variants.map((variant) => `tags.cs.${tagContainsFilter(variant)}`).join(','));
 }
 
-type ProductQuery = any;
-
-export function applyTagFilter(query: any, tagKey: string | null, tagOptions: TagOption[]) {
+export function applyTagFilter(
+	query: ProductsSelectQuery,
+	tagKey: string | null,
+	tagOptions: TagOption[]
+): ProductsSelectQuery {
 	if (!tagKey) return query;
 
 	if (tagKey.includes('/')) {

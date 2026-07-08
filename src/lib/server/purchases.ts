@@ -1,8 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { TypedSupabaseClient } from '$lib/types/database';
 
 /** True when a paid purchase already exists for the given Razorpay payment id. */
 export async function purchaseAlreadyPaid(
-	supabaseAdmin: SupabaseClient<any, 'public', any>,
+	supabaseAdmin: TypedSupabaseClient,
 	paymentIdB: string
 ): Promise<boolean> {
 	const { data } = await supabaseAdmin

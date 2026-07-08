@@ -8,38 +8,26 @@
 	import { ChipGridSkeleton, ScButton, ScInput, Skeleton } from '$lib/components/sc';
 	import { onMount } from 'svelte';
 	import ColorPicker from './ColorPicker.svelte';
-	import type { SupabaseClient } from '@supabase/supabase-js';
-
-	interface FilamentData {
-		id?: string | number;
-		name: string;
-		brand: string;
-		type: string;
-		color: string;
-		quantity_kg: number;
-		cost_kg: number;
-		product_link: string;
-		material_type: string;
-		cost_approx: number;
-	}
+	import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { FilamentFormData } from '$lib/types/filament';
 
 	let {
 		isOpen = $bindable(false),
 		mode = 'add' as 'add' | 'edit',
-		filament = $bindable<Partial<FilamentData>>({}),
+		filament = $bindable<Partial<FilamentFormData>>({}),
 		onSave,
 		onClose,
-		supabase_lt
+		supabase
 	}: {
 		isOpen?: boolean;
 		mode?: 'add' | 'edit';
-		filament?: Partial<FilamentData>;
-		onSave: (data: FilamentData) => void;
+		filament?: Partial<FilamentFormData>;
+		onSave: (data: FilamentFormData) => void;
 		onClose: () => void;
-		supabase_lt: SupabaseClient;
+		supabase: TypedSupabaseClient;
 	} = $props();
 
-	let formData = $state<FilamentData>({
+	let formData = $state<FilamentFormData>({
 		id: filament?.id,
 		name: filament?.name ?? '',
 		brand: filament?.brand ?? '',
@@ -97,7 +85,7 @@
 		(async () => {
 			typesLoading = true;
 			try {
-				const { data, error } = await supabase_lt
+				const { data, error } = await supabase
 					.from('constants')
 					.select('value')
 					.eq('key', 'FILTYPES')
@@ -106,7 +94,10 @@
 					typesError = 'Failed to load filament types.';
 					filamentTypes = [];
 				} else {
-					filamentTypes = data?.value || [];
+					const rawTypes = data?.value;
+					filamentTypes = Array.isArray(rawTypes)
+						? rawTypes.filter((value): value is string => typeof value === 'string')
+						: [];
 				}
 			} catch {
 				typesError = 'Error loading filament types.';
@@ -118,7 +109,7 @@
 			presetLoading = true;
 			presetError = null;
 			try {
-				const { data, error } = await supabase_lt
+				const { data, error } = await supabase
 					.from('Filament')
 					.select('id, name, brand, material_type, cost_approx, product_link')
 					.limit(100);
@@ -126,7 +117,7 @@
 					presetError = 'Failed to load filament presets.';
 					filamentPresets = [];
 				} else {
-					filamentPresets = data || [];
+					filamentPresets = (data ?? []) as unknown as typeof filamentPresets;
 				}
 			} catch {
 				presetError = 'Error loading filament presets.';

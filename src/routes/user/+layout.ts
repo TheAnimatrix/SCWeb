@@ -1,9 +1,10 @@
 import { redirect } from '@sveltejs/kit';
+import type { Session } from '@supabase/supabase-js';
 import type { LayoutLoad } from '../$types';
 
 export const load: LayoutLoad = async ({ route, parent, url }) => {
-	const data = await parent();
-	const { session } = data as any;
+	const parentData = (await parent()) as { session: Session | null };
+	const { session } = parentData;
 	if (session?.user?.id) {
 		if (route.id === '/user/sign') {
 			redirect(303, '/user/profile/account');
@@ -20,8 +21,5 @@ export const load: LayoutLoad = async ({ route, parent, url }) => {
 		}
 	}
 
-	// Return parent data along with any data specific to this layout
-	// Returning route might not be necessary unless child layouts use it directly
-	// Ensure all required data from parent() is passed down.
-	return { ...data, session }; // Pass session down explicitly if needed, or just spread data
+	return { ...parentData, session };
 };
