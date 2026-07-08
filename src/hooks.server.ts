@@ -93,20 +93,39 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	});
 
 	event.locals.safeGetSession = async () => {
+		const cached = event.locals._safeGetSessionCache;
+		if (cached) return cached;
+
+		const promise = (async () => {
+			const {
+				data: { session }
+			} = await event.locals.supabase.auth.getSession();
+			if (!session) {
+				return { session: null, user: null };
+			}
+			const {
+				data: { user },
+				error
+			} = await event.locals.supabase.auth.getUser();
+			if (error) {
+				return { session: null, user: null };
+			}
+			return { session, user };
+		})();
+
+		event.locals._safeGetSessionCache = promise;
+		return promise;
+	};
+
+	/** Fast session for layout/nav — cookie read only, no Auth server round-trip. */
+	event.locals.getLayoutSession = async () => {
 		const {
 			data: { session }
 		} = await event.locals.supabase.auth.getSession();
-		if (!session) {
-			return { session: null, user: null };
-		}
-		const {
-			data: { user },
-			error
-		} = await event.locals.supabase.auth.getUser();
-		if (error) {
-			return { session: null, user: null };
-		}
-		return { session, user };
+		return {
+			session,
+			user: session?.user ?? null
+		};
 	};
 
 	const log = createLogger({

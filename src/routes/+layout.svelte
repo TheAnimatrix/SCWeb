@@ -71,6 +71,12 @@
 	onMount(() => {
 		initTheme();
 
+		const postLoginUrl = readPostLoginURL();
+		if (postLoginUrl) {
+			goto(postLoginUrl, { replaceState: true });
+			removePostLoginURL();
+		}
+
 		if (pwaInfo) {
 			void import('virtual:pwa-register').then(({ registerSW }) => {
 				registerSW({ immediate: true });
@@ -81,11 +87,19 @@
 
 		const supabaseClient = data.supabase;
 
-		getCart(fetch).then((cart) => {
-			if (cart.ok) {
-				syncCartStore(cart_store, cart.data.cart);
-			}
-		});
+		const loadCart = () => {
+			getCart(fetch).then((cart) => {
+				if (cart.ok) {
+					syncCartStore(cart_store, cart.data.cart);
+				}
+			});
+		};
+
+		if ('requestIdleCallback' in window) {
+			requestIdleCallback(loadCart, { timeout: 2000 });
+		} else {
+			setTimeout(loadCart, 100);
+		}
 
 		const { data: authListener } = supabaseClient.auth.onAuthStateChange(
 			async (event, newSession) => {
@@ -118,14 +132,6 @@
 		if (!browser || !from || from.route.id === to?.route.id) return;
 		document.body.scrollTop = 0;
 		document.documentElement.scrollTop = 0;
-	});
-
-	$effect.pre(() => {
-		const postLoginUrl = readPostLoginURL();
-		if (postLoginUrl) {
-			goto(postLoginUrl, { replaceState: true });
-			removePostLoginURL();
-		}
 	});
 </script>
 
