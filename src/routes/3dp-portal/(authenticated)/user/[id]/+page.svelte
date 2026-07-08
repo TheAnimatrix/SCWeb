@@ -200,21 +200,21 @@
 			// @ts-ignore - Razorpay is loaded from external script
 			rzp1.open();
 			// @ts-ignore - Razorpay is loaded from external script
-			rzp1.on(
-				'payment.failed',
-				function (response: { error: { metadata: { order_id: string }; description?: string } }) {
-					toastStore.show('Payment failed, please try again', 'error');
-					// @ts-ignore - Razorpay is loaded from external script
-					rzp1.close();
-					const orderId = req?.id;
-					const razorpayOrderId = response.error.metadata.order_id;
-					if (orderId && razorpayOrderId) {
-						void failPrintPayment(fetch, orderId, razorpayOrderId, response.error.description);
-						window.location.href = `/summary/failure/${orderId}/${razorpayOrderId}`;
-					}
-					return;
+			rzp1.on('payment.failed', function (response: unknown) {
+				const failedResponse = response as {
+					error?: { metadata?: { order_id?: string }; description?: string };
+				};
+				toastStore.show('Payment failed, please try again', 'error');
+				// @ts-ignore - Razorpay is loaded from external script
+				rzp1.close();
+				const orderId = req?.id;
+				const razorpayOrderId = failedResponse.error?.metadata?.order_id;
+				if (orderId && razorpayOrderId) {
+					void failPrintPayment(fetch, orderId, razorpayOrderId, failedResponse.error?.description);
+					window.location.href = `/summary/failure/${orderId}/${razorpayOrderId}`;
 				}
-			);
+				return;
+			});
 		} catch (e) {
 			// Explicitly type caught error as unknown
 			console.error('Error during payment process:', e);
