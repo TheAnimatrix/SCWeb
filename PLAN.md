@@ -389,6 +389,52 @@ Do opportunistically inside earlier phases when touching a file; sweep the rest 
 
 ---
 
+## Phase 7 — Vendor independence: retire direct Supabase access (added 2026-07-08)
+
+Phases 2–4 moved every MUTATION behind the API; reads deliberately stayed on
+browser → Supabase PostgREST (anon key + RLS) for velocity. Phase 7 removes the
+remaining coupling in ascending order of difficulty. Goal state: Supabase is
+just "a Postgres host + (for now) an auth provider" — swappable.
+
+### 7a. Read paths → API (mechanical, do first)
+
+- [ ] Inventory every remaining browser/server Supabase READ: products (home
+      sections, browse/crafts, product detail, related), `constants`
+      (BANNERS, FILTYPES), reviews, users/usernames, portal reads
+      (printrequests lists, maker profiles, filaments, CreatorStats/Reviews),
+      profile pages (already server loads — swap their internals last).
+- [ ] API GET endpoints on Drizzle for each read cluster (`/products`,
+      `/products/:id`, `/constants/:key`, `/reviews`, `/makers`, …), typed via
+      contracts; add short-TTL in-memory caching on hot lists (products,
+      constants) — invalidation not needed at this traffic level, TTL is fine.
+- [ ] Schema coverage: `npm run db:pull` (needs pooler URL) to introspect the
+      full live schema into `api/src/db/schema/` — replaces the remaining
+      hand-written fallback tables.
+- [ ] Swap consumers cluster-by-cluster through the existing proxy + typed
+      client (pattern proven in Phase 2/3); the api needs a GET-heavy rate
+      limit tier.
+- [ ] Endgame: browser Supabase client shrinks to auth + realtime chat only;
+      anon key stops mattering for data; tighten RLS to deny-all on tables no
+      longer browser-read.
+
+### 7b. Realtime chat → API (medium)
+
+- [ ] Replace Supabase Realtime subscription in `MessageBoard` with API-served
+      SSE (or websocket) fed by the chats store; move read-receipts to a small
+      authenticated endpoint at the same time (removes the last browser write
+      + the Chat column-grant RLS dependency).
+
+### 7c. Auth abstraction (largest — separate decision)
+
+- [ ] The API already reduces auth to "verified JWT → user id"; the web app is
+      the coupled part (supabase-js auth client, OAuth flows, cookies,
+      `users` table keyed by auth.uid()). Decide target (self-hosted:
+      Keycloak/Zitadel/Ory; or keep Supabase Auth as an accepted dependency)
+      before any code. Not scheduled; revisit after 7a/7b land and the shop is
+      stable in production.
+
+---
+
 ## Parallel track — decisions needed (blocks parts of Phases 2–3)
 
 - [ ] **Payouts model** (decide before the `orders` schema is considered final):
