@@ -25,7 +25,10 @@
 
 	let { data } = $props();
 
-	let validAddress: Address | undefined = $state();
+	// Never undefined: bound into AddressInputSelector whose `address` prop is
+	// $bindable with a fallback — binding undefined throws props_invalid_value
+	// on first render (the init $effect runs after render).
+	let validAddress: Address = $state(newAddress());
 	const addresses = $derived(asAddressList(data.addresses));
 
 	const cartData = $derived(data.cart);
