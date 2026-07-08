@@ -5,14 +5,15 @@
 	import { Skeleton } from '$lib/components/sc';
 	import AlertCircle from '@lucide/svelte/icons/circle-alert';
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
-	import type { SupabaseClient } from '@supabase/supabase-js';
+	import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { Filament } from '$lib/types/filament';
 
 	let {
-		supabase_lt,
+		supabase,
 		session,
 		makerName
 	}: {
-		supabase_lt: SupabaseClient;
+		supabase: TypedSupabaseClient;
 		session: { data: { user: { id: string } } } | null;
 		makerName?: string;
 	} = $props();
@@ -36,11 +37,14 @@
 			</div>
 
 			{#key key}
-				{#await supabase_lt.from('UserFilament').select('*').eq('owner_id', session?.data.user.id)}
+				{#await supabase
+					.from('UserFilament')
+					.select('*')
+					.eq('owner_id', session?.data.user.id ?? '')}
 					<Skeleton class="h-9 w-56 rounded-md" />
 				{:then filamentData}
 					{#if filamentData && !filamentData.error && filamentData.data.length > 0}
-						{#if filamentData.data.some((filament) => filament.quantity_kg <= 0)}
+						{#if filamentData.data.some((filament) => ((filament as Filament).quantity_kg ?? 0) <= 0)}
 							<span
 								class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning">
 								<AlertCircle class="size-4 shrink-0" strokeWidth={2} />
@@ -69,11 +73,11 @@
 	</PortalCard>
 
 	<FilamentManagement
-		{supabase_lt}
+		{supabase}
 		{session}
 		onUpdate={() => {
 			key++;
 		}} />
 
-	<OrderManagement {supabase_lt} {session} />
+	<OrderManagement {supabase} {session} />
 </div>

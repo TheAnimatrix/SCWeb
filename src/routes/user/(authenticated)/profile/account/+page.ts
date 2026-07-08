@@ -4,8 +4,8 @@ export const ssr = false;
 
 export const load: PageLoad = async ({ parent }) => {
 	const data = await parent();
-	const supabase_lt = requireBrowserSupabase(data.supabase_lt);
-	const userResponse = await supabase_lt.auth.getUser();
+	const supabase = requireBrowserSupabase(data.supabase);
+	const userResponse = await supabase.auth.getUser();
 	let user;
 	let email: string | undefined;
 	let user_data;
@@ -14,7 +14,7 @@ export const load: PageLoad = async ({ parent }) => {
 	if (userResponse?.data.user) {
 		user = userResponse.data.user;
 		email = user.email;
-		user_data = await supabase_lt.from('users').select().eq('id', user.id);
+		user_data = await supabase.from('users').select().eq('id', user.id);
 		if (user_data && user_data.data && user_data.data[0]) {
 			username = user_data.data[0].username;
 			tier = user_data.data[0].tier ? user_data.data[0].tier : 'Bee';

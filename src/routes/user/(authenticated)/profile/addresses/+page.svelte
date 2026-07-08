@@ -13,7 +13,7 @@
 	let { data } = $props();
 
 	function supabase() {
-		return requireBrowserSupabase(data.supabase_lt);
+		return requireBrowserSupabase(data.supabase);
 	}
 
 	let errorMsg = $state('');

@@ -11,7 +11,7 @@
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
-	const supabase_lt = requireBrowserSupabase(data.supabase_lt);
+	const supabase = requireBrowserSupabase(data.supabase);
 
 	let username = $state('');
 	let email = $derived(data.email ?? '');
@@ -49,7 +49,7 @@
 		error_msg = undefined;
 
 		try {
-			await supabase_lt.auth.updateUser({ password: newPass });
+			await supabase.auth.updateUser({ password: newPass });
 			newPass = '';
 			confirmPass = '';
 		} catch {
@@ -60,7 +60,7 @@
 	}
 
 	async function logout() {
-		await supabase_lt.auth.signOut({ scope: 'global' });
+		await supabase.auth.signOut({ scope: 'global' });
 		goto('/user/sign', { replaceState: true });
 	}
 
@@ -103,14 +103,14 @@
 		}
 
 		try {
-			const { data: taken } = await supabase_lt.rpc('check_username', {
+			const { data: taken } = await supabase.rpc('check_username', {
 				desired_username: newUsername
 			});
 			if (taken) {
 				username_error = 'Username not available';
 				return;
 			}
-			const { error } = await supabase_lt
+			const { error } = await supabase
 				.from('users')
 				.update({ username: newUsername })
 				.eq('id', data.user.id);
