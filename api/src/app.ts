@@ -15,6 +15,7 @@ import { printFilesRoutes } from './routes/print-files.js';
 import { createChatsRoutes } from './routes/chats.js';
 import { createPrintRequestsRoutes } from './routes/print-requests.js';
 import { printPaymentsRoutes } from './routes/print-payments.js';
+import { catalogRoutes } from './routes/catalog.js';
 import { createChatsStore, type ChatsStore } from './services/chats-store.js';
 import {
 	createPrintRequestsStore,
@@ -32,6 +33,7 @@ import {
 	createPrintPaymentsStore,
 	type PrintPaymentsStore
 } from './services/print-payments-store.js';
+import { createCatalogStore, type CatalogStore } from './services/catalog-store.js';
 import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
 import type { AppVariables } from './types/context.js';
 
@@ -44,6 +46,7 @@ type CreateAppOptions = {
 	printPaymentsStore?: PrintPaymentsStore;
 	printRequestsStore?: PrintRequestsStore;
 	chatsStore?: ChatsStore;
+	catalogStore?: CatalogStore;
 	razorpayClient?: RazorpayClient;
 };
 
@@ -56,6 +59,7 @@ export function createApp({
 	printPaymentsStore,
 	printRequestsStore,
 	chatsStore,
+	catalogStore,
 	razorpayClient
 }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
@@ -90,6 +94,7 @@ export function createApp({
 		);
 	const resolvedPrintRequestsStore = printRequestsStore ?? createPrintRequestsStore(db);
 	const resolvedChatsStore = chatsStore ?? createChatsStore(db);
+	const resolvedCatalogStore = catalogStore ?? createCatalogStore(db);
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
@@ -100,6 +105,7 @@ export function createApp({
 		c.set('printPaymentsStore', resolvedPrintPaymentsStore);
 		c.set('printRequestsStore', resolvedPrintRequestsStore);
 		c.set('chatsStore', resolvedChatsStore);
+		c.set('catalogStore', resolvedCatalogStore);
 		await next();
 	});
 
@@ -120,6 +126,7 @@ export function createApp({
 	app.use('*', csrfMiddleware());
 
 	app.route('/', healthRoutes);
+	app.route('/', catalogRoutes);
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
 	app.route('/', printFilesRoutes);

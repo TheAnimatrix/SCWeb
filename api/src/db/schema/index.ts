@@ -2,6 +2,7 @@
 // Hand-written fallback mirrors supabase/types.ts and src/lib/types/product.ts.
 
 export { auditLog } from './auditLog.js';
+export { constants } from './constants.js';
 export { creatorReviews } from './creatorReviews.js';
 export { creatorStats } from './creatorStats.js';
 export { chat } from './chat.js';
@@ -13,4 +14,6 @@ export { ORDER_STATUS_VALUES, orders } from './orders.js';
 export { printrequests } from './printrequests.js';
 export { purchases } from './purchases.js';
 export { products } from './products.js';
+export { reviews } from './reviews.js';
 export { uploadQuota } from './uploadQuota.js';
+export { users } from './users.js';

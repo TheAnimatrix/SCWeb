@@ -69,6 +69,25 @@ export {
 	uploadMetadataSchema
 } from './print-files.js';
 export {
+	browseCatalogResponseSchema,
+	browseQuerySchema,
+	getConstantResponseSchema,
+	homeCatalogResponseSchema,
+	productDetailResponseSchema,
+	productRelatedResponseSchema,
+	productReviewsResponseSchema,
+	productVariantsResponseSchema,
+	type BrowseCatalogResponse,
+	type GetConstantResponse,
+	type HomeCatalogResponse,
+	type ProductDetailResponse,
+	type ProductRelatedResponse,
+	type ProductReviewsResponse,
+	type ProductVariantsResponse,
+	type ProductView,
+	type ReviewView
+} from './catalog.js';
+export {
 	ON_DEMAND_PURCHASE_LIMIT,
 	canFulfillQuantity,
 	getPurchasableLimit,
