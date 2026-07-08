@@ -17,12 +17,6 @@
 	import Skeleton from '$lib/components/sc/Skeleton.svelte';
 
 	// Material densities in g/cm³
-	// const MATERIAL_DENSITIES = {
-	//     'PLA': 1.24,
-	//     'ABS': 1.04,
-	//     'PETG': 1.27,
-	//     'TPU': 1.20,
-	//     'NYLON': 1.14
 	// };
 
 	interface ModelInfo {
@@ -85,7 +79,6 @@
 	let _sliderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 	const SLIDER_DEBOUNCE = 800;
 
-	// Export function to notify when slider values change - called from parent
 	export function notifySliderMoving() {
 		// Clear any existing timer (using non-reactive variables)
 		if (_sliderDebounceTimer) {
@@ -101,44 +94,13 @@
 	}
 
 	// Queue a calculation to happen outside of reactivity
-	// function queueWeightCalculation() {
-	//     if (_isCalculating || _isSliderMoving) {
-	//         _calculateQueued = true;
-	//         return;
-	//     }
 
-	//     // Compare parameter hash to see if calculation is needed
-	//     const newHash = generateParameterHash();
-	//     if (newHash !== _currentParameterHash) {
-	//         _currentParameterHash = newHash;
-
-	//         // Schedule weight calculation outside of reactive cycle
-	//         setTimeout(calculateWeight, 50);
-	//     }
 	// }
 
-	// // Quick estimate function for fallback
-	// function calculateQuickEstimate(): number {
-	//     const scaledDimensions = {
-	//         x: modelInfo.dimensions.x * selectedScale,
-	//         y: modelInfo.dimensions.y * selectedScale,
-	//         z: modelInfo.dimensions.z * selectedScale
-	//     };
-
-	//     const volume = scaledDimensions.x * scaledDimensions.y * scaledDimensions.z;
-	//     const materialDensity = MATERIAL_DENSITIES[selectedMaterial] || 1.24;
-	//     return (volume / 1000) * materialDensity * (selectedInfill / 100);
 	// }
 
-	// // Helper function to format weight
-	// function formatWeight(weight: number): string {
-	//     if (weight < 1) {
-	//         return `${(weight * 1000).toFixed(1)}mg`;
-	//     }
-	//     return `${weight.toFixed(1)}g`;
 	// }
 
-	// Helper function to format file size
 	function formatFileSize(bytes: number): string {
 		if (bytes === 0) return '0 KB';
 		const k = 1024;
@@ -283,106 +245,9 @@
 	}
 
 	// Calculate weight using current parameters
-	// async function calculateWeight() {
-	//     if (!file || !currentModel || !modelInfo || modelInfo.dimensions.x <= 0 || _isCalculating) {
-	//         return;
-	//     }
 
-	//     // Set flags first (non-reactive)
-	//     _isCalculating = true;
-	//     _calculateQueued = false;
-
-	//     // Update UI state (reactive, but isolated)
-	//     setTimeout(() => {
-	//         modelInfo.isCalculating = true;
-	//     }, 0);
-
-	//     const cacheKey = getCacheKey();
-	//     let weight: number;
-
-	//     try {
-	//         // Check cache first
-	//         if (weightCalculationCache.has(cacheKey)) {
-	//             weight = weightCalculationCache.get(cacheKey)!;
-	//         } else {
-	//             // Extract layer height from quality string
-	//             const layerHeightMatch = selectedQuality.match(/\(([\d.]+)mm\)/);
-	//             const layerHeight = layerHeightMatch ? parseFloat(layerHeightMatch[1]) : 0.2;
-
-	//             // Calculate weight with timeout protection
-	//             const timeoutPromise = new Promise<number>((_, reject) => {
-	//                 setTimeout(() => reject(new Error("Weight calculation timed out")), 5000);
-	//             });
-
-	//             // Do the actual calculation
-	//             const calculationPromise = estimateWeight(
-	//                 selectedMaterial,
-	//                 selectedInfill,
-	//                 selectedWalls,
-	//                 layerHeight,
-	//                 selectedScale,
-	//                 file
-	//             );
-
-	//             // Race between calculation and timeout
-	//             weight = await Promise.race([calculationPromise, timeoutPromise])
-	//                 .catch(error => {
-	//                     console.error("Error calculating weight:", error);
-	//                     // Fall back to quick estimate
-	//                     return calculateQuickEstimate();
-	//                 });
-
-	//             // Cache result
-	//             weightCalculationCache.set(cacheKey, weight);
-	//         }
-
-	//         // Update UI weight with minimum of 3g
-	//         const finalWeight = Math.max(weight, 3);
-
-	//         // Update UI safely outside of reactive cycle
-	//         setTimeout(() => {
-	//             if (modelInfo) {
-	//                 modelInfo.estimatedWeight = formatWeight(finalWeight);
-	//                 modelInfo.totalWeight = formatWeight(finalWeight * quantity);
-
-	//                 // Reset calculation state after a delay to ensure UI updates first
-	//                 setTimeout(() => {
-	//                     modelInfo.isCalculating = false;
-	//                 }, 100);
-	//             }
-	//         }, 100);
-	//     }
-	//     catch (error) {
-	//         console.error("Weight calculation failed:", error);
-
-	//         // Use quick estimate as fallback
-	//         const quickEstimate = calculateQuickEstimate();
-	//         const finalWeight = Math.max(quickEstimate, 3);
-
-	//         setTimeout(() => {
-	//             if (modelInfo) {
-	//                 modelInfo.estimatedWeight = formatWeight(finalWeight);
-	//                 modelInfo.totalWeight = formatWeight(finalWeight * quantity);
-
-	//                 // Reset calculation state after a delay to ensure UI updates first
-	//                 setTimeout(() => {
-	//                     modelInfo.isCalculating = false;
-	//                 }, 100);
-	//             }
-	//         }, 100);
-	//     }
-	//     finally {
-	//         // Release calculation lock
-	//         _isCalculating = false;
-
-	//         // Process any queued calculations
-	//         if (_calculateQueued && !_isSliderMoving) {
-	//             setTimeout(queueWeightCalculation, 500);
-	//         }
-	//     }
 	// }
 
-	// Use a single effect for parameter tracking but don't cause updates inside it
 	$effect(() => {
 		void selectedScale;
 		void selectedInfill;
@@ -394,7 +259,6 @@
 
 	// Initial model loading effect
 	$effect.pre(() => {
-		// Only load the model if it's a new file or if we haven't loaded a file yet
 		const currentFileId = file ? `${file.name}-${file.size}-${file.lastModified}` : '';
 
 		if (file && isInitialized && !modelInfo.isCalculating && currentFileId !== lastLoadedFileId) {
@@ -431,7 +295,6 @@
 		});
 	}
 
-	// Update animation function to be more resilient
 	let isAnimating = false;
 	let animationFrameId: number | null = null;
 
@@ -541,7 +404,6 @@
 		}
 	}
 
-	// Helper function to center and position camera for any model
 	function centerModelAndCamera(model: THREE.Object3D) {
 		if (!scene || !camera || !controls) {
 			console.error('Scene, camera or controls not initialized');
@@ -629,7 +491,6 @@
 			const box = new THREE.Box3().setFromObject(mesh);
 			const size = box.getSize(new THREE.Vector3());
 
-			// Update model information with base dimensions (before scaling)
 			modelInfo.dimensions = {
 				x: size.x,
 				y: size.y,
@@ -708,7 +569,6 @@
 				}
 			});
 
-			// Use the helper function to center model and position camera
 			if (scene && camera && controls) {
 				const group = centerModelAndCamera(object);
 				currentModel = group;
@@ -762,7 +622,6 @@
 			});
 			modelInfo.triangleCount = triangleCount;
 
-			// Use the helper function to center model and position camera
 			if (scene && camera && controls) {
 				const group = centerModelAndCamera(object);
 				currentModel = group;
@@ -940,7 +799,6 @@
 			disposeModelObject(currentModel);
 		}
 
-		// Remove references to prevent memory leaks, don't set to null to avoid type errors
 		isInitialized = false;
 	});
 
