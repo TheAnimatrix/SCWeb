@@ -13,6 +13,14 @@
 
 	let { filters, categoryCounts, tagOptions, onchange, class: className }: Props = $props();
 
+	let optimisticInStock = $state<boolean | undefined>(undefined);
+	const inStockChecked = $derived(optimisticInStock ?? filters.inStock);
+
+	$effect(() => {
+		filters.inStock;
+		optimisticInStock = undefined;
+	});
+
 	const categories: { value: BrowseCategory; label: string; countKey: keyof CategoryCounts }[] = [
 		{ value: 'all', label: 'all', countKey: 'all' },
 		{ value: 'products', label: 'products', countKey: 'products' },
@@ -50,6 +58,12 @@
 			tag: filters.tag === tagKey ? null : tagKey,
 			page: 1
 		});
+	}
+
+	function toggleInStock() {
+		const next = !inStockChecked;
+		optimisticInStock = next;
+		onchange?.({ inStock: next, page: 1 });
 	}
 </script>
 
@@ -129,17 +143,18 @@
 				type="button"
 				role="switch"
 				aria-label="Filter in-stock items only"
-				aria-checked={filters.inStock}
-				onclick={() => onchange?.({ inStock: !filters.inStock, page: 1 })}
+				aria-checked={inStockChecked}
+				onclick={toggleInStock}
 				class={cn(
-					'relative h-6 w-11 rounded-full border transition-colors',
-					filters.inStock ? 'border-primary bg-primary' : 'border-border bg-muted'
+					'relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 ease-out',
+					inStockChecked ? 'border-primary bg-primary' : 'border-border bg-muted'
 				)}
 			>
 				<span
+					aria-hidden="true"
 					class={cn(
-						'absolute top-0.5 size-5 rounded-full bg-primary-foreground transition-transform',
-						filters.inStock ? 'translate-x-5' : 'translate-x-0.5'
+						'absolute left-0.5 top-0.5 size-5 rounded-full bg-primary-foreground shadow-sm transition-transform duration-200 ease-out',
+						inStockChecked ? 'translate-x-5' : 'translate-x-0'
 					)}
 				></span>
 			</button>

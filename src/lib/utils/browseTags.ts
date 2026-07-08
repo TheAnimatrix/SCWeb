@@ -33,8 +33,18 @@ export function parseProductTags(tags: unknown): { tag: string }[] {
 		.filter((item) => item.tag.length > 0);
 }
 
+export const MIN_BROWSE_TAG_COUNT = 2;
+
 export function formatTagChipLabel(raw: string): string {
-	return raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
+	return raw
+		.trim()
+		.normalize('NFKD')
+		.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+		.toLowerCase()
+		.replace(/[\s-]+/g, '_')
+		.replace(/[^a-z0-9_&/]+/g, '')
+		.replace(/_+/g, '_')
+		.replace(/^_|_$/g, '');
 }
 
 function pickDisplayLabel(variants: Map<string, number>): string {
@@ -84,6 +94,10 @@ export function aggregateTagOptions(sources: ProductTagSource[]): TagOption[] {
 			variants: Array.from(acc.variants.keys())
 		}))
 		.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+export function filterBrowsableTagOptions(options: TagOption[]): TagOption[] {
+	return options.filter((option) => option.count >= MIN_BROWSE_TAG_COUNT);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

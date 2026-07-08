@@ -15,6 +15,12 @@
 	import type { BrowseFilters, BrowseSort } from '$lib/types/browse';
 	import type { Product } from '$lib/types/product';
 
+	interface ActiveFilterChip {
+		id: string;
+		label: string;
+		patch: Partial<BrowseFilters>;
+	}
+
 	let { data } = $props();
 
 	let mobileFiltersOpen = $state(false);
@@ -28,6 +34,60 @@
 		{ value: 'price_asc', label: 'price ↑' },
 		{ value: 'price_desc', label: 'price ↓' }
 	];
+
+	const activeFilterChips = $derived.by((): ActiveFilterChip[] => {
+		const chips: ActiveFilterChip[] = [];
+
+		if (data.filters.filter !== 'all') {
+			chips.push({
+				id: 'filter',
+				label: data.filters.filter,
+				patch: { filter: 'all', page: 1 }
+			});
+		}
+
+		if (data.filters.q) {
+			chips.push({
+				id: 'q',
+				label: `search: ${data.filters.q}`,
+				patch: { q: '', page: 1 }
+			});
+		}
+
+		if (data.filters.tag) {
+			const tag =
+				data.allTagOptions.find((option) => option.key === data.filters.tag) ??
+				data.tagOptions.find((option) => option.key === data.filters.tag);
+
+			chips.push({
+				id: 'tag',
+				label: `tag: ${tag?.label ?? data.filters.tag}`,
+				patch: { tag: null, page: 1 }
+			});
+		}
+
+		if (data.filters.minPrice != null || data.filters.maxPrice != null) {
+			const min = data.filters.minPrice ?? '…';
+			const max = data.filters.maxPrice ?? '…';
+			chips.push({
+				id: 'price',
+				label: `price: ${min}–${max}`,
+				patch: { minPrice: null, maxPrice: null, page: 1 }
+			});
+		}
+
+		if (data.filters.inStock) {
+			chips.push({
+				id: 'inStock',
+				label: 'in_stock',
+				patch: { inStock: false, page: 1 }
+			});
+		}
+
+		return chips;
+	});
+
+	const hasActiveFilters = $derived(activeFilterChips.length > 0);
 
 	function productHref(product: Product): string {
 		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
@@ -122,6 +182,30 @@
 		</div>
 
 		<div class="mt-8 md:mt-10">
+			{#if hasActiveFilters}
+				<div class="mb-4 flex flex-wrap items-center gap-2">
+					<p class="w-full font-mono text-xs text-muted-foreground sm:w-auto">// active_filters</p>
+					{#each activeFilterChips as chip (chip.id)}
+						<button
+							type="button"
+							onclick={() => navigate(chip.patch)}
+							class="inline-flex items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1 font-mono text-xs text-background transition-colors hover:bg-foreground/90"
+						>
+							{chip.label}
+							<X class="size-3 shrink-0" aria-hidden="true" />
+							<span class="sr-only">Remove {chip.label} filter</span>
+						</button>
+					{/each}
+					<button
+						type="button"
+						onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
+						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+					>
+						clear_all →
+					</button>
+				</div>
+			{/if}
+
 			<div class="mb-4 flex items-center justify-between md:hidden">
 				<button
 					type="button"
@@ -131,13 +215,14 @@
 					<SlidersHorizontal class="size-3.5" aria-hidden="true" />
 					filters
 				</button>
-				{#if page.url.search}
-					<a
-						href="/crafts"
+				{#if hasActiveFilters}
+					<button
+						type="button"
+						onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
 						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
 					>
 						clear_filters →
-					</a>
+					</button>
 				{/if}
 			</div>
 
@@ -182,13 +267,14 @@
 							<p class="mt-2 max-w-md text-sm text-foreground">
 								No creations match your filters. Try adjusting search or clearing filters.
 							</p>
-							{#if page.url.search}
-								<a
-									href="/crafts"
+							{#if hasActiveFilters}
+								<button
+									type="button"
+									onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
 									class="mt-4 font-mono text-xs text-foreground underline-offset-4 hover:underline"
 								>
 									clear_filters →
-								</a>
+								</button>
 							{/if}
 						</div>
 					{/if}
