@@ -15,8 +15,6 @@
 	}
 
 	let { steps, current, class: className }: Props = $props();
-
-	const currentIndex = $derived(steps.findIndex((s) => s.id === current));
 </script>
 
 <ol class={cn('flex flex-wrap items-center gap-2', className)} aria-label="Portal steps">

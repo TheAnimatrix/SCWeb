@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	// import { each } from 'svelte/internal';
-	import arrowLeft from '$lib/svg/arrow_left.svg';
 	let boilerPlate = ' transition-all duration-200 linear ';
 	interface Props {
 		curActive: number;
@@ -30,14 +28,9 @@
 		hoverNormal = 'w-[8%]',
 		interval = 0
 	}: Props = $props();
-	let i = 0;
 
 	styleActive = `rounded-lg box-border ${wActive} h-[12px] mr-[8px] ${colorPrimary} ` + boilerPlate;
 	styleNormal = `rounded-lg box-border ${wNormal} h-[12px] mr-[8px] ${colorSecondary} ${hoverAccent} ${hoverNormal} ${boilerPlate}`;
-
-	const prevIndicator = function () {
-		curActive = curActive > 0 ? curActive - 1 : curActive;
-	};
 
 	const nextIndicator = function () {
 		curActive = curActive < max - 1 ? curActive + 1 : 0;
@@ -52,7 +45,7 @@
 </script>
 
 <div id="feat-mb-indicator">
-	{#each Array(max) as _, i (i)}
+	{#each [...Array(max).keys()] as i (i)}
 		<button
 			class={i === curActive ? styleActive : styleNormal}
 			onclick={() => {

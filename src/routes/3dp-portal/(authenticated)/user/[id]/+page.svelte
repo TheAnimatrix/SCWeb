@@ -72,17 +72,6 @@
 			)[0]?.extra?.quote
 	);
 
-	const STAGES = [
-		'cancelled',
-		'requested',
-		'quoted',
-		'actionable',
-		'paid',
-		'paid_externally',
-		'completed',
-		'in dispute'
-	];
-
 	const STAGE_STYLES: Record<string, string> = {
 		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
 		requested: 'border-border bg-muted/40 text-foreground',
@@ -297,7 +286,7 @@
 				downloading = false;
 				downloadProgress = 0;
 			}
-		} catch (e) {
+		} catch {
 			alert('Error downloading model');
 		} finally {
 			// Only reset if not downloading (handled in xhr events)
@@ -313,7 +302,6 @@
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
 		if (!req || !data.session?.data?.user?.id || !cancelReason.trim()) return;
-		const prevSelectedId = req.id;
 		//repull the order data
 		const updatedOrder = await data.supabase_lt
 			.from('printrequests')
@@ -680,7 +668,7 @@
 					{:else if userReview}
 						<div class="mt-2 space-y-3">
 							<div class="flex items-center gap-1">
-								{#each Array(5) as _, i (i)}
+								{#each [...Array(5).keys()] as i (i)}
 									<Star
 										class={cn(
 											'size-4',
@@ -949,7 +937,7 @@
 			<div>
 				<p class="mb-2 font-mono text-xs text-muted-foreground">rating</p>
 				<div class="flex gap-1">
-					{#each Array(5) as _, i (i)}
+					{#each [...Array(5).keys()] as i (i)}
 						<button type="button" onclick={() => (reviewRating = i + 1)} class="p-1">
 							<Star
 								class={cn(

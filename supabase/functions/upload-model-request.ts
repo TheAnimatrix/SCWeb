@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 		}
 		// 4. Quota check
 		// Get user's daily limit
-		const { data: userRow, error: userRowErr } = await supabase
+		const { data: userRow } = await supabase
 			.from('users')
 			.select('quote_daily_limit')
 			.eq('id', user_id)
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
 		// Get today's printrequests count
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const { count, error: countErr } = await supabase
+		const { count } = await supabase
 			.from('printrequests')
 			.select('id', {
 				count: 'exact',

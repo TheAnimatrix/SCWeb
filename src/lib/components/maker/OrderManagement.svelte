@@ -118,7 +118,7 @@
 				downloading = -1;
 				downloadProgress = 0;
 			}
-		} catch (e) {
+		} catch {
 			alert('Error downloading model');
 		} finally {
 			// Only reset if not downloading (handled in xhr events)
@@ -174,17 +174,6 @@
 		return `${day}${suffix} ${month} ${year}`;
 	}
 
-	const STAGES = [
-		'cancelled',
-		'requested',
-		'quoted',
-		'actionable',
-		'paid',
-		'paid_externally',
-		'completed',
-		'in dispute'
-	];
-
 	const STAGE_STYLES: Record<string, string> = {
 		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
 		requested: 'border-border bg-muted/40 text-foreground',
@@ -220,7 +209,7 @@
 			return;
 		}
 		// Query all unread messages for these orders
-		const { data, error } = await supabase_lt
+		const { data } = await supabase_lt
 			.from('Chat')
 			.select('relationship_id')
 			.in('relationship_id', orderIds)

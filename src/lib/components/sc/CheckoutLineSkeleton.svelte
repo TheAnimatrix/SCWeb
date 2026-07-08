@@ -9,7 +9,7 @@
 </script>
 
 <div class="space-y-3" aria-hidden="true">
-	{#each Array(count) as _, i (i)}
+	{#each [...Array(count).keys()] as i (i)}
 		<div
 			class="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
 			<div class="flex min-w-0 flex-1 items-center gap-3">

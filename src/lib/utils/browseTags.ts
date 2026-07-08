@@ -6,11 +6,6 @@ type ProductTagSource = {
 	type?: string | null;
 };
 
-interface TagAccumulator {
-	productCount: number;
-	variants: Map<string, number>;
-}
-
 /** Parent browse categories mapped to their subcategories. */
 export const BROWSE_TAG_TREE: Record<string, string[]> = {
 	'3d_printer': ['probes', 'toolhead', 'hotend']
@@ -220,10 +215,8 @@ function applyContainsVariants(query: ProductQuery, variants: string[]): Product
 	return query.or(variants.map((variant) => `tags.cs.${tagContainsFilter(variant)}`).join(','));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ProductQuery = any;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function applyTagFilter(query: any, tagKey: string | null, tagOptions: TagOption[]) {
 	if (!tagKey) return query;
 

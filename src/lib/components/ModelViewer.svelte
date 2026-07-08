@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { onMount, onDestroy } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -16,8 +14,6 @@
 	import ZoomIn from '@lucide/svelte/icons/zoom-in';
 	import ZoomOut from '@lucide/svelte/icons/zoom-out';
 	import { createEventDispatcher } from 'svelte';
-	import { estimateWeight } from '$lib/helper/modelWeightCalculator';
-	import { toastStore } from '$lib/client/toastStore';
 	import Skeleton from '$lib/components/sc/Skeleton.svelte';
 
 	// Material densities in g/cm³
@@ -86,43 +82,8 @@
 	// Track the last loaded file to prevent reloading the same file
 	let lastLoadedFileId = $state('');
 
-	// NON-REACTIVE state for calculations - completely outside Svelte's reactivity system
-	// Using plain JS variables to avoid reactivity loops
-	const weightCalculationCache = new Map<string, number>();
-	let _currentParameterHash = '';
-	let _isCalculating = false;
-	let _isSliderMoving = false;
 	let _sliderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-	let _calculateQueued = false;
 	const SLIDER_DEBOUNCE = 800;
-
-	// Helper function to generate a parameter hash
-	function generateParameterHash(): string {
-		if (!modelInfo || !modelInfo.dimensions) return '';
-
-		// Get current dimensions adjusted by scale
-		const scaledDimensions = {
-			x: modelInfo.dimensions.x * selectedScale,
-			y: modelInfo.dimensions.y * selectedScale,
-			z: modelInfo.dimensions.z * selectedScale
-		};
-
-		return `${selectedScale.toFixed(2)}_${selectedInfill}_${selectedMaterial}_${selectedWalls}_${selectedQuality}_${quantity}_${scaledDimensions.x.toFixed(2)}_${scaledDimensions.y.toFixed(2)}_${scaledDimensions.z.toFixed(2)}`;
-	}
-
-	// Helper function to generate cache key from parameters
-	function getCacheKey(): string {
-		if (!modelInfo || !modelInfo.dimensions) return '';
-
-		// Get current dimensions adjusted by scale
-		const scaledDimensions = {
-			x: modelInfo.dimensions.x * selectedScale,
-			y: modelInfo.dimensions.y * selectedScale,
-			z: modelInfo.dimensions.z * selectedScale
-		};
-
-		return `${scaledDimensions.x.toFixed(2)}_${scaledDimensions.y.toFixed(2)}_${scaledDimensions.z.toFixed(2)}_${selectedInfill}_${selectedMaterial}_${selectedWalls}_${selectedQuality}`;
-	}
 
 	// Export function to notify when slider values change - called from parent
 	export function notifySliderMoving() {
@@ -131,12 +92,7 @@
 			clearTimeout(_sliderDebounceTimer);
 		}
 
-		// Mark as moving (non-reactive)
-		_isSliderMoving = true;
-
-		// Set up debounce to mark as stopped after delay
 		_sliderDebounceTimer = setTimeout(() => {
-			_isSliderMoving = false;
 			_sliderDebounceTimer = null;
 
 			// Queue calculation for when slider stops
@@ -426,49 +382,14 @@
 	//     }
 	// }
 
-	// Track parameters without causing reactivity
-	function trackParameters() {
-		// Capture current values without causing reactivity
-		const scale = selectedScale;
-		const infill = selectedInfill;
-		const material = selectedMaterial;
-		const walls = selectedWalls;
-		const quality = selectedQuality;
-		const qty = quantity;
-
-		// // Only queue calculation if not already calculating or moving slider
-		// if (!_isCalculating && !_isSliderMoving && currentModel && file) {
-		//     queueWeightCalculation();
-		// }
-	}
-
-	// Add custom handler functions for specific parameter updates
-	function onScaleChange() {
-		notifySliderMoving();
-	}
-
-	function onInfillChange() {
-		notifySliderMoving();
-	}
-
-	function onOtherParameterChange() {
-		// if (!_isSliderMoving && !_isCalculating) {
-		//     queueWeightCalculation();
-		// }
-	}
-
 	// Use a single effect for parameter tracking but don't cause updates inside it
 	$effect(() => {
-		// Track all parameter changes but don't cause updates
-		const scale = selectedScale;
-		const infill = selectedInfill;
-		const material = selectedMaterial;
-		const walls = selectedWalls;
-		const quality = selectedQuality;
-		const qty = quantity;
-
-		// Call external function to track without changing state inside effect
-		trackParameters();
+		void selectedScale;
+		void selectedInfill;
+		void selectedMaterial;
+		void selectedWalls;
+		void selectedQuality;
+		void quantity;
 	});
 
 	// Initial model loading effect
@@ -482,12 +403,6 @@
 			loadModel(file).then(() => {
 				// Update file size only after model is loaded
 				modelInfo.fileSize = formatFileSize(file.size);
-
-				// Initial hash and calculation queue
-				_currentParameterHash = generateParameterHash();
-
-				// Use timeout to break the reactivity chain
-				// setTimeout(calculateWeight, 100);
 			});
 		}
 
@@ -599,7 +514,7 @@
 			const loadingManager = new THREE.LoadingManager();
 			loadingManager.onStart = () => {};
 
-			loadingManager.onError = (url) => {};
+			loadingManager.onError = () => {};
 
 			try {
 				switch (extension) {
@@ -747,7 +662,7 @@
 				controls.target.set(0, 0, 0);
 				controls.update();
 			}
-		} catch (error) {
+		} catch {
 			onFailedLoad();
 		}
 	}

@@ -14,7 +14,7 @@
 	let errorShow = $state(false);
 	let editing = $state<boolean[]>([]);
 	let addresses = $state<Address[]>([]);
-	let timeoutId = $state<NodeJS.Timeout | undefined>(undefined);
+	let timeoutId = $state<ReturnType<typeof setTimeout> | undefined>(undefined);
 	let isLoading = $state(false);
 	let isConfirmDialogOpen = $state(false);
 	let addressIndexToDelete = $state<number | null>(null);
@@ -173,7 +173,10 @@
 
 			isLoading = true;
 			try {
-				const { id, created_at, ...updateData } = finalAddress;
+				const id = finalAddress.id;
+				const updateData = { ...finalAddress };
+				delete updateData.id;
+				delete updateData.created_at;
 				const { data: dbData, error } = await data.supabase_lt
 					.from('addresses')
 					.update(updateData)
@@ -216,7 +219,8 @@
 
 		isLoading = true;
 		try {
-			const { id, ...insertData } = finalAddress;
+			const insertData = { ...finalAddress };
+			delete insertData.id;
 			const { data: dbData, error } = await data.supabase_lt
 				.from('addresses')
 				.insert([insertData])

@@ -4,7 +4,7 @@
 
 <div class="mt-2 space-y-3" aria-hidden="true">
 	<div class="flex items-center gap-1">
-		{#each Array(5) as _, i (i)}
+		{#each [...Array(5).keys()] as i (i)}
 			<Skeleton class="size-4 rounded-sm" />
 		{/each}
 	</div>

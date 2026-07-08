@@ -61,7 +61,7 @@
 	}
 
 	$effect(() => {
-		products;
+		void products;
 		activeIndex = 0;
 	});
 

@@ -117,7 +117,6 @@ export function resolveCartQuantityChange(params: {
  * @returns - True if the change was successful, false if not
  */
 export async function changeCart(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	supabase: SupabaseClient<any, 'public', any>,
 	cart_store: Writable<CartG>,
 	changed: CartItem,

@@ -18,7 +18,7 @@
 	</div>
 
 	<div class="divide-y divide-border">
-		{#each Array(count) as _, i (i)}
+		{#each [...Array(count).keys()] as i (i)}
 			<div
 				class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-3 px-3 py-3">
 				<Skeleton class="h-4 w-16 rounded-sm" />

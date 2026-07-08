@@ -33,16 +33,6 @@
 	let modelName = req.model?.split('/').pop().split('.');
 	let modelName2 = modelName[modelName.length - 2].split('_');
 	modelName = `${modelName2[modelName2.length - 1]}.${modelName[modelName.length - 1]}`;
-	const STAGES = [
-		'cancelled',
-		'requested',
-		'quoted',
-		'actionable',
-		'paid',
-		'paid_externally',
-		'completed',
-		'in dispute'
-	];
 
 	// Add a mapping for stage colors
 	const STAGE_COLORS: { [key: string]: string } = {
@@ -55,20 +45,6 @@
 		completed: 'bg-gray-500/10 text-gray-300 border-gray-400/20',
 		'in dispute': 'bg-yellow-500/10 text-yellow-400 border-yellow-400/20',
 		default: 'bg-accent/10 text-accent border-accent/10'
-	};
-
-	const STAGE_DESCRIPTIONS: { [key: string]: string } = {
-		cancelled: 'The request has been cancelled.',
-		requested: 'The user has requested a quote for a 3D print. Please provide a quote.',
-		quoted: 'You have quoted the user. Please wait for them to review and accept or reject it.',
-		actionable: 'You have requested an action from the user. Please wait for their response.',
-		paid: 'The user has paid for the 3D print. Please complete the print and ship it.',
-		paid_externally:
-			'The user has paid for the 3D print externally. Please complete the print and ship it.',
-		completed:
-			'The user has acknowledged the receipt of the 3D print. Please wait for their review.',
-		'in dispute': 'The request is in dispute. Our Team will intervene to resolve the dispute.',
-		default: 'The request is in default.'
 	};
 
 	async function quoteOrder() {
@@ -120,7 +96,7 @@
 			try {
 				new URL(string);
 				return true;
-			} catch (_) {
+			} catch {
 				return false;
 			}
 		}
@@ -260,7 +236,7 @@
 				downloading = false;
 				downloadProgress = 0;
 			}
-		} catch (e) {
+		} catch {
 			alert('Error downloading model');
 		} finally {
 			// Only reset if not downloading (handled in xhr events)
@@ -346,7 +322,6 @@
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
 		if (!req.id || !data.session?.data?.user?.id || !cancelReason.trim()) return;
-		const prevSelectedId = req.id;
 		//repull the order data
 		const updatedOrder = await data.supabase_lt
 			.from('printrequests')

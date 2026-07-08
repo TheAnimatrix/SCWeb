@@ -34,7 +34,7 @@
 	const expandedGroups = $state<Record<string, boolean>>({});
 
 	$effect(() => {
-		filters.inStock;
+		void filters.inStock;
 		optimisticInStock = undefined;
 	});
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
 	import * as Select from '$lib/components/ui/select';
 
 	interface Props {

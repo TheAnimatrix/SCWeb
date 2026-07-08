@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { goto, preloadData, invalidate } from '$app/navigation';
 	import { navigating, page } from '$app/state';
-	import { writable, type Writable } from 'svelte/store';
+	import type { Writable } from 'svelte/store';
 	import { changeCart, type CartG, type CartItem } from '$lib/client/cart';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { MakerCard, ProseSkeleton, Skeleton } from '$lib/components/sc';
@@ -142,7 +142,7 @@
 	});
 
 	$effect(() => {
-		productItem.id;
+		void productItem.id;
 		variantNavigating = false;
 		indicatorCur = 0;
 		cartQty = 1;
@@ -239,7 +239,7 @@
 				<div class="space-y-3" aria-busy="true" aria-label="Loading product images">
 					<Skeleton class="aspect-[4/3] w-full rounded-lg" />
 					<div class="flex flex-wrap gap-2">
-						{#each Array(3) as _, index (index)}
+						{#each [...Array(3).keys()] as index (index)}
 							<Skeleton class="h-16 w-16 rounded-md" />
 						{/each}
 					</div>
@@ -276,7 +276,7 @@
 		{#if isRefreshing}
 			<div class="space-y-4" aria-busy="true" aria-label="Loading product details">
 				<div class="flex flex-wrap gap-2 border-b border-border pb-3">
-					{#each Array(3) as _, index (index)}
+					{#each [...Array(3).keys()] as index (index)}
 						<Skeleton class="h-8 w-24 rounded-md" />
 					{/each}
 				</div>

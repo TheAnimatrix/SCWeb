@@ -8,6 +8,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 // for information about these interfaces
 declare global {
+	interface RazorpayInstance {
+		open(): void;
+		on(event: string, handler: (response: unknown) => void): void;
+	}
+
+	const Razorpay: new (options: Record<string, unknown>) => RazorpayInstance;
+
 	namespace App {
 		interface Locals {
 			supabase: SupabaseClient<Database>;

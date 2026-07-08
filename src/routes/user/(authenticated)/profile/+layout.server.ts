@@ -1,11 +1,7 @@
-import { redirect, error } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({
-	url,
-	route,
-	locals: { supabase, supabaseAdmin }
-}) => {
+export const load: LayoutServerLoad = async ({ url, route, locals: { supabase } }) => {
 	const session = await supabase.auth.getUser();
 	if (session.error || !session.data.user) {
 		// Construct the redirect URL with the current path as postLogin query parameter

@@ -26,7 +26,6 @@ function normalizeFilterTag(raw: string): string {
 import type { PageLoad } from './$types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ProductQuery = any;
 
 const PAGE_SIZE = 12;

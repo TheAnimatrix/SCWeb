@@ -225,7 +225,7 @@
 							class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4"
 							aria-busy="true"
 							aria-label="Loading crafts">
-							{#each Array(6) as _, i (i)}
+							{#each [...Array(6).keys()] as i (i)}
 								<ProductCardSkeleton />
 							{/each}
 						</div>

@@ -1,5 +1,5 @@
-import { fail, redirect } from '@sveltejs/kit';
-import type { Actions, PageServerLoad } from './$types';
+import { fail } from '@sveltejs/kit';
+import type { Actions } from './$types';
 
 // Re-use or define validation logic server-side
 function validateServerForm(formData: FormData): Record<string, string> {
@@ -38,7 +38,6 @@ function validateServerForm(formData: FormData): Record<string, string> {
 	}
 
 	// --- Max Printer Size Validation ---
-	let maxDimensionValue: number | null = null;
 	if (!maxPrinterSize.trim()) {
 		errors.maxPrinterSize = 'Max printer build area is required.';
 	} else {
@@ -57,9 +56,6 @@ function validateServerForm(formData: FormData): Record<string, string> {
 				errors.maxPrinterSize = `Dimensions seem too small. Must be at least ${minDimension}x${minDimension} mm.`;
 			} else if (width > maxDimension || depth > maxDimension) {
 				errors.maxPrinterSize = `Dimensions seem too large. Cannot exceed ${maxDimension}x${maxDimension} mm.`;
-			} else {
-				// Store the largest dimension for the bigint column
-				maxDimensionValue = Math.max(width, depth);
 			}
 		}
 	}

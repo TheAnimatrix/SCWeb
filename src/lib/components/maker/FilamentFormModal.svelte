@@ -6,7 +6,6 @@
 	import * as Drawer from '$lib/components/ui/drawer';
 	import { PortalSectionLabel, ParameterChip } from '$lib/components/portal';
 	import { ChipGridSkeleton, ScButton, ScInput, Skeleton } from '$lib/components/sc';
-	import { cn } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import ColorPicker from './ColorPicker.svelte';
 	import type { SupabaseClient } from '@supabase/supabase-js';
@@ -279,7 +278,7 @@
 					glow={false} />
 				{#if presetLoading}
 					<div class="flex flex-col gap-2 py-2" aria-hidden="true">
-						{#each Array(4) as _, i (i)}
+						{#each [...Array(4).keys()] as i (i)}
 							<Skeleton class="h-12 w-full rounded-md" />
 						{/each}
 					</div>

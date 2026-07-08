@@ -30,7 +30,7 @@
 
 	{#await relatedProductsPromise}
 		<div class={relatedProductsLayoutClass()} aria-hidden="true">
-			{#each Array(4) as _, index (index)}
+			{#each [...Array(4).keys()] as index (index)}
 				<ProductCardSkeleton class={relatedProductItemClass()} />
 			{/each}
 		</div>

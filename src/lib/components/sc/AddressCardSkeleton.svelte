@@ -9,7 +9,7 @@
 </script>
 
 <div class="space-y-3" aria-hidden="true">
-	{#each Array(count) as _, i (i)}
+	{#each [...Array(count).keys()] as i (i)}
 		<div class="rounded-md border border-border bg-card p-4">
 			<Skeleton class="mb-2 h-4 w-1/3 rounded-sm" />
 			<div class="space-y-2">

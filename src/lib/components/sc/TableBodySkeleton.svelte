@@ -10,9 +10,9 @@
 </script>
 
 <tbody class="divide-y divide-border" aria-hidden="true">
-	{#each Array(rows) as _, rowIndex (rowIndex)}
+	{#each [...Array(rows).keys()] as rowIndex (rowIndex)}
 		<tr>
-			{#each Array(columns) as _, colIndex (colIndex)}
+			{#each [...Array(columns).keys()] as colIndex (colIndex)}
 				<td class="px-4 py-3">
 					<Skeleton
 						class="h-4 rounded-sm {colIndex === 0

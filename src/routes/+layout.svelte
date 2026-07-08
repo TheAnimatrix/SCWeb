@@ -5,7 +5,7 @@
 	import { goto, invalidate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import '../app.css';
-	import { writable, type Writable } from 'svelte/store';
+	import type { Writable } from 'svelte/store';
 	import { onMount, setContext, getContext } from 'svelte';
 	import Toast from '$lib/components/common/Toast.svelte';
 	import { removePostLoginURL } from '$lib/client/postLogin';

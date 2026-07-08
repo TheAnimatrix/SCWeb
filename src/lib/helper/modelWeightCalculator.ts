@@ -31,7 +31,7 @@ function calculateVolumeAndAreaSingle(geometry: BufferGeometry): { volume: numbe
 	let area = 0;
 	const position = geometry.attributes.position;
 	let skippedTriangles = 0;
-	let totalTriangles = position.count / 3;
+	const totalTriangles = position.count / 3;
 
 	for (let i = 0; i < position.count; i += 3) {
 		const a = new Vector3().fromBufferAttribute(position, i);

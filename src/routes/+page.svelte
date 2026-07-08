@@ -100,7 +100,7 @@
 
 				<dl class="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-6 font-mono text-sm">
 					{#if isLoading}
-						{#each Array(3) as _, i (i)}
+						{#each [...Array(3).keys()] as i (i)}
 							<Skeleton class="h-4 w-28 rounded-sm" />
 						{/each}
 					{:else}
@@ -156,7 +156,7 @@
 
 				{#if isLoading}
 					<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
-						{#each Array(4) as _, i (i)}
+						{#each [...Array(4).keys()] as i (i)}
 							<ProductCardSkeleton />
 						{/each}
 					</div>

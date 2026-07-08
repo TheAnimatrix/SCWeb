@@ -132,7 +132,7 @@
 		await updateCartQuantity(i, inputQuantity, result.stock);
 	}
 
-	const debounceIncrementDecrement: Map<number, NodeJS.Timeout> = new Map();
+	const debounceIncrementDecrement: Map<number, ReturnType<typeof setTimeout>> = new Map();
 
 	async function incrementDecrementQuantity(isIncrement: boolean, i: number, result: any) {
 		if (!cartDetails?.list) return;

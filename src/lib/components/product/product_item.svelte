@@ -3,7 +3,6 @@
 	import Icon from '@iconify/svelte';
 	import type { Product } from '$lib/types/product';
 	import { isOnDemand, isOutOfStock, isPurchasable } from '$lib/utils/stock';
-	import { HSLToHex, HexToHSL } from '$lib/types/helper';
 	interface Props {
 		product: Product;
 		href: string;

@@ -11,7 +11,6 @@
 	import Timer from '@lucide/svelte/icons/timer';
 	import Users from '@lucide/svelte/icons/users';
 	import AlertCircle from '@lucide/svelte/icons/circle-alert';
-	import Icon from '@iconify/svelte';
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';

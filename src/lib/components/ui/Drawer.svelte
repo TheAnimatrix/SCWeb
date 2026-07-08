@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fade, fly, scale } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 
 	interface Props {
@@ -41,19 +41,6 @@
 			handleClose();
 		}
 	}
-	let positionClassValues = {
-		left: 'inset-y-0 left-0 max-w-xs w-full transform -translate-x-full',
-		right: 'inset-y-0 right-0 max-w-xs w-full transform translate-x-full',
-		bottom: 'inset-x-0 bottom-0 max-h-[85vh] transform translate-y-full'
-	};
-	let transformClassValues = {
-		left: 'translate-x-0',
-		right: 'translate-x-0',
-		bottom: 'translate-y-0'
-	};
-	let positionClass = $derived(positionClassValues[position]);
-	let transformClass = $derived(transformClassValues[position]);
-
 	onMount(() => {
 		document.addEventListener('keydown', handleKeydown);
 		return () => {

@@ -114,7 +114,7 @@
 					<div
 						class="absolute inset-0 z-10 space-y-4 rounded-md bg-background/80 p-6 backdrop-blur-sm"
 						aria-hidden="true">
-						{#each Array(5) as _, i (i)}
+						{#each [...Array(5).keys()] as i (i)}
 							<Skeleton class="h-10 w-full rounded-md" />
 						{/each}
 					</div>

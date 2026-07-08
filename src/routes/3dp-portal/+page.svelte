@@ -26,7 +26,6 @@
 	let dragActive = $state(false);
 	let modelLoaded = $state(false);
 	let modelFile: File | null = $state(null);
-	let loading = $state(false);
 
 	// ThreeJS cube references
 	let cubeContainer: HTMLElement | null = $state(null);
@@ -347,7 +346,7 @@
 		}
 		const user_id = userRes.user.id;
 		// Get user's daily limit
-		const { data: userRow, error: userRowErr } = await data.supabase_lt
+		const { data: userRow } = await data.supabase_lt
 			.from('users')
 			.select('quote_daily_limit')
 			.eq('id', user_id)
@@ -356,7 +355,7 @@
 		// Get today's printrequests count
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const { count, error: countErr } = await data.supabase_lt
+		const { count } = await data.supabase_lt
 			.from('printrequests')
 			.select('id', { count: 'exact', head: true })
 			.eq('user_id', user_id)
@@ -376,12 +375,10 @@
 		walls: number,
 		onProgress?: (progress: number | null) => void
 	) {
-		loading = true;
 		if (onProgress) onProgress(0);
 		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('You must be logged in to request a quote', 'error');
-			loading = false;
 			if (onProgress) onProgress(null);
 			return;
 		}
@@ -389,7 +386,6 @@
 		//check if provided file is <50MB and an actual STL file
 		if (model && model.size > 50 * 1024 * 1024) {
 			toastStore.show('Model file must be less than 50MB', 'error');
-			loading = false;
 			if (onProgress) onProgress(null);
 			return;
 		}
@@ -437,16 +433,14 @@
 			const { ok, json: result } = await promise;
 			if (!ok) {
 				toastStore.show(result.error || 'Failed to create quote request', 'error');
-				loading = false;
 				if (onProgress) onProgress(null);
 				return;
 			}
 			toastStore.show('Quote request submitted!', 'success');
 			await fetchQuoteRequestStats();
-		} catch (err) {
+		} catch {
 			toastStore.show('Unexpected error submitting quote request', 'error');
 		} finally {
-			loading = false;
 			if (onProgress) onProgress(null);
 		}
 	}

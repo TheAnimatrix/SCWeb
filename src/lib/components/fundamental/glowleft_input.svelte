@@ -37,8 +37,6 @@
 		iconClass = 'text-xl',
 		label = undefined,
 		labelClass = 'text-xs font-medium text-gray-400 mb-1',
-		animate = true,
-		pulseOnFocus = true,
 		readonly = false,
 		required = false,
 		spellcheck = false,
@@ -49,7 +47,6 @@
 		onBlurCallback = undefined
 	}: Props = $props();
 
-	let isFocused = false;
 	let inputElement: HTMLInputElement = $state();
 	let containerElement: HTMLDivElement = $state();
 
@@ -71,12 +68,10 @@
 
 	// Event handlers
 	function onFocus() {
-		isFocused = true;
 		if (onFocusCallback) onFocusCallback();
 	}
 
 	function onBlur() {
-		isFocused = false;
 		if (onBlurCallback) onBlurCallback();
 	}
 

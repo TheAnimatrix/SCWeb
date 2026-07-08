@@ -1,7 +1,6 @@
 <!-- @migration-task Error while migrating Svelte code: $$props is used together with named props in a way that cannot be automatically migrated. -->
 <script lang="ts">
 	import { spring } from 'svelte/motion';
-	import { cubicOut } from 'svelte/easing';
 
 	interface Props {
 		buttonBgColor?: string;

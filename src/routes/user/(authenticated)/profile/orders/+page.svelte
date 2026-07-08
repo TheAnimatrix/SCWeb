@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { Order, Orders, Product } from '$lib/types/product.js';
+	import type { Orders } from '$lib/types/product.js';
 	import { navigating, page } from '$app/state';
-	import type { CartItem } from '$lib/client/cart.js';
 	import { OrderCardSkeleton, ProseSkeleton, ScButton } from '$lib/components/sc';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronUp from '@lucide/svelte/icons/chevron-up';
@@ -12,7 +11,6 @@
 	import { slide } from 'svelte/transition';
 
 	let { data } = $props();
-	let supabase_lt = data.supabase_lt;
 	let orders: Orders = $state([]);
 	orders = data.orders;
 	let visible = $state(Array(orders.length).fill(false));

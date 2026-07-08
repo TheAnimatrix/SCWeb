@@ -36,7 +36,6 @@
 	let reviewRating = $state(5);
 	let reviewComment = $state('');
 	let isSubmittingReview = $state(false);
-	let reviewSuccess = $state<boolean | null>(null);
 	let reviewError = $state('');
 	let isEditingReview = $state(false);
 	let showDeleteConfirmation = $state(false);
@@ -111,7 +110,6 @@
 
 			if (result.error) throw result.error;
 
-			reviewSuccess = true;
 			showReviewModal = false;
 
 			if (result.data && result.data.length > 0) {
@@ -135,7 +133,6 @@
 			reviewRating = 5;
 			isEditingReview = false;
 		} catch (error) {
-			reviewSuccess = false;
 			reviewError =
 				error instanceof Error ? error.message : 'Failed to submit review. Please try again.';
 		} finally {
@@ -241,7 +238,7 @@
 				<div>
 					<span class="mb-2 block font-mono text-xs text-muted-foreground">rating</span>
 					<div class="flex gap-1">
-						{#each Array(5) as _, index (index)}
+						{#each [...Array(5).keys()] as index (index)}
 							<button
 								type="button"
 								class="px-1 font-mono text-lg transition-colors"
