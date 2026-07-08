@@ -50,16 +50,20 @@ export const getCartResponseSchema = z.object({
 
 export type GetCartResponse = z.infer<typeof getCartResponseSchema>;
 
-export const upsertCartItemBodySchema = z.object({
-	qty: z.number().int().min(0),
-	mode: z.enum(['set', 'add'])
-});
+export const upsertCartItemBodySchema = z
+	.object({
+		qty: z.number().int().min(0).max(10000),
+		mode: z.enum(['set', 'add'])
+	})
+	.strict();
 
 export type UpsertCartItemBody = z.infer<typeof upsertCartItemBodySchema>;
 
-export const mergeCartBodySchema = z.object({
-	clientId: z.string().min(1)
-});
+export const mergeCartBodySchema = z
+	.object({
+		clientId: z.string().min(1)
+	})
+	.strict();
 
 export type MergeCartBody = z.infer<typeof mergeCartBodySchema>;
 

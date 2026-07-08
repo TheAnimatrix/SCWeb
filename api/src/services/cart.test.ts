@@ -77,6 +77,22 @@ describe('mergeCartLines', () => {
 			{ productId: 'p2', qty: 2 }
 		]);
 	});
+
+	it('clamps user-only lines to stock limits', () => {
+		const merged = mergeCartLines([], [{ productId: 'p1', qty: 10 }], () => 5);
+
+		expect(merged).toEqual([{ productId: 'p1', qty: 5 }]);
+	});
+
+	it('drops lines that clamp to zero', () => {
+		const merged = mergeCartLines(
+			[{ productId: 'p1', qty: 3 }],
+			[{ productId: 'p2', qty: 8 }],
+			(productId) => (productId === 'p1' ? 2 : 0)
+		);
+
+		expect(merged).toEqual([{ productId: 'p1', qty: 2 }]);
+	});
 });
 
 describe('classifyMergeScenario', () => {

@@ -56,6 +56,50 @@ describe('cart routes', () => {
 		expect(response.status).toBe(401);
 	});
 
+	it('returns 401 on PUT when the actor has no identity', async () => {
+		const app = createTestApp({ userId: null, clientId: null }, fakeStore());
+		const response = await app.request('/cart/items/00000000-0000-0000-0000-000000000001', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ qty: 1, mode: 'set' })
+		});
+
+		expect(response.status).toBe(401);
+	});
+
+	it('returns 401 on POST /cart/merge when unauthenticated', async () => {
+		const app = createTestApp({ userId: null, clientId: 'guest-1' }, fakeStore());
+		const response = await app.request('/cart/merge', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ clientId: 'guest-1' })
+		});
+
+		expect(response.status).toBe(401);
+	});
+
+	it('returns 400 for an invalid productId uuid', async () => {
+		const app = createTestApp({ userId: null, clientId: 'guest-1' }, fakeStore());
+		const response = await app.request('/cart/items/not-a-uuid', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ qty: 1, mode: 'set' })
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	it('returns 400 for a malformed PUT body', async () => {
+		const app = createTestApp({ userId: null, clientId: 'guest-1' }, fakeStore());
+		const response = await app.request('/cart/items/00000000-0000-0000-0000-000000000001', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ qty: 1, mode: 'set', extra: true })
+		});
+
+		expect(response.status).toBe(400);
+	});
+
 	it('returns null cart when none exists', async () => {
 		const store = fakeStore({
 			getCart: vi.fn(async () => ({ cart: null }))

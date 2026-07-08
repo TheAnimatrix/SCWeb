@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
 import type { IndexColumn } from 'drizzle-orm/pg-core';
 import {
 	CART_ORDER_STATUS,
@@ -20,12 +20,14 @@ import {
 	mergeCartLines,
 	resolveItemMutation,
 	stockLimitFromProduct,
+	type MergeLine,
 	type ProductSnapshot
 } from './cart.js';
 
 export type UpsertCartItemResult =
 	| { ok: true; response: GetCartResponse }
-	| { ok: false; status: 409; body: { error: 'insufficient_stock'; limit: number } };
+	| { ok: false; status: 409; body: { error: 'insufficient_stock'; limit: number } }
+	| { ok: false; status: 404; body: { error: 'product_not_found' } };
 
 export type MergeCartResult =
 	| { ok: true; response: MergeCartResponse }
@@ -43,6 +45,15 @@ export interface CartStore {
 
 function partialUniqueConflict(target: IndexColumn, targetWhere: ReturnType<typeof sql>) {
 	return { target, where: targetWhere };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+	return (
+		typeof error === 'object' &&
+		error !== null &&
+		'code' in error &&
+		(error as { code: string }).code === '23505'
+	);
 }
 
 function activeCartCondition(actor: Actor) {
@@ -153,6 +164,114 @@ async function getOrCreateActiveCart(db: DbExecutor, actor: Actor) {
 	return raced;
 }
 
+async function loadStockLimits(tx: DbExecutor, productIds: string[]): Promise<Map<string, number>> {
+	if (productIds.length === 0) {
+		return new Map();
+	}
+
+	const productRows = await tx.select().from(products).where(inArray(products.id, productIds));
+
+	return new Map(
+		productRows.map((product) => [product.id, stockLimitFromProduct(product as ProductSnapshot)])
+	);
+}
+
+async function clampCartItemsToStock(tx: DbExecutor, cartId: string) {
+	const lines = await tx
+		.select({ productId: cartItems.productId, qty: cartItems.qty })
+		.from(cartItems)
+		.where(eq(cartItems.cartId, cartId));
+
+	if (lines.length === 0) return;
+
+	const limits = await loadStockLimits(
+		tx,
+		lines.map((line) => line.productId)
+	);
+
+	for (const line of lines) {
+		const limit = limits.get(line.productId) ?? 0;
+		const clampedQty = Math.min(line.qty, limit);
+
+		if (clampedQty <= 0) {
+			await tx
+				.delete(cartItems)
+				.where(and(eq(cartItems.cartId, cartId), eq(cartItems.productId, line.productId)));
+		} else if (clampedQty !== line.qty) {
+			await tx
+				.update(cartItems)
+				.set({ qty: clampedQty, updatedAt: sql`now()` })
+				.where(and(eq(cartItems.cartId, cartId), eq(cartItems.productId, line.productId)));
+		}
+	}
+}
+
+async function applyMergedLinesToUserCart(
+	tx: DbExecutor,
+	userCartId: string,
+	mergedLines: MergeLine[]
+) {
+	if (mergedLines.length === 0) {
+		await tx.delete(cartItems).where(eq(cartItems.cartId, userCartId));
+		return;
+	}
+
+	const mergedProductIds = mergedLines.map((line) => line.productId);
+
+	for (const line of mergedLines) {
+		await tx
+			.insert(cartItems)
+			.values({
+				cartId: userCartId,
+				productId: line.productId,
+				qty: line.qty
+			})
+			.onConflictDoUpdate({
+				target: [cartItems.cartId, cartItems.productId],
+				set: {
+					qty: line.qty,
+					updatedAt: sql`now()`
+				}
+			});
+	}
+
+	await tx
+		.delete(cartItems)
+		.where(
+			and(eq(cartItems.cartId, userCartId), notInArray(cartItems.productId, mergedProductIds))
+		);
+}
+
+async function mergeBothCarts(tx: DbExecutor, guestCart: { id: string }, userCart: { id: string }) {
+	const guestLines = await tx
+		.select({ productId: cartItems.productId, qty: cartItems.qty })
+		.from(cartItems)
+		.where(eq(cartItems.cartId, guestCart.id));
+
+	const userLines = await tx
+		.select({ productId: cartItems.productId, qty: cartItems.qty })
+		.from(cartItems)
+		.where(eq(cartItems.cartId, userCart.id));
+
+	const productIds = [
+		...new Set([
+			...guestLines.map((line) => line.productId),
+			...userLines.map((line) => line.productId)
+		])
+	];
+
+	const limits = await loadStockLimits(tx, productIds);
+
+	const mergedLines = mergeCartLines(
+		guestLines,
+		userLines,
+		(productId) => limits.get(productId) ?? 0
+	);
+
+	await applyMergedLinesToUserCart(tx, userCart.id, mergedLines);
+	await tx.delete(carts).where(eq(carts.id, guestCart.id));
+}
+
 export function createCartStore(db: Database): CartStore {
 	return {
 		async getCart(actor) {
@@ -166,14 +285,21 @@ export function createCartStore(db: Database): CartStore {
 
 		async upsertCartItem(actor, productId, body) {
 			return db.transaction(async (tx) => {
+				// Cross-request oversell is finally enforced at checkout; this row lock
+				// closes the concurrent-oversell window within the PUT transaction.
 				const [product] = await tx
 					.select()
 					.from(products)
 					.where(eq(products.id, productId))
+					.for('update')
 					.limit(1);
 
 				if (!product) {
-					throw new Error(`product not found: ${productId}`);
+					return {
+						ok: false as const,
+						status: 404 as const,
+						body: { error: 'product_not_found' as const }
+					};
 				}
 
 				const cart = await getOrCreateActiveCart(tx, actor);
@@ -252,71 +378,40 @@ export function createCartStore(db: Database): CartStore {
 				}
 
 				if (scenario === 'only_guest' && guestCart) {
-					await tx
-						.update(carts)
-						.set({
-							userId: actor.userId,
-							updatedAt: sql`now()`
-						})
-						.where(eq(carts.id, guestCart.id));
+					try {
+						await tx
+							.update(carts)
+							.set({
+								userId: actor.userId,
+								updatedAt: sql`now()`
+							})
+							.where(eq(carts.id, guestCart.id));
 
-					return { ok: true as const, response: { merged: true } };
+						await clampCartItemsToStock(tx, guestCart.id);
+						return { ok: true as const, response: { merged: true } };
+					} catch (error) {
+						if (!isUniqueViolation(error)) {
+							throw error;
+						}
+
+						const racedGuest = await findGuestActiveCart(tx, clientId);
+						const racedUser = await findUserActiveCart(tx, actor.userId!);
+
+						if (racedGuest && racedUser) {
+							await mergeBothCarts(tx, racedGuest, racedUser);
+							return { ok: true as const, response: { merged: true } };
+						}
+
+						if (racedUser && !racedGuest) {
+							return { ok: true as const, response: { merged: false } };
+						}
+
+						throw error;
+					}
 				}
 
 				if (scenario === 'both' && guestCart && userCart) {
-					const guestLines = await tx
-						.select({ productId: cartItems.productId, qty: cartItems.qty })
-						.from(cartItems)
-						.where(eq(cartItems.cartId, guestCart.id));
-
-					const userLines = await tx
-						.select({ productId: cartItems.productId, qty: cartItems.qty })
-						.from(cartItems)
-						.where(eq(cartItems.cartId, userCart.id));
-
-					const productIds = [
-						...new Set([
-							...guestLines.map((line) => line.productId),
-							...userLines.map((line) => line.productId)
-						])
-					];
-
-					const productRows =
-						productIds.length > 0
-							? await tx.select().from(products).where(inArray(products.id, productIds))
-							: [];
-
-					const limits = new Map(
-						productRows.map((product) => [
-							product.id,
-							stockLimitFromProduct(product as ProductSnapshot)
-						])
-					);
-
-					const mergedLines = mergeCartLines(
-						guestLines,
-						userLines,
-						(productId) => limits.get(productId) ?? 0
-					);
-
-					for (const line of mergedLines) {
-						await tx
-							.insert(cartItems)
-							.values({
-								cartId: userCart.id,
-								productId: line.productId,
-								qty: line.qty
-							})
-							.onConflictDoUpdate({
-								target: [cartItems.cartId, cartItems.productId],
-								set: {
-									qty: line.qty,
-									updatedAt: sql`now()`
-								}
-							});
-					}
-
-					await tx.delete(carts).where(eq(carts.id, guestCart.id));
+					await mergeBothCarts(tx, guestCart, userCart);
 					return { ok: true as const, response: { merged: true } };
 				}
 

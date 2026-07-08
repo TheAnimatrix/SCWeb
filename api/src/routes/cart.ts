@@ -43,6 +43,10 @@ export function createCartRoutes(
 			const result = await getCartStore(c).upsertCartItem(actor, productId, body);
 
 			if (!result.ok) {
+				if (result.status === 404) {
+					return c.json(result.body, 404);
+				}
+
 				logCartMutation(c, 'info', 'cart.item.rejected', {
 					productId,
 					qty: body.qty,

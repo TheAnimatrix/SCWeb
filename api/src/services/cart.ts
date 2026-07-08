@@ -92,14 +92,15 @@ export function mergeCartLines(
 
 	for (const line of guestLines) {
 		const current = byProduct.get(line.productId) ?? 0;
-		const merged = current + line.qty;
-		const limit = getStockLimit(line.productId);
-		byProduct.set(line.productId, Math.min(merged, limit));
+		byProduct.set(line.productId, current + line.qty);
 	}
 
 	return Array.from(byProduct.entries())
-		.filter(([, qty]) => qty > 0)
-		.map(([productId, qty]) => ({ productId, qty }));
+		.map(([productId, qty]) => ({
+			productId,
+			qty: Math.min(qty, getStockLimit(productId))
+		}))
+		.filter((line) => line.qty > 0);
 }
 
 export function computeSubtotal(items: Pick<CartItemView, 'unitPrice' | 'qty'>[]): number {
