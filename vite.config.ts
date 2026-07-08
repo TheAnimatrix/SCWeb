@@ -4,6 +4,55 @@ import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+	// Pre-bundle UI libs at dev-server start so the first visit to a page that
+	// uses bits-ui / lucide / drawers does not trigger a mid-session dep reload
+	// (that reload corrupts Svelte's effect tree and throws get_next_sibling errors).
+	optimizeDeps: {
+		include: [
+			'bits-ui',
+			'vaul-svelte',
+			'@iconify/svelte',
+			'@floating-ui/dom',
+			'@floating-ui/core',
+			'tabbable',
+			'@internationalized/date',
+			'style-to-object',
+			'svelte-toolbelt',
+			'runed',
+			'@supabase/ssr',
+			'@supabase/supabase-js',
+			'devalue',
+			'@sentry/sveltekit',
+			// Route-local deps added during the 2026-07 overhaul — each one, when
+			// first discovered on a route visit, forced a mid-session re-optimize
+			// + full reload (mixed ?v= chunk hashes, get_next_sibling crashes).
+			'isomorphic-dompurify',
+			'bad-words',
+			'snarkdown',
+			'uuid',
+			'three',
+			'three/addons/controls/OrbitControls.js',
+			'three/addons/environments/RoomEnvironment.js',
+			'three/addons/loaders/3MFLoader.js',
+			'three/addons/loaders/OBJLoader.js',
+			'three/addons/loaders/STLLoader.js',
+			'three/examples/jsm/loaders/3MFLoader.js',
+			'three/examples/jsm/loaders/STLLoader.js'
+		]
+	},
+	resolve: {
+		dedupe: ['svelte']
+	},
+	server: {
+		warmup: {
+			clientFiles: [
+				'./src/routes/+layout.svelte',
+				'./src/routes/+layout.ts',
+				'./src/lib/components/ui/**/*.svelte',
+				'./src/routes/3dp-portal/**/*.svelte'
+			]
+		}
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
