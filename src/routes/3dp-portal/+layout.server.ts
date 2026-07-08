@@ -3,8 +3,8 @@ import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async (event) => {
 	//check if user is logged in, if not redirect to fabbly
-	const { data: session } = await event.locals.supabase.auth.getSession();
-	if (!(session && session.session) && event.url.pathname !== '/3dp-portal') {
+	const { session } = await event.locals.safeGetSession();
+	if (!session && event.url.pathname !== '/3dp-portal') {
 		return redirect(303, '/3dp-portal');
 	}
 

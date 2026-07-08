@@ -22,19 +22,9 @@ export async function checkUser(supabase: SupabaseClient<any, 'public', any>): P
 	 */
 	if (!supabase) return Promise.resolve(false);
 
-	/**
-	 * Get the current session from Supabase using `getSession()`.
-	 */
-
 	const {
-		data: { session }
-	} = await supabase.auth.getSession();
+		data: { user }
+	} = await supabase.auth.getUser();
 
-	/**
-	 * If the session is not null and truthy, the user is logged in.
-	 */
-	if (session != null && session) return true;
-	/**
-	 * Otherwise, the user is not logged in.
-	 */ else return false;
+	return user != null;
 }
