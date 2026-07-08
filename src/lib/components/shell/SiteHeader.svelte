@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
 	import Package from '@lucide/svelte/icons/package';
@@ -10,6 +11,12 @@
 	import ScLogo from './ScLogo.svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 	import { theme } from '$lib/client/theme';
+	import {
+		sheetBackdropIn,
+		sheetBackdropOut,
+		sheetPanelIn,
+		sheetPanelOut
+	} from '$lib/utils/sheetTransition';
 
 	interface NavLink {
 		label: string;
@@ -32,6 +39,7 @@
 	let { cartCount, userRoute, userProfile, currentPath }: Props = $props();
 
 	let mobileMenuOpen = $state(false);
+	let mobileMenuScrollLocked = $state(false);
 
 	const navLinks: NavLink[] = [
 		{ label: 'Crafts', href: '/crafts', icon: Package },
@@ -88,15 +96,31 @@
 	}
 
 	function toggleMobileMenu(): void {
-		mobileMenuOpen = !mobileMenuOpen;
+		if (mobileMenuOpen) {
+			mobileMenuOpen = false;
+			return;
+		}
+
+		mobileMenuOpen = true;
+		mobileMenuScrollLocked = true;
 	}
 
 	function closeMobileMenu(): void {
 		mobileMenuOpen = false;
 	}
 
+	function onMobileMenuOutroEnd(): void {
+		if (!mobileMenuOpen) {
+			mobileMenuScrollLocked = false;
+		}
+	}
+
+	afterNavigate(() => {
+		closeMobileMenu();
+	});
+
 	$effect(() => {
-		if (!mobileMenuOpen) return;
+		if (!mobileMenuScrollLocked) return;
 
 		const previousOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
@@ -120,7 +144,7 @@
 			<ScLogo variant={logoVariant} />
 		</a>
 
-		<nav class="hidden items-center gap-4 md:flex" aria-label="Main navigation">
+		<nav class="hidden items-center gap-8 md:flex" aria-label="Main navigation">
 			{#each navLinks as link (link.href)}
 				<a href={link.href} class={navLinkClass(link.href)}>
 					{#if link.icon}
@@ -197,91 +221,92 @@
 </header>
 
 {#if mobileMenuOpen}
-	<div class="fixed inset-0 z-50 md:hidden">
-		<button
-			type="button"
-			class="absolute inset-0 bg-black/40"
-			aria-label="Close menu"
-			onclick={closeMobileMenu}
-		></button>
+	<button
+		type="button"
+		class="fixed inset-0 z-50 bg-black/40 md:hidden"
+		aria-label="Close menu"
+		onclick={closeMobileMenu}
+		in:sheetBackdropIn
+		out:sheetBackdropOut
+	></button>
 
-		<div
-			class="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-xl border-t border-border bg-background shadow-2xl"
-			role="dialog"
-			aria-modal="true"
-			aria-label="Mobile navigation"
-		>
-			<div class="flex shrink-0 justify-center pt-3 pb-1" aria-hidden="true">
-				<div class="h-1 w-10 rounded-full bg-muted"></div>
-			</div>
+	<div
+		class="fixed inset-x-0 bottom-0 z-[51] flex max-h-[85vh] flex-col rounded-t-xl border-t border-border bg-background shadow-2xl md:hidden"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Mobile navigation"
+		in:sheetPanelIn
+		out:sheetPanelOut
+		onoutroend={onMobileMenuOutroEnd}
+	>
+		<div class="flex shrink-0 justify-center pt-3 pb-1" aria-hidden="true">
+			<div class="h-1 w-10 rounded-full bg-muted"></div>
+		</div>
 
-			<nav class="flex-1 overflow-y-auto px-4 pt-2 pb-4" aria-label="Mobile navigation">
-				<ul class="flex flex-col gap-1">
-					{#each navLinks as link (link.href)}
-						<li class:py-1={isActive(link.href)}>
-							<a href={link.href} class={navLinkClass(link.href, true)} onclick={closeMobileMenu}>
-								{#if link.icon}
-									<span aria-hidden="true">
-										<link.icon class="size-4 shrink-0" />
-									</span>
-								{/if}
-								{link.label}
-							</a>
-						</li>
-					{/each}
-				</ul>
-			</nav>
+		<nav class="flex-1 overflow-y-auto px-4 pt-2 pb-4" aria-label="Mobile navigation">
+			<ul class="flex flex-col gap-1">
+				{#each navLinks as link (link.href)}
+					<li class:py-1={isActive(link.href)}>
+						<a href={link.href} class={navLinkClass(link.href, true)}>
+							{#if link.icon}
+								<span aria-hidden="true">
+									<link.icon class="size-4 shrink-0" />
+								</span>
+							{/if}
+							{link.label}
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</nav>
 
-			<div class="shrink-0 border-t border-border px-4 py-3">
-				<div class="flex gap-3">
-					<a
-						href={userRoute}
-						class={mobileCtaClass('secondary')}
-						aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}
-						onclick={closeMobileMenu}
-					>
-						{#if isSignedIn && userProfile}
-							<span
-								class="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full border border-foreground bg-muted"
-								aria-hidden="true"
-							>
-								{#if userProfile.avatarUrl}
-									<img
-										src={userProfile.avatarUrl}
-										alt=""
-										class="size-full object-cover"
-										referrerpolicy="no-referrer"
-									/>
-								{:else}
-									<span class="font-mono text-[10px] font-medium uppercase text-foreground">
-										{profileInitial}
-									</span>
-								{/if}
-							</span>
-							Account
-						{:else}
-							<LogIn class="size-4 shrink-0" aria-hidden="true" />
-							Sign in
-						{/if}
-					</a>
+		<div class="shrink-0 border-t border-border px-4 py-3">
+			<div class="flex gap-3">
+				<a
+					href={userRoute}
+					class={mobileCtaClass('secondary')}
+					aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}
+				>
+					{#if isSignedIn && userProfile}
+						<span
+							class="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full border border-foreground bg-muted"
+							aria-hidden="true"
+						>
+							{#if userProfile.avatarUrl}
+								<img
+									src={userProfile.avatarUrl}
+									alt=""
+									class="size-full object-cover"
+									referrerpolicy="no-referrer"
+								/>
+							{:else}
+								<span class="font-mono text-[10px] font-medium uppercase text-foreground">
+									{profileInitial}
+								</span>
+							{/if}
+						</span>
+						Account
+					{:else}
+						<LogIn class="size-4 shrink-0" aria-hidden="true" />
+						Sign in
+					{/if}
+				</a>
 
-					<a
-						href="/cart"
-						class={mobileCtaClass('primary')}
-						aria-label="{cartCount} {cartCount === 1 ? 'item' : 'items'} in cart"
-						onclick={closeMobileMenu}
-					>
-						<ShoppingCart class="size-4 shrink-0" aria-hidden="true" />
-						Cart
-						{#if cartCount > 0}
-							<span
-								class="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums"
-							>
-								{cartCount}
-							</span>
-						{/if}
-					</a>
-				</div>
+				<a
+					href="/cart"
+					class={mobileCtaClass('primary')}
+					aria-label="{cartCount} {cartCount === 1 ? 'item' : 'items'} in cart"
+				>
+					<ShoppingCart class="size-4 shrink-0" aria-hidden="true" />
+					Cart
+					{#if cartCount > 0}
+						<span
+							class="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums"
+						>
+							{cartCount}
+						</span>
+					{/if}
+				</a>
 			</div>
 		</div>
 	</div>

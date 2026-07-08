@@ -28,5 +28,9 @@ export function modifyHtml(html: string) {
             return match;
         }
     );
+
+    modifiedHtml = modifiedHtml.replace(/<table(\s[^>]*)?>/gi, '<div class="html-table-scroll"><table$1>');
+    modifiedHtml = modifiedHtml.replace(/<\/table>/gi, '</table></div>');
+
     return modifiedHtml;
 }

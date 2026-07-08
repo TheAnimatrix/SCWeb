@@ -4,3 +4,4 @@ export { default as Breadcrumbs } from './Breadcrumbs.svelte';
 export { default as SiteHeader } from './SiteHeader.svelte';
 export { default as SiteFooter } from './SiteFooter.svelte';
 export { default as ThemeToggle } from './ThemeToggle.svelte';
+export { default as PwaInstallPrompt } from './PwaInstallPrompt.svelte';

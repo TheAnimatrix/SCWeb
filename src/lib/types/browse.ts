@@ -4,7 +4,7 @@ export type BrowseSort = 'newest' | 'price_asc' | 'price_desc';
 export interface BrowseFilters {
 	filter: BrowseCategory;
 	q: string;
-	city: string | null;
+	tag: string | null;
 	minPrice: number | null;
 	maxPrice: number | null;
 	inStock: boolean;
@@ -17,4 +17,11 @@ export interface CategoryCounts {
 	products: number;
 	spares: number;
 	flea_market: number;
+}
+
+export interface TagOption {
+	key: string;
+	label: string;
+	count: number;
+	variants: string[];
 }

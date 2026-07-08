@@ -10,9 +10,12 @@
 	import Toast from '$lib/components/common/Toast.svelte';
 	import { removePostLoginURL } from '$lib/client/postLogin';
 	import { initTheme } from '$lib/client/theme';
-	import { SystemStatusBar, SiteHeader, SiteFooter } from '$lib/components/shell';
+	import { SystemStatusBar, SiteHeader, SiteFooter, PwaInstallPrompt } from '$lib/components/shell';
+	import { pwaInfo } from 'virtual:pwa-info';
 
 	let { data, children } = $props();
+
+	const webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
 
 	const userRoute = $derived(
 		data.session?.user ? '/user/profile/account' : '/user/sign'
@@ -44,8 +47,32 @@
 	const currentPath = $derived(page.url.pathname);
 	const cartCount = $derived($cart_store.itemCount);
 
+	let topBar = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		if (!browser || !topBar) return;
+
+		const syncTopbarHeight = () => {
+			document.documentElement.style.setProperty(
+				'--site-topbar-height',
+				`${topBar.offsetHeight}px`
+			);
+		};
+
+		syncTopbarHeight();
+		const observer = new ResizeObserver(syncTopbarHeight);
+		observer.observe(topBar);
+		return () => observer.disconnect();
+	});
+
 	onMount(() => {
 		initTheme();
+
+		if (pwaInfo) {
+			void import('virtual:pwa-register').then(({ registerSW }) => {
+				registerSW({ immediate: true });
+			});
+		}
 
 		getActiveCart(data.supabase_lt, data.clientId).then((cart) => {
 			if (!cart.error && cart.data) {
@@ -85,19 +112,23 @@
 	});
 </script>
 
-<div class="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-background text-foreground">
-	<SystemStatusBar />
+<svelte:head>
+	{@html webManifestLink}
+</svelte:head>
 
-	<div class="sticky top-0 z-40">
+<div class="flex min-h-screen w-full max-w-full flex-col bg-background text-foreground">
+	<div bind:this={topBar} class="fixed inset-x-0 top-0 z-40 w-full max-w-full bg-background">
+		<SystemStatusBar />
 		<SiteHeader {cartCount} {userRoute} {userProfile} {currentPath} />
 	</div>
 
-	<main class="flex-1">
+	<main class="flex-1 pt-[var(--site-topbar-height)]">
 		{@render children?.()}
 	</main>
 
 	<SiteFooter githubStars={data.githubStars} />
 	<Toast />
+	<PwaInstallPrompt />
 </div>
 
 <style>

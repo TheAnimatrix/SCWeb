@@ -1,16 +1,17 @@
 <script lang="ts">
-	import type { BrowseCategory, BrowseFilters, CategoryCounts } from '$lib/types/browse';
+	import type { BrowseCategory, BrowseFilters, CategoryCounts, TagOption } from '$lib/types/browse';
 	import { cn } from '$lib/utils';
 	import { ScInput } from '$lib/components/sc';
 
 	interface Props {
 		filters: BrowseFilters;
 		categoryCounts: CategoryCounts;
+		tagOptions: TagOption[];
 		onchange?: (patch: Partial<BrowseFilters>) => void;
 		class?: string;
 	}
 
-	let { filters, categoryCounts, onchange, class: className }: Props = $props();
+	let { filters, categoryCounts, tagOptions, onchange, class: className }: Props = $props();
 
 	const categories: { value: BrowseCategory; label: string; countKey: keyof CategoryCounts }[] = [
 		{ value: 'all', label: 'all', countKey: 'all' },
@@ -18,8 +19,6 @@
 		{ value: 'spares', label: 'spares', countKey: 'spares' },
 		{ value: 'flea_market', label: 'flea_market', countKey: 'flea_market' }
 	];
-
-	const cities = ['BLR', 'MUM', 'PUN', 'DEL', 'HYD'];
 
 	function parsePrice(value: string): number | null {
 		const trimmed = value.trim();
@@ -46,9 +45,9 @@
 		});
 	}
 
-	function toggleCity(city: string) {
+	function toggleTag(tagKey: string) {
 		onchange?.({
-			city: filters.city === city ? null : city,
+			tag: filters.tag === tagKey ? null : tagKey,
 			page: 1
 		});
 	}
@@ -100,25 +99,27 @@
 		</div>
 	</section>
 
-	<section class="flex flex-col gap-3">
-		<p class="font-mono text-xs text-muted-foreground">// city</p>
-		<div class="flex flex-wrap gap-2">
-			{#each cities as city (city)}
-				<button
-					type="button"
-					onclick={() => toggleCity(city)}
-					class={cn(
-						'rounded-full border px-3 py-1 font-mono text-xs transition-colors',
-						filters.city === city
-							? 'border-black bg-black text-white'
-							: 'border-border bg-card text-foreground hover:border-foreground/30'
-					)}
-				>
-					{city}
-				</button>
-			{/each}
-		</div>
-	</section>
+	{#if tagOptions.length > 0}
+		<section class="flex flex-col gap-3">
+			<p class="font-mono text-xs text-muted-foreground">// tag</p>
+			<div class="flex flex-wrap gap-2">
+				{#each tagOptions as tag (tag.key)}
+					<button
+						type="button"
+						onclick={() => toggleTag(tag.key)}
+						class={cn(
+							'rounded-full border px-3 py-1 font-mono text-xs transition-colors',
+							filters.tag === tag.key
+								? 'border-black bg-black text-white'
+								: 'border-border bg-card text-foreground hover:border-foreground/30'
+						)}
+					>
+						{tag.label}
+					</button>
+				{/each}
+			</div>
+		</section>
+	{/if}
 
 	<section class="flex flex-col gap-3">
 		<p class="font-mono text-xs text-muted-foreground">// availability</p>

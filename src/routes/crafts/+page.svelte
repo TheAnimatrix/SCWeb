@@ -39,7 +39,7 @@
 
 		if (next.filter !== 'all') params.set('filter', next.filter);
 		if (next.q) params.set('q', next.q);
-		if (next.city) params.set('city', next.city);
+		if (next.tag) params.set('tag', next.tag);
 		if (next.minPrice != null) params.set('minPrice', String(next.minPrice));
 		if (next.maxPrice != null) params.set('maxPrice', String(next.maxPrice));
 		if (next.inStock) params.set('inStock', 'true');
@@ -145,6 +145,7 @@
 				<FilterSidebar
 					filters={data.filters}
 					categoryCounts={data.categoryCounts}
+					tagOptions={data.tagOptions}
 					onchange={navigate}
 					class="hidden md:sticky md:top-[5.25rem] md:flex md:self-start"
 				/>
@@ -230,6 +231,7 @@
 				<FilterSidebar
 					filters={data.filters}
 					categoryCounts={data.categoryCounts}
+					tagOptions={data.tagOptions}
 					onchange={navigate}
 				/>
 			</div>

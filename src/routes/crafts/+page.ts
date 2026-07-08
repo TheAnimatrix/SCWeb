@@ -3,8 +3,10 @@ import type {
 	BrowseCategory,
 	BrowseFilters,
 	BrowseSort,
-	CategoryCounts
+	CategoryCounts,
+	TagOption
 } from '$lib/types/browse';
+import { aggregateTagOptions, applyTagFilter, normalizeTagKey } from '$lib/utils/browseTags';
 import type { PageLoad } from './$types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -20,7 +22,7 @@ const VALID_SORTS: BrowseSort[] = ['newest', 'price_asc', 'price_desc'];
 function parseFilters(searchParams: URLSearchParams): BrowseFilters {
 	const filterParam = searchParams.get('filter') ?? 'all';
 	const sortParam = searchParams.get('sort') ?? 'newest';
-	const cityParam = searchParams.get('city');
+	const tagParam = searchParams.get('tag') ?? searchParams.get('craft');
 	const minPriceParam = searchParams.get('minPrice');
 	const maxPriceParam = searchParams.get('maxPrice');
 	const pageParam = searchParams.get('page');
@@ -28,13 +30,14 @@ function parseFilters(searchParams: URLSearchParams): BrowseFilters {
 	const minPrice = minPriceParam ? Number(minPriceParam) : null;
 	const maxPrice = maxPriceParam ? Number(maxPriceParam) : null;
 	const page = pageParam ? Math.max(1, Number(pageParam) || 1) : 1;
+	const rawTag = tagParam?.trim() ? tagParam.trim() : null;
 
 	return {
 		filter: VALID_FILTERS.includes(filterParam as BrowseCategory)
 			? (filterParam as BrowseCategory)
 			: 'all',
 		q: searchParams.get('q')?.trim() ?? '',
-		city: cityParam ?? null,
+		tag: rawTag ? normalizeTagKey(rawTag) : null,
 		minPrice: minPrice != null && !Number.isNaN(minPrice) ? minPrice : null,
 		maxPrice: maxPrice != null && !Number.isNaN(maxPrice) ? maxPrice : null,
 		inStock: searchParams.get('inStock') === 'true',
@@ -59,6 +62,7 @@ function filterToProductType(filter: BrowseCategory): string | null {
 function applyFilters(
 	query: ProductQuery,
 	filters: BrowseFilters,
+	tagOptions: TagOption[],
 	options?: { includeType?: boolean }
 ) {
 	let next = query;
@@ -87,6 +91,8 @@ function applyFilters(
 		next = next.gt('stock->count', 0);
 	}
 
+	next = applyTagFilter(next, filters.tag, tagOptions);
+
 	return next;
 }
 
@@ -99,6 +105,17 @@ function applySort(query: ProductQuery, sort: BrowseSort) {
 		default:
 			return query.order('created_at', { ascending: false });
 	}
+}
+
+async function getTagOptions(supabase: SupabaseClient): Promise<TagOption[]> {
+	const result = await supabase.from('products').select('tags, type');
+
+	if (result.error) {
+		console.error('Failed to load tag options:', result.error);
+		return [];
+	}
+
+	return aggregateTagOptions(result.data ?? []);
 }
 
 async function getCategoryCounts(supabase: SupabaseClient): Promise<CategoryCounts> {
@@ -130,18 +147,26 @@ export const load: PageLoad = async ({ parent, url }) => {
 		currentPage: filters.page,
 		totalPages: 0,
 		filters,
-		categoryCounts: { all: 0, products: 0, spares: 0, flea_market: 0 } satisfies CategoryCounts
+		categoryCounts: { all: 0, products: 0, spares: 0, flea_market: 0 } satisfies CategoryCounts,
+		tagOptions: [] as TagOption[]
 	};
 
 	if (!supabase_lt) {
 		return emptyResult;
 	}
 
+	const tagOptions = await getTagOptions(supabase_lt);
+	const activeFilters: BrowseFilters = {
+		...filters,
+		tag:
+			filters.tag && tagOptions.some((option) => option.key === filters.tag) ? filters.tag : null
+	};
+
 	let countQuery = supabase_lt.from('products').select(PRODUCT_SELECT, {
 		count: 'exact',
 		head: true
 	});
-	countQuery = applyFilters(countQuery, filters);
+	countQuery = applyFilters(countQuery, activeFilters, tagOptions);
 
 	const countResult = await countQuery;
 
@@ -155,8 +180,8 @@ export const load: PageLoad = async ({ parent, url }) => {
 	const currentPage = totalPages > 0 ? Math.min(filters.page, totalPages) : 1;
 
 	let dataQuery = supabase_lt.from('products').select(PRODUCT_SELECT);
-	dataQuery = applyFilters(dataQuery, filters);
-	dataQuery = applySort(dataQuery, filters.sort);
+	dataQuery = applyFilters(dataQuery, activeFilters, tagOptions);
+	dataQuery = applySort(dataQuery, activeFilters.sort);
 
 	const from = (currentPage - 1) * PAGE_SIZE;
 	const to = from + PAGE_SIZE - 1;
@@ -168,7 +193,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 
 	if (productsResult.error) {
 		console.error('Failed to load products:', productsResult.error);
-		return { ...emptyResult, categoryCounts, currentPage, totalPages };
+		return { ...emptyResult, tagOptions, currentPage, totalPages };
 	}
 
 	return {
@@ -176,7 +201,8 @@ export const load: PageLoad = async ({ parent, url }) => {
 		totalCount,
 		currentPage,
 		totalPages,
-		filters: { ...filters, page: currentPage },
-		categoryCounts
+		filters: { ...activeFilters, page: currentPage },
+		categoryCounts,
+		tagOptions
 	};
 };

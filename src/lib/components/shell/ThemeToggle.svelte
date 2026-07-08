@@ -22,11 +22,20 @@
 		className
 	)}
 	aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-	onclick={toggleTheme}
+	onclick={(event) => toggleTheme(event)}
 >
-	{#if isDark}
-		<Sun class="size-4 shrink-0" aria-hidden="true" />
-	{:else}
-		<Moon class="size-4 shrink-0" aria-hidden="true" />
-	{/if}
+	<span class="relative grid size-4 place-items-center" aria-hidden="true">
+		<Sun
+			class={cn(
+				'absolute size-4 shrink-0 transition-all duration-500 ease-out',
+				isDark ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-0 opacity-0'
+			)}
+		/>
+		<Moon
+			class={cn(
+				'absolute size-4 shrink-0 transition-all duration-500 ease-out',
+				isDark ? '-rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'
+			)}
+		/>
+	</span>
 </button>

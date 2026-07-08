@@ -86,7 +86,9 @@
 			/>
 		{:else}
 			<div class="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-				<div class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6">
+				<div
+					class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6 [&_.html-table-scroll]:-mx-5 [&_.html-table-scroll]:w-[calc(100%+2.5rem)] md:[&_.html-table-scroll]:mx-0 md:[&_.html-table-scroll]:w-full"
+				>
 					{#if activeTab === 'description'}
 						<div class="prose prose-sm max-w-none break-words text-foreground prose-a:break-all">
 							{#if product.documentation?.at(0)?.isMDUrl && product.documentation?.at(0)?.data}

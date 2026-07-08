@@ -1,5 +1,9 @@
 // See https://kit.svelte.dev/docs/types#app
 
+/// <reference types="vite-plugin-pwa/info" />
+/// <reference types="vite-plugin-pwa/svelte" />
+/// <reference types="vite-plugin-pwa/vanillajs" />
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // for information about these interfaces

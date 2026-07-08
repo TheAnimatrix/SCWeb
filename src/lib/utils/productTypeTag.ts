@@ -21,6 +21,8 @@ function normalizeTag(value: string): string {
 	return value.trim().toLowerCase().replace(/[\s_-]+/g, '');
 }
 
+export { normalizeTag };
+
 export function isTypeDuplicateTag(tagLabel: string, type?: string | null): boolean {
 	if (!type) return false;
 
