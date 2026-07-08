@@ -50,6 +50,17 @@
 		goTo(activeIndex + 1);
 	}
 
+	function handleKeydown(event: KeyboardEvent) {
+		if (!hasMultiple) return;
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			goTo(activeIndex - 1);
+		} else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			goTo(activeIndex + 1);
+		}
+	}
+
 	$effect(() => {
 		void products;
 		activeIndex = 0;
@@ -117,7 +128,8 @@
 								if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
 									paused = false;
 								}
-							}}>
+							}}
+							onkeydown={handleKeydown}>
 							<div class="grid grid-cols-[minmax(0,42%)_1fr] sm:grid-cols-[minmax(0,240px)_1fr]">
 								<div class="aspect-[4/5] overflow-hidden sm:min-h-full">
 									<PlaceholderImage
@@ -179,6 +191,7 @@
 						onmouseleave={() => (paused = false)}
 						onfocus={() => (paused = true)}
 						onblur={() => (paused = false)}
+						onkeydown={handleKeydown}
 						onclick={goPrev}>
 						<ChevronLeft class="size-4" />
 					</button>
@@ -196,6 +209,7 @@
 								onmouseleave={() => (paused = false)}
 								onfocus={() => (paused = true)}
 								onblur={() => (paused = false)}
+								onkeydown={handleKeydown}
 								onclick={() => goTo(index)}></button>
 						{/each}
 					</div>
@@ -208,6 +222,7 @@
 						onmouseleave={() => (paused = false)}
 						onfocus={() => (paused = true)}
 						onblur={() => (paused = false)}
+						onkeydown={handleKeydown}
 						onclick={goNext}>
 						<ChevronRight class="size-4" />
 					</button>

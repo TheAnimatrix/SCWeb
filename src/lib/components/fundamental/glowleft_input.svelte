@@ -49,9 +49,9 @@
 
 	let inputElement = $state<HTMLInputElement>();
 	let containerElement = $state<HTMLDivElement>();
-	const inputId = $derived(
-		`glowleft-${placeholder.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'input'}`
-	);
+	const uid = $props.id();
+	const inputId = `glowleft-${uid}`;
+	const errorId = `error-${uid}`;
 
 	// Mouse position tracking
 	let mouseX = $state(0);
@@ -135,7 +135,7 @@
 			onpointerleave={handleMouseLeave}
 			class="w-full bg-transparent text-white text-xl not-italic font-semibold leading-[normal] focus:outline-hidden placeholder:text-gray-400 placeholder:opacity-50"
 			aria-invalid={isValid === false}
-			aria-errormessage={errorMessage ? `error-${placeholder}` : undefined} />
+			aria-errormessage={errorMessage ? errorId : undefined} />
 
 		{#if icon && iconPosition === 'right'}
 			<div class="ml-3 text-gray-400 group-hover:text-white transition-colors duration-300">
@@ -155,10 +155,7 @@
 	</div>
 
 	{#if errorMessage && isValid === false}
-		<div
-			class="text-red-400 text-sm mt-1 pl-2"
-			id={`error-${placeholder}`}
-			transition:fade={{ duration: 200 }}>
+		<div class="text-red-400 text-sm mt-1 pl-2" id={errorId} transition:fade={{ duration: 200 }}>
 			{errorMessage}
 		</div>
 	{/if}

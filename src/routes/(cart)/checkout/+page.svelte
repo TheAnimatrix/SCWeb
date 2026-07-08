@@ -36,8 +36,11 @@
 	const hasItems = $derived(cartItems.length > 0);
 
 	let addressValid: boolean = $state(false);
+	let addressInitialized = $state(false);
 
 	$effect(() => {
+		if (addressInitialized) return;
+
 		if (data.userExists && addresses.length > 0) {
 			const firstAddress = addresses[0];
 			if (validateAddress(firstAddress) == null) {
@@ -51,6 +54,8 @@
 			addressValid = false;
 			validAddress = newAddress();
 		}
+
+		addressInitialized = true;
 	});
 
 	const cart_store = getContext<Writable<CartG>>('userCartStatus');

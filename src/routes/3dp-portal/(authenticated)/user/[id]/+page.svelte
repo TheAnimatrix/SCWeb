@@ -173,6 +173,7 @@
 				}) {
 					if (!req) {
 						console.error('Print request data became unavailable during payment processing.');
+						payLoading = false;
 						return;
 					}
 					const confirmResult = await confirmPrintPayment(fetch, req.id, {
