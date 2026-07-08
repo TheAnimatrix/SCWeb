@@ -62,8 +62,9 @@
 
 		function setupCanvas() {
 			const pixelRatio = window.devicePixelRatio || 1;
-			width = canvasEl.offsetWidth;
-			height = canvasEl.offsetHeight;
+			const resizeTarget = canvasEl.parentElement ?? canvasEl;
+			width = resizeTarget.clientWidth;
+			height = resizeTarget.clientHeight;
 
 			canvasEl.width = width * pixelRatio;
 			canvasEl.height = height * pixelRatio;
@@ -135,7 +136,8 @@
 			initSparkles();
 		});
 
-		resizeObserver.observe(canvasEl);
+		const resizeTarget = canvasEl.parentElement ?? canvasEl;
+		resizeObserver.observe(resizeTarget);
 
 		const unsubscribeTheme = theme.subscribe(() => {
 			syncBackground();

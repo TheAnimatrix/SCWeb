@@ -56,7 +56,7 @@
 
 <article
 	class={cn(
-		'group relative flex flex-col gap-2 overflow-hidden border-r border-border bg-background px-6 py-6 last:border-r-0',
+		'group relative flex h-full min-h-full flex-col gap-2 self-stretch overflow-hidden border-r border-border bg-background px-6 py-6 last:border-r-0',
 		className
 	)}
 	style:--glow-rgb={flavor.glow}
@@ -64,11 +64,16 @@
 	onmouseleave={() => (hovered = false)}
 >
 	<div
-		class="pointer-events-none absolute inset-0 z-0 bg-background transition-[clip-path] duration-[1800ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
-		style:clip-path={hovered ? 'circle(150% at 50% 50%)' : 'circle(0% at 50% 50%)'}
+		class="pointer-events-none absolute inset-0 z-0 size-full bg-background transition-[clip-path] duration-[1800ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+		style:clip-path={hovered ? 'inset(0% round 0px)' : 'inset(50% round 50%)'}
 		aria-hidden="true"
 	>
-		<SparklePixels active={hovered} intensity={0.58} palette={flavor.palette} />
+		<SparklePixels
+			class="size-full"
+			active={hovered}
+			intensity={0.58}
+			palette={flavor.palette}
+		/>
 	</div>
 
 	<h3 class="feature-glow-title relative z-10 text-base font-medium text-foreground" class:is-glowing={hovered}>

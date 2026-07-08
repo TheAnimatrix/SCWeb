@@ -134,7 +134,7 @@
 	</DotGrid>
 
 	<section class="border-b border-border bg-background">
-		<div class="mx-auto grid max-w-7xl grid-cols-1 md:grid-cols-3">
+		<div class="mx-auto grid max-w-7xl auto-rows-fr grid-cols-1 md:grid-cols-3">
 			{#each features as feature, i (feature.title)}
 				<FeatureModule
 					title={feature.title}
@@ -149,14 +149,11 @@
 		{#each listingSections as section (section.title)}
 			<section>
 				<div class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-					<div class="flex items-center gap-2.5">
-						<span
-							class="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-card text-muted-foreground"
-							aria-hidden="true"
-						>
-							<Icon icon={section.icon} class="size-3.5" aria-hidden="true" />
-						</span>
-						<h2 class="text-sm font-medium text-foreground">{section.title}</h2>
+					<div
+						class="flex items-center gap-2.5 rounded-md bg-foreground px-2.5 py-1 text-background"
+					>
+						<Icon icon={section.icon} class="size-3.5 shrink-0" aria-hidden="true" />
+						<h2 class="text-sm font-medium">{section.title}</h2>
 					</div>
 					<ScButton href={section.browseHref} variant="ghost" arrow>Browse all</ScButton>
 				</div>

@@ -3,8 +3,6 @@
 	import { cn } from '$lib/utils';
 	import PlaceholderImage from './PlaceholderImage.svelte';
 	import MetaChip from './MetaChip.svelte';
-	import TagBadge from './TagBadge.svelte';
-	import { getProductTypeLabel } from '$lib/utils/productTypeTag';
 
 	interface Props {
 		product: Product;
@@ -16,9 +14,6 @@
 	let { product, href, onclick, class: className }: Props = $props();
 
 	const isOutOfStock = $derived(product.stock.count <= 0);
-
-	const typeLabel = $derived(getProductTypeLabel(product.type));
-	const showTypeBadge = $derived(product.type?.toLowerCase() !== 'product');
 
 	const makerName = $derived(product.author ?? product.users?.username ?? 'unknown');
 	const cityCode = $derived(product.users?.city ?? '');
@@ -44,11 +39,6 @@
 			alt={product.name}
 			class="transition-transform duration-500 group-hover:scale-105"
 		/>
-		{#if showTypeBadge}
-			<div class="absolute left-2 top-2 z-10">
-				<TagBadge label={typeLabel} emphasized />
-			</div>
-		{/if}
 		{#if isOutOfStock}
 			<div class="absolute bottom-2 right-2 z-10">
 				<MetaChip
