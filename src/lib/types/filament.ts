@@ -1,6 +1,10 @@
 import type { UserFilament } from './database';
 
-/** Filament inventory item as used in maker portal UI (extends DB row with form fields). */
+/**
+ * Filament inventory item as used in maker portal UI.
+ * DB row fields: id, owner_id, material_type, color, brand (via UserFilament).
+ * Optional fields below are UI-computed or form-only, not on the generated UserFilament row type.
+ */
 export interface Filament extends UserFilament {
 	name?: string;
 	quantity_kg?: number;

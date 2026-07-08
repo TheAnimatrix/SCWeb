@@ -176,11 +176,7 @@
 			}
 
 			const profileRows = Array.isArray(response.data) ? response.data : [];
-			makers = profileRows.filter((row) => {
-				if (!row || typeof row !== 'object') return false;
-				const filaments = (row as { filaments?: unknown }).filaments;
-				return Array.isArray(filaments) && filaments.length > 0;
-			}) as unknown as Maker[];
+			makers = (profileRows as unknown[]).filter(isMakerRow);
 			makers.forEach((maker: Maker) => {
 				const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
 				if (Array.isArray(maker.filaments)) {
@@ -212,6 +208,31 @@
 	function averageRating(reviews: Maker['reviews']) {
 		if (!reviews?.length) return null;
 		return (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1);
+	}
+
+	function isFilamentEntry(value: unknown): value is { color: string; material_type: string } {
+		return (
+			typeof value === 'object' &&
+			value !== null &&
+			typeof (value as { color?: unknown }).color === 'string' &&
+			typeof (value as { material_type?: unknown }).material_type === 'string'
+		);
+	}
+
+	function isMakerRow(row: unknown): row is Maker {
+		if (!row || typeof row !== 'object') return false;
+		const candidate = row as Record<string, unknown>;
+		return (
+			typeof candidate.maker_id === 'string' &&
+			typeof candidate.crafter_name === 'string' &&
+			typeof candidate.tier === 'string' &&
+			typeof candidate.price_rank === 'number' &&
+			typeof candidate.delivery_rank === 'number' &&
+			Array.isArray(candidate.filaments) &&
+			candidate.filaments.length > 0 &&
+			candidate.filaments.every(isFilamentEntry) &&
+			Array.isArray(candidate.reviews)
+		);
 	}
 </script>
 
@@ -349,7 +370,7 @@
 												<span class="text-xs font-medium text-foreground">{mat}</span>
 											</div>
 											<div class="flex flex-wrap gap-2">
-												{#each maker.filaments[mat] as filament (filament.color + mat)}
+												{#each maker.filaments[mat] as filament, index (`${mat}-${index}-${filament.color}`)}
 													<button
 														type="button"
 														class={cn(

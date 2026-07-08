@@ -409,13 +409,12 @@
 							{:else}
 								<div
 									class={cn(
-										'max-w-xs break-words rounded-md px-3 py-2 text-sm',
+										'max-w-xs whitespace-pre-wrap break-words rounded-md px-3 py-2 text-sm',
 										isOwn
 											? 'bg-foreground text-background'
 											: 'border border-border bg-card text-foreground'
 									)}>
-									<!-- eslint-disable-next-line svelte/no-at-html-tags -- bad-words Filter.clean() sanitizes chat text -->
-									{@html filter.clean(msg.message ?? '')}
+									{filter.clean(msg.message ?? '')}
 								</div>
 							{/if}
 
