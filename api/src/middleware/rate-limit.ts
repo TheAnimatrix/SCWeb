@@ -8,13 +8,22 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
-function getClientKey(c: { req: { header: (name: string) => string | undefined } }): string {
-	return (
-		c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
-		c.req.header('cf-connecting-ip') ??
-		c.req.header('x-real-ip') ??
-		'unknown'
-	);
+function getClientKey(c: {
+	req: { header: (name: string) => string | undefined };
+}): string {
+	const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
+	if (forwardedFor) {
+		return forwardedFor;
+	}
+
+	const directIp =
+		c.req.header('cf-connecting-ip') ?? c.req.header('x-real-ip') ?? undefined;
+	if (directIp) {
+		return directIp;
+	}
+
+	const userAgent = c.req.header('user-agent') ?? 'none';
+	return `unknown:${userAgent}`;
 }
 
 export const rateLimitMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }> => {

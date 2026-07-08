@@ -29,7 +29,7 @@ export function createApp({ env, db }: CreateAppOptions) {
 		'*',
 		cors({
 			origin: getCorsOrigins(env),
-			allowHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
+			allowHeaders: ['Authorization', 'Content-Type', 'X-Request-Id', 'Cookie'],
 			allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 			credentials: true
 		})

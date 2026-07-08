@@ -23,12 +23,20 @@ healthRoutes.get('/health/db', async (c) => {
 			requestId: c.get('requestId')
 		});
 	} catch (error) {
+		const env = c.get('env');
+		const message =
+			env.NODE_ENV === 'production'
+				? 'Database check failed'
+				: error instanceof Error
+					? error.message
+					: 'Database check failed';
+
 		return c.json(
 			{
 				ok: false,
 				database: 'unavailable',
 				requestId: c.get('requestId'),
-				message: error instanceof Error ? error.message : 'Database check failed'
+				message
 			},
 			503
 		);

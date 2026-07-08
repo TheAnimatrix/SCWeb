@@ -1,17 +1,33 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getCookie } from 'hono/cookie';
 import type { MiddlewareHandler } from 'hono';
+import type { Env } from '../env.js';
+import { verifyClientIdCookie } from '../lib/client-id.js';
 import type { AppVariables } from '../types/context.js';
 
-export const identityMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }> => {
-	return async (c, next) => {
-		const env = c.get('env');
-		const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+let supabaseClient: SupabaseClient | null = null;
+let supabaseConfigKey: string | null = null;
+
+function getSupabaseClient(env: Env): SupabaseClient {
+	const configKey = `${env.SUPABASE_URL}:${env.SUPABASE_ANON_KEY}`;
+
+	if (!supabaseClient || supabaseConfigKey !== configKey) {
+		supabaseClient = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
 			auth: {
 				autoRefreshToken: false,
 				persistSession: false
 			}
 		});
+		supabaseConfigKey = configKey;
+	}
+
+	return supabaseClient;
+}
+
+export const identityMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }> => {
+	return async (c, next) => {
+		const env = c.get('env');
+		const supabase = getSupabaseClient(env);
 
 		const authorization = c.req.header('authorization');
 		const bearerToken = authorization?.startsWith('Bearer ')
@@ -29,7 +45,8 @@ export const identityMiddleware = (): MiddlewareHandler<{ Variables: AppVariable
 			}
 		}
 
-		const clientId = getCookie(c, env.CLIENT_ID_COOKIE_NAME) ?? null;
+		const rawClientIdCookie = getCookie(c, env.CLIENT_ID_COOKIE_NAME);
+		const clientId = verifyClientIdCookie(rawClientIdCookie, env.CLIENT_ID_SIGNING_SECRET);
 
 		c.set('user', user);
 		c.set('actor', {

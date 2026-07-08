@@ -8,6 +8,7 @@ const envSchema = z.object({
 	SUPABASE_ANON_KEY: z.string().min(1),
 	API_CORS_ORIGINS: z.string().default('http://localhost:5173'),
 	CLIENT_ID_COOKIE_NAME: z.string().default('clientId'),
+	CLIENT_ID_SIGNING_SECRET: z.string().min(1).optional(),
 	RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
 	RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120)
 });

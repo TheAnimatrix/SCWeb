@@ -18,7 +18,9 @@ const config = {
 		},
 		alias: {
 			$lib: path.resolve('./src/lib'),
-			$pages: path.resolve('./src/routes')
+			$pages: path.resolve('./src/routes'),
+			'@scweb/api': path.resolve('./api/src/index.ts'),
+			'@scweb/api/client': path.resolve('./api/src/client.ts')
 		}
 	}
 };

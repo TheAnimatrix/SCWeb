@@ -16,9 +16,18 @@ function normalizeOrigin(value: string | undefined): string | null {
 	}
 }
 
+function hasBearerToken(authorization: string | undefined): boolean {
+	return Boolean(authorization?.startsWith('Bearer ') && authorization.length > 'Bearer '.length);
+}
+
 export const csrfMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }> => {
 	return async (c, next) => {
 		if (!MUTATING_METHODS.has(c.req.method)) {
+			await next();
+			return;
+		}
+
+		if (hasBearerToken(c.req.header('authorization'))) {
 			await next();
 			return;
 		}
@@ -27,19 +36,13 @@ export const csrfMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }>
 		const allowedOrigins = new Set(getCorsOrigins(env));
 		const origin = normalizeOrigin(c.req.header('origin'));
 		const refererOrigin = normalizeOrigin(c.req.header('referer'));
-
-		if (!origin && !refererOrigin) {
-			await next();
-			return;
-		}
-
 		const requestOrigin = origin ?? refererOrigin;
-		if (requestOrigin && allowedOrigins.has(requestOrigin)) {
-			await next();
-			return;
+
+		if (!requestOrigin || !allowedOrigins.has(requestOrigin)) {
+			return c.json({ error: 'csrf_blocked', message: 'Origin is not allowed' }, 403);
 		}
 
-		return c.json({ error: 'csrf_blocked', message: 'Origin is not allowed' }, 403);
+		await next();
 	};
 };
 
