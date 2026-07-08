@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -17,6 +17,7 @@ import { createCheckoutStore } from './checkout-store.js';
 import type { RazorpayClient } from './razorpay-client.js';
 
 const CLIENT_A = 'client-a';
+const CLIENT_B = 'client-b';
 const PRODUCT_1 = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const PRODUCT_2 = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
@@ -300,5 +301,190 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const orderRow = await testDb.db.select().from(orders);
 		expect(orderRow[0]?.status).toBe(CART_ORDER_STATUS.PAID);
+	});
+
+	it('concurrent confirm decrements stock exactly once', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const actor = { userId: null, clientId: CLIENT_A };
+		const [first, second] = await Promise.all([
+			store.confirmOrder(actor, created.response.razorpayOrderId, 'pay_a'),
+			store.confirmOrder(actor, created.response.razorpayOrderId, 'pay_b')
+		]);
+
+		const statuses = [first, second].map((result) =>
+			result.ok ? result.response.status : 'error'
+		);
+		expect(statuses).toContain('paid');
+		expect(statuses).toContain('already_paid');
+
+		const productRow = await testDb.db.select().from(products).where(eq(products.id, PRODUCT_1));
+		expect(productRow[0]?.stock).toEqual({ count: 3, status: 'in stock' });
+	});
+
+	it('retries Razorpay order creation after SDK failure', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+
+		const createOrder = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('razorpay unavailable'))
+			.mockImplementation(async (amountPaise: number, receipt: string) => ({
+				id: `order_${receipt}`,
+				amount: amountPaise,
+				currency: 'INR'
+			}));
+
+		const store = createCheckoutStore(testDb.db, { createOrder });
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const first = await store.createOrder(actor, ADDRESS);
+		expect(first).toEqual({ ok: false, status: 500, body: { error: 'razorpay_order_failed' } });
+
+		const orderAfterFailure = await testDb.db.select().from(orders);
+		expect(orderAfterFailure[0]).toMatchObject({
+			status: CART_ORDER_STATUS.PAYMENT_PENDING,
+			razorpayOrderId: null
+		});
+
+		const second = await store.createOrder(actor, ADDRESS);
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+
+		expect(createOrder).toHaveBeenCalledTimes(2);
+		expect(second.response.razorpayOrderId).toMatch(/^order_/);
+
+		const orderAfterRetry = await testDb.db.select().from(orders);
+		expect(orderAfterRetry[0]?.razorpayOrderId).toBe(second.response.razorpayOrderId);
+	});
+
+	it('rejects confirm and fail from another actor', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const otherActor = { userId: null, clientId: CLIENT_B };
+
+		const confirmResult = await store.confirmOrder(
+			otherActor,
+			created.response.razorpayOrderId,
+			'pay_other'
+		);
+		expect(confirmResult).toEqual({
+			ok: false,
+			status: 403,
+			body: { error: 'forbidden' }
+		});
+
+		const failResult = await store.failOrder(
+			otherActor,
+			created.response.razorpayOrderId,
+			'user_closed'
+		);
+		expect(failResult).toEqual({
+			ok: false,
+			status: 403,
+			body: { error: 'forbidden' }
+		});
+	});
+
+	it('reuses Razorpay order when re-entering with unchanged total', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		const createOrder = vi.fn(async (amountPaise: number, receipt: string) => ({
+			id: `order_${receipt}`,
+			amount: amountPaise,
+			currency: 'INR'
+		}));
+		const store = createCheckoutStore(testDb.db, { createOrder });
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const first = await store.createOrder(actor, ADDRESS);
+		expect(first.ok).toBe(true);
+		if (!first.ok) return;
+
+		const updatedAddress = { ...ADDRESS, name: 'John Smith' };
+		const second = await store.createOrder(actor, updatedAddress);
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+
+		expect(second.response.razorpayOrderId).toBe(first.response.razorpayOrderId);
+		expect(createOrder).toHaveBeenCalledTimes(1);
+
+		const orderRow = await testDb.db.select().from(orders);
+		expect(orderRow[0]).toMatchObject({
+			subtotal: 200,
+			deliveryFee: 99,
+			total: 299,
+			address: updatedAddress
+		});
+
+		const items = await testDb.db
+			.select()
+			.from(orderItems)
+			.where(eq(orderItems.orderId, orderRow[0]!.id));
+		expect(items).toEqual([
+			expect.objectContaining({
+				productId: PRODUCT_1,
+				productName: 'Widget A',
+				unitPrice: 100,
+				qty: 2
+			})
+		]);
+
+		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
+		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
+	});
+
+	it('creates a new Razorpay order when re-entering with changed total', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+
+		let razorpayCall = 0;
+		const createOrder = vi.fn(async (amountPaise: number, receipt: string) => {
+			razorpayCall += 1;
+			return {
+				id: `order_${receipt}_v${razorpayCall}`,
+				amount: amountPaise,
+				currency: 'INR'
+			};
+		});
+		const store = createCheckoutStore(testDb.db, { createOrder });
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const first = await store.createOrder(actor, ADDRESS);
+		expect(first.ok).toBe(true);
+		if (!first.ok) return;
+
+		await testDb.db
+			.update(cartItems)
+			.set({ qty: 2 })
+			.where(and(eq(cartItems.cartId, cart.id), eq(cartItems.productId, PRODUCT_1)));
+
+		const second = await store.createOrder(actor, ADDRESS);
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+
+		expect(second.response.razorpayOrderId).not.toBe(first.response.razorpayOrderId);
+		expect(createOrder).toHaveBeenCalledTimes(2);
+		expect(createOrder).toHaveBeenLastCalledWith(29900, expect.any(String));
+
+		const orderRow = await testDb.db.select().from(orders);
+		expect(orderRow[0]).toMatchObject({
+			subtotal: 200,
+			total: 299,
+			razorpayOrderId: second.response.razorpayOrderId
+		});
 	});
 });

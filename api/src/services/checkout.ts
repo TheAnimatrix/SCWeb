@@ -95,10 +95,6 @@ export function shouldReuseRazorpayOrder(razorpayOrderId: string | null | undefi
 	return Boolean(razorpayOrderId);
 }
 
-export function canFailOrder(status: string): boolean {
-	return status !== CART_ORDER_STATUS.PAID;
-}
-
 export function resolveFailOrderStatus(currentStatus: string): string {
 	if (currentStatus === CART_ORDER_STATUS.PAID) {
 		return CART_ORDER_STATUS.PAID;

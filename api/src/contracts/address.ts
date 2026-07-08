@@ -71,6 +71,7 @@ function isValidIndianState(state: string): boolean {
 	);
 }
 
+// Strict — web Address objects carry id/email/created_at and must be stripped by the frontend client (WU-2D).
 export const checkoutAddressSchema = z
 	.object({
 		name: z.string().min(4).max(35),

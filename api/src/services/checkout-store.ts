@@ -68,22 +68,36 @@ function isUniqueViolation(error: unknown): boolean {
 	);
 }
 
-function activeCartCondition(actor: Actor) {
-	const active = CART_ORDER_STATUS.ACTIVE;
+const STOCK_CONFLICT = Symbol('checkout.stock_conflict');
+
+function stockConflictError(): Error {
+	return Object.assign(new Error('stock_conflict'), { [STOCK_CONFLICT]: true });
+}
+
+function isStockConflict(error: unknown): boolean {
+	return typeof error === 'object' && error !== null && STOCK_CONFLICT in error;
+}
+
+function checkoutCartCondition(actor: Actor) {
+	const checkoutStatuses = [CART_ORDER_STATUS.ACTIVE, CART_ORDER_STATUS.PAYMENT_PENDING];
 
 	if (actor.userId) {
-		return and(eq(carts.status, active), eq(carts.userId, actor.userId));
+		return and(inArray(carts.status, checkoutStatuses), eq(carts.userId, actor.userId));
 	}
 
 	if (actor.clientId) {
-		return and(eq(carts.status, active), isNull(carts.userId), eq(carts.clientId, actor.clientId));
+		return and(
+			inArray(carts.status, checkoutStatuses),
+			isNull(carts.userId),
+			eq(carts.clientId, actor.clientId)
+		);
 	}
 
 	return null;
 }
 
 async function findActiveCartRow(db: DbExecutor, actor: Actor) {
-	const condition = activeCartCondition(actor);
+	const condition = checkoutCartCondition(actor);
 	if (!condition) return null;
 
 	const [row] = await db.select().from(carts).where(condition).limit(1);
@@ -191,18 +205,11 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 				const totals = computeOrderTotals(snapshots);
 				const existingOrder = await findPaymentPendingOrderForCart(tx, cart.id);
 
-				if (existingOrder && shouldReuseRazorpayOrder(existingOrder.razorpayOrderId)) {
-					return {
-						kind: 'reuse' as const,
-						orderId: existingOrder.id,
-						razorpayOrderId: existingOrder.razorpayOrderId!,
-						total: existingOrder.total
-					};
-				}
-
 				let orderId: string;
 
 				if (existingOrder) {
+					const previousTotal = existingOrder.total;
+
 					await tx
 						.update(orders)
 						.set({
@@ -216,6 +223,25 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 					await replaceOrderItems(tx, existingOrder.id, snapshots);
 					orderId = existingOrder.id;
+
+					if (
+						shouldReuseRazorpayOrder(existingOrder.razorpayOrderId) &&
+						totals.total === previousTotal
+					) {
+						return {
+							kind: 'reuse' as const,
+							orderId,
+							razorpayOrderId: existingOrder.razorpayOrderId!,
+							total: totals.total
+						};
+					}
+
+					return {
+						kind: 'created' as const,
+						orderId,
+						total: totals.total,
+						razorpayOrderId: null
+					};
 				} else {
 					const [inserted] = await tx
 						.insert(orders)
@@ -248,7 +274,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 					kind: 'created' as const,
 					orderId,
 					total: totals.total,
-					razorpayOrderId: existingOrder?.razorpayOrderId ?? null
+					razorpayOrderId: null
 				};
 			});
 
@@ -269,18 +295,6 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 			}
 
 			if (prepared.kind === 'reuse') {
-				return {
-					ok: true,
-					response: {
-						orderId: prepared.orderId,
-						razorpayOrderId: prepared.razorpayOrderId,
-						amountPaise: rupeesToPaise(prepared.total),
-						currency: 'INR'
-					}
-				};
-			}
-
-			if (prepared.razorpayOrderId) {
 				return {
 					ok: true,
 					response: {
@@ -327,6 +341,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						.select()
 						.from(orders)
 						.where(eq(orders.razorpayOrderId, razorpayOrderId))
+						.for('update')
 						.limit(1);
 
 					if (!order) {
@@ -349,6 +364,57 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						return {
 							ok: true as const,
 							response: { status: 'already_paid' as const }
+						};
+					}
+
+					let claimed: { id: string }[];
+
+					try {
+						claimed = await tx
+							.update(orders)
+							.set({
+								status: CART_ORDER_STATUS.PAID,
+								razorpayPaymentId,
+								updatedAt: sql`now()`
+							})
+							.where(
+								and(
+									eq(orders.id, order.id),
+									inArray(orders.status, [
+										CART_ORDER_STATUS.PAYMENT_PENDING,
+										CART_ORDER_STATUS.FAILED
+									])
+								)
+							)
+							.returning({ id: orders.id });
+					} catch (error) {
+						if (isUniqueViolation(error)) {
+							return {
+								ok: true as const,
+								response: { status: 'already_paid' as const }
+							};
+						}
+						throw error;
+					}
+
+					if (claimed.length === 0) {
+						const [current] = await tx
+							.select({ status: orders.status })
+							.from(orders)
+							.where(eq(orders.id, order.id))
+							.limit(1);
+
+						if (current?.status === CART_ORDER_STATUS.PAID) {
+							return {
+								ok: true as const,
+								response: { status: 'already_paid' as const }
+							};
+						}
+
+						return {
+							ok: false as const,
+							status: 403 as const,
+							body: { error: 'forbidden' as const }
 						};
 					}
 
@@ -380,31 +446,8 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 									qty: line.qty
 								})
 							);
-							return {
-								ok: false as const,
-								status: 409 as const,
-								body: { error: 'stock_conflict' as const }
-							};
+							throw stockConflictError();
 						}
-					}
-
-					try {
-						await tx
-							.update(orders)
-							.set({
-								status: CART_ORDER_STATUS.PAID,
-								razorpayPaymentId,
-								updatedAt: sql`now()`
-							})
-							.where(eq(orders.id, order.id));
-					} catch (error) {
-						if (isUniqueViolation(error)) {
-							return {
-								ok: true as const,
-								response: { status: 'already_paid' as const }
-							};
-						}
-						throw error;
 					}
 
 					await tx
@@ -423,6 +466,13 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 					};
 				});
 			} catch (error) {
+				if (isStockConflict(error)) {
+					return {
+						ok: false,
+						status: 409,
+						body: { error: 'stock_conflict' }
+					};
+				}
 				if (isUniqueViolation(error)) {
 					return {
 						ok: true,

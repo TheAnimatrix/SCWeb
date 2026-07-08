@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
 import {
 	buildOrderItemSnapshots,
-	canFailOrder,
 	computeOrderTotals,
 	isOrderOwnedBy,
 	resolveFailOrderStatus,
@@ -75,13 +74,6 @@ describe('resolveFailOrderStatus', () => {
 		expect(resolveFailOrderStatus(CART_ORDER_STATUS.PAYMENT_PENDING)).toBe(
 			CART_ORDER_STATUS.FAILED
 		);
-	});
-});
-
-describe('canFailOrder', () => {
-	it('blocks failing paid orders', () => {
-		expect(canFailOrder(CART_ORDER_STATUS.PAID)).toBe(false);
-		expect(canFailOrder(CART_ORDER_STATUS.PAYMENT_PENDING)).toBe(true);
 	});
 });
 
