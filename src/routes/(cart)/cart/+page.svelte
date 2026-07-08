@@ -71,6 +71,11 @@
 		if (isUpdatingCart) return;
 		if (!cartDetails?.items) return;
 
+		if (!isNaN(quantity) && quantity <= 0) {
+			await removeItem(index);
+			return;
+		}
+
 		const item = cartDetails.items[index];
 		const limit = getPurchasableLimit(stock);
 
