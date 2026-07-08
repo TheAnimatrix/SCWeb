@@ -25,7 +25,7 @@
 	let { data } = $props();
 
 	function supabase() {
-		return requireBrowserSupabase(data.supabase_lt);
+		return requireBrowserSupabase(data.supabase);
 	}
 
 	// Model upload state
@@ -543,7 +543,7 @@
 					<div class="mb-5">
 						<PortalSectionLabel label="material" />
 						<div class="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-							{#each materials as material}
+							{#each materials as material (material)}
 								<ParameterChip
 									selected={selectedMaterial === material}
 									onclick={() => {
@@ -559,7 +559,7 @@
 					<div class="mb-5">
 						<PortalSectionLabel label="quality" />
 						<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-							{#each qualities as quality}
+							{#each qualities as quality (quality)}
 								<ParameterChip
 									selected={selectedQuality === quality}
 									onclick={() => (selectedQuality = quality)}>
@@ -573,7 +573,7 @@
 						<div class="mb-2 flex items-center justify-between gap-2">
 							<PortalSectionLabel label="scale" class="mb-0" />
 							<div class="flex items-center gap-1.5 text-xs tabular-nums">
-								{#each [0.5, 1, 1.5, 2] as preset}
+								{#each [0.5, 1, 1.5, 2] as preset (preset)}
 									<button
 										type="button"
 										class={cn(
@@ -618,7 +618,7 @@
 							class="portal-range w-full" />
 						<div
 							class="pointer-events-none mt-2 flex justify-between text-[11px] text-muted-foreground">
-							{#each strengthLevels as level}
+							{#each strengthLevels as level (level.label)}
 								<span class="truncate px-0.5">{level.label}</span>
 							{/each}
 						</div>
@@ -630,9 +630,9 @@
 		<div class="mt-10 space-y-6">
 			<ReadinessChecklist items={readinessItems} />
 
-			{#if data.supabase_lt}
+			{#if data.supabase}
 				<AvailableMakers
-					supabase_lt={data.supabase_lt}
+					supabase={data.supabase}
 					model={modelFile}
 					bind:color={selectedColor}
 					bind:material={selectedMaterial}

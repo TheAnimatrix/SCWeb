@@ -14,7 +14,7 @@
 	let { data } = $props();
 
 	function supabase() {
-		return requireBrowserSupabase(data.supabase_lt);
+		return requireBrowserSupabase(data.supabase);
 	}
 
 	let req = $state(asPrintRequest(data.printRequest));
@@ -344,8 +344,6 @@
 	{:else}
 		<div
 			class="bg-black/60 rounded-lg p-4 flex flex-col items-start shadow-glow-subtle border border-accent/10 cursor-pointer select-none">
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="flex flex-col items-start justify-between w-full">
 				<div class="font-semibold text-white text-lg truncate">
 					{displayModelName || 'Model'}
@@ -505,7 +503,7 @@
 			<div class="flex flex-col h-full mt-4 w-full">
 				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
 				<div class="flex flex-col gap-2">
-					{#each sortedEvents as event}
+					{#each sortedEvents as event (event.timestamp + event.type)}
 						<div
 							class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm {event.type ===
 							'cancelled'
@@ -573,7 +571,7 @@
 		<Drawer.Content class="max-w-3xl mx-auto h-[100vh] sm:h-[80vh] transition-all duration-200">
 			<MessageBoard
 				orderId={req.id}
-				supabase_lt={supabase()}
+				supabase={supabase()}
 				session={data.session}
 				receiverId={req.user_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'} />
