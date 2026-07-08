@@ -52,6 +52,18 @@
   apply `api/drizzle/0001_...`, run `db:backfill-carts`, fix `POSTGRES_URL`
   to the session pooler.
 
+- **2026-07-08 — wu-2d merged (`3b8161c`)**: frontend swapped onto the typed API
+  client via a hardened same-origin proxy (`/api/[...path]` — path allowlist,
+  SSRF-safe URL build + regression tests, Origin forwarding for CSRF,
+  `safeGetSession`-validated Bearer only, 10s timeout → 502). Legacy
+  `src/lib/client/cart.ts` DELETED. Guest-cart merge on sign-in. API cart items
+  now carry author/guarantee. **PHASE 2 CODE-COMPLETE.** Runtime activation
+  still gated on user: pooler `POSTGRES_URL`, apply `api/drizzle/0001_...` +
+  `supabase/migrations/20260708120000_...`, run `db:backfill-carts`, then
+  live smoke test + the Playwright checkbox. Cleanup unit (drop
+  `get_cart_by_uid`/`update_cart_by_id` RPCs + jsonb list column) runs only
+  AFTER live verification.
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
