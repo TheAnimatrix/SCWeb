@@ -88,6 +88,18 @@
   non-owners. **PHASE 3 COMPLETE.** Chat read-receipts remain client-side
   (RLS-dependent — Phase 4).
 
+- **2026-07-08 — wu-4a merged (`eaa000a`) + RLS drafts (`92fc231`)**: Phase 4 code
+  complete — validated sessions on every server gate, single canonical
+  `/auth/callback` (dead `user/pincode` deleted — **remove from Supabase/OAuth
+  redirect allowlists, see DEPLOY_NOTES.md**), `sanitizePostLoginUrl` at write+
+  read (length/control-char capped), profile pages on uid-filtered server loads.
+  RLS lockdown drafted from a live pg_policies audit: `api/drizzle/0003_enable_rls.sql`
+  (new tables deny-by-default) + `supabase/migrations/20260708130000_rls_lockdown.sql`
+  (purchases open-INSERT, addresses/reviews uid-spoof, printrequests direct
+  UPDATE, CreatorStats self-writes, Chat column-level status grant) — **apply
+  after code deploy**. Remaining Phase 4: RLS integration tests + live smoke,
+  gated on the DB actions in DEPLOY_NOTES.md.
+
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;
 this file is the order of operations.
