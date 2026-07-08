@@ -2,6 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import Send from '@lucide/svelte/icons/send';
 	import type { RealtimeChannel } from '@supabase/supabase-js';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { ChatMessage } from '$lib/types/chat';
 	import { onMount, tick } from 'svelte';
@@ -21,12 +22,16 @@
 		paynow
 	}: {
 		orderId: string;
-		supabase: TypedSupabaseClient;
+		supabase: TypedSupabaseClient | null;
 		session: { data: { user: { id: string } } } | null;
 		receiverId: string;
 		disabled: boolean;
 		paynow?: () => void;
 	} = $props();
+
+	function client() {
+		return requireBrowserSupabase(supabase);
+	}
 
 	let messages = $state<ChatMessage[]>([]);
 	let newMessage = $state('');
@@ -81,7 +86,7 @@
 			previousScrollTop = scrollContainer.scrollTop;
 		}
 
-		const { data, error: fetchError } = await supabase
+		const { data, error: fetchError } = await client()
 			.from('Chat')
 			.select('*', { count: 'exact' })
 			.eq('relationship_id', orderId)
@@ -168,7 +173,7 @@
 				clearTimeout(debounceChatReadTimer);
 			}
 			debounceChatReadTimer = setTimeout(() => {
-				supabase
+				client()
 					.from('Chat')
 					.update({ status: 'read' })
 					.eq('relationship_id', orderId)
@@ -181,7 +186,7 @@
 	});
 
 	function subscribeToMessages() {
-		subscription = supabase
+		subscription = client()
 			.channel('realtime-chat-channel')
 			.on(
 				'postgres_changes',
@@ -207,7 +212,7 @@
 		fetchMessages(true);
 		subscribeToMessages();
 		if (session?.data?.user?.id) {
-			supabase
+			client()
 				.from('Chat')
 				.update({ status: 'read' })
 				.eq('relationship_id', orderId)
@@ -216,7 +221,7 @@
 				.then(() => {});
 		}
 		return () => {
-			if (subscription) supabase.removeChannel(subscription);
+			if (subscription) client().removeChannel(subscription);
 		};
 	});
 
@@ -243,7 +248,7 @@
 				(msg) => msg.recipient_id === session.data.user.id && msg.status === 'sent'
 			);
 			if (unread.length > 0) {
-				supabase
+				client()
 					.from('Chat')
 					.update({ status: 'read' })
 					.eq('relationship_id', orderId)

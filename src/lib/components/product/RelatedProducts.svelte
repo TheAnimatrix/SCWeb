@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { ProductCard, ProductCardSkeleton } from '$lib/components/sc';
 	import type { Product } from '$lib/types/product';
 	import {
@@ -10,13 +12,18 @@
 
 	interface Props {
 		product: Product;
-		supabase: SupabaseClient;
+		supabase: SupabaseClient | null;
 		class?: string;
 	}
 
 	let { product, supabase, class: className }: Props = $props();
 
-	const relatedProductsPromise = $derived(fetchRelatedProducts(supabase, product));
+	const relatedProductsPromise = $derived.by(() => {
+		if (!browser || !supabase) {
+			return Promise.resolve([] as Product[]);
+		}
+		return fetchRelatedProducts(requireBrowserSupabase(supabase), product);
+	});
 
 	function productHref(item: Product): string {
 		return `/${item.name.replaceAll(' ', '_')}/craft/item=${item.id}`;

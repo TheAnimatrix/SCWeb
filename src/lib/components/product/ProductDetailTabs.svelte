@@ -25,7 +25,7 @@
 		product: Product;
 		reviews?: Review[];
 		initialReviews?: Review[];
-		supabase: SupabaseClient;
+		supabase: SupabaseClient | null;
 		class?: string;
 	}
 

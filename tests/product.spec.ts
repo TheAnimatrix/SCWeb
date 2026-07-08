@@ -7,7 +7,8 @@ test('navigate from home to product detail', async ({ page }) => {
 	await expect(featured).toBeVisible();
 
 	const productName = await featured.getByRole('heading', { level: 2 }).innerText();
-	await featured.getByRole('link').first().click();
+	const productLink = featured.locator('a[href*="/craft/item="]:not([aria-hidden="true"])').first();
+	await productLink.click();
 	await page.waitForURL(/\/craft\/item=/);
 
 	await expect(page.getByRole('heading', { level: 1, name: productName })).toBeVisible();

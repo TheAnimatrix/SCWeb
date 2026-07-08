@@ -321,12 +321,12 @@
 					product={productItem}
 					bind:reviews
 					initialReviews={mapPageReviews(data.reviews)}
-					supabase={supabase()} />
+					supabase={data.supabase} />
 			{/if}
 		</div>
 
 		<div class="mt-12">
-			<RelatedProducts product={productItem} supabase={supabase()} />
+			<RelatedProducts product={productItem} supabase={data.supabase} />
 		</div>
 	{/if}
 </div>

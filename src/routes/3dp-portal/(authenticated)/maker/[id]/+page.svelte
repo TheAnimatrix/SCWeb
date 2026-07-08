@@ -571,7 +571,7 @@
 		<Drawer.Content class="max-w-3xl mx-auto h-[100vh] sm:h-[80vh] transition-all duration-200">
 			<MessageBoard
 				orderId={req.id}
-				supabase={supabase()}
+				supabase={data.supabase}
 				session={data.session}
 				receiverId={req.user_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'} />

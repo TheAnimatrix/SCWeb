@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { X, Trash2, Pencil } from '@lucide/svelte';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { ReviewCard } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { formatTimeAgo } from './productSpecs';
@@ -18,7 +19,7 @@
 		productId: string;
 		reviews?: Review[];
 		initialReviews?: Review[];
-		supabase: SupabaseClient;
+		supabase: SupabaseClient | null;
 		class?: string;
 		compact?: boolean;
 	}
@@ -52,7 +53,9 @@
 	});
 
 	$effect(() => {
-		void supabase.auth.getUser().then((result) => {
+		if (!supabase) return;
+		const client = requireBrowserSupabase(supabase);
+		void client.auth.getUser().then((result) => {
 			currentUserId = result.data.user?.id ?? null;
 		});
 	});
@@ -80,12 +83,14 @@
 			reviewError = 'Please enter a review comment';
 			return;
 		}
+		if (!supabase) return;
 
 		isSubmittingReview = true;
 		reviewError = '';
 
 		try {
-			const user = await supabase.auth.getUser();
+			const client = requireBrowserSupabase(supabase);
+			const user = await client.auth.getUser();
 			if (!user.data?.user) {
 				throw new Error('You must be logged in to submit a review');
 			}
@@ -98,12 +103,12 @@
 
 			const result =
 				isEditingReview && userReview
-					? await supabase
+					? await client
 							.from('reviews')
 							.update(reviewData)
 							.eq('id', userReview.id)
 							.select('*, users(username,tier)')
-					: await supabase
+					: await client
 							.from('reviews')
 							.upsert(reviewData, { onConflict: 'product_id,user_id' })
 							.select('*, users(username,tier)');
@@ -141,10 +146,11 @@
 	}
 
 	async function deleteReview() {
-		if (!userReview) return;
+		if (!userReview || !supabase) return;
 
 		try {
-			const result = await supabase.from('reviews').delete().eq('id', userReview.id);
+			const client = requireBrowserSupabase(supabase);
+			const result = await client.from('reviews').delete().eq('id', userReview.id);
 			if (result.error) throw result.error;
 
 			reviews = reviews.filter((review) => review.id !== userReview?.id);
