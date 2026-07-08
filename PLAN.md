@@ -88,7 +88,10 @@ code — all of this gets rebuilt properly in Phases 2–3, but none of it can w
 - [ ] `npm run lint` passes (Prettier: 154 files) and becomes a CI gate.
 - [ ] Add `.env.example` with all required variables (no real secrets).
 - [ ] Fix `svelte.config.js` `$lib` alias (`./src/libs` → `./src/lib` or remove).
-- [ ] Pick the real production adapter intentionally (replace `adapter-auto`).
+- [ ] Production adapter (decided 2026-07-08): deploying on **Dokploy** →
+      `@sveltejs/adapter-node` for the SvelteKit app. Dockerfiles (web + api)
+      are needed before the first Dokploy deploy — scheduled with the Phase 5
+      deployment checklist, not now.
 
 ---
 
