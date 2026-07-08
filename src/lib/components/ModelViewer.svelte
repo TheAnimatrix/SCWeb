@@ -67,6 +67,7 @@
 	let currentModel: THREE.Object3D | null = $state(null);
 	let isInitialized = $state(false);
 	let isModelLoading = $state(false);
+	let modelLoadError = $state<string | null>(null);
 	let resizeObserver: ResizeObserver | null = null;
 	let pmremGenerator: THREE.PMREMGenerator | null = null;
 	let autoRotateResumeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -350,9 +351,11 @@
 
 	async function loadModel(file: File) {
 		isModelLoading = true;
+		modelLoadError = null;
 		try {
 			if (!scene) {
-				console.error('Scene not initialized');
+				modelLoadError = 'Viewer is not ready yet. Please try again.';
+				onFailedLoad();
 				return;
 			}
 
@@ -391,7 +394,13 @@
 						await load3MF(url, loadingManager);
 						break;
 					default:
-						console.error('Unsupported file format');
+						modelLoadError = 'Unsupported file format';
+						onFailedLoad();
+				}
+
+				if (!currentModel && !modelLoadError) {
+					modelLoadError = 'Could not load this model. Please try a different file.';
+					onFailedLoad();
 				}
 			} finally {
 				// Always revoke the URL to prevent memory leaks
@@ -399,6 +408,9 @@
 			}
 		} catch (error) {
 			console.error('Error loading model:', error);
+			modelLoadError =
+				error instanceof Error ? error.message : 'Failed to load model. Please try again.';
+			onFailedLoad();
 		} finally {
 			isModelLoading = false;
 		}
@@ -524,6 +536,7 @@
 				controls.update();
 			}
 		} catch {
+			modelLoadError = 'Could not load this STL file. Please try a different model.';
 			onFailedLoad();
 		}
 	}
@@ -846,13 +859,11 @@
 			aria-hidden="true">
 			<Skeleton class="h-full w-full rounded-none border-0 opacity-60" animate={true} />
 		</div>
+	{:else if modelLoadError}
+		<div
+			class="absolute inset-0 z-20 flex items-center justify-center bg-background/90 px-4 text-center backdrop-blur-sm"
+			role="alert">
+			<p class="text-sm text-destructive">{modelLoadError}</p>
+		</div>
 	{/if}
 </div>
-
-<style>
-	canvas {
-		display: block;
-		width: 100% !important;
-		height: 100% !important;
-	}
-</style>

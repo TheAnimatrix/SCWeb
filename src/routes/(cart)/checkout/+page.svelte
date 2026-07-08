@@ -36,19 +36,22 @@
 	const hasItems = $derived(cartItems.length > 0);
 
 	let addressValid: boolean = $state(false);
-	if (data.userExists && addresses.length > 0) {
-		const firstAddress = addresses[0];
-		if (validateAddress(firstAddress) == null) {
-			addressValid = true;
-			validAddress = firstAddress;
+
+	$effect(() => {
+		if (data.userExists && addresses.length > 0) {
+			const firstAddress = addresses[0];
+			if (validateAddress(firstAddress) == null) {
+				addressValid = true;
+				validAddress = firstAddress;
+			} else {
+				addressValid = false;
+				validAddress = newAddress();
+			}
 		} else {
 			addressValid = false;
 			validAddress = newAddress();
 		}
-	} else {
-		addressValid = false;
-		validAddress = newAddress();
-	}
+	});
 
 	const cart_store = getContext<Writable<CartG>>('userCartStatus');
 	let isPaying = $state(false);
@@ -122,12 +125,13 @@
 				}
 			};
 
-			const rzp1 = new Razorpay(options);
-			if (!rzp1) {
-				toastStore.show('Issue with payment provider. Please try again.', 'error');
+			if (typeof Razorpay === 'undefined') {
+				toastStore.show('Payment provider is unavailable. Please try again.', 'error');
 				isPaying = false;
 				return;
 			}
+
+			const rzp1 = new Razorpay(options);
 			rzp1.open();
 			rzp1.on('payment.failed', async function (response: unknown) {
 				const failedResponse = response as {

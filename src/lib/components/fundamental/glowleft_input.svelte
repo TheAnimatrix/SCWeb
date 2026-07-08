@@ -49,6 +49,9 @@
 
 	let inputElement = $state<HTMLInputElement>();
 	let containerElement = $state<HTMLDivElement>();
+	const inputId = $derived(
+		`glowleft-${placeholder.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'input'}`
+	);
 
 	// Mouse position tracking
 	let mouseX = $state(0);
@@ -102,14 +105,10 @@
 </script>
 
 {#if label}
-	<label class={labelClass}>{label}</label>
+	<label class={labelClass} for={inputId}>{label}</label>
 {/if}
 
-<div
-	class="input-wrapper relative w-full"
-	bind:this={containerElement}
-	onmousemove={handleMouseMove}
-	onmouseleave={handleMouseLeave}>
+<div class="input-wrapper relative w-full" bind:this={containerElement}>
 	<div
 		class="group relative flex items-center py-3 px-4 bg-card/5 hover:bg-card/10 border border-[#252525] rounded-xl transition-all duration-300"
 		style="--mouse-x: {mouseX}px; --mouse-y: {mouseY}px;">
@@ -120,6 +119,7 @@
 		{/if}
 
 		<input
+			id={inputId}
 			bind:this={inputElement}
 			{type}
 			{placeholder}
@@ -131,6 +131,8 @@
 			onfocus={onFocus}
 			onblur={onBlur}
 			onkeydown={onKeyDown}
+			onpointermove={handleMouseMove}
+			onpointerleave={handleMouseLeave}
 			class="w-full bg-transparent text-white text-xl not-italic font-semibold leading-[normal] focus:outline-hidden placeholder:text-gray-400 placeholder:opacity-50"
 			aria-invalid={isValid === false}
 			aria-errormessage={errorMessage ? `error-${placeholder}` : undefined} />

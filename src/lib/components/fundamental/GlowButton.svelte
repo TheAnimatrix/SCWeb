@@ -2,6 +2,8 @@
 <script lang="ts">
 	import { spring } from 'svelte/motion';
 
+	import type { Snippet } from 'svelte';
+
 	interface Props {
 		buttonBgColor?: string;
 		borderColor?: string;
@@ -13,6 +15,7 @@
 		pressScale?: number;
 		disabled?: boolean;
 		class?: string;
+		children?: Snippet;
 	}
 	let {
 		buttonBgColor = 'bg-scblued3',
@@ -25,6 +28,7 @@
 		pressScale = 0.97,
 		disabled = false,
 		class: className = '',
+		children,
 		...rest
 	}: Props & Record<string, unknown> = $props();
 
@@ -103,7 +107,7 @@
 	<hr
 		id="checkoutGlow"
 		class={`animate_base mx-4 ${borderColor} ${checkoutHover ? hoverCheckout : glowCheckout} transition-all duration-300`} />
-	<slot />
+	{@render children?.()}
 </button>
 
 <style>

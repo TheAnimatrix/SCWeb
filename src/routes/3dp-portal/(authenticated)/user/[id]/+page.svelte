@@ -142,12 +142,22 @@
 			payLoading = false;
 			return;
 		}
-		openRazorpayDialog(orderResult.data.razorpayOrderId, orderResult.data.amountPaise);
-		payLoading = false;
+		const opened = openRazorpayDialog(
+			orderResult.data.razorpayOrderId,
+			orderResult.data.amountPaise
+		);
+		if (!opened) {
+			payLoading = false;
+		}
 	}
 
-	async function openRazorpayDialog(order_id: string, amount: number) {
+	function openRazorpayDialog(order_id: string, amount: number): boolean {
 		try {
+			if (typeof Razorpay === 'undefined') {
+				toastStore.show('Payment provider is unavailable. Please try again.', 'error');
+				return false;
+			}
+
 			var options = {
 				key: PUBLIC_RAZORPAY_ID, // Enter the Key ID generated from the Dashboard
 				amount: amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
@@ -172,12 +182,14 @@
 					});
 					if (!confirmResult.ok) {
 						toastStore.show(confirmResult.error.message, 'error');
+						payLoading = false;
 						return;
 					}
 					goto(`/summary/success/${req.id}/${response.razorpay_payment_id}`);
 				},
 				modal: {
 					ondismiss: async function () {
+						payLoading = false;
 						invalidate('3dp-portal:printrequest');
 						toastStore.show('Payment cancelled by User', 'warning');
 					}
@@ -188,15 +200,12 @@
 				}
 			};
 			var rzp1 = new Razorpay(options);
-			if (!rzp1) {
-				alert('Issue with Payment Provider, try again');
-				return;
-			}
 			rzp1.open();
 			rzp1.on('payment.failed', function (response) {
 				const failedResponse = response as {
 					error?: { metadata?: { order_id?: string }; description?: string };
 				};
+				payLoading = false;
 				toastStore.show('Payment failed, please try again', 'error');
 				rzp1.close();
 				const orderId = req?.id;
@@ -207,6 +216,7 @@
 				}
 				return;
 			});
+			return true;
 		} catch (e) {
 			// Explicitly type caught error as unknown
 			console.error('Error during payment process:', e);
@@ -215,7 +225,7 @@
 				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
 				'error'
 			);
-			return;
+			return false;
 		}
 	}
 
@@ -231,7 +241,7 @@
 		try {
 			const result = await getModelDownloadUrl(fetch, req.id);
 			if (!result.ok) {
-				alert(result.error.message);
+				toastStore.show(result.error.message, 'error');
 				downloading = false;
 				downloadProgress = 0;
 				return;
@@ -244,10 +254,10 @@
 					downloading = false;
 					downloadProgress = 0;
 				},
-				onError: (message) => alert(message)
+				onError: (message) => toastStore.show(message, 'error')
 			});
 		} catch {
-			alert('Error downloading model');
+			toastStore.show('Error downloading model', 'error');
 			downloading = false;
 			downloadProgress = 0;
 		}

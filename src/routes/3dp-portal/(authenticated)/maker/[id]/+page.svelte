@@ -151,7 +151,7 @@
 		try {
 			const result = await getModelDownloadUrl(fetch, req.id);
 			if (!result.ok) {
-				alert(result.error.message);
+				toastStore.show(result.error.message, 'error');
 				downloading = false;
 				downloadProgress = 0;
 				return;
@@ -164,10 +164,10 @@
 					downloading = false;
 					downloadProgress = 0;
 				},
-				onError: (message) => alert(message)
+				onError: (message) => toastStore.show(message, 'error')
 			});
 		} catch {
-			alert('Error downloading model');
+			toastStore.show('Error downloading model', 'error');
 			downloading = false;
 			downloadProgress = 0;
 		}
@@ -651,23 +651,26 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex flex-col gap-3 mt-4">
-			<label class="text-sm text-gray-300 font-medium"
+			<label class="text-sm text-gray-300 font-medium" for="courier-name"
 				>Courier Name<span class="text-red-400">*</span></label>
 			<input
+				id="courier-name"
 				type="text"
 				bind:value={courierName}
 				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
 				placeholder="e.g. Bluedart, Delhivery, etc."
 				disabled={shippedLoading} />
-			<label class="text-sm text-gray-300 font-medium">Tracking ID</label>
+			<label class="text-sm text-gray-300 font-medium" for="tracking-id">Tracking ID</label>
 			<input
+				id="tracking-id"
 				type="text"
 				bind:value={trackingId}
 				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
 				placeholder="e.g. 1234567890"
 				disabled={shippedLoading} />
-			<label class="text-sm text-gray-300 font-medium">Tracking Link</label>
+			<label class="text-sm text-gray-300 font-medium" for="tracking-link">Tracking Link</label>
 			<input
+				id="tracking-link"
 				type="url"
 				bind:value={trackingLink}
 				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"

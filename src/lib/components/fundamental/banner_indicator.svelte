@@ -47,7 +47,10 @@
 <div id="feat-mb-indicator">
 	{#each [...Array(max).keys()] as i (i)}
 		<button
+			type="button"
 			class={i === curActive ? styleActive : styleNormal}
+			aria-label="Go to slide {i + 1}"
+			aria-current={i === curActive ? 'true' : undefined}
 			onclick={() => {
 				curActive = i;
 			}}></button>
