@@ -4,7 +4,9 @@ import type { Database } from '../db/index.js';
 import type { CartStore } from '../services/cart-store.js';
 import type { CheckoutStore } from '../services/checkout-store.js';
 import type { PrintFilesStore } from '../services/print-files-store.js';
+import type { ChatsStore } from '../services/chats-store.js';
 import type { PrintPaymentsStore } from '../services/print-payments-store.js';
+import type { PrintRequestsStore } from '../services/print-requests-store.js';
 
 export type Actor = {
 	userId: string | null;
@@ -18,6 +20,8 @@ export type AppVariables = {
 	checkoutStore: CheckoutStore;
 	printFilesStore: PrintFilesStore | null;
 	printPaymentsStore: PrintPaymentsStore;
+	printRequestsStore: PrintRequestsStore;
+	chatsStore: ChatsStore;
 	requestId: string;
 	actor: Actor;
 	user: User | null;

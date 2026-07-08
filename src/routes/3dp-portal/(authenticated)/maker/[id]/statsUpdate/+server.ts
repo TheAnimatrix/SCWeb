@@ -23,11 +23,13 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	const { id: maker_id } = params;
 	const supabase = locals.supabaseAdmin;
 
-	// 0. Check if user is authenticated
-	const userSession = await locals.supabase.auth.getSession();
-	if (!userSession.data.session || userSession.error) {
-		console.error('Authentication failed:', userSession.error);
+	const { session } = await locals.safeGetSession();
+	if (!session?.user) {
 		return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+	}
+
+	if (session.user.id !== maker_id) {
+		return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
 	}
 
 	if (!maker_id) {
