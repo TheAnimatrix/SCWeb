@@ -1,0 +1,14 @@
+node_modules
+build
+api/dist
+dev-dist
+.git
+.env*
+test-results
+playwright-report
+coverage
+.cursor
+docs
+*.md
+!deploy/README.md
+AGENT_TASK.md

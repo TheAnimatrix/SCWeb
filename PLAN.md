@@ -107,8 +107,7 @@
   `audit_log` for every money/order transition (migration
   `api/drizzle/0004_...`), Playwright smoke suite (9 green + 2 DB-gated),
   GitHub Actions CI (lint/check/unit/build/e2e), placeholder tests removed.
-  **PHASE 5 (obs+tests scope) COMPLETE.** Test counts: 63 root unit + 155 api
-  + 9 e2e.
+  **PHASE 5 (obs+tests scope) COMPLETE.** Test counts: 63 root unit + 155 api + 9 e2e.
 
 Consolidates `TODO` (2026-07-07), the cart persistence review (2026-07-08), and the
 Hono + Drizzle migration into one sequenced plan. `TODO` stays as the raw backlog;

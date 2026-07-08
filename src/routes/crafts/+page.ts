@@ -126,7 +126,6 @@ async function getTagCatalog(supabase: SupabaseClient) {
 	const result = await supabase.from('products').select('tags, type');
 
 	if (result.error) {
-		console.error('Failed to load tag options:', result.error);
 		return { groups: [], standalone: [], allOptions: [] };
 	}
 
@@ -190,7 +189,6 @@ export const load: PageLoad = async ({ parent, url }) => {
 	const countResult = await countQuery;
 
 	if (countResult.error) {
-		console.error('Failed to count products:', countResult.error);
 		return {
 			...emptyResult,
 			filters: activeFilters,
@@ -215,7 +213,6 @@ export const load: PageLoad = async ({ parent, url }) => {
 	const [productsResult] = await Promise.all([dataQuery.range(from, to)]);
 
 	if (productsResult.error) {
-		console.error('Failed to load products:', productsResult.error);
 		return {
 			...emptyResult,
 			filters: { ...activeFilters, page: currentPage },

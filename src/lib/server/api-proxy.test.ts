@@ -22,6 +22,16 @@ describe('isAllowedProxyPath', () => {
 		expect(isAllowedProxyPath('..%2f..')).toBe(false);
 		expect(isAllowedProxyPath(undefined)).toBe(false);
 	});
+
+	it('rejects dot-segment traversal even when the allowlist prefix matches', () => {
+		expect(isAllowedProxyPath('cart/../health')).toBe(false);
+		expect(isAllowedProxyPath('cart/%2e%2e/health')).toBe(false);
+		expect(isAllowedProxyPath('checkout/..')).toBe(false);
+	});
+
+	it('allows normal paths without dot segments', () => {
+		expect(isAllowedProxyPath('cart/items/abc')).toBe(true);
+	});
 });
 
 describe('getProxyTimeoutMs', () => {

@@ -36,14 +36,7 @@ async function loadRecentByType(
 		.limit(limit);
 
 	if (result.error) {
-		console.error(`Failed to load recent ${type} listings:`, result.error);
-		const fallback = await supabase
-			.from('products')
-			.select('*')
-			.eq('type', type)
-			.order('created_at', { ascending: false })
-			.limit(limit);
-		return (fallback.data ?? []) as Product[];
+		return [];
 	}
 
 	return (result.data ?? []) as Product[];

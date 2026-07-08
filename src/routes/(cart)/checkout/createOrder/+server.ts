@@ -10,7 +10,7 @@ import type { Product } from '$lib/types/product';
 import { canFulfillQuantity, isOnDemand, parseProductStock } from '$lib/utils/stock';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 import { RAZORPAY_KEY } from '$env/static/private';
-import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers';
+import { DELIVERY_FLAT_FEE } from '@scweb/api/contracts';
 import { isCartOwnedBy } from '$lib/server/cart';
 import { purchaseAlreadyPaid } from '$lib/server/purchases';
 import { verifyRazorpaySignature } from '$lib/server/razorpay';
