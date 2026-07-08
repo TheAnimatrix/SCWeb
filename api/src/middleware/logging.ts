@@ -67,6 +67,18 @@ export function logCartMutation(
 	});
 }
 
+export function logCheckoutTransition(
+	c: Context<{ Variables: AppVariables }>,
+	level: LogLevel,
+	message: string,
+	fields: LogFields = {}
+) {
+	writeLog(level, message, {
+		requestId: c.get('requestId'),
+		...fields
+	});
+}
+
 export const loggingMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }> => {
 	return async (c, next) => {
 		const startedAt = Date.now();
