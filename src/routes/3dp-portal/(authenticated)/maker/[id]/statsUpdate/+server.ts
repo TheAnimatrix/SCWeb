@@ -1,4 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
+import { parsePrintModelData } from '$lib/types/printRequest';
 
 // POST /3dp-portal/(authenticated)/maker/[id]/statsUpdate
 /**
@@ -54,10 +55,13 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	let quoteCount = 0;
 	for (const pr of completedPrints) {
 		if (!pr.events || !Array.isArray(pr.events)) continue;
-		const firstQuote = pr.events.find((e: any) => e.type === 'quoted');
+		const firstQuote = pr.events.find(
+			(e): e is { type?: string; timestamp?: string } =>
+				typeof e === 'object' && e !== null && (e as { type?: string }).type === 'quoted'
+		);
 		if (firstQuote && pr.created_at) {
 			const created = new Date(pr.created_at).getTime();
-			const quoted = new Date(firstQuote.timestamp).getTime();
+			const quoted = new Date(firstQuote.timestamp ?? '').getTime();
 			if (!isNaN(created) && !isNaN(quoted)) {
 				totalQuoteTime += quoted - created;
 				quoteCount++;
@@ -69,8 +73,9 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	// 4. Aggregate materials_used from model_data
 	const materialsMap: Record<string, number> = {};
 	for (const pr of completedPrints) {
-		if (pr.model_data && typeof pr.model_data === 'object' && pr.model_data.material) {
-			const mat = pr.model_data.material;
+		const modelData = parsePrintModelData(pr.model_data);
+		if (modelData.material) {
+			const mat = modelData.material;
 			materialsMap[mat] = (materialsMap[mat] || 0) + 1;
 		}
 	}
@@ -95,7 +100,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		maker_id,
 		completed_orders,
 		avg_rating,
-		avg_quote_time,
+		avg_quote_time: avg_quote_time != null ? String(avg_quote_time) : null,
 		materials_used
 	});
 

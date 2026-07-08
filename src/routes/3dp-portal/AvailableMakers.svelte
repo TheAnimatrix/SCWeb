@@ -176,8 +176,9 @@
 			}
 
 			makers = response.data.filter(
-				(maker: Maker) => maker.filaments && maker.filaments.length > 0
-			);
+				(maker: { filaments?: unknown }) =>
+					Array.isArray(maker.filaments) && maker.filaments.length > 0
+			) as Maker[];
 			makers.forEach((maker: Maker) => {
 				const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
 				if (Array.isArray(maker.filaments)) {

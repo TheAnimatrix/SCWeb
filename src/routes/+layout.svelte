@@ -50,11 +50,9 @@
 	$effect(() => {
 		if (!browser || !topBar) return;
 
+		const bar = topBar;
 		const syncTopbarHeight = () => {
-			document.documentElement.style.setProperty(
-				'--site-topbar-height',
-				`${topBar.offsetHeight}px`
-			);
+			document.documentElement.style.setProperty('--site-topbar-height', `${bar.offsetHeight}px`);
 		};
 
 		syncTopbarHeight();
@@ -74,7 +72,9 @@
 
 		if (!data.supabase_lt) return;
 
-		getActiveCart(data.supabase_lt, data.clientId).then((cart) => {
+		const supabaseClient = data.supabase_lt;
+
+		getActiveCart(supabaseClient, data.clientId).then((cart) => {
 			if (!cart.error && cart.data) {
 				let itemCount = 0;
 				cart.data.list?.forEach((item) => {
@@ -84,7 +84,7 @@
 			}
 		});
 
-		const { data: authListener } = data.supabase_lt.auth.onAuthStateChange(
+		const { data: authListener } = supabaseClient.auth.onAuthStateChange(
 			async (event, newSession) => {
 				if (newSession?.expires_at !== data.session?.expires_at) {
 					invalidate('supabase:auth');

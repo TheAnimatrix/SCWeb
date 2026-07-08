@@ -72,13 +72,14 @@
 	$effect(() => {
 		if (!browser || !navEl) return;
 
+		const el = navEl;
 		const syncHeight = () => {
-			if (!isPinned) navHeight = navEl.offsetHeight;
+			if (!isPinned) navHeight = el.offsetHeight;
 		};
 
 		syncHeight();
 		const observer = new ResizeObserver(syncHeight);
-		observer.observe(navEl);
+		observer.observe(el);
 		return () => observer.disconnect();
 	});
 </script>

@@ -264,6 +264,261 @@ export type Database = {
 					}
 				];
 			};
+			Chat: {
+				Row: {
+					chat_id: string;
+					sender_id: string;
+					recipient_id: string;
+					message: string | null;
+					created_at: string;
+					message_type: string | null;
+					status: string | null;
+					relationship_id: string | null;
+				};
+				Insert: {
+					chat_id?: string;
+					sender_id: string;
+					recipient_id: string;
+					message?: string | null;
+					created_at?: string;
+					message_type?: string | null;
+					status?: string | null;
+					relationship_id?: string | null;
+				};
+				Update: {
+					chat_id?: string;
+					sender_id?: string;
+					recipient_id?: string;
+					message?: string | null;
+					created_at?: string;
+					message_type?: string | null;
+					status?: string | null;
+					relationship_id?: string | null;
+				};
+				Relationships: [];
+			};
+			CreatorReviews: {
+				Row: {
+					id: string;
+					maker_id: string;
+					print_request_id: string;
+					user_id: string;
+					rating: number;
+					comment: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					maker_id: string;
+					print_request_id: string;
+					user_id: string;
+					rating: number;
+					comment?: string | null;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					maker_id?: string;
+					print_request_id?: string;
+					user_id?: string;
+					rating?: number;
+					comment?: string | null;
+					created_at?: string;
+				};
+				Relationships: [];
+			};
+			CreatorStats: {
+				Row: {
+					maker_id: string;
+					avg_quote_time: string | null;
+					avg_rating: number | null;
+					completed_orders: number | null;
+				};
+				Insert: {
+					maker_id: string;
+					avg_quote_time?: string | null;
+					avg_rating?: number | null;
+					completed_orders?: number | null;
+				};
+				Update: {
+					maker_id?: string;
+					avg_quote_time?: string | null;
+					avg_rating?: number | null;
+					completed_orders?: number | null;
+				};
+				Relationships: [];
+			};
+			Filament: {
+				Row: {
+					id: string;
+					material_type: string;
+					color: string | null;
+					brand: string | null;
+				};
+				Insert: {
+					id?: string;
+					material_type: string;
+					color?: string | null;
+					brand?: string | null;
+				};
+				Update: {
+					id?: string;
+					material_type?: string;
+					color?: string | null;
+					brand?: string | null;
+				};
+				Relationships: [];
+			};
+			PrintingCrafters: {
+				Row: {
+					maker_id: string;
+					name: string | null;
+					approved_state: string | null;
+					contact_number: string | null;
+					email: string | null;
+					max_printer_size: string | null;
+					number_of_printers: number | null;
+					filaments: Json | null;
+				};
+				Insert: {
+					maker_id: string;
+					name?: string | null;
+					approved_state?: string | null;
+					contact_number?: string | null;
+					email?: string | null;
+					max_printer_size?: string | null;
+					number_of_printers?: number | null;
+					filaments?: Json | null;
+				};
+				Update: {
+					maker_id?: string;
+					name?: string | null;
+					approved_state?: string | null;
+					contact_number?: string | null;
+					email?: string | null;
+					max_printer_size?: string | null;
+					number_of_printers?: number | null;
+					filaments?: Json | null;
+				};
+				Relationships: [];
+			};
+			printrequests: {
+				Row: {
+					id: string;
+					created_at: string;
+					last_updated: string | null;
+					update_count: number | null;
+					user_id: string | null;
+					creator_id: string | null;
+					model: string | null;
+					model_metadata: Json | null;
+					quote_updates: number | null;
+					initial_quote: number | null;
+					quote: number | null;
+					events: Json | null;
+					filament_color: string | null;
+					model_data: Json | null;
+					request_stage: string | null;
+					request_metadata: Json | null;
+					order_id: string | null;
+					payment_id: string | null;
+					address: Json | null;
+				};
+				Insert: {
+					id?: string;
+					created_at?: string;
+					last_updated?: string | null;
+					update_count?: number | null;
+					user_id?: string | null;
+					creator_id?: string | null;
+					model?: string | null;
+					model_metadata?: Json | null;
+					quote_updates?: number | null;
+					initial_quote?: number | null;
+					quote?: number | null;
+					events?: Json | null;
+					filament_color?: string | null;
+					model_data?: Json | null;
+					request_stage?: string | null;
+					request_metadata?: Json | null;
+					order_id?: string | null;
+					payment_id?: string | null;
+					address?: Json | null;
+				};
+				Update: {
+					id?: string;
+					created_at?: string;
+					last_updated?: string | null;
+					update_count?: number | null;
+					user_id?: string | null;
+					creator_id?: string | null;
+					model?: string | null;
+					model_metadata?: Json | null;
+					quote_updates?: number | null;
+					initial_quote?: number | null;
+					quote?: number | null;
+					events?: Json | null;
+					filament_color?: string | null;
+					model_data?: Json | null;
+					request_stage?: string | null;
+					request_metadata?: Json | null;
+					order_id?: string | null;
+					payment_id?: string | null;
+					address?: Json | null;
+				};
+				Relationships: [];
+			};
+			reviews: {
+				Row: {
+					id: string;
+					user_id: string;
+					product_id: string;
+					rating: number;
+					comment: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					product_id: string;
+					rating: number;
+					comment?: string | null;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					user_id?: string;
+					product_id?: string;
+					rating?: number;
+					comment?: string | null;
+					created_at?: string;
+				};
+				Relationships: [];
+			};
+			UserFilament: {
+				Row: {
+					id: string;
+					owner_id: string;
+					material_type: string;
+					color: string | null;
+					brand: string | null;
+				};
+				Insert: {
+					id?: string;
+					owner_id: string;
+					material_type: string;
+					color?: string | null;
+					brand?: string | null;
+				};
+				Update: {
+					id?: string;
+					owner_id?: string;
+					material_type?: string;
+					color?: string | null;
+					brand?: string | null;
+				};
+				Relationships: [];
+			};
 			users: {
 				Row: {
 					addresses: Json | null;
@@ -310,6 +565,12 @@ export type Database = {
 			[_ in never]: never;
 		};
 		Functions: {
+			check_username: {
+				Args: {
+					desired_username: string;
+				};
+				Returns: boolean;
+			};
 			check_user_exists: {
 				Args: {
 					username: string;
@@ -321,6 +582,10 @@ export type Database = {
 					uid: string;
 				};
 				Returns: string;
+			};
+			get_creator_full_profile: {
+				Args: Record<string, never>;
+				Returns: Json;
 			};
 			get_cart_by_uid: {
 				Args: {

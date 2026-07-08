@@ -47,8 +47,8 @@
 		onBlurCallback = undefined
 	}: Props = $props();
 
-	let inputElement: HTMLInputElement = $state();
-	let containerElement: HTMLDivElement = $state();
+	let inputElement = $state<HTMLInputElement>();
+	let containerElement = $state<HTMLDivElement>();
 
 	// Mouse position tracking
 	let mouseX = $state(0);

@@ -5,8 +5,14 @@
 	import { PortalCard } from '$lib/components/portal';
 	import { MakerRowSkeleton, MetaChip, TagBadge } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
-
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+	import { parsePrintModelData } from '$lib/types/printRequest';
 	let { data } = $props();
+
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
+
 	const printRequests = data.printRequests;
 
 	const isLoading = $derived(page.url.pathname === '/3dp-portal/user' && !!navigating.to);
@@ -42,7 +48,7 @@
 			if (!data.session?.data?.user?.id) return;
 			const orderIds: string[] = printRequests.map((r) => r.id);
 			if (orderIds.length === 0) return;
-			const { data: unread, error } = await data.supabase_lt
+			const { data: unread, error } = await supabase()
 				.from('Chat')
 				.select('relationship_id')
 				.in('relationship_id', orderIds)
@@ -59,7 +65,7 @@
 
 	$effect(() => {
 		if (!data.session?.data?.user?.id) return;
-		const chatSubscription = data.supabase_lt
+		const chatSubscription = supabase()
 			.channel('realtime-chat-global')
 			.on(
 				'postgres_changes',
@@ -76,7 +82,7 @@
 			)
 			.subscribe();
 		return () => {
-			data.supabase_lt.removeChannel(chatSubscription);
+			supabase().removeChannel(chatSubscription);
 		};
 	});
 </script>
@@ -112,6 +118,7 @@
 
 			<ul class="flex flex-col gap-3">
 				{#each printRequests as req (req.id)}
+					{@const modelData = parsePrintModelData(req.model_data)}
 					<li>
 						<a
 							href={`/3dp-portal/user/${req.id}`}
@@ -144,20 +151,20 @@
 							</div>
 
 							<div class="flex flex-wrap gap-1.5">
-								<MetaChip>material: {req.model_data.material}</MetaChip>
+								<MetaChip>material: {modelData.material}</MetaChip>
 								<MetaChip>
 									<span class="inline-flex items-center gap-1.5">
 										color:
 										<span
 											class="inline-block size-3 rounded-sm border border-border"
-											style={`background-color:${req.model_data.color}`}></span>
+											style={`background-color:${modelData.color}`}></span>
 									</span>
 								</MetaChip>
-								<MetaChip tone="muted">quality: {req.model_data.quality}</MetaChip>
-								<MetaChip tone="muted">scale: {req.model_data.scale}x</MetaChip>
-								<MetaChip tone="muted">infill: {req.model_data.infill}%</MetaChip>
-								<MetaChip tone="muted">walls: {req.model_data.walls}</MetaChip>
-								{#if data.makerNames?.[req.creator_id]}
+								<MetaChip tone="muted">quality: {modelData.quality}</MetaChip>
+								<MetaChip tone="muted">scale: {modelData.scale}x</MetaChip>
+								<MetaChip tone="muted">infill: {modelData.infill}%</MetaChip>
+								<MetaChip tone="muted">walls: {modelData.walls}</MetaChip>
+								{#if req.creator_id && data.makerNames?.[req.creator_id]}
 									<MetaChip tone="muted">maker: {data.makerNames[req.creator_id]}</MetaChip>
 								{/if}
 							</div>

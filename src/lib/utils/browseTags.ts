@@ -77,7 +77,7 @@ function pickDisplayLabel(variants: Map<string, number>): string {
 function countProductsWithTags(
 	sources: ProductTagSource[],
 	requiredKeys: string[]
-): { count: number; variants: Map<string, Map<string, number>> } {
+): { count: number; variants: Map<string, number>[] } {
 	const variantMaps = requiredKeys.map(() => new Map<string, number>());
 	let count = 0;
 

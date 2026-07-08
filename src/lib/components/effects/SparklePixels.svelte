@@ -46,8 +46,9 @@
 		if (!canvas) return;
 
 		const canvasEl = canvas;
-		const context = canvasEl.getContext('2d');
-		if (!context) return;
+		const ctx = canvasEl.getContext('2d');
+		if (!ctx) return;
+		const context: CanvasRenderingContext2D = ctx;
 
 		let animationId = 0;
 		let width = 0;

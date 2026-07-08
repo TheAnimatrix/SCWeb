@@ -18,7 +18,9 @@ export const load: PageServerLoad = async ({ locals: { supabase, supabaseAdmin }
 		.order('created_at', { ascending: false });
 
 	const requests = printRequests ?? [];
-	const creatorIds = [...new Set(requests.map((r) => r.creator_id).filter(Boolean))];
+	const creatorIds = [
+		...new Set(requests.map((r) => r.creator_id).filter((id): id is string => id != null))
+	];
 	let makerNames: Record<string, string> = {};
 
 	if (creatorIds.length > 0) {
@@ -28,7 +30,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, supabaseAdmin }
 			.in('maker_id', creatorIds);
 
 		if (makers) {
-			makerNames = Object.fromEntries(makers.map((m) => [m.maker_id, m.name]));
+			makerNames = Object.fromEntries(makers.map((m) => [m.maker_id, m.name ?? '']));
 		}
 	}
 

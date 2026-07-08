@@ -65,7 +65,7 @@
 		onFailedLoad = () => {}
 	}: Props = $props();
 
-	let container: HTMLDivElement = $state();
+	let container = $state<HTMLDivElement>();
 	let scene: THREE.Scene;
 	let camera: THREE.PerspectiveCamera;
 	let renderer: THREE.WebGLRenderer;

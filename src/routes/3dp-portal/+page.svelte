@@ -19,8 +19,13 @@
 	import { cn } from '$lib/utils';
 	import * as THREE from 'three';
 	import AvailableMakers from './AvailableMakers.svelte';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
+
+	function supabase() {
+		return requireBrowserSupabase(data.supabase_lt);
+	}
 
 	// Model upload state
 	let dragActive = $state(false);
@@ -61,7 +66,9 @@
 	const modelPreviewColor = $derived(previewModelColor(selectedColor));
 
 	// Material options
-	const materials = data.filtypes;
+	const materials = Array.isArray(data.filtypes)
+		? data.filtypes.filter((material): material is string => typeof material === 'string')
+		: [];
 	const qualities = ['Draft (0.28mm)', 'Standard (0.20mm)', 'High (0.15mm)'];
 
 	// Strength levels with walls mapping
@@ -318,14 +325,14 @@
 	}
 
 	async function isUserMaker() {
-		let user = await data.supabase_lt.auth.getUser();
+		let user = await supabase().auth.getUser();
 		let userid = '';
 		if (!user.error && user.data) {
 			userid = user.data.user.id;
 		} else return false;
 
 		//
-		let maker = await data.supabase_lt.from('PrintingCrafters').select().eq('maker_id', userid);
+		let maker = await supabase().from('PrintingCrafters').select().eq('maker_id', userid);
 		if (!maker.error && maker.data && maker.data.length > 0) {
 			return true;
 		} else return false;
@@ -337,7 +344,7 @@
 
 	async function fetchQuoteRequestStats() {
 		loadingRequests = true;
-		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getUser();
+		const { data: userRes, error: userErr } = await supabase().auth.getUser();
 		if (userErr || !userRes?.user) {
 			requestsLeft = null;
 			quoteDailyLimit = null;
@@ -346,7 +353,7 @@
 		}
 		const user_id = userRes.user.id;
 		// Get user's daily limit
-		const { data: userRow } = await data.supabase_lt
+		const { data: userRow } = await supabase()
 			.from('users')
 			.select('quote_daily_limit')
 			.eq('id', user_id)
@@ -355,7 +362,7 @@
 		// Get today's printrequests count
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const { count } = await data.supabase_lt
+		const { count } = await supabase()
 			.from('printrequests')
 			.select('id', { count: 'exact', head: true })
 			.eq('user_id', user_id)
@@ -376,7 +383,7 @@
 		onProgress?: (progress: number | null) => void
 	) {
 		if (onProgress) onProgress(0);
-		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
+		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('You must be logged in to request a quote', 'error');
 			if (onProgress) onProgress(null);
@@ -620,16 +627,18 @@
 		<div class="mt-10 space-y-6">
 			<ReadinessChecklist items={readinessItems} />
 
-			<AvailableMakers
-				supabase_lt={data.supabase_lt}
-				model={modelFile}
-				bind:color={selectedColor}
-				bind:material={selectedMaterial}
-				quality={selectedQuality}
-				{scale}
-				{infill}
-				{walls}
-				{requestQuoteCompleter} />
+			{#if data.supabase_lt}
+				<AvailableMakers
+					supabase_lt={data.supabase_lt}
+					model={modelFile}
+					bind:color={selectedColor}
+					bind:material={selectedMaterial}
+					quality={selectedQuality}
+					{scale}
+					{infill}
+					{walls}
+					{requestQuoteCompleter} />
+			{/if}
 
 			<PortalCard>
 				<div class="mb-4 flex items-center gap-2">
@@ -706,7 +715,7 @@
 								</ul>
 							</div>
 
-							{#await data.supabase_lt.auth.getUser() then user}
+							{#await supabase().auth.getUser() then user}
 								<div class="flex flex-wrap items-center justify-between gap-3">
 									{#if !user.data.user}
 										<span class="text-xs text-muted-foreground"> Sign in to apply </span>
