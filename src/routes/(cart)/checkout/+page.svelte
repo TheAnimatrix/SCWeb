@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import { type Writable } from 'svelte/store';
 	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
@@ -10,6 +10,7 @@
 	import Lock from '@lucide/svelte/icons/lock';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Package from '@lucide/svelte/icons/package';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { PlaceholderImage, ScButton } from '$lib/components/sc';
@@ -178,7 +179,16 @@
 
 		<div class="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
 			<div class="flex-1 space-y-4">
-				{#if !data.userExists}
+				{#if data.apiError}
+					<div
+						class="flex flex-col items-start gap-4 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground sm:flex-row sm:items-center">
+						<div class="flex items-center gap-3">
+							<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
+							<p>Could not load your cart. Try refreshing the page.</p>
+						</div>
+						<ScButton variant="secondary" onclick={() => invalidate('cart:change')}>Retry</ScButton>
+					</div>
+				{:else if !data.userExists}
 					<div class="rounded-lg border border-border bg-card p-5">
 						<div class="flex items-start gap-3">
 							<div class="rounded-full bg-muted p-2">
@@ -261,6 +271,11 @@
 														class="block truncate text-sm font-medium text-foreground hover:text-foreground/80">
 														{item.name}
 													</a>
+													{#if item.author}
+														<p class="truncate text-xs text-muted-foreground">
+															by @{item.author}
+														</p>
+													{/if}
 													<p class="text-xs text-muted-foreground">
 														₹{item.unitPrice.toLocaleString('en-IN')} × {item.qty}
 													</p>

@@ -14,6 +14,7 @@
 	import type { Writable } from 'svelte/store';
 	import { onMount, setContext, getContext } from 'svelte';
 	import Toast from '$lib/components/common/Toast.svelte';
+	import { toastStore } from '$lib/client/toastStore';
 	import { removePostLoginURL } from '$lib/client/postLogin';
 	import { initTheme } from '$lib/client/theme';
 	import { SystemStatusBar, SiteHeader, SiteFooter, PwaInstallPrompt } from '$lib/components/shell';
@@ -93,7 +94,11 @@
 				}
 
 				if (event === 'SIGNED_IN') {
-					await mergeGuestCart(fetch, data.clientId);
+					const mergeResult = await mergeGuestCart(fetch, data.clientId);
+					if (!mergeResult.ok) {
+						console.error('Failed to merge guest cart:', mergeResult.error);
+						toastStore.show("Couldn't merge your guest cart", 'error');
+					}
 					const cart = await getCart(fetch);
 					if (cart.ok) {
 						syncCartStore(cart_store, cart.data.cart);

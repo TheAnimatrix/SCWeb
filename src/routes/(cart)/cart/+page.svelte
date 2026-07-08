@@ -2,7 +2,7 @@
 	import { getContext } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
 	import { type Writable } from 'svelte/store';
-	import type { CartView } from '@scweb/api';
+	import type { CartView } from '@scweb/api/contracts';
 	import Minus from '@lucide/svelte/icons/minus';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -11,6 +11,7 @@
 	import Receipt from '@lucide/svelte/icons/receipt';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Lock from '@lucide/svelte/icons/lock';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { ScButton, StockBar, PlaceholderImage } from '$lib/components/sc';
 	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
@@ -25,6 +26,7 @@
 	}: {
 		data: {
 			cart: CartView | null;
+			apiError: boolean;
 		};
 	} = $props();
 
@@ -189,7 +191,9 @@
 		<div class="mt-6 flex flex-col gap-2 border-b border-border pb-6">
 			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Your cart</h1>
 			<p class="text-sm text-muted-foreground">
-				{#if hasItems}
+				{#if data.apiError}
+					We could not reach the cart service.
+				{:else if hasItems}
 					Review your items before checkout.
 				{:else}
 					Your cart is empty — browse crafts to get started.
@@ -199,7 +203,16 @@
 
 		<div class="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
 			<div class="flex-1 space-y-4">
-				{#if !hasItems}
+				{#if data.apiError}
+					<div
+						class="flex flex-col items-start gap-4 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground sm:flex-row sm:items-center">
+						<div class="flex items-center gap-3">
+							<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
+							<p>Could not load your cart. Try refreshing the page.</p>
+						</div>
+						<ScButton variant="secondary" onclick={() => invalidate('cart:change')}>Retry</ScButton>
+					</div>
+				{:else if !hasItems}
 					<div
 						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-20 text-center">
 						<div class="mb-4 rounded-full bg-muted p-4">
@@ -245,6 +258,11 @@
 												class="text-lg font-medium leading-snug text-foreground transition-colors hover:text-foreground/80">
 												{item.name}
 											</a>
+											{#if item.author}
+												<p class="font-mono text-xs text-muted-foreground">
+													by @{item.author}
+												</p>
+											{/if}
 										</div>
 
 										<p class="shrink-0 font-mono text-lg font-semibold text-foreground">
@@ -258,6 +276,10 @@
 										</p>
 									{:else}
 										<StockBar count={item.stock.count} />
+									{/if}
+
+									{#if item.guarantee}
+										<p class="text-xs text-muted-foreground">{item.guarantee}</p>
 									{/if}
 
 									<div

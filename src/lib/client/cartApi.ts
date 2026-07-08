@@ -6,7 +6,7 @@ import type {
 	FailCheckoutResponse,
 	GetCartResponse,
 	MergeCartResponse
-} from '@scweb/api';
+} from '@scweb/api/contracts';
 import type { Address } from '$lib/types/product';
 import { writable, type Writable } from 'svelte/store';
 
@@ -21,7 +21,7 @@ export const initCartG = (): Writable<CartG> =>
 		itemCount: 0
 	});
 
-export function cartItemCount(cart: CartView | null | undefined): number {
+function cartItemCount(cart: CartView | null | undefined): number {
 	if (!cart) return 0;
 	return cart.items.reduce((sum, item) => sum + item.qty, 0);
 }

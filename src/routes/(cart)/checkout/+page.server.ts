@@ -5,10 +5,7 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const result = await getCart(event.fetch);
-	const cart = result.ok ? result.data.cart : null;
-	if (!cart || cart.items.length <= 0) {
-		throw redirect(303, '/cart');
-	}
+
 	const resultUser = await event.locals.supabase.auth.getUser();
 	const userExists = resultUser.data.user != null && resultUser.data.user ? true : false;
 	let addresses;
@@ -29,5 +26,27 @@ export const load: PageServerLoad = async (event) => {
 			}
 		}
 	} else addresses = undefined;
-	return { email: resultUser.data.user?.email, userExists: userExists, addresses: addresses, cart };
+
+	if (!result.ok) {
+		return {
+			email: resultUser.data.user?.email,
+			userExists,
+			addresses,
+			cart: null,
+			apiError: true
+		};
+	}
+
+	const cart = result.data.cart;
+	if (!cart || cart.items.length <= 0) {
+		throw redirect(303, '/cart');
+	}
+
+	return {
+		email: resultUser.data.user?.email,
+		userExists,
+		addresses,
+		cart,
+		apiError: false
+	};
 };

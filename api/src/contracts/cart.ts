@@ -26,6 +26,8 @@ export const cartItemViewSchema = z.object({
 	productId: z.string(),
 	qty: z.number().int().positive(),
 	name: z.string(),
+	author: z.string().nullable(),
+	guarantee: z.string().nullable(),
 	imageUrl: z.string().nullable(),
 	unitPrice: z.number().int(),
 	stock: productStockSchema
