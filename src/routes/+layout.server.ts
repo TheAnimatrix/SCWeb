@@ -1,10 +1,7 @@
 import { getGithubStars } from '$lib/server/github';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({
-	locals: { safeGetSession, clientId, supabase },
-	cookies
-}) => {
+export const load: LayoutServerLoad = async ({ locals: { safeGetSession, clientId, supabase } }) => {
 	const { session, user } = await safeGetSession();
 	const githubStars = await getGithubStars();
 
@@ -23,7 +20,6 @@ export const load: LayoutServerLoad = async ({
 		user,
 		username,
 		clientId,
-		cookies: cookies.getAll(),
 		githubStars
 	};
 };

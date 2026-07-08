@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import CircleX from '@lucide/svelte/icons/circle-x';
 	import Copy from '@lucide/svelte/icons/copy';
@@ -17,6 +18,14 @@
 			toastStore.show('Clipboard not supported on HTTP', 'error');
 		}
 	}
+
+	onMount(() => {
+		const cartId = page.params.cart_id;
+		const orderId = page.params.order_id;
+		if (cartId && orderId) {
+			fetch(`/summary/failure/${cartId}/${orderId}`, { method: 'POST' }).catch(() => {});
+		}
+	});
 </script>
 
 <div class="min-h-screen bg-background text-foreground">

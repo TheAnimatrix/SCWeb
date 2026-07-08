@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({locals: {supabaseServer, supabase}, url}) => {
+export const load: LayoutServerLoad = async ({locals: {supabaseAdmin, supabase}, url}) => {
 
     let makerStatus: 'approved' | 'pending' | 'not_maker' = 'not_maker'; // Default status
 
@@ -13,7 +13,7 @@ export const load: LayoutServerLoad = async ({locals: {supabaseServer, supabase}
 	let makerData = null;
 
 	try {
-		const { data: crafterData, error: dbError } = await supabaseServer
+		const { data: crafterData, error: dbError } = await supabaseAdmin
 			.from('PrintingCrafters')
 			.select('approved_state, name')
 			.eq('maker_id', session.data.user.id) // Assuming 'userId' is the column linking to auth.users.id

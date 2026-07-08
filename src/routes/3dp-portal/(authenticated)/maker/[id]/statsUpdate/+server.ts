@@ -20,7 +20,7 @@ import type { RequestHandler } from '@sveltejs/kit';
  */
 export const POST: RequestHandler = async ({ params, locals }) => {
   const { id: maker_id } = params;
-  const supabase = locals.supabaseServer;
+  const supabase = locals.supabaseAdmin;
 
   // 0. Check if user is authenticated
   const userSession = await locals.supabase.auth.getSession();
