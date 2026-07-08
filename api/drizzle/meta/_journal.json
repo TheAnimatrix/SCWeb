@@ -15,6 +15,13 @@
       "when": 1783591601374,
       "tag": "0002_upload_quota",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783678001374,
+      "tag": "0003_enable_rls",
+      "breakpoints": true
     }
   ]
 }
