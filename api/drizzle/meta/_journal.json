@@ -8,6 +8,13 @@
       "when": 1783505201374,
       "tag": "0001_cart_checkout_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783591601374,
+      "tag": "0002_upload_quota",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,8 @@ import {
 const product = (id: string, count: number, status = 'in stock', price = 100) => ({
 	id,
 	name: `Product ${id}`,
+	author: 'test_maker',
+	guarantee: '7-day guarantee',
 	price: { new: price, old: price + 20 },
 	stock: { count, status },
 	images: [{ url: 'https://example.com/a.png' }]
