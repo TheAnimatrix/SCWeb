@@ -1,7 +1,7 @@
 import type { Address } from '$lib/types/product';
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-export const load: PageServerLoad = async ({ params, depends, locals: { supabase, supabaseServer } }) => {
+export const load: PageServerLoad = async ({ params, depends, locals: { supabase, supabaseAdmin } }) => {
   depends('3dp-portal:printrequest');
   const { id } = params;
   // Get current user
@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ params, depends, locals: { supabase
   }
 
   // Fetch the print request (ensure user owns it)
-  const { data: printRequest, error: prError } = await supabaseServer
+  const { data: printRequest, error: prError } = await supabaseAdmin
     .from('printrequests')
     .select('*')
     .eq('id', id)
@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ params, depends, locals: { supabase
   // Fetch maker info if assigned
   let maker = null;
   if (printRequest.creator_id) {
-    const { data: makerData } = await supabaseServer
+    const { data: makerData } = await supabaseAdmin
       .from('PrintingCrafters')
       .select('name, email, contact_number')
       .eq('maker_id', printRequest.creator_id)
@@ -37,7 +37,7 @@ export const load: PageServerLoad = async ({ params, depends, locals: { supabase
   }
 
   //fetch addresses
-  const { data: addresses } = await supabaseServer
+  const { data: addresses } = await supabaseAdmin
     .from('addresses')
     .select('*')
     .eq('uid', user.id);

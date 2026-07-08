@@ -79,7 +79,7 @@ function validateServerForm(formData: FormData): Record<string, string> {
 
 
 export const actions: Actions = {
-    default: async ({ request, locals: { supabase, supabaseServer } }) => {
+    default: async ({ request, locals: { supabase, supabaseAdmin } }) => {
         // Fetch the user fresh inside the action
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -128,7 +128,7 @@ export const actions: Actions = {
         };
 
         try {
-            const { error: dbError } = await supabaseServer
+            const { error: dbError } = await supabaseAdmin
                 .from('PrintingCrafters')
                 .insert(makerData);
 
@@ -168,7 +168,7 @@ export const actions: Actions = {
 };
 
 // Optional: If you need to load data specifically for this page (beyond layout data)
-// export const load: PageServerLoad = async ({ locals: { supabaseServer, session } }) => {
+// export const load: PageServerLoad = async ({ locals: { supabaseAdmin, session } }) => {
 //     // Load additional data if needed
 //     return {};
 // };

@@ -1,9 +1,6 @@
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
-import { PUBLIC_SUPABASE_KEY } from '$env/static/public';
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY } from '$env/static/public';
 import type { LayoutLoad } from './$types';
-import { createBrowserClient, createServerClient, isBrowser } from '@supabase/ssr';
-
-
+import { createBrowserClient, isBrowser } from '@supabase/ssr';
 
 export const load: LayoutLoad = async ({ fetch, data, depends }) => {
 	depends('supabase:auth');
@@ -14,20 +11,15 @@ export const load: LayoutLoad = async ({ fetch, data, depends }) => {
 					fetch
 				}
 			})
-		: createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY, {
-				global: {
-					fetch
-				},
-				cookies: {
-					getAll() {
-						return data.cookies;
-					}
-				}
-			});
+		: null;
 
-	const {
-		data: { session }
-	} = await supabase_lt.auth.getSession();
+	let session = data.session;
+	if (supabase_lt) {
+		const {
+			data: { session: clientSession }
+		} = await supabase_lt.auth.getSession();
+		session = clientSession ?? data.session;
+	}
 
 	return {
 		supabase_lt,

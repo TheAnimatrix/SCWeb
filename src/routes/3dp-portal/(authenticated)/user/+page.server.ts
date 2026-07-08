@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals: { supabase, supabaseServer } }) => {
+export const load: PageServerLoad = async ({ locals: { supabase, supabaseAdmin } }) => {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, supabaseServer 
     }
 
     // Fetch print requests for this user, including maker info
-    const { data: printRequests, error: prError } = await supabaseServer
+    const { data: printRequests, error: prError } = await supabaseAdmin
         .from('printrequests')
         .select('*')
         .eq('user_id', user.id)
@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, supabaseServer 
     let makerNames: Record<string, string> = {};
 
     if (creatorIds.length > 0) {
-        const { data: makers } = await supabaseServer
+        const { data: makers } = await supabaseAdmin
             .from('PrintingCrafters')
             .select('maker_id, name')
             .in('maker_id', creatorIds);

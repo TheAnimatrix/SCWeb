@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 
-export const GET = async ({ url, locals: { supabase, supabaseServer } }) => {
+export const GET = async ({ url, locals: { supabase, supabaseAdmin } }) => {
 
   const { data: session } = await supabase.auth.getSession();
   if (!session || !session.session?.user) {
@@ -17,7 +17,7 @@ export const GET = async ({ url, locals: { supabase, supabaseServer } }) => {
   const to = from + pageSize - 1;
 
   // Fetch printrequests with user info (username)
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAdmin
     .from('printrequests')
     .select('id, created_at, model, request_stage, quote, model_metadata, model_data, user_id, users: user_id (username)')
     .eq('creator_id', userId)

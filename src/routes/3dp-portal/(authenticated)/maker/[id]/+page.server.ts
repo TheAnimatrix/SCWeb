@@ -1,7 +1,7 @@
 
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from '../$types';
-export const load: PageServerLoad = async ({ params, depends, locals: { supabase, supabaseServer } }) => {
+export const load: PageServerLoad = async ({ params, depends, locals: { supabase, supabaseAdmin } }) => {
   depends('3dp-portal:printrequest');
   const { id } = params;
   // Get current user
@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ params, depends, locals: { supabase
   }
 
   // Fetch the print request (ensure user owns it)
-  const { data: printRequest, error: prError } = await supabaseServer
+  const { data: printRequest, error: prError } = await supabaseAdmin
     .from('printrequests')
     .select('*')
     .eq('id', id)
@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ params, depends, locals: { supabase
   }
 
   //fetch username of user
-  const { data: userData, error: userError2 } = await supabaseServer
+  const { data: userData, error: userError2 } = await supabaseAdmin
     .from('users')
     .select('username')
     .eq('id', printRequest.user_id)

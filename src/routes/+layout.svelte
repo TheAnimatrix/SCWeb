@@ -74,6 +74,8 @@
 			});
 		}
 
+		if (!data.supabase_lt) return;
+
 		getActiveCart(data.supabase_lt, data.clientId).then((cart) => {
 			if (!cart.error && cart.data) {
 				let itemCount = 0;

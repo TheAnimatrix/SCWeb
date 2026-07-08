@@ -1,5 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/** Returns the authenticated user's id, or null when anonymous. */
+export async function getAuthenticatedUserId(
+	supabase: SupabaseClient<any, 'public', any>
+): Promise<string | null> {
+	const {
+		data: { user }
+	} = await supabase.auth.getUser();
+	return user?.id ?? null;
+}
+
 /**
  * Checks if the user is currently logged in using Supabase.
  * 

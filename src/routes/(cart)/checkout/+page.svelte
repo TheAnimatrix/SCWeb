@@ -161,7 +161,7 @@
 				return;
 			}
 			rzp1.open();
-			rzp1.on('payment.failed', function (response: {
+			rzp1.on('payment.failed', async function (response: {
 				error: { metadata: { order_id: string } };
 			}) {
 				if (!cartData) {
@@ -172,7 +172,13 @@
 				}
 				isPaying = false;
 				rzp1.close();
-				window.location.href = `/summary/failure/${cartData.id}/${response.error.metadata.order_id}`;
+				const orderId = response.error.metadata.order_id;
+				try {
+					await fetch(`/summary/failure/${cartData.id}/${orderId}`, { method: 'POST' });
+				} catch {
+					// Still navigate so the user sees the failure page.
+				}
+				window.location.href = `/summary/failure/${cartData.id}/${orderId}`;
 			});
 		} catch (e: unknown) {
 			toastStore.show(
