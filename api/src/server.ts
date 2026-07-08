@@ -1,14 +1,12 @@
 import * as Sentry from '@sentry/node';
 import { serve } from '@hono/node-server';
-import { config } from 'dotenv';
-import { resolve } from 'node:path';
 import { createApp } from './app.js';
 import { createDb } from './db/index.js';
 import { loadEnv } from './env.js';
+import { loadEnvFiles } from './loadEnvFiles.js';
 import { scrubSentryEvent } from './sentry-scrub.js';
 
-config({ path: resolve(process.cwd(), '../.env') });
-config({ path: resolve(process.cwd(), '.env') });
+loadEnvFiles();
 
 if (process.env.SENTRY_DSN) {
 	Sentry.init({

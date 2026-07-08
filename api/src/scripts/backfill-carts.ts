@@ -1,15 +1,13 @@
-import { config } from 'dotenv';
 import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type { IndexColumn } from 'drizzle-orm/pg-core';
-import { resolve } from 'node:path';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
 import { createDb } from '../db/index.js';
 import { cart } from '../db/schema/cart.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
+import { loadEnvFiles } from '../loadEnvFiles.js';
 
-config({ path: resolve(process.cwd(), '../.env') });
-config({ path: resolve(process.cwd(), '.env') });
+loadEnvFiles();
 process.env.DATABASE_URL ??= process.env.POSTGRES_URL;
 
 type LegacyCartItem = {
