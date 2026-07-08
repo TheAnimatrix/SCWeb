@@ -47,12 +47,10 @@
 		{#if Icon}
 			<Icon
 				class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-				aria-hidden={true}
-			/>
+				aria-hidden={true} />
 		{:else if prefix}
 			<span
-				class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
-			>
+				class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
 				{prefix}
 			</span>
 		{/if}
@@ -62,16 +60,16 @@
 		{#if glow}
 			<div
 				class="pointer-events-none absolute inset-x-1 bottom-0 h-px bg-gradient-to-r from-scpurple to-sccyan opacity-0 transition-opacity duration-300 peer-focus:opacity-70"
-				aria-hidden="true"
-			></div>
+				aria-hidden="true">
+			</div>
 			<div
 				class="pointer-events-none absolute inset-x-4 -bottom-0.5 -z-10 h-1.5 bg-gradient-to-r from-scpurple to-sccyan opacity-0 blur-sm transition-opacity duration-300 peer-focus:opacity-25"
-				aria-hidden="true"
-			></div>
+				aria-hidden="true">
+			</div>
 			<div
 				class="pointer-events-none absolute inset-x-10 -bottom-1 -z-10 h-2 bg-gradient-to-r from-scpurple to-sccyan opacity-0 blur transition-opacity duration-300 peer-focus:opacity-10"
-				aria-hidden="true"
-			></div>
+				aria-hidden="true">
+			</div>
 		{/if}
 	</div>
 {/snippet}

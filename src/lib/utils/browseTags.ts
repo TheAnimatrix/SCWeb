@@ -217,9 +217,7 @@ function applyContainsVariants(query: ProductQuery, variants: string[]): Product
 		return query.contains('tags', tagContainsFilter(variants[0]!));
 	}
 
-	return query.or(
-		variants.map((variant) => `tags.cs.${tagContainsFilter(variant)}`).join(',')
-	);
+	return query.or(variants.map((variant) => `tags.cs.${tagContainsFilter(variant)}`).join(','));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -233,7 +231,9 @@ export function applyTagFilter(query: any, tagKey: string | null, tagOptions: Ta
 		const [parentKey, childKey] = tagKey.split('/');
 		const parent = tagOptions.find((entry) => entry.key === parentKey && !entry.parentKey);
 		const child = tagOptions.find(
-			(entry) => entry.key === tagKey || (entry.parentKey === parentKey && entry.key.endsWith(`/${childKey}`))
+			(entry) =>
+				entry.key === tagKey ||
+				(entry.parentKey === parentKey && entry.key.endsWith(`/${childKey}`))
 		);
 
 		if (!parent || !child) return query;

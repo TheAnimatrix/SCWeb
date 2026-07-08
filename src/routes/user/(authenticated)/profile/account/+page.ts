@@ -1,7 +1,7 @@
 import type { PageLoad } from './$types';
 export const ssr = false;
 
-export const load: PageLoad = async ({parent}) => {
+export const load: PageLoad = async ({ parent }) => {
 	const data = await parent();
 	const userResponse = await data.supabase_lt.auth.getUser();
 	let user;

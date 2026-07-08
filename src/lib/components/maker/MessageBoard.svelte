@@ -78,10 +78,7 @@
 			previousScrollTop = scrollContainer.scrollTop;
 		}
 
-		const {
-			data,
-			error: fetchError
-		} = await supabase_lt
+		const { data, error: fetchError } = await supabase_lt
 			.from('Chat')
 			.select('*', { count: 'exact' })
 			.eq('relationship_id', orderId)
@@ -108,8 +105,7 @@
 			await tick();
 		} else if (scrollContainer && data && data.length > 0) {
 			const currentScrollHeight = scrollContainer.scrollHeight;
-			scrollContainer.scrollTop =
-				previousScrollTop + (currentScrollHeight - previousScrollHeight);
+			scrollContainer.scrollTop = previousScrollTop + (currentScrollHeight - previousScrollHeight);
 		}
 		loadingMore = false;
 	}
@@ -275,8 +271,7 @@
 <div class="relative flex h-full flex-col">
 	{#if disabled}
 		<div
-			class="absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center rounded-md bg-background/80 backdrop-blur-sm"
-		>
+			class="absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center rounded-md bg-background/80 backdrop-blur-sm">
 			<span class="font-mono text-sm text-muted-foreground">chat_disabled</span>
 		</div>
 	{/if}
@@ -289,11 +284,9 @@
 		<div
 			class="absolute inset-0 flex flex-1 flex-col overflow-y-auto bg-muted/10 p-4"
 			bind:this={scrollContainer}
-			onscroll={handleScroll}
-		>
+			onscroll={handleScroll}>
 			<div
-				class="mb-3 flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2"
-			>
+				class="mb-3 flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2">
 				<Icon icon="ph:info-duotone" class="mt-0.5 shrink-0 text-muted-foreground" />
 				<span class="text-xs leading-relaxed text-muted-foreground">
 					File sharing is not available due to hosting costs. We apologize for any inconvenience.
@@ -317,8 +310,7 @@
 						{#if i === 0 || getDateLabel(msg.created_at) !== getDateLabel(messages[i - 1].created_at)}
 							<div class="my-2 flex justify-center">
 								<span
-									class="rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-muted-foreground"
-								>
+									class="rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-muted-foreground">
 									{getDateLabel(msg.created_at)}
 								</span>
 							</div>
@@ -334,14 +326,14 @@
 										class={cn(
 											'flex max-w-xs flex-col items-start break-words rounded-md border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-foreground',
 											isOwn ? 'self-end' : 'self-start'
-										)}
-									>
+										)}>
 										<div class="flex items-center gap-2 font-medium">
 											<Icon icon="ph:truck-bold" class="text-base text-warning" />
 											<span>Shipped via {shippedObj.courier}</span>
 										</div>
 										{#if shippedObj.tracking_id}
-											<div class="mt-2 w-full rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs">
+											<div
+												class="mt-2 w-full rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs">
 												<span class="font-mono text-muted-foreground">tracking_id:</span>
 												<span class="ml-1">{shippedObj.tracking_id}</span>
 											</div>
@@ -351,15 +343,16 @@
 												href={shippedObj.tracking_link}
 												target="_blank"
 												rel="noopener noreferrer"
-												class="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-border bg-card px-3 py-2 text-xs transition-colors hover:bg-muted"
-											>
+												class="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-border bg-card px-3 py-2 text-xs transition-colors hover:bg-muted">
 												<Icon icon="ph:package-bold" class="text-base" />
 												Track package
 												<Icon icon="ph:arrow-up-right-bold" class="text-xs" />
 											</a>
 										{/if}
 										{#if shippedObj.reason}
-											<div class="mt-2 w-full text-xs text-muted-foreground">{shippedObj.reason}</div>
+											<div class="mt-2 w-full text-xs text-muted-foreground">
+												{shippedObj.reason}
+											</div>
 										{/if}
 									</div>
 								{:else}
@@ -367,8 +360,7 @@
 										class={cn(
 											'flex max-w-xs flex-col break-words rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive',
 											isOwn ? 'self-end' : 'self-start'
-										)}
-									>
+										)}>
 										<div class="flex w-full items-start gap-1 font-medium">
 											<Icon icon="ph:warning-circle-bold" class="text-base" />
 											{actionObj?.action
@@ -389,8 +381,7 @@
 									class={cn(
 										'flex max-w-xs flex-col break-words rounded-md border border-border bg-card px-3 py-2 text-sm',
 										isOwn ? 'self-end' : 'self-start'
-									)}
-								>
+									)}>
 									<div class="flex items-center gap-1 font-mono text-xs text-muted-foreground">
 										<Icon icon="ph:currency-inr-bold" class="text-base" />
 										{isOwn ? 'quote_sent' : 'quote_received'}
@@ -410,8 +401,7 @@
 														toastStore.show(
 															'Close the chat, select address and click pay now',
 															'info'
-														)}
-										>
+														)}>
 											Pay now
 										</ScButton>
 									{/if}
@@ -423,8 +413,7 @@
 										isOwn
 											? 'bg-foreground text-background'
 											: 'border border-border bg-card text-foreground'
-									)}
-								>
+									)}>
 									{@html filter.clean(msg.message)}
 								</div>
 							{/if}
@@ -434,8 +423,7 @@
 									<span class={msg.status === 'read' ? 'text-foreground' : 'text-muted-foreground'}>
 										<Icon
 											icon={msg.status === 'read' ? 'mdi:check-all' : 'mdi:check'}
-											class="size-3"
-										/>
+											class="size-3" />
 									</span>
 								{/if}
 								<div class="font-mono text-[10px] text-muted-foreground">
@@ -455,21 +443,18 @@
 	<div class="border-t border-border p-4">
 		<form
 			class="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
-			onsubmit={sendMessage}
-		>
+			onsubmit={sendMessage}>
 			<input
 				type="text"
 				class="flex-1 border-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
 				placeholder="Type your message…"
 				bind:value={newMessage}
-				{disabled}
-			/>
+				{disabled} />
 			<button
 				type="submit"
 				class="text-foreground transition-colors hover:text-foreground/70 disabled:cursor-not-allowed disabled:opacity-50"
 				{disabled}
-				aria-label="Send message"
-			>
+				aria-label="Send message">
 				<Send class="size-4" strokeWidth={1.5} />
 			</button>
 		</form>

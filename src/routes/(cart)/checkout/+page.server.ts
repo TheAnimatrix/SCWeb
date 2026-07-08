@@ -4,14 +4,17 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const cart = await getActiveCart(event.locals.supabase, event.locals.clientId);
-	if(cart.error || (cart.data?.list??[]).length <= 0){
+	if (cart.error || (cart.data?.list ?? []).length <= 0) {
 		throw redirect(303, '/cart');
 	}
 	const resultUser = await event.locals.supabase.auth.getUser();
-	const userExists = (resultUser.data.user != null && resultUser.data.user) ? true : false;
+	const userExists = resultUser.data.user != null && resultUser.data.user ? true : false;
 	let addresses;
 	if (userExists) {
-		addresses = await event.locals.supabase.from('addresses').select('*').eq('uid', resultUser.data.user?.id);
+		addresses = await event.locals.supabase
+			.from('addresses')
+			.select('*')
+			.eq('uid', resultUser.data.user?.id);
 
 		if (addresses.error) {
 			addresses = undefined;
@@ -19,5 +22,5 @@ export const load: PageServerLoad = async (event) => {
 			addresses = addresses.data;
 		}
 	} else addresses = undefined;
-	return { email: resultUser.data.user?.email, userExists: userExists, addresses: addresses, cart};
+	return { email: resultUser.data.user?.email, userExists: userExists, addresses: addresses, cart };
 };

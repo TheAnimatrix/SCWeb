@@ -77,7 +77,11 @@
 		}
 	];
 
-	let { value = '#ffffff', colorName = '', isOpen = $bindable(false) } = $props<{
+	let {
+		value = '#ffffff',
+		colorName = '',
+		isOpen = $bindable(false)
+	} = $props<{
 		value?: string;
 		colorName?: string;
 		isOpen?: boolean;
@@ -100,7 +104,11 @@
 
 	function hexToHsv(hex: string) {
 		hex = hex.replace('#', '');
-		if (hex.length === 3) hex = hex.split('').map((x) => x + x).join('');
+		if (hex.length === 3)
+			hex = hex
+				.split('')
+				.map((x) => x + x)
+				.join('');
 		const num = parseInt(hex, 16);
 		const r = ((num >> 16) & 255) / 255;
 		const g = ((num >> 8) & 255) / 255;
@@ -149,7 +157,10 @@
 		else if (h < 240) [r, g, b] = [0, x, c];
 		else if (h < 300) [r, g, b] = [x, 0, c];
 		else [r, g, b] = [c, 0, x];
-		const toHex = (n: number) => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+		const toHex = (n: number) =>
+			Math.round((n + m) * 255)
+				.toString(16)
+				.padStart(2, '0');
 		return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 	}
 
@@ -325,8 +336,7 @@
 							)}
 							style="background-color: {color.hex}"
 							onclick={() => selectColor(color.hex, color.name)}
-							title={color.name}
-						>
+							title={color.name}>
 							{#if customHex === color.hex}
 								<svg
 									class="size-3.5 text-foreground"
@@ -334,8 +344,7 @@
 									stroke="currentColor"
 									stroke-width="2"
 									viewBox="0 0 24 24"
-									><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg
-								>
+									><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
 							{/if}
 						</button>
 					{/each}
@@ -351,8 +360,7 @@
 				class="touch-none cursor-crosshair rounded-md border border-border"
 				onmousedown={handleCanvasInteraction}
 				ontouchstart={handleCanvasInteraction}
-				ontouchmove={handleTouchMove}
-			></canvas>
+				ontouchmove={handleTouchMove}></canvas>
 
 			<div class="hue-slider-container w-full sm:w-auto">
 				<input
@@ -362,8 +370,7 @@
 					step="1"
 					value={hue}
 					oninput={handleHueChange}
-					class="hue-slider w-full"
-				/>
+					class="hue-slider w-full" />
 				<span class="mt-2 block text-center font-mono text-xs text-muted-foreground">hue</span>
 			</div>
 		</div>
@@ -375,12 +382,10 @@
 				placeholder="#RRGGBB"
 				class="w-28 font-mono"
 				glow={false}
-				oninput={handleCustomInput}
-			/>
+				oninput={handleCustomInput} />
 			<span
 				class="inline-block size-8 rounded-full border border-border"
-				style="background-color: {customHex}"
-			></span>
+				style="background-color: {customHex}"></span>
 			<span class="font-mono text-xs text-muted-foreground">{customHex}</span>
 		</div>
 	</div>
@@ -409,7 +414,8 @@
 	</Drawer.Root>
 {:else}
 	<Dialog.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
-		<Dialog.Content class="max-h-[90vh] w-[95vw] overflow-hidden border-border bg-card p-0 sm:max-w-md">
+		<Dialog.Content
+			class="max-h-[90vh] w-[95vw] overflow-hidden border-border bg-card p-0 sm:max-w-md">
 			<Dialog.Header class="border-b border-border px-6 py-4">
 				<Dialog.Title class="font-mono text-sm text-foreground">choose_color</Dialog.Title>
 			</Dialog.Header>

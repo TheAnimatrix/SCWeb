@@ -275,165 +275,146 @@
 </script>
 
 <div id="orderManagement">
-<PortalCard>
-	<PortalSectionLabel label="order_management" class="mb-4" />
+	<PortalCard>
+		<PortalSectionLabel label="order_management" class="mb-4" />
 
-	{#if isLoading}
-		<div class="overflow-x-auto rounded-md border border-border">
-			<table class="min-w-full divide-y divide-border text-left">
-				<thead class="bg-muted/30">
-					<tr>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>ID</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Date</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Stage</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Quote</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Ordered by</th
-						>
-					</tr>
-				</thead>
-				<TableBodySkeleton rows={5} columns={5} />
-			</table>
-		</div>
-	{:else if error}
-		<div class="py-10 text-center text-sm text-destructive">{error}</div>
-	{:else if orders.length === 0}
-		<div class="py-10 text-center text-sm text-muted-foreground">
-			No print requests found for you yet.
-		</div>
-	{:else}
-		<div class="overflow-x-auto rounded-md border border-border">
-			<table class="min-w-full divide-y divide-border text-left">
-				<thead class="bg-muted/30">
-					<tr>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>ID</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Date</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Stage</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Quote</th
-						>
-						<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-							>Ordered by</th
-						>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-border">
-					{#each orders as order, index}
-						<tr
-							class="cursor-pointer transition-colors hover:bg-muted/20"
-							onclick={() => goto(`/3dp-portal/maker/${order.id}`)}
-						>
-							<td class="flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm text-foreground">
-								{#if isUrl(order.model)}
-									<a
-										href={order.model}
-										target="_blank"
-										rel="noopener noreferrer"
-										class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:bg-muted"
-										download
-										onclick={(e) => e.stopPropagation()}
-									>
-										<Icon icon="ph:download-bold" class="text-base" />
-										{order.id.slice(order.id.length - 10, order.id.length)}
-									</a>
-								{:else if order.model?.endsWith('.stl')}
-									<div class="relative w-fit">
-										{#if order.request_stage !== 'cancelled'}
-											<button
-												type="button"
-												class={cn(
-													'inline-flex items-center gap-1 border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
-													downloading === index ? 'rounded-t opacity-60' : 'rounded'
-												)}
-												disabled={downloading === index || order.request_stage === 'cancelled'}
-												onclick={(e) => {
-													e.stopPropagation();
-													downloadModel(order.model ?? '', index);
-												}}
-											>
-												<Icon icon="ph:download-bold" class="text-base" />
-												{downloading !== index
-													? order.id.slice(order.id.length - 10, order.id.length)
-													: `Downloading… ${downloadProgress}%`}
-											</button>
-										{:else}
-											<span class="font-mono text-xs text-muted-foreground"
-												>{order.id.slice(order.id.length - 10, order.id.length)}</span
-											>
-										{/if}
-										{#if downloading && downloadProgress > 0 && downloading === index}
-											<div class="absolute inset-x-0 bottom-0 h-1 rounded-b bg-border">
-												<div
-													class="h-1 rounded-b bg-foreground transition-all duration-200"
-													style={`width: ${downloadProgress}%`}
-												></div>
-											</div>
-										{/if}
-									</div>
-								{:else}
-									<span class="font-mono text-xs text-muted-foreground"
-										>{order.id.slice(order.id.length - 10, order.id.length)}</span
-									>
-								{/if}
-								{#if orderUnreadCounts[order.id] > 0}
-									<span
-										class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-xs text-destructive-foreground"
-									>
-										<MessageSquare class="size-3" strokeWidth={2} />
-										{orderUnreadCounts[order.id]}
-									</span>
-								{/if}
-							</td>
-							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
-								>{formatDate(order.created_at)}</td
-							>
-							<td class="whitespace-nowrap px-4 py-3 text-sm">
-								{#if order.request_stage}
-									<span
-										class={cn(
-											'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs capitalize',
-											STAGE_STYLES[order.request_stage] ?? STAGE_STYLES.default
-										)}
-									>
-										{order.request_stage.replace('_', ' ')}
-									</span>
-								{:else}
-									<span
-										class="inline-flex items-center rounded-md border border-border bg-muted/40 px-2 py-0.5 font-mono text-xs text-muted-foreground"
-									>
-										N/A
-									</span>
-								{/if}
-							</td>
-							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
-								>{order.quote ?? '—'}</td
-							>
-							<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground">
-								{order.username
-									? order.username
-									: order.user_id
-										? order.user_id.slice(0, 8) + '...'
-										: 'N/A'}
-							</td>
+		{#if isLoading}
+			<div class="overflow-x-auto rounded-md border border-border">
+				<table class="min-w-full divide-y divide-border text-left">
+					<thead class="bg-muted/30">
+						<tr>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>ID</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Date</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Stage</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Quote</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Ordered by</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
-</PortalCard>
+					</thead>
+					<TableBodySkeleton rows={5} columns={5} />
+				</table>
+			</div>
+		{:else if error}
+			<div class="py-10 text-center text-sm text-destructive">{error}</div>
+		{:else if orders.length === 0}
+			<div class="py-10 text-center text-sm text-muted-foreground">
+				No print requests found for you yet.
+			</div>
+		{:else}
+			<div class="overflow-x-auto rounded-md border border-border">
+				<table class="min-w-full divide-y divide-border text-left">
+					<thead class="bg-muted/30">
+						<tr>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>ID</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Date</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Stage</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Quote</th>
+							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+								>Ordered by</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-border">
+						{#each orders as order, index}
+							<tr
+								class="cursor-pointer transition-colors hover:bg-muted/20"
+								onclick={() => goto(`/3dp-portal/maker/${order.id}`)}>
+								<td
+									class="flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm text-foreground">
+									{#if isUrl(order.model)}
+										<a
+											href={order.model}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:bg-muted"
+											download
+											onclick={(e) => e.stopPropagation()}>
+											<Icon icon="ph:download-bold" class="text-base" />
+											{order.id.slice(order.id.length - 10, order.id.length)}
+										</a>
+									{:else if order.model?.endsWith('.stl')}
+										<div class="relative w-fit">
+											{#if order.request_stage !== 'cancelled'}
+												<button
+													type="button"
+													class={cn(
+														'inline-flex items-center gap-1 border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
+														downloading === index ? 'rounded-t opacity-60' : 'rounded'
+													)}
+													disabled={downloading === index || order.request_stage === 'cancelled'}
+													onclick={(e) => {
+														e.stopPropagation();
+														downloadModel(order.model ?? '', index);
+													}}>
+													<Icon icon="ph:download-bold" class="text-base" />
+													{downloading !== index
+														? order.id.slice(order.id.length - 10, order.id.length)
+														: `Downloading… ${downloadProgress}%`}
+												</button>
+											{:else}
+												<span class="font-mono text-xs text-muted-foreground"
+													>{order.id.slice(order.id.length - 10, order.id.length)}</span>
+											{/if}
+											{#if downloading && downloadProgress > 0 && downloading === index}
+												<div class="absolute inset-x-0 bottom-0 h-1 rounded-b bg-border">
+													<div
+														class="h-1 rounded-b bg-foreground transition-all duration-200"
+														style={`width: ${downloadProgress}%`}>
+													</div>
+												</div>
+											{/if}
+										</div>
+									{:else}
+										<span class="font-mono text-xs text-muted-foreground"
+											>{order.id.slice(order.id.length - 10, order.id.length)}</span>
+									{/if}
+									{#if orderUnreadCounts[order.id] > 0}
+										<span
+											class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-xs text-destructive-foreground">
+											<MessageSquare class="size-3" strokeWidth={2} />
+											{orderUnreadCounts[order.id]}
+										</span>
+									{/if}
+								</td>
+								<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
+									>{formatDate(order.created_at)}</td>
+								<td class="whitespace-nowrap px-4 py-3 text-sm">
+									{#if order.request_stage}
+										<span
+											class={cn(
+												'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs capitalize',
+												STAGE_STYLES[order.request_stage] ?? STAGE_STYLES.default
+											)}>
+											{order.request_stage.replace('_', ' ')}
+										</span>
+									{:else}
+										<span
+											class="inline-flex items-center rounded-md border border-border bg-muted/40 px-2 py-0.5 font-mono text-xs text-muted-foreground">
+											N/A
+										</span>
+									{/if}
+								</td>
+								<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
+									>{order.quote ?? '—'}</td>
+								<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground">
+									{order.username
+										? order.username
+										: order.user_id
+											? order.user_id.slice(0, 8) + '...'
+											: 'N/A'}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</PortalCard>
 </div>

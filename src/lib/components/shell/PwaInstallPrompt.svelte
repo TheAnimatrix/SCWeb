@@ -66,12 +66,9 @@
 		class="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 p-4 shadow-lg backdrop-blur-sm sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-sm sm:rounded-lg sm:border"
 		role="dialog"
 		aria-labelledby="pwa-install-title"
-		aria-describedby="pwa-install-description"
-	>
+		aria-describedby="pwa-install-description">
 		<div class="flex items-start gap-3">
-			<div
-				class="size-10 shrink-0 overflow-hidden rounded-md border border-border bg-background"
-			>
+			<div class="size-10 shrink-0 overflow-hidden rounded-md border border-border bg-background">
 				<img src="/pwa/pwa-192.png" alt="" class="size-full" width="40" height="40" />
 			</div>
 

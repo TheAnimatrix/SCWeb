@@ -131,117 +131,107 @@
 	{#if isPageLoading}
 		<FormSectionSkeleton />
 	{:else}
-	<section class="rounded-md border border-border bg-card p-4">
-		<dl class="space-y-3">
-			<div>
-				<dt class={labelClass}>username</dt>
-				<dd class="mt-1">
-					{#if isEditingUsername}
-						<div class="flex items-center gap-2">
-							<ScInput
-								type="text"
-								bind:value={newUsername}
-								maxlength={20}
-								size="sm"
-								class="flex-1"
-							/>
-							<Button
-								variant="outline"
-								size="icon"
-								class="size-9 shrink-0"
-								onclick={saveUsername}
-								disabled={isUpdatingUsername || newUsername === username}
-								aria-label="Save username"
-							>
-								<Check class="size-4" />
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon"
-								class="size-9 shrink-0"
-								onclick={cancelEditUsername}
-								aria-label="Cancel"
-							>
-								<X class="size-4" />
-							</Button>
-						</div>
-						{#if username_error}
-							<p class="mt-1 text-xs text-destructive" role="alert">{username_error}</p>
+		<section class="rounded-md border border-border bg-card p-4">
+			<dl class="space-y-3">
+				<div>
+					<dt class={labelClass}>username</dt>
+					<dd class="mt-1">
+						{#if isEditingUsername}
+							<div class="flex items-center gap-2">
+								<ScInput
+									type="text"
+									bind:value={newUsername}
+									maxlength={20}
+									size="sm"
+									class="flex-1" />
+								<Button
+									variant="outline"
+									size="icon"
+									class="size-9 shrink-0"
+									onclick={saveUsername}
+									disabled={isUpdatingUsername || newUsername === username}
+									aria-label="Save username">
+									<Check class="size-4" />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon"
+									class="size-9 shrink-0"
+									onclick={cancelEditUsername}
+									aria-label="Cancel">
+									<X class="size-4" />
+								</Button>
+							</div>
+							{#if username_error}
+								<p class="mt-1 text-xs text-destructive" role="alert">{username_error}</p>
+							{/if}
+						{:else}
+							<div class="flex items-center justify-between gap-2">
+								<span class="text-sm">
+									<span class="text-muted-foreground">/crafts/</span>{username}
+								</span>
+								<Button
+									variant="ghost"
+									size="icon"
+									class="size-8 shrink-0"
+									onclick={startEditUsername}
+									aria-label="Edit username">
+									<Pencil class="size-3.5" />
+								</Button>
+							</div>
 						{/if}
-					{:else}
-						<div class="flex items-center justify-between gap-2">
-							<span class="text-sm">
-								<span class="text-muted-foreground">/crafts/</span>{username}
-							</span>
-							<Button
-								variant="ghost"
-								size="icon"
-								class="size-8 shrink-0"
-								onclick={startEditUsername}
-								aria-label="Edit username"
-							>
-								<Pencil class="size-3.5" />
-							</Button>
-						</div>
-					{/if}
-				</dd>
+					</dd>
+				</div>
+
+				<div>
+					<dt class={labelClass}>email</dt>
+					<dd class="mt-1 text-sm">{email}</dd>
+				</div>
+
+				<div>
+					<dt class={labelClass}>tier</dt>
+					<dd class="mt-1">
+						{#if tier}
+							<TierBadge {tier} />
+						{/if}
+					</dd>
+				</div>
+			</dl>
+		</section>
+
+		<section class="rounded-md border border-border bg-card p-4">
+			<p class={labelClass}>password</p>
+
+			{#if error_msg}
+				<p
+					class="mt-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+					role="alert">
+					{error_msg}
+				</p>
+			{/if}
+
+			<div class="mt-3 space-y-3">
+				<ScInput type="password" bind:value={newPass} placeholder="New password" size="sm" />
+				<ScInput
+					type="password"
+					bind:value={confirmPass}
+					placeholder="Confirm password"
+					size="sm" />
+				<ScButton
+					class="w-full justify-center"
+					variant="secondary"
+					onclick={changePassword}
+					disabled={isUpdatingPassword || !newPass}>
+					Update password
+				</ScButton>
 			</div>
+		</section>
 
-			<div>
-				<dt class={labelClass}>email</dt>
-				<dd class="mt-1 text-sm">{email}</dd>
-			</div>
-
-			<div>
-				<dt class={labelClass}>tier</dt>
-				<dd class="mt-1">
-					{#if tier}
-						<TierBadge {tier} />
-					{/if}
-				</dd>
-			</div>
-		</dl>
-	</section>
-
-	<section class="rounded-md border border-border bg-card p-4">
-		<p class={labelClass}>password</p>
-
-		{#if error_msg}
-			<p class="mt-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
-				{error_msg}
-			</p>
-		{/if}
-
-		<div class="mt-3 space-y-3">
-			<ScInput
-				type="password"
-				bind:value={newPass}
-				placeholder="New password"
-				size="sm"
-			/>
-			<ScInput
-				type="password"
-				bind:value={confirmPass}
-				placeholder="Confirm password"
-				size="sm"
-			/>
-			<ScButton
-				class="w-full justify-center"
-				variant="secondary"
-				onclick={changePassword}
-				disabled={isUpdatingPassword || !newPass}
-			>
-				Update password
-			</ScButton>
-		</div>
-	</section>
-
-	<Button
-		variant="outline"
-		class="w-full font-mono text-xs text-destructive hover:text-destructive"
-		onclick={logout}
-	>
-		Sign out
-	</Button>
+		<Button
+			variant="outline"
+			class="w-full font-mono text-xs text-destructive hover:text-destructive"
+			onclick={logout}>
+			Sign out
+		</Button>
 	{/if}
 </div>

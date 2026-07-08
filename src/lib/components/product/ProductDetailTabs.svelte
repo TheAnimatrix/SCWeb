@@ -63,15 +63,17 @@
 </script>
 
 <section class={cn('space-y-4', className)}>
-	<div class="flex flex-wrap gap-2 border-b border-border pb-3" role="tablist" aria-label="Product details">
+	<div
+		class="flex flex-wrap gap-2 border-b border-border pb-3"
+		role="tablist"
+		aria-label="Product details">
 		{#each tabs as tab (tab.id)}
 			<button
 				type="button"
 				role="tab"
 				aria-selected={activeTab === tab.id}
 				class={tagButtonClass(activeTab === tab.id)}
-				onclick={() => (activeTab = tab.id)}
-			>
+				onclick={() => (activeTab = tab.id)}>
 				{tab.label}
 			</button>
 		{/each}
@@ -79,17 +81,11 @@
 
 	<TabPanelTransition tabKey={activeTab}>
 		{#if activeTab === 'reviews'}
-			<ProductReviews
-				productId={product.id}
-				bind:reviews
-				{initialReviews}
-				{supabase}
-			/>
+			<ProductReviews productId={product.id} bind:reviews {initialReviews} {supabase} />
 		{:else}
 			<div class="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 				<div
-					class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6 [&_.html-table-scroll]:-mx-5 [&_.html-table-scroll]:w-[calc(100%+2.5rem)] md:[&_.html-table-scroll]:mx-0 md:[&_.html-table-scroll]:w-full"
-				>
+					class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6 [&_.html-table-scroll]:-mx-5 [&_.html-table-scroll]:w-[calc(100%+2.5rem)] md:[&_.html-table-scroll]:mx-0 md:[&_.html-table-scroll]:w-full">
 					{#if activeTab === 'description'}
 						<div class="prose prose-sm max-w-none break-words text-foreground prose-a:break-all">
 							{#if product.documentation?.at(0)?.isMDUrl && product.documentation?.at(0)?.data}
@@ -111,7 +107,9 @@
 							{:else if product.documentation?.at(0)?.data}
 								<HTMLWrapper html={product.documentation.at(0)?.data ?? ''} />
 							{:else}
-								<p class="text-center text-sm text-muted-foreground">No description available yet.</p>
+								<p class="text-center text-sm text-muted-foreground">
+									No description available yet.
+								</p>
 							{/if}
 						</div>
 					{:else}
@@ -119,16 +117,14 @@
 							<div
 								class="flex flex-wrap gap-2 border-b border-border pb-3"
 								role="tablist"
-								aria-label="Documentation sections"
-							>
+								aria-label="Documentation sections">
 								{#each docSections as section (section.id)}
 									<button
 										type="button"
 										role="tab"
 										aria-selected={activeDocSection === section.id}
 										class={tagButtonClass(activeDocSection === section.id)}
-										onclick={() => (activeDocSection = section.id)}
-									>
+										onclick={() => (activeDocSection = section.id)}>
 										{section.label}
 									</button>
 								{/each}
@@ -145,10 +141,11 @@
 									{#if product.faq && product.faq.length > 0}
 										<Accordion.Root class="w-full" type="multiple">
 											{#each product.faq as faq, index (faq.question + index)}
-												<Accordion.Item value="faq-{index}" class="border-b border-border last:border-0">
+												<Accordion.Item
+													value="faq-{index}"
+													class="border-b border-border last:border-0">
 													<Accordion.Trigger
-														class="items-start gap-3 py-4 text-left text-sm font-medium hover:no-underline"
-													>
+														class="items-start gap-3 py-4 text-left text-sm font-medium hover:no-underline">
 														<span class="min-w-0 flex-1 text-left">{faq.question}</span>
 													</Accordion.Trigger>
 													<Accordion.Content class="text-sm text-muted-foreground">
@@ -176,30 +173,29 @@
 											{/if}
 										{/await}
 									{:else if product.documentation?.at(2)?.data}
-										<HTMLWrapper html={renderCostingMarkdown(product.documentation.at(2)?.data ?? '')} />
+										<HTMLWrapper
+											html={renderCostingMarkdown(product.documentation.at(2)?.data ?? '')} />
 									{:else}
 										<p class="text-muted-foreground">No costing details available.</p>
 									{/if}
+								{:else if product.documentation?.at(3)?.data && product.documentation?.at(3)?.isMDUrl}
+									{#await fetch(product.documentation.at(3)?.data ?? '')}
+										<ProseSkeleton lines={4} />
+									{:then response}
+										{#if response.ok}
+											{#await response.text()}
+												<ProseSkeleton lines={4} />
+											{:then text}
+												<HTMLWrapper html={text} />
+											{/await}
+										{:else}
+											<p class="text-muted-foreground">No shipping details available.</p>
+										{/if}
+									{/await}
+								{:else if product.documentation?.at(3)?.data}
+									<HTMLWrapper html={product.documentation.at(3)?.data ?? ''} />
 								{:else}
-									{#if product.documentation?.at(3)?.data && product.documentation?.at(3)?.isMDUrl}
-										{#await fetch(product.documentation.at(3)?.data ?? '')}
-											<ProseSkeleton lines={4} />
-										{:then response}
-											{#if response.ok}
-												{#await response.text()}
-													<ProseSkeleton lines={4} />
-												{:then text}
-													<HTMLWrapper html={text} />
-												{/await}
-											{:else}
-												<p class="text-muted-foreground">No shipping details available.</p>
-											{/if}
-										{/await}
-									{:else if product.documentation?.at(3)?.data}
-										<HTMLWrapper html={product.documentation.at(3)?.data ?? ''} />
-									{:else}
-										<p class="text-muted-foreground">No shipping details available.</p>
-									{/if}
+									<p class="text-muted-foreground">No shipping details available.</p>
 								{/if}
 							</TabPanelTransition>
 						</div>
@@ -207,13 +203,7 @@
 				</div>
 
 				<div class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6">
-					<ProductReviews
-						productId={product.id}
-						bind:reviews
-						{initialReviews}
-						{supabase}
-						compact
-					/>
+					<ProductReviews productId={product.id} bind:reviews {initialReviews} {supabase} compact />
 				</div>
 			</div>
 		{/if}

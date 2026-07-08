@@ -21,19 +21,15 @@
 	class={cn(
 		'inline-flex shrink-0 items-center justify-center border font-mono text-foreground',
 		tierStyle.badge,
-		iconOnly
-			? 'rounded-full'
-			: 'gap-1.5 rounded-md px-2 py-0.5 text-xs',
+		iconOnly ? 'rounded-full' : 'gap-1.5 rounded-md px-2 py-0.5 text-xs',
 		className
 	)}
-	title={tier}
->
+	title={tier}>
 	{#if icon}
 		<span
 			class={cn('inline-flex shrink-0', iconOnly ? 'size-5' : 'size-3.5')}
-			style:filter={tierStyle.iconFilter ?? undefined}
-		>
-			<Icon icon={icon} class="size-full" aria-hidden="true" />
+			style:filter={tierStyle.iconFilter ?? undefined}>
+			<Icon {icon} class="size-full" aria-hidden="true" />
 		</span>
 	{/if}
 	{#if displayLabel}

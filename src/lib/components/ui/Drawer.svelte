@@ -20,10 +20,10 @@
 		showBackdrop = true,
 		closeOnBackdropClick = true,
 		closeOnEsc = true,
-		close = ()=>{},
+		close = () => {},
 		trigger,
 		content
-	} : Props = $props();
+	}: Props = $props();
 
 	function handleClose() {
 		open = false;
@@ -42,14 +42,14 @@
 		}
 	}
 	let positionClassValues = {
-			left: 'inset-y-0 left-0 max-w-xs w-full transform -translate-x-full',
-			right: 'inset-y-0 right-0 max-w-xs w-full transform translate-x-full',
-			bottom: 'inset-x-0 bottom-0 max-h-[85vh] transform translate-y-full'
-		};
+		left: 'inset-y-0 left-0 max-w-xs w-full transform -translate-x-full',
+		right: 'inset-y-0 right-0 max-w-xs w-full transform translate-x-full',
+		bottom: 'inset-x-0 bottom-0 max-h-[85vh] transform translate-y-full'
+	};
 	let transformClassValues = {
-			left: 'translate-x-0',
-			right: 'translate-x-0',
-			bottom: 'translate-y-0'
+		left: 'translate-x-0',
+		right: 'translate-x-0',
+		bottom: 'translate-y-0'
 	};
 	let positionClass = $derived(positionClassValues[position]);
 	let transformClass = $derived(transformClassValues[position]);
@@ -68,15 +68,17 @@
 	<!-- Backdrop -->
 	<button
 		type="button"
-		class="drawer-backdrop h-[100svh] fixed inset-0 bg-black/60 z-50 backdrop-blur-sm {!showBackdrop ? 'opacity-0 invisible' : 'opacity-100'}"
+		class="drawer-backdrop h-[100svh] fixed inset-0 bg-black/60 z-50 backdrop-blur-sm {!showBackdrop
+			? 'opacity-0 invisible'
+			: 'opacity-100'}"
 		onclick={handleOutsideClick}
 		aria-label="Close Drawer"
 		transition:fade={{ duration: 200 }}>
 	</button>
 
 	<!-- Drawer Content -->
-	<div class="fixed z-50 inset-0 h-[100svh] flex flex-col w-[100svw] justify-end pointer-events-none">
-
+	<div
+		class="fixed z-50 inset-0 h-[100svh] flex flex-col w-[100svw] justify-end pointer-events-none">
 		<div
 			class="w-full border-[#ffffff]/10 border-t-1 bg-[#151515]/60 backdrop-blur-xl text-white transition-transform duration-300 ease-out flex flex-col shadow-2xl pointer-events-auto"
 			transition:fly={{

@@ -24,8 +24,7 @@
 <div class="w-full bg-background pt-6 text-foreground">
 	<nav
 		class="mx-auto mb-6 flex max-w-7xl flex-wrap justify-center gap-2 border-b border-border px-4 pb-6"
-		aria-label="Portal navigation"
-	>
+		aria-label="Portal navigation">
 		{#each navItems as { href, label, Icon }}
 			<button
 				type="button"
@@ -41,8 +40,7 @@
 					activeRoute === href
 						? 'border-black bg-black text-white shadow-sm'
 						: 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
-				)}
-			>
+				)}>
 				<Icon class="size-4" strokeWidth={1.5} />
 				<span>{label}</span>
 			</button>

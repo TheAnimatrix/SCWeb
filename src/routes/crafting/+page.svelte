@@ -116,8 +116,7 @@
 					href="https://discord.gg/UQ74TQfMqM"
 					target="_blank"
 					rel="noopener noreferrer"
-					variant="discord"
-				>
+					variant="discord">
 					<Icon icon="ph:discord-logo-bold" class="text-lg" />
 					Join Discord
 				</ScButton>
@@ -138,8 +137,8 @@
 					<div class="max-w-prose space-y-4 text-base leading-relaxed text-muted-foreground">
 						<p>
 							SelfCrafted exists to grow the maker ecosystem where it already lives — in cities,
-							workshops, and small-batch shops. Not by replacing it with another generic marketplace,
-							but by giving it the infrastructure to thrive.
+							workshops, and small-batch shops. Not by replacing it with another generic
+							marketplace, but by giving it the infrastructure to thrive.
 						</p>
 						<p>
 							We connect storefronts, local sourcing, fulfillment, and community into one shared
@@ -154,7 +153,9 @@
 				</div>
 
 				<aside class="space-y-3 lg:pt-1">
-					<p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">// focus_areas</p>
+					<p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+						// focus_areas
+					</p>
 					<div class="flex flex-wrap gap-2">
 						{#each missionTags as tag (tag)}
 							<TagBadge label={tag} />
@@ -181,12 +182,10 @@
 			<ol class="mt-10 space-y-0 border border-border bg-card">
 				{#each craftingSteps as step, i (step.title)}
 					<li
-						class="grid gap-4 border-b border-border px-5 py-6 last:border-b-0 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-6 sm:px-6"
-					>
+						class="grid gap-4 border-b border-border px-5 py-6 last:border-b-0 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-6 sm:px-6">
 						<span
 							class="font-mono text-2xl font-medium tabular-nums text-muted-foreground/60"
-							aria-hidden="true"
-						>
+							aria-hidden="true">
 							{String(i + 1).padStart(2, '0')}
 						</span>
 						<div class="space-y-1.5">
@@ -269,7 +268,8 @@
 			<div class="mt-10 overflow-x-auto border border-border bg-card">
 				<table class="w-full min-w-[36rem] text-left text-sm">
 					<thead>
-						<tr class="border-b border-border bg-muted/40 font-mono text-xs uppercase tracking-wide text-muted-foreground">
+						<tr
+							class="border-b border-border bg-muted/40 font-mono text-xs uppercase tracking-wide text-muted-foreground">
 							<th class="px-5 py-3 font-normal" scope="col">tier</th>
 							<th class="px-5 py-3 font-normal" scope="col">level</th>
 							<th class="px-5 py-3 font-normal" scope="col">benefits</th>
@@ -295,8 +295,7 @@
 
 	<section>
 		<div
-			class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-12 sm:flex-row sm:items-center sm:justify-between md:py-16"
-		>
+			class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-12 sm:flex-row sm:items-center sm:justify-between md:py-16">
 			<div class="max-w-md space-y-2">
 				<p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">// next_step</p>
 				<p class="text-base font-medium text-foreground">Ready to grow the ecosystem with us?</p>
@@ -310,8 +309,7 @@
 					href="https://discord.gg/UQ74TQfMqM"
 					target="_blank"
 					rel="noopener noreferrer"
-					variant="discord"
-				>
+					variant="discord">
 					Join Discord
 				</ScButton>
 				<ScButton href="/crafts" variant="secondary" arrow>Browse crafts</ScButton>

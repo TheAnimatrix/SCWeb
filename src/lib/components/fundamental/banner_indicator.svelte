@@ -57,8 +57,7 @@
 			class={i === curActive ? styleActive : styleNormal}
 			onclick={() => {
 				curActive = i;
-			}}
-		></button>
+			}}></button>
 	{/each}
 </div>
 

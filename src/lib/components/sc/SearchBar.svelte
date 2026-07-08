@@ -30,11 +30,5 @@
 </script>
 
 <form onsubmit={handleSubmit} class={cn('w-full', className)}>
-	<ScInput
-		type="search"
-		bind:value={query}
-		{placeholder}
-		icon={Search}
-		class="font-mono"
-	/>
+	<ScInput type="search" bind:value={query} {placeholder} icon={Search} class="font-mono" />
 </form>

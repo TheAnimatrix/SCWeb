@@ -1,6 +1,6 @@
 import type { PageLoad } from './$types';
 
-export const load : PageLoad = async ({  })=> {
-    // const {supabase,session} = await parent();
-    // 
-}
+export const load: PageLoad = async ({}) => {
+	// const {supabase,session} = await parent();
+	//
+};

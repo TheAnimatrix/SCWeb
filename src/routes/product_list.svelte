@@ -9,12 +9,7 @@
 		class?: string;
 	}
 
-	let {
-		products = [],
-		getLink,
-		onClick = () => {},
-		class: className = ''
-	}: Props = $props();
+	let { products = [], getLink, onClick = () => {}, class: className = '' }: Props = $props();
 </script>
 
 <div class="grid w-full grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4 {className}">
@@ -23,7 +18,6 @@
 			{product}
 			href={getLink(index, product)}
 			onclick={() => onClick(index, product)}
-			dimOutOfStock
-		/>
+			dimOutOfStock />
 	{/each}
 </div>

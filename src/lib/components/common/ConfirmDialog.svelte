@@ -2,7 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import { fade } from 'svelte/transition';
 
-	let { 
+	let {
 		open = $bindable(false),
 		title = 'Confirm Action',
 		message = 'Are you sure you want to proceed?',
@@ -45,14 +45,12 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
 		onclick={handleCancel}
-		transition:fade={{ duration: 150 }}
-	>
+		transition:fade={{ duration: 150 }}>
 		<div
 			class="bg-[#1a1a1a] rounded-xl shadow-2xl w-full max-w-md m-4 border border-[#333]"
 			role="dialog"
 			aria-modal="true"
-			aria-labelledby="dialog-title"
-		>
+			aria-labelledby="dialog-title">
 			<div class="p-6">
 				<div class="flex items-start gap-4">
 					<div class="bg-red-900/30 rounded-full p-2 flex items-center justify-center shrink-0">
@@ -65,8 +63,7 @@
 					<button
 						onclick={handleCancel}
 						class="p-1 text-gray-400 hover:text-gray-200 hover:bg-card/10 rounded-full"
-						aria-label="Close dialog"
-					>
+						aria-label="Close dialog">
 						<Icon icon="ph:x-bold" class="text-lg" />
 					</button>
 				</div>
@@ -75,17 +72,15 @@
 			<div class="bg-[#222] px-6 py-4 flex justify-end gap-3 rounded-b-xl border-t border-[#333]">
 				<button
 					onclick={handleCancel}
-					class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors"
-				>
+					class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors">
 					{cancelText}
 				</button>
 				<button
 					onclick={handleConfirm}
-					class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
-				>
+					class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
 					{confirmText}
 				</button>
 			</div>
 		</div>
 	</div>
-{/if} 
+{/if}

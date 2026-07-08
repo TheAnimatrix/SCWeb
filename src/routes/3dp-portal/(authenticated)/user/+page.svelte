@@ -115,8 +115,7 @@
 					<li>
 						<a
 							href={`/3dp-portal/user/${req.id}`}
-							class="group block rounded-md border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted/20"
-						>
+							class="group block rounded-md border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted/20">
 							<div class="mb-3 flex items-start justify-between gap-4">
 								<div class="min-w-0">
 									<div class="truncate font-medium text-foreground group-hover:text-foreground">
@@ -129,8 +128,7 @@
 								<div class="flex shrink-0 items-center gap-2">
 									{#if unreadCounts[req.id] > 0}
 										<span
-											class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-2 py-0.5 font-mono text-xs text-destructive-foreground"
-										>
+											class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-2 py-0.5 font-mono text-xs text-destructive-foreground">
 											<MessageSquare class="size-3" strokeWidth={2} />
 											{unreadCounts[req.id]}
 										</span>
@@ -139,8 +137,7 @@
 										class={cn(
 											'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs capitalize',
 											stageStyle(req.request_stage)
-										)}
-									>
+										)}>
 										{req.request_stage?.replaceAll('_', ' ') ?? 'pending'}
 									</span>
 								</div>
@@ -153,8 +150,7 @@
 										color:
 										<span
 											class="inline-block size-3 rounded-sm border border-border"
-											style={`background-color:${req.model_data.color}`}
-										></span>
+											style={`background-color:${req.model_data.color}`}></span>
 									</span>
 								</MetaChip>
 								<MetaChip tone="muted">quality: {req.model_data.quality}</MetaChip>

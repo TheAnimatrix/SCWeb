@@ -1,13 +1,12 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({locals: {supabaseAdmin, supabase}, url}) => {
-
-    let makerStatus: 'approved' | 'pending' | 'not_maker' = 'not_maker'; // Default status
+export const load: LayoutServerLoad = async ({ locals: { supabaseAdmin, supabase }, url }) => {
+	let makerStatus: 'approved' | 'pending' | 'not_maker' = 'not_maker'; // Default status
 
 	const session = await supabase.auth.getUser();
 	if (session.error || !session.data.user) {
-        // Construct the redirect URL with the current path as postLogin query parameter
+		// Construct the redirect URL with the current path as postLogin query parameter
 		return redirect(303, `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`); // Redirect if not logged in
 	}
 	let makerData = null;
@@ -20,7 +19,7 @@ export const load: LayoutServerLoad = async ({locals: {supabaseAdmin, supabase},
 			.maybeSingle();
 
 		if (dbError) {
-			console.error("Error fetching PrintingCrafters data:", dbError);
+			console.error('Error fetching PrintingCrafters data:', dbError);
 			// Optionally throw an error or handle it gracefully
 			// throw error(500, "Database error fetching maker status");
 		}
@@ -36,16 +35,14 @@ export const load: LayoutServerLoad = async ({locals: {supabaseAdmin, supabase},
 		} else {
 			makerStatus = 'not_maker';
 		}
-
 	} catch (e) {
-		console.error("Exception fetching maker status:", e);
+		console.error('Exception fetching maker status:', e);
 		// Handle unexpected errors
 	}
 
-   
-   return {
-    makerStatus,
-    makerData,
-    session
-   };
+	return {
+		makerStatus,
+		makerData,
+		session
+	};
 };

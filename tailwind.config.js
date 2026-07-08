@@ -12,22 +12,22 @@ const config = {
 	// 	themes:false,
 	// 	base:false,
 	// 	prefix:"daisy-",
-	// 	styled:false,	
+	// 	styled:false,
 	// },
 	theme: {
 		screens: {
-			'xs': '360px',
-			'sm': '640px', 
-			'md': '768px', 
-			'lg': '1024px',
-			'xl': '1280px',
+			xs: '360px',
+			sm: '640px',
+			md: '768px',
+			lg: '1024px',
+			xl: '1280px',
 			'2xl': '1536px',
 			'3xl': '1920px',
 			'4xl': '2300px'
 		},
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: '2rem'
 		},
 		extend: {
 			colors: {

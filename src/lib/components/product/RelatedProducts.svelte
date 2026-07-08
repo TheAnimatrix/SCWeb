@@ -41,8 +41,7 @@
 					<ProductCard
 						class={relatedProductItemClass()}
 						product={relatedProduct}
-						href={productHref(relatedProduct)}
-					/>
+						href={productHref(relatedProduct)} />
 				{/each}
 			</div>
 		{:else}

@@ -35,27 +35,23 @@
 		'group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/20',
 		dimOutOfStock && unavailable && 'opacity-60 saturate-50',
 		className
-	)}
->
+	)}>
 	<div class="relative aspect-[4/3] overflow-hidden">
 		<PlaceholderImage
 			src={imageUrl}
 			alt={product.name}
-			class="transition-transform duration-500 group-hover:scale-105"
-		/>
+			class="transition-transform duration-500 group-hover:scale-105" />
 		{#if onDemand}
 			<div class="absolute bottom-2 right-2 z-10">
 				<MetaChip
-					class="border-amber-500/40 bg-amber-500/80 text-[10px] font-medium uppercase tracking-wide text-amber-950 backdrop-blur-sm"
-				>
+					class="border-amber-500/40 bg-amber-500/80 text-[10px] font-medium uppercase tracking-wide text-amber-950 backdrop-blur-sm">
 					On demand
 				</MetaChip>
 			</div>
 		{:else if unavailable}
 			<div class="absolute bottom-2 right-2 z-10">
 				<MetaChip
-					class="border-destructive/40 bg-destructive/80 text-[10px] font-medium uppercase tracking-wide text-destructive-foreground backdrop-blur-sm"
-				>
+					class="border-destructive/40 bg-destructive/80 text-[10px] font-medium uppercase tracking-wide text-destructive-foreground backdrop-blur-sm">
 					Out of stock
 				</MetaChip>
 			</div>

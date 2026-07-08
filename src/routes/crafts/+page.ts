@@ -139,10 +139,7 @@ async function getCategoryCounts(supabase: SupabaseClient): Promise<CategoryCoun
 		supabase.from('products').select('*', { count: 'exact', head: true }),
 		supabase.from('products').select('*', { count: 'exact', head: true }).eq('type', 'product'),
 		supabase.from('products').select('*', { count: 'exact', head: true }).eq('type', 'spare'),
-		supabase
-			.from('products')
-			.select('*', { count: 'exact', head: true })
-			.eq('type', 'flea-market')
+		supabase.from('products').select('*', { count: 'exact', head: true }).eq('type', 'flea-market')
 	]);
 
 	return {
@@ -216,9 +213,7 @@ export const load: PageLoad = async ({ parent, url }) => {
 	const from = (currentPage - 1) * PAGE_SIZE;
 	const to = from + PAGE_SIZE - 1;
 
-	const [productsResult] = await Promise.all([
-		dataQuery.range(from, to)
-	]);
+	const [productsResult] = await Promise.all([dataQuery.range(from, to)]);
 
 	if (productsResult.error) {
 		console.error('Failed to load products:', productsResult.error);

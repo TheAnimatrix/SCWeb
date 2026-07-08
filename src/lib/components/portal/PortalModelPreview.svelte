@@ -65,9 +65,7 @@
 		isCalculating: false
 	});
 
-	const fileSize = $derived(
-		modelFile ? `${(modelFile.size / (1024 * 1024)).toFixed(2)} MB` : null
-	);
+	const fileSize = $derived(modelFile ? `${(modelFile.size / (1024 * 1024)).toFixed(2)} MB` : null);
 </script>
 
 <input type="file" id="fileInput" accept=".stl" onchange={onFileChange} class="hidden" />
@@ -80,13 +78,11 @@
 	)}
 	role="region"
 	aria-label="Model preview and upload"
-	ondragover={ondragover}
-	ondragleave={ondragleave}
-	ondrop={ondrop}
->
+	{ondragover}
+	{ondragleave}
+	{ondrop}>
 	<div
-		class="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2 text-xs"
-	>
+		class="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2 text-xs">
 		<span class="font-medium text-muted-foreground">Model preview</span>
 		{#if modelLoaded && modelFile}
 			<div class="flex items-center gap-2 text-foreground">
@@ -106,19 +102,17 @@
 					bind:this={modelViewer}
 					bind:modelInfo
 					file={modelFile}
-					modelColor={modelColor}
-					selectedMaterial={selectedMaterial}
-					selectedScale={selectedScale}
-					selectedInfill={selectedInfill}
-					selectedQuality={selectedQuality}
+					{modelColor}
+					{selectedMaterial}
+					{selectedScale}
+					{selectedInfill}
+					{selectedQuality}
 					{selectedWalls}
-					onFailedLoad={onFailedLoad}
-				/>
+					{onFailedLoad} />
 			</div>
 
 			<div
-				class="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-end sm:justify-between"
-			>
+				class="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-end sm:justify-between">
 				<div class="text-xs">
 					<div class="mb-2 text-xs font-medium text-muted-foreground">Model info</div>
 					<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
@@ -138,8 +132,7 @@
 					<button
 						type="button"
 						class="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 sm:self-auto"
-						onclick={onReplace}
-					>
+						onclick={onReplace}>
 						<RefreshCw class="size-3.5" strokeWidth={1.5} />
 						Replace
 					</button>
@@ -149,26 +142,22 @@
 			<button
 				type="button"
 				class="group flex flex-1 cursor-pointer flex-col items-center justify-center gap-4 p-8 transition-colors hover:bg-muted/20"
-				onclick={onBrowse}
-			>
+				onclick={onBrowse}>
 				<div
 					bind:this={cubeContainer}
 					class="cube-container"
 					onmouseenter={onCubeMouseEnter}
 					onmouseleave={onCubeMouseLeave}
-					role="presentation"
-				></div>
+					role="presentation">
+				</div>
 				<div class="text-center">
-					<div class="mb-1 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
+					<div
+						class="mb-1 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
 						<Upload class="size-4" strokeWidth={1.5} />
 						Upload model
 					</div>
-					<p class="text-xs text-muted-foreground">
-						Drop an STL here, or click to browse files
-					</p>
-					<p class="mt-2 text-xs text-muted-foreground">
-						STL · max 50MB
-					</p>
+					<p class="text-xs text-muted-foreground">Drop an STL here, or click to browse files</p>
+					<p class="mt-2 text-xs text-muted-foreground">STL · max 50MB</p>
 				</div>
 			</button>
 		{/if}

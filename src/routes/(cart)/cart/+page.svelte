@@ -211,12 +211,7 @@
 
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-7xl px-4 py-8 md:py-12">
-		<Breadcrumbs
-			items={[
-				{ label: 'home', href: '/' },
-				{ label: 'cart' }
-			]}
-		/>
+		<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'cart' }]} />
 
 		<div class="mt-6 flex flex-col gap-2 border-b border-border pb-6">
 			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Your cart</h1>
@@ -233,8 +228,7 @@
 			<div class="flex-1 space-y-4">
 				{#if !hasItems}
 					<div
-						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-20 text-center"
-					>
+						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-20 text-center">
 						<div class="mb-4 rounded-full bg-muted p-4">
 							<ShoppingCart class="size-8 text-muted-foreground" aria-hidden="true" />
 						</div>
@@ -254,10 +248,10 @@
 						{#await getItemDetails(productItem.product_id)}
 							<div
 								class="overflow-hidden rounded-lg border border-border bg-card"
-								aria-hidden="true"
-							>
+								aria-hidden="true">
 								<div class="flex flex-col sm:flex-row">
-									<Skeleton class="aspect-[4/3] sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px] rounded-none border-0" />
+									<Skeleton
+										class="aspect-[4/3] sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px] rounded-none border-0" />
 									<div class="flex flex-1 flex-col gap-3 p-5">
 										<Skeleton class="h-5 w-2/3 rounded-sm" />
 										<Skeleton class="h-4 w-1/3 rounded-sm" />
@@ -274,18 +268,15 @@
 									'overflow-hidden rounded-lg border border-border bg-card transition-colors',
 									highlightedRow === i && 'bg-muted/40',
 									!inStock && 'opacity-70'
-								)}
-							>
+								)}>
 								<div class="flex flex-col sm:flex-row">
 									<a
 										href={productHref(result.name, productItem.product_id)}
-										class="relative aspect-[4/3] overflow-hidden sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px]"
-									>
+										class="relative aspect-[4/3] overflow-hidden sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px]">
 										<PlaceholderImage
 											src={result.images[0]?.url}
 											alt={result.name}
-											class="transition-transform duration-300 hover:scale-105"
-										/>
+											class="transition-transform duration-300 hover:scale-105" />
 									</a>
 
 									<div class="flex flex-1 flex-col gap-4 p-5">
@@ -293,8 +284,7 @@
 											<div class="min-w-0 space-y-1">
 												<a
 													href={productHref(result.name, productItem.product_id)}
-													class="text-lg font-medium leading-snug text-foreground transition-colors hover:text-foreground/80"
-												>
+													class="text-lg font-medium leading-snug text-foreground transition-colors hover:text-foreground/80">
 													{result.name}
 												</a>
 												<p class="font-mono text-xs text-muted-foreground">
@@ -303,7 +293,9 @@
 											</div>
 
 											<p class="shrink-0 font-mono text-lg font-semibold text-foreground">
-												₹{calculateTotalPrice(result.price.new, productItem.qty).toLocaleString('en-IN')}
+												₹{calculateTotalPrice(result.price.new, productItem.qty).toLocaleString(
+													'en-IN'
+												)}
 											</p>
 										</div>
 
@@ -320,16 +312,14 @@
 										{/if}
 
 										<div
-											class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"
-										>
+											class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
 											<div class="flex items-center">
 												<button
 													type="button"
 													onclick={() => incrementDecrementQuantity(false, i, result)}
 													class="inline-flex size-8 items-center justify-center rounded-l-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
 													aria-label="Decrease quantity"
-													disabled={isUpdatingCart}
-												>
+													disabled={isUpdatingCart}>
 													<Minus class="size-4" />
 												</button>
 
@@ -340,16 +330,14 @@
 													max={purchasableLimit}
 													class="h-8 w-12 border-y border-border bg-card text-center font-mono text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
 													disabled={isUpdatingCart}
-													onchange={(e) => updateQuantity(e, i, result)}
-												/>
+													onchange={(e) => updateQuantity(e, i, result)} />
 
 												<button
 													type="button"
 													onclick={() => incrementDecrementQuantity(true, i, result)}
 													class="inline-flex size-8 items-center justify-center rounded-r-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
 													aria-label="Increase quantity"
-													disabled={isUpdatingCart}
-												>
+													disabled={isUpdatingCart}>
 													<Plus class="size-4" />
 												</button>
 											</div>
@@ -359,8 +347,7 @@
 												onclick={() => removeItem(i, result)}
 												class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
 												aria-label="Remove item"
-												disabled={isUpdatingCart}
-											>
+												disabled={isUpdatingCart}>
 												<Trash2 class="size-4" />
 												Remove
 											</button>
@@ -370,8 +357,7 @@
 							</article>
 						{:catch}
 							<div
-								class="flex items-center gap-3 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground"
-							>
+								class="flex items-center gap-3 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
 								<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
 								<p>Could not load this item. Try refreshing the page.</p>
 							</div>
@@ -419,8 +405,7 @@
 								type="button"
 								class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
 								onclick={checkOut}
-								disabled={isUpdatingCart}
-							>
+								disabled={isUpdatingCart}>
 								Proceed to checkout
 								<span aria-hidden="true">→</span>
 							</button>
@@ -432,8 +417,7 @@
 							</div>
 
 							<div
-								class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground"
-							>
+								class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
 								<span class="inline-flex items-center gap-1">
 									<ShieldCheck class="size-3.5" aria-hidden="true" />
 									Secure

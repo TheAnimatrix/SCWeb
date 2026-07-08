@@ -75,7 +75,10 @@
 	</header>
 
 	{#if makerStatus === 'approved'}
-		<ApprovedMakerPortal supabase_lt={data.supabase_lt} {session} makerName={data.makerData?.name} />
+		<ApprovedMakerPortal
+			supabase_lt={data.supabase_lt}
+			{session}
+			makerName={data.makerData?.name} />
 	{:else if makerStatus === 'pending' || $page.form?.success}
 		<PortalCard class="text-center">
 			<div class="mx-auto max-w-md space-y-2">
@@ -101,8 +104,7 @@
 						$page.form?.errors
 							? 'border-destructive/30 bg-destructive/5 text-destructive'
 							: 'border-border bg-muted/40 text-foreground'
-					)}
-				>
+					)}>
 					{$page.form.message}
 				</div>
 			{/if}
@@ -111,8 +113,7 @@
 				{#if submitting}
 					<div
 						class="absolute inset-0 z-10 space-y-4 rounded-md bg-background/80 p-6 backdrop-blur-sm"
-						aria-hidden="true"
-					>
+						aria-hidden="true">
 						{#each Array(5) as _, i (i)}
 							<Skeleton class="h-10 w-full rounded-md" />
 						{/each}
@@ -134,8 +135,7 @@
 							required
 							placeholder="Your full name"
 							aria-invalid={$page.form?.errors?.name ? 'true' : undefined}
-							aria-describedby={$page.form?.errors?.name ? 'name-error' : undefined}
-						/>
+							aria-describedby={$page.form?.errors?.name ? 'name-error' : undefined} />
 						{#if $page.form?.errors?.name}
 							<p id="name-error" class="mt-1 text-xs text-destructive">{$page.form.errors.name}</p>
 						{/if}
@@ -147,8 +147,7 @@
 						</label>
 						<div class="flex">
 							<span
-								class="inline-flex items-center rounded-l-md border border-r-0 border-border bg-muted/40 px-3 text-sm text-muted-foreground"
-							>
+								class="inline-flex items-center rounded-l-md border border-r-0 border-border bg-muted/40 px-3 text-sm text-muted-foreground">
 								+91
 							</span>
 							<ScInput
@@ -164,8 +163,9 @@
 								wrapperClass="flex-1"
 								glow={false}
 								aria-invalid={$page.form?.errors?.contactNumber ? 'true' : undefined}
-								aria-describedby={$page.form?.errors?.contactNumber ? 'contact-error' : undefined}
-							/>
+								aria-describedby={$page.form?.errors?.contactNumber
+									? 'contact-error'
+									: undefined} />
 						</div>
 						{#if $page.form?.errors?.contactNumber}
 							<p id="contact-error" class="mt-1 text-xs text-destructive">
@@ -184,10 +184,11 @@
 							required
 							placeholder="your.email@example.com"
 							aria-invalid={$page.form?.errors?.email ? 'true' : undefined}
-							aria-describedby={$page.form?.errors?.email ? 'email-error' : undefined}
-						/>
+							aria-describedby={$page.form?.errors?.email ? 'email-error' : undefined} />
 						{#if $page.form?.errors?.email}
-							<p id="email-error" class="mt-1 text-xs text-destructive">{$page.form.errors.email}</p>
+							<p id="email-error" class="mt-1 text-xs text-destructive">
+								{$page.form.errors.email}
+							</p>
 						{/if}
 					</div>
 
@@ -202,8 +203,9 @@
 							title="Format: WidthxDepth (e.g., 220x220)"
 							placeholder="e.g., 220x220"
 							aria-invalid={$page.form?.errors?.maxPrinterSize ? 'true' : undefined}
-							aria-describedby={$page.form?.errors?.maxPrinterSize ? 'printerSize-error' : undefined}
-						/>
+							aria-describedby={$page.form?.errors?.maxPrinterSize
+								? 'printerSize-error'
+								: undefined} />
 						{#if $page.form?.errors?.maxPrinterSize}
 							<p id="printerSize-error" class="mt-1 text-xs text-destructive">
 								{$page.form.errors.maxPrinterSize}
@@ -219,8 +221,7 @@
 								class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-40"
 								onclick={decrementPrinters}
 								disabled={numPrinters <= 1}
-								aria-label="Decrease printer count"
-							>
+								aria-label="Decrease printer count">
 								<Minus class="size-4" strokeWidth={1.5} />
 							</button>
 							<input
@@ -232,14 +233,14 @@
 								required
 								class="h-10 w-20 rounded-md border border-border bg-card text-center text-sm text-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10"
 								aria-invalid={$page.form?.errors?.numPrinters ? 'true' : undefined}
-								aria-describedby={$page.form?.errors?.numPrinters ? 'numPrinters-error' : undefined}
-							/>
+								aria-describedby={$page.form?.errors?.numPrinters
+									? 'numPrinters-error'
+									: undefined} />
 							<button
 								type="button"
 								class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card text-foreground transition-colors hover:bg-muted"
 								onclick={incrementPrinters}
-								aria-label="Increase printer count"
-							>
+								aria-label="Increase printer count">
 								<Plus class="size-4" strokeWidth={1.5} />
 							</button>
 						</div>
@@ -271,8 +272,7 @@
 					<button
 						type="submit"
 						class="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
-						disabled={submitting}
-					>
+						disabled={submitting}>
 						Submit application
 					</button>
 				</form>

@@ -15,8 +15,11 @@
 			{#each Array(columns) as _, colIndex (colIndex)}
 				<td class="px-4 py-3">
 					<Skeleton
-						class="h-4 rounded-sm {colIndex === 0 ? 'w-24' : colIndex === columns - 1 ? 'w-16' : 'w-20'}"
-					/>
+						class="h-4 rounded-sm {colIndex === 0
+							? 'w-24'
+							: colIndex === columns - 1
+								? 'w-16'
+								: 'w-20'}" />
 				</td>
 			{/each}
 		</tr>

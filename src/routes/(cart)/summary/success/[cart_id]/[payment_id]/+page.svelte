@@ -25,13 +25,11 @@
 				{ label: 'home', href: '/' },
 				{ label: 'checkout', href: '/checkout' },
 				{ label: 'confirmation' }
-			]}
-		/>
+			]} />
 
 		<div class="mt-8 text-center">
 			<div
-				class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-950"
-			>
+				class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-950">
 				<CircleCheck class="size-7 text-green-600 dark:text-green-400" aria-hidden="true" />
 			</div>
 			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Payment successful</h1>
@@ -49,8 +47,7 @@
 							<button
 								type="button"
 								class="inline-flex items-center gap-1.5 font-medium text-foreground transition-colors hover:text-foreground/80"
-								onclick={() => copyToClipboard(page.params.cart_id ?? '', 'Order ID')}
-							>
+								onclick={() => copyToClipboard(page.params.cart_id ?? '', 'Order ID')}>
 								#{page.params.cart_id}
 								<Copy class="size-3.5 text-muted-foreground" aria-hidden="true" />
 							</button>
@@ -63,8 +60,7 @@
 							<button
 								type="button"
 								class="inline-flex items-center gap-1.5 font-medium text-foreground transition-colors hover:text-foreground/80"
-								onclick={() => copyToClipboard(page.params.payment_id ?? '', 'Payment ID')}
-							>
+								onclick={() => copyToClipboard(page.params.payment_id ?? '', 'Payment ID')}>
 								#{page.params.payment_id}
 								<Copy class="size-3.5 text-muted-foreground" aria-hidden="true" />
 							</button>
@@ -92,8 +88,7 @@
 						target="_blank"
 						rel="noopener noreferrer"
 						variant="secondary"
-						class="w-full justify-center"
-					>
+						class="w-full justify-center">
 						<Mail class="mr-2 inline size-4" aria-hidden="true" />
 						Contact support
 					</ScButton>

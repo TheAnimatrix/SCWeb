@@ -75,7 +75,9 @@
 		errorShow = false;
 
 		await tick();
-		document.querySelector('[data-address-item]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		document
+			.querySelector('[data-address-item]')
+			?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
 
 	function handleEditRequest(index: number): boolean {
@@ -201,7 +203,13 @@
 			}
 		}
 
-		if (!finalAddress.name || !finalAddress.line1 || !finalAddress.city || !finalAddress.pincode || !finalAddress.state) {
+		if (
+			!finalAddress.name ||
+			!finalAddress.line1 ||
+			!finalAddress.city ||
+			!finalAddress.pincode ||
+			!finalAddress.state
+		) {
 			showError('Please fill in all required fields.');
 			return false;
 		}
@@ -243,8 +251,7 @@
 			variant="secondary"
 			class="gap-1.5"
 			onclick={addNewAddressEntry}
-			disabled={isLoading || isEditingAny()}
-		>
+			disabled={isLoading || isEditingAny()}>
 			<Plus class="size-3.5" />
 			Add address
 		</ScButton>
@@ -253,15 +260,13 @@
 	{#if errorShow}
 		<div
 			role="alert"
-			class="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-		>
+			class="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
 			<AlertCircle class="mt-0.5 size-4 shrink-0" />
 			<span class="flex-1">{errorMsg}</span>
 			<button
 				onclick={() => (errorShow = false)}
 				class="shrink-0 text-destructive/70 hover:text-destructive"
-				aria-label="Dismiss error"
-			>
+				aria-label="Dismiss error">
 				<X class="size-4" />
 			</button>
 		</div>
@@ -270,7 +275,11 @@
 	{#if addresses.length === 0 && !isLoading}
 		<div class="rounded-md border border-border bg-card px-4 py-8 text-center">
 			<p class="text-sm text-muted-foreground">No addresses saved.</p>
-			<ScButton variant="secondary" class="mt-3" onclick={addNewAddressEntry} disabled={isEditingAny()}>
+			<ScButton
+				variant="secondary"
+				class="mt-3"
+				onclick={addNewAddressEntry}
+				disabled={isEditingAny()}>
 				Add address
 			</ScButton>
 		</div>
@@ -282,11 +291,9 @@
 						{address}
 						isEditing={editing[i]}
 						onEdit={() => handleEditRequest(i)}
-						onSave={async (addrToSave, changed) =>
-							await handleSaveRequest(i, addrToSave, changed)}
+						onSave={async (addrToSave, changed) => await handleSaveRequest(i, addrToSave, changed)}
 						onDelete={() => handleDeleteRequest(i)}
-						onCancel={() => handleCancelEdit(i)}
-					/>
+						onCancel={() => handleCancelEdit(i)} />
 				</div>
 			{/each}
 		</div>
@@ -304,6 +311,5 @@
 		message={`Delete "${addresses[addressIndexToDelete]?.name || 'Unnamed'}"? This cannot be undone.`}
 		confirmText="Delete"
 		onConfirm={confirmDelete}
-		onCancel={() => (addressIndexToDelete = null)}
-	/>
+		onCancel={() => (addressIndexToDelete = null)} />
 {/if}

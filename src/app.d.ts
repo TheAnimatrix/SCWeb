@@ -4,19 +4,19 @@
 /// <reference types="vite-plugin-pwa/svelte" />
 /// <reference types="vite-plugin-pwa/vanillajs" />
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // for information about these interfaces
 declare global {
 	namespace App {
 		interface Locals {
-		  supabase: SupabaseClient<Database>,
-		  supabaseAdmin: SupabaseClient<Database>,
-		  safeGetSession(): Promise<{ session: Session | null, user: User | null }>
-		  clientId: string
+			supabase: SupabaseClient<Database>;
+			supabaseAdmin: SupabaseClient<Database>;
+			safeGetSession(): Promise<{ session: Session | null; user: User | null }>;
+			clientId: string;
 		}
 		interface PageData {
-		  session: Session | null
+			session: Session | null;
 		}
 		// interface Error {}
 		// interface Locals {}

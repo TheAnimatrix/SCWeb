@@ -14,8 +14,7 @@
 <img
 	src={Logo}
 	alt="selfcrafted.in"
-	class={cn('h-8 w-auto', variant === 'light' && 'logo-light', className)}
-/>
+	class={cn('h-8 w-auto', variant === 'light' && 'logo-light', className)} />
 
 <style>
 	.logo-light {

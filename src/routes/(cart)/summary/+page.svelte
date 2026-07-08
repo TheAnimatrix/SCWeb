@@ -5,12 +5,7 @@
 
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-3xl px-4 py-8 md:py-12">
-		<Breadcrumbs
-			items={[
-				{ label: 'home', href: '/' },
-				{ label: 'summary' }
-			]}
-		/>
+		<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'summary' }]} />
 
 		<div class="mt-16 flex flex-col items-center text-center">
 			<p class="text-6xl font-semibold text-muted-foreground">404</p>

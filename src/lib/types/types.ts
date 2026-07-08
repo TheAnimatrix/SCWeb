@@ -1,8 +1,4 @@
-
-
-
-
 export interface CResult<T> {
-    error:boolean,
-    data:T,
+	error: boolean;
+	data: T;
 }

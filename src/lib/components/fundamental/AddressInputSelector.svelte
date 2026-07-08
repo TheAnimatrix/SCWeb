@@ -9,12 +9,7 @@
 	import Mail from '@lucide/svelte/icons/mail';
 	import User from '@lucide/svelte/icons/user';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
-	import {
-		type Address,
-		compareAddress,
-		validateAddress,
-		newAddress
-	} from '$lib/types/product';
+	import { type Address, compareAddress, validateAddress, newAddress } from '$lib/types/product';
 	import { ScInput } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 
@@ -119,10 +114,10 @@
 					if (userExists && addressCount) {
 						showAddressList = !showAddressList;
 					}
-				}}
-			>
+				}}>
 				<MapPin class="size-4 shrink-0 text-foreground" aria-hidden="true" />
-				<span class="text-sm font-medium text-foreground transition-colors group-hover:text-foreground/80">
+				<span
+					class="text-sm font-medium text-foreground transition-colors group-hover:text-foreground/80">
 					Shipping address
 				</span>
 				{#if userExists && addressCount}
@@ -131,8 +126,7 @@
 							'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
 							showAddressList && 'rotate-180'
 						)}
-						aria-hidden="true"
-					/>
+						aria-hidden="true" />
 				{/if}
 			</button>
 
@@ -146,8 +140,7 @@
 				type="button"
 				class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 				onclick={toggleType}
-				aria-label={type === 'text' ? 'Edit address' : 'Save address'}
-			>
+				aria-label={type === 'text' ? 'Edit address' : 'Save address'}>
 				{#if type === 'text'}
 					<Pencil class="size-4" />
 				{:else}
@@ -159,8 +152,7 @@
 				type="button"
 				class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 				onclick={onDeleteLocal}
-				aria-label={type === 'edit' && address.id ? 'Cancel edit' : 'Delete address'}
-			>
+				aria-label={type === 'edit' && address.id ? 'Cancel edit' : 'Delete address'}>
 				{#if type === 'edit' && address.id}
 					<X class="size-4" />
 				{:else}
@@ -184,7 +176,8 @@
 								<p class="text-muted-foreground">{address.line2}</p>
 							{/if}
 							<p>
-								{address.city || 'City'} – {address.pincode || 'Pincode'}, {address.state || 'State'}
+								{address.city || 'City'} – {address.pincode || 'Pincode'}, {address.state ||
+									'State'}
 							</p>
 						</div>
 					</div>
@@ -211,8 +204,7 @@
 						{labelClass}
 						icon={User}
 						placeholder="Enter your full name"
-						bind:value={address.name}
-					/>
+						bind:value={address.name} />
 
 					<ScInput
 						id="address-line1"
@@ -220,16 +212,14 @@
 						{labelClass}
 						icon={MapPin}
 						placeholder="Street address"
-						bind:value={address.line1}
-					/>
+						bind:value={address.line1} />
 
 					<ScInput
 						id="address-line2"
 						label="Address line 2"
 						{labelClass}
 						placeholder="Apartment, suite, unit, etc."
-						bind:value={address.line2}
-					/>
+						bind:value={address.line2} />
 
 					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 						<ScInput
@@ -237,22 +227,19 @@
 							label="City"
 							{labelClass}
 							placeholder="City"
-							bind:value={address.city}
-						/>
+							bind:value={address.city} />
 						<ScInput
 							id="address-pincode"
 							label="Pincode"
 							{labelClass}
 							placeholder="Pincode / ZIP"
-							bind:value={address.pincode}
-						/>
+							bind:value={address.pincode} />
 						<ScInput
 							id="address-state"
 							label="State"
 							{labelClass}
 							placeholder="State"
-							bind:value={address.state}
-						/>
+							bind:value={address.state} />
 					</div>
 
 					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -264,8 +251,7 @@
 							icon={Phone}
 							prefix="+91"
 							placeholder="Phone number"
-							bind:value={address.phone}
-						/>
+							bind:value={address.phone} />
 
 						{#if !email}
 							<ScInput
@@ -275,8 +261,7 @@
 								{labelClass}
 								icon={Mail}
 								placeholder="Email address"
-								bind:value={address.email}
-							/>
+								bind:value={address.email} />
 						{/if}
 					</div>
 				</div>
@@ -292,8 +277,7 @@
 							showAddressList = false;
 							addressValid = true;
 							type = 'text';
-						}}
-					>
+						}}>
 						<p class="font-medium text-foreground">{addrItem.name || ''}</p>
 						<p class="mt-1 text-muted-foreground">{addrItem.line1 || ''}</p>
 						{#if addrItem.line2}
@@ -305,7 +289,9 @@
 						{#if addrItem.phone}
 							<p class="mt-2 flex items-center gap-1.5 text-muted-foreground">
 								<Phone class="size-3.5" aria-hidden="true" />
-								+91 {addrItem.phone.startsWith('+91') ? addrItem.phone.substring(3) : addrItem.phone}
+								+91 {addrItem.phone.startsWith('+91')
+									? addrItem.phone.substring(3)
+									: addrItem.phone}
 							</p>
 						{/if}
 					</button>

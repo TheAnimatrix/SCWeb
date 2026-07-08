@@ -44,10 +44,14 @@ export function createLogger(c: Context<{ Variables: AppVariables }>) {
 	}
 
 	return {
-		debug: (message: string, fields: LogFields = {}) => writeLog('debug', message, { ...base, ...fields }),
-		info: (message: string, fields: LogFields = {}) => writeLog('info', message, { ...base, ...fields }),
-		warn: (message: string, fields: LogFields = {}) => writeLog('warn', message, { ...base, ...fields }),
-		error: (message: string, fields: LogFields = {}) => writeLog('error', message, { ...base, ...fields })
+		debug: (message: string, fields: LogFields = {}) =>
+			writeLog('debug', message, { ...base, ...fields }),
+		info: (message: string, fields: LogFields = {}) =>
+			writeLog('info', message, { ...base, ...fields }),
+		warn: (message: string, fields: LogFields = {}) =>
+			writeLog('warn', message, { ...base, ...fields }),
+		error: (message: string, fields: LogFields = {}) =>
+			writeLog('error', message, { ...base, ...fields })
 	};
 }
 

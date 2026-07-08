@@ -11,9 +11,7 @@ export function buildSpecSheet(product: Product): Record<string, string> {
 }
 
 export function isOpenHardware(product: Product): boolean {
-	return (
-		product.tags?.some((tag) => /open[\s-]?hardware/i.test(tag.tag)) ?? false
-	);
+	return product.tags?.some((tag) => /open[\s-]?hardware/i.test(tag.tag)) ?? false;
 }
 
 export function imageFilename(url: string | undefined): string {

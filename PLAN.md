@@ -30,14 +30,14 @@ this file is the order of operations.
 
 1. **Don't fix things twice.** Anything that dies naturally with the Hono + Drizzle
    migration (RPC quirks, Edge Function CORS, browser-side mutations) gets a hotfix
-   now *only if it's exploitable or user-facing today*. Everything else is fixed once,
+   now _only if it's exploitable or user-facing today_. Everything else is fixed once,
    in its migrated home.
 2. **Money paths first.** Checkout and print-request payments are where correctness
    bugs cost real money. They migrate first and get the deepest tests.
 3. **Correct by construction over correct by patch.** Prefer schema constraints
    (unique indexes, CHECKs, state machines) and single-statement/transactional SQL
    over application-level guards. Bugs like duplicate carts, negative quantities,
-   and oversell should become *impossible*, not just handled.
+   and oversell should become _impossible_, not just handled.
 4. **The frontend becomes thin.** SvelteKit renders and calls a typed API client.
    No business mutation lives in `+server.ts`, `+page.server.ts` side effects, or
    browser Supabase calls when the migration is done.
@@ -50,6 +50,7 @@ Live vulnerabilities and user-facing breakage. Small, surgical patches to existi
 code — all of this gets rebuilt properly in Phases 2–3, but none of it can wait.
 
 ### Security hotfixes (P0)
+
 - [ ] Verify Razorpay signatures before marking anything paid.
       HMAC-SHA256 over `order_id|payment_id` with the key secret, constant-time compare.
       Files: `src/routes/(cart)/checkout/createOrder/+server.ts` (PATCH),
@@ -71,6 +72,7 @@ code — all of this gets rebuilt properly in Phases 2–3, but none of it can w
       explicit ownership checks). Rename so the dangerous one looks dangerous.
 
 ### Cart UI bugs (from the 2026-07-08 review)
+
 - [ ] `isUpdatingCart` deadlock: early `return` after setting the flag but before
       `try/finally` in `updateCartQuantity` and `removeItem` permanently disables
       all cart buttons. File: `src/routes/(cart)/cart/+page.svelte` (~L95, ~L157).
@@ -83,6 +85,7 @@ code — all of this gets rebuilt properly in Phases 2–3, but none of it can w
       the stock-limit message is never shown there).
 
 ### Quality gates (prerequisite for validating everything after)
+
 - [ ] `npm run build` passes (missing `PUBLIC_RAZORPAY_ID` env export et al.).
 - [ ] `npm run check` passes (34 errors / 82 warnings currently).
 - [ ] `npm run lint` passes (Prettier: 154 files) and becomes a CI gate.
@@ -107,15 +110,9 @@ Nothing user-visible moves yet; this phase makes migration slices cheap.
       current tables; from here on `drizzle-kit` migrations are the source of
       truth for schema changes.
 - [ ] Hono app skeleton with cross-cutting middleware, so every migrated route
-      inherits it for free:
-      - identity: verify Supabase JWT → user id, else signed `clientId` cookie →
-        anonymous actor (treat `clientId` as a cart hint, not identity)
-      - zod request validation (kills the manual `FormData`/`any` checks)
-      - structured logging (route, request id, user id when safe, order/payment ids)
-      - error monitoring hook
-      - rate limiting baseline (tightened per-endpoint in later phases)
-      - CSRF strategy for state-changing routes (cookie identity ⇒ CSRF token or
-        strict same-site + origin checks)
+      inherits it for free: - identity: verify Supabase JWT → user id, else signed `clientId` cookie →
+      anonymous actor (treat `clientId` as a cart hint, not identity) - zod request validation (kills the manual `FormData`/`any` checks) - structured logging (route, request id, user id when safe, order/payment ids) - error monitoring hook - rate limiting baseline (tightened per-endpoint in later phases) - CSRF strategy for state-changing routes (cookie identity ⇒ CSRF token or
+      strict same-site + origin checks)
 - [ ] Typed API client in `packages/shared` (Hono RPC client or generated types) —
       the only way `apps/web` talks to the API.
 - [ ] Centralize status strings as typed constants/enums in `packages/shared`
@@ -130,6 +127,7 @@ The money path. Replaces the client-side Supabase-RPC cart entirely; the bug lis
 from the cart review dies here by design, not by patching.
 
 ### Schema (Drizzle migrations)
+
 - [ ] `carts`: `id, user_id, client_id, status, created_at, updated_at`.
       Partial unique indexes — `(user_id) WHERE status='active'` and
       `(client_id) WHERE status='active' AND user_id IS NULL` — make duplicate
@@ -152,6 +150,7 @@ from the cart review dies here by design, not by patching.
 - [ ] Backfill: migrate active carts from `cart.list` jsonb into the new tables.
 
 ### API (Hono)
+
 - [ ] `GET /cart` — cart + live-priced items joined with product name/image/stock +
       server-computed totals. **Never creates rows.**
 - [ ] `PUT /cart/items/:productId { qty, mode: 'set' | 'add' }` — one endpoint for
@@ -177,6 +176,7 @@ from the cart review dies here by design, not by patching.
       needs, server-side.
 
 ### Frontend (SvelteKit)
+
 - [ ] Replace `src/lib/client/cart.ts` with a thin `cartApi` module + one cart
       store fed only by API responses; optimistic item-count update with rollback.
 - [ ] Cart page drops `productDetailsCache` / per-row `getItemDetails` — the API
@@ -186,6 +186,7 @@ from the cart review dies here by design, not by patching.
 - [ ] Call `POST /cart/merge` after successful login.
 
 ### Cleanup + tests
+
 - [ ] Drop `get_cart_by_uid` / `update_cart_by_id` RPCs, the jsonb `list` column,
       and the browser-side cart insert path.
 - [ ] Checkout/payment unit tests: invalid cart id, cart not owned by caller,
@@ -202,13 +203,9 @@ Same treatment as checkout; retires the Edge Functions.
 - [ ] Move upload/download from Supabase Edge Functions into Hono, then delete
       `supabase/functions/upload-model-request.ts` and `download-model-request.ts`.
       In the move (not before — CORS `*`, extension-only validation etc. die with
-      the functions):
-      - download authorizes by `printrequest_id` → row → `user_id`/`creator_id`
-        check → signed URL for *that row's* path (never a user-supplied path)
-      - upload: random storage keys, size limit, basic STL structure validation,
-        sanitized metadata, `upsert: false`, private bucket
-      - quota enforced in a transaction / unique-constraint table (race-safe)
-      - rate limits + logging of user id/IP/UA; malware/abuse controls
+      the functions): - download authorizes by `printrequest_id` → row → `user_id`/`creator_id`
+      check → signed URL for _that row's_ path (never a user-supplied path) - upload: random storage keys, size limit, basic STL structure validation,
+      sanitized metadata, `upsert: false`, private bucket - quota enforced in a transaction / unique-constraint table (race-safe) - rate limits + logging of user id/IP/UA; malware/abuse controls
 - [ ] Print-request payment flow gets the Phase 2 payment pattern: server-owned
       amounts (never trust client `amount` or event history), signature
       verification, idempotency, state machine

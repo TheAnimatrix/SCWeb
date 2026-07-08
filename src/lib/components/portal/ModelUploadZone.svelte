@@ -38,17 +38,17 @@
 				: 'border-border bg-card hover:border-foreground/30 hover:bg-muted/30',
 		className
 	)}
-	ondragover={ondragover}
-	ondragleave={ondragleave}
-	ondrop={ondrop}
-	onclick={onbrowse}
->
+	{ondragover}
+	{ondragleave}
+	{ondrop}
+	onclick={onbrowse}>
 	<div
 		class={cn(
 			'mb-3 flex size-12 items-center justify-center rounded-full border transition-colors',
-			dragActive ? 'border-foreground bg-foreground text-background' : 'border-border bg-muted/50 text-muted-foreground group-hover:border-foreground/30'
-		)}
-	>
+			dragActive
+				? 'border-foreground bg-foreground text-background'
+				: 'border-border bg-muted/50 text-muted-foreground group-hover:border-foreground/30'
+		)}>
 		<Upload class="size-5" strokeWidth={1.5} />
 	</div>
 
@@ -62,10 +62,13 @@
 			</p>
 		{:else}
 			<p class="text-xs text-muted-foreground">
-				Drag & drop your STL here, or <span class="underline decoration-border underline-offset-2">browse files</span>
+				Drag & drop your STL here, or <span class="underline decoration-border underline-offset-2"
+					>browse files</span>
 			</p>
 		{/if}
-		<p class="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">STL · max 50MB</p>
+		<p class="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+			STL · max 50MB
+		</p>
 	</div>
 
 	<input type="file" id="fileInput" accept=".stl" onchange={onfilechange} class="hidden" />

@@ -5,7 +5,7 @@
 
 import type { CResult } from '$lib/types/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {  writable, type Writable } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
 
 //create cart type { cart_id((if signed in)/(if signed out store in localstorage)), cart_list:{product_id, quantity}[], cart_purchased }
 export interface Cart {

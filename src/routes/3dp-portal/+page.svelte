@@ -153,7 +153,10 @@
 
 	const readinessItems = $derived([
 		{ label: 'Upload an STL model', done: modelLoaded },
-		{ label: 'Set material, quality & strength', done: Boolean(selectedMaterial && selectedQuality) },
+		{
+			label: 'Set material, quality & strength',
+			done: Boolean(selectedMaterial && selectedQuality)
+		},
 		{ label: 'Choose a maker and filament color below', done: false }
 	]);
 
@@ -329,8 +332,8 @@
 		} else return false;
 	}
 
-	let requestsLeft : number | null = $state(null);
-	let quoteDailyLimit : number | null = $state(null);
+	let requestsLeft: number | null = $state(null);
+	let quoteDailyLimit: number | null = $state(null);
 	let loadingRequests = $state(true);
 
 	async function fetchQuoteRequestStats() {
@@ -376,7 +379,7 @@
 		loading = true;
 		if (onProgress) onProgress(0);
 		const { data: userRes, error: userErr } = await data.supabase_lt.auth.getSession();
-		if(userErr || !userRes?.session?.access_token) {
+		if (userErr || !userRes?.session?.access_token) {
 			toastStore.show('You must be logged in to request a quote', 'error');
 			loading = false;
 			if (onProgress) onProgress(null);
@@ -390,7 +393,7 @@
 			if (onProgress) onProgress(null);
 			return;
 		}
-		
+
 		const jwt = userRes.session.access_token;
 
 		// Build FormData for edge function
@@ -407,7 +410,10 @@
 		try {
 			// Use XMLHttpRequest for upload progress
 			const xhr = new XMLHttpRequest();
-			xhr.open('POST', 'https://pfeewicqoxkuwnbuxnoz.supabase.co/functions/v1/upload-model-request');
+			xhr.open(
+				'POST',
+				'https://pfeewicqoxkuwnbuxnoz.supabase.co/functions/v1/upload-model-request'
+			);
 			xhr.setRequestHeader('Authorization', `Bearer ${jwt}`);
 			xhr.upload.onprogress = (event) => {
 				if (event.lengthComputable && onProgress) {
@@ -415,10 +421,14 @@
 					onProgress(percent);
 				}
 			};
-			const promise = new Promise<{ok: boolean, json: any}>((resolve, reject) => {
+			const promise = new Promise<{ ok: boolean; json: any }>((resolve, reject) => {
 				xhr.onload = () => {
 					let json;
-					try { json = JSON.parse(xhr.responseText); } catch { json = {}; }
+					try {
+						json = JSON.parse(xhr.responseText);
+					} catch {
+						json = {};
+					}
 					resolve({ ok: xhr.status >= 200 && xhr.status < 300, json });
 				};
 				xhr.onerror = () => reject(new Error('Network error'));
@@ -505,8 +515,7 @@
 						);
 						modelFile = null;
 						modelLoaded = false;
-					}}
-				/>
+					}} />
 			</div>
 
 			<div class="flex min-h-0 flex-col md:col-span-5">
@@ -525,8 +534,7 @@
 						strengthLabel={strengthLevels[sliderPosition].label}
 						{infill}
 						color={selectedColor}
-						class="mb-5"
-					/>
+						class="mb-5" />
 
 					<div class="mb-5">
 						<PortalSectionLabel label="material" />
@@ -537,8 +545,7 @@
 									onclick={() => {
 										selectedMaterial = material;
 										selectedColor = DEFAULT_FILAMENT_COLOR;
-									}}
-								>
+									}}>
 									{material}
 								</ParameterChip>
 							{/each}
@@ -551,8 +558,7 @@
 							{#each qualities as quality}
 								<ParameterChip
 									selected={selectedQuality === quality}
-									onclick={() => (selectedQuality = quality)}
-								>
+									onclick={() => (selectedQuality = quality)}>
 									{quality.split(' ')[0]}
 								</ParameterChip>
 							{/each}
@@ -572,8 +578,7 @@
 												? 'border-black bg-black text-white'
 												: 'border-border text-muted-foreground hover:border-foreground/30'
 										)}
-										onclick={() => (scale = preset)}
-									>
+										onclick={() => (scale = preset)}>
 										{preset}x
 									</button>
 								{/each}
@@ -586,8 +591,7 @@
 							step="0.05"
 							bind:value={scale}
 							oninput={() => modelViewer?.notifySliderMoving?.()}
-							class="portal-range w-full"
-						/>
+							class="portal-range w-full" />
 					</div>
 
 					<div>
@@ -607,11 +611,9 @@
 								updateInfillFromSlider();
 								modelViewer?.notifySliderMoving?.();
 							}}
-							class="portal-range w-full"
-						/>
+							class="portal-range w-full" />
 						<div
-							class="pointer-events-none mt-2 flex justify-between text-[11px] text-muted-foreground"
-						>
+							class="pointer-events-none mt-2 flex justify-between text-[11px] text-muted-foreground">
 							{#each strengthLevels as level}
 								<span class="truncate px-0.5">{level.label}</span>
 							{/each}
@@ -633,8 +635,7 @@
 				{scale}
 				{infill}
 				{walls}
-				requestQuoteCompleter={requestQuoteCompleter}
-			/>
+				{requestQuoteCompleter} />
 
 			<PortalCard>
 				<div class="mb-4 flex items-center gap-2">
@@ -645,24 +646,21 @@
 				<Accordion.Root class="w-full" type="multiple">
 					<Accordion.Item value="disclaimer" class="border-b border-border pb-1">
 						<Accordion.Trigger
-							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80"
-						>
+							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80">
 							Disclaimer
 						</Accordion.Trigger>
 						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
 							<p>
-								If you choose to communicate with a crafter and decide to place an order outside
-								of this platform, please be aware that you assume full responsibility for that
-								order. Any ratings or reviews related to such transactions will also not be
-								considered.
+								If you choose to communicate with a crafter and decide to place an order outside of
+								this platform, please be aware that you assume full responsibility for that order.
+								Any ratings or reviews related to such transactions will also not be considered.
 							</p>
 						</Accordion.Content>
 					</Accordion.Item>
 
 					<Accordion.Item value="supports" class="border-b border-border pb-1">
 						<Accordion.Trigger
-							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80"
-						>
+							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80">
 							How about customization?
 						</Accordion.Trigger>
 						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
@@ -677,8 +675,7 @@
 
 					<Accordion.Item value="3mf" class="border-0 pb-1">
 						<Accordion.Trigger
-							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80"
-						>
+							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80">
 							Why don't you support 3MF?
 						</Accordion.Trigger>
 						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
@@ -718,9 +715,7 @@
 							{#await data.supabase_lt.auth.getUser() then user}
 								<div class="flex flex-wrap items-center justify-between gap-3">
 									{#if !user.data.user}
-										<span class="text-xs text-muted-foreground">
-											Sign in to apply
-										</span>
+										<span class="text-xs text-muted-foreground"> Sign in to apply </span>
 									{:else}
 										<span></span>
 									{/if}
@@ -729,8 +724,7 @@
 											const isLoggedIn = data.session?.user.id;
 											if (!isLoggedIn) goto('/user/sign?postLogin=/3dp-portal/maker');
 											else goto('/3dp-portal/maker');
-										}}
-									>
+										}}>
 										I want to be part of Fabbly!
 									</ScButton>
 								</div>

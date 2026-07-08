@@ -13,5 +13,5 @@
 <div
 	class={cn(animate ? 'sc-stripes-animate' : 'sc-stripes', className)}
 	aria-hidden="true"
-	{...restProps}
-></div>
+	{...restProps}>
+</div>

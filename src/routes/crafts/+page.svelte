@@ -26,9 +26,7 @@
 
 	let mobileFiltersOpen = $state(false);
 
-	const isRefreshing = $derived(
-		page.url.pathname.startsWith('/crafts') && !!navigating.to
-	);
+	const isRefreshing = $derived(page.url.pathname.startsWith('/crafts') && !!navigating.to);
 
 	const sortOptions: { value: BrowseSort; label: string }[] = [
 		{ value: 'newest', label: 'newest' },
@@ -137,12 +135,7 @@
 
 <div class="min-h-screen w-full bg-background text-foreground">
 	<div class="mx-auto w-full max-w-7xl px-4 py-8 md:py-12">
-		<Breadcrumbs
-			items={[
-				{ label: 'home', href: '/' },
-				{ label: 'crafts' }
-			]}
-		/>
+		<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'crafts' }]} />
 
 		<div class="mt-6 flex flex-col gap-6">
 			<SearchBar value={data.filters.q} onsearch={handleSearch} class="w-full max-w-xl" />
@@ -162,14 +155,12 @@
 				</div>
 
 				<label
-					class="flex w-full items-center gap-2 font-mono text-xs text-muted-foreground sm:w-auto"
-				>
+					class="flex w-full items-center gap-2 font-mono text-xs text-muted-foreground sm:w-auto">
 					<span>sort</span>
 					<select
 						value={data.filters.sort}
 						onchange={handleSortChange}
-						class="h-9 w-full rounded-md border border-border bg-card px-3 font-mono text-sm text-foreground focus:border-foreground/30 focus:outline-none sm:w-auto"
-					>
+						class="h-9 w-full rounded-md border border-border bg-card px-3 font-mono text-sm text-foreground focus:border-foreground/30 focus:outline-none sm:w-auto">
 						{#each sortOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}
@@ -186,8 +177,7 @@
 						<button
 							type="button"
 							onclick={() => navigate(chip.patch)}
-							class="inline-flex items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1 font-mono text-xs text-background transition-colors hover:bg-foreground/90"
-						>
+							class="inline-flex items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1 font-mono text-xs text-background transition-colors hover:bg-foreground/90">
 							{chip.label}
 							<X class="size-3 shrink-0" aria-hidden="true" />
 							<span class="sr-only">Remove {chip.label} filter</span>
@@ -196,8 +186,7 @@
 					<button
 						type="button"
 						onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
-						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-					>
+						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
 						clear_all →
 					</button>
 				</div>
@@ -207,8 +196,7 @@
 				<button
 					type="button"
 					onclick={() => (mobileFiltersOpen = true)}
-					class="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 font-mono text-xs text-foreground transition-colors hover:border-foreground/30"
-				>
+					class="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 font-mono text-xs text-foreground transition-colors hover:border-foreground/30">
 					<SlidersHorizontal class="size-3.5" aria-hidden="true" />
 					filters
 				</button>
@@ -216,8 +204,7 @@
 					<button
 						type="button"
 						onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
-						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-					>
+						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
 						clear_filters →
 					</button>
 				{/if}
@@ -230,16 +217,14 @@
 					tagGroups={data.tagGroups}
 					standaloneTags={data.standaloneTags}
 					onchange={navigate}
-					class="hidden md:sticky md:top-[5.25rem] md:flex md:self-start"
-				/>
+					class="hidden md:sticky md:top-[5.25rem] md:flex md:self-start" />
 
 				<div class="min-w-0">
 					{#if isRefreshing}
 						<div
 							class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4"
 							aria-busy="true"
-							aria-label="Loading crafts"
-						>
+							aria-label="Loading crafts">
 							{#each Array(6) as _, i (i)}
 								<ProductCardSkeleton />
 							{/each}
@@ -255,12 +240,10 @@
 							currentPage={data.currentPage}
 							totalPages={data.totalPages}
 							{hrefForPage}
-							class="mt-10 justify-center"
-						/>
+							class="mt-10 justify-center" />
 					{:else}
 						<div
-							class="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center"
-						>
+							class="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center">
 							<p class="font-mono text-sm text-muted-foreground">no_results</p>
 							<p class="mt-2 max-w-md text-sm text-foreground">
 								No creations match your filters. Try adjusting search or clearing filters.
@@ -269,8 +252,7 @@
 								<button
 									type="button"
 									onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
-									class="mt-4 font-mono text-xs text-foreground underline-offset-4 hover:underline"
-								>
+									class="mt-4 font-mono text-xs text-foreground underline-offset-4 hover:underline">
 									clear_filters →
 								</button>
 							{/if}
@@ -288,25 +270,20 @@
 			type="button"
 			class="absolute inset-0 bg-black/40"
 			aria-label="Close filters"
-			onclick={() => (mobileFiltersOpen = false)}
-		></button>
+			onclick={() => (mobileFiltersOpen = false)}></button>
 
 		<div
 			class="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-xl border-t border-border bg-background shadow-2xl"
 			role="dialog"
 			aria-modal="true"
-			aria-label="Filters"
-		>
-			<div
-				class="flex items-center justify-between border-b border-border px-4 py-3"
-			>
+			aria-label="Filters">
+			<div class="flex items-center justify-between border-b border-border px-4 py-3">
 				<p class="font-mono text-sm text-foreground">// filters</p>
 				<button
 					type="button"
 					class="inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
 					aria-label="Close filters"
-					onclick={() => (mobileFiltersOpen = false)}
-				>
+					onclick={() => (mobileFiltersOpen = false)}>
 					<X class="size-4" />
 				</button>
 			</div>
@@ -317,8 +294,7 @@
 					categoryCounts={data.categoryCounts}
 					tagGroups={data.tagGroups}
 					standaloneTags={data.standaloneTags}
-					onchange={navigate}
-				/>
+					onchange={navigate} />
 			</div>
 		</div>
 	</div>

@@ -28,14 +28,15 @@
 				{ label: 'home', href: '/' },
 				{ label: 'profile', href: '/user/profile/account' },
 				{ label: activeLabel }
-			]}
-		/>
+			]} />
 
 		<div class="mt-4 flex items-baseline justify-between gap-4">
 			<h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
 		</div>
 
-		<nav aria-label="Profile sections" class="mt-4 flex gap-1 overflow-x-auto border-b border-border">
+		<nav
+			aria-label="Profile sections"
+			class="mt-4 flex gap-1 overflow-x-auto border-b border-border">
 			{#each navItems as { href, label } (href)}
 				<a
 					{href}
@@ -44,8 +45,7 @@
 						activePath === href
 							? 'border-foreground text-foreground'
 							: 'border-transparent text-muted-foreground hover:text-foreground'
-					)}
-				>
+					)}>
 					{label}
 				</a>
 			{/each}

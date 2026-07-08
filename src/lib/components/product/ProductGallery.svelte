@@ -36,11 +36,7 @@
 		<div class="relative aspect-[4/3] overflow-hidden">
 			{#key indicatorCur}
 				<div class="absolute inset-0" in:fade={getTabFadeIn()} out:fade={getTabFadeOut()}>
-					<PlaceholderImage
-						src={currentImage}
-						alt={product.name}
-						loading="eager"
-					/>
+					<PlaceholderImage src={currentImage} alt={product.name} loading="eager" />
 				</div>
 			{/key}
 
@@ -66,12 +62,8 @@
 							? 'border-foreground'
 							: 'border-border hover:border-foreground/30'
 					)}
-					onclick={() => selectImage(index)}
-				>
-					<PlaceholderImage
-						src={image.url}
-						alt="{product.name} thumbnail {index + 1}"
-					/>
+					onclick={() => selectImage(index)}>
+					<PlaceholderImage src={image.url} alt="{product.name} thumbnail {index + 1}" />
 				</button>
 			{/each}
 		</div>
