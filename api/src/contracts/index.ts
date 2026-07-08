@@ -1,7 +1,32 @@
 export {
 	CART_ORDER_STATUS,
+	DELIVERY_FLAT_FEE,
 	cartItemSchema,
+	cartItemViewSchema,
+	cartViewSchema,
+	getCartResponseSchema,
+	insufficientStockErrorSchema,
+	mergeCartBodySchema,
+	mergeCartResponseSchema,
+	upsertCartItemBodySchema,
 	type CartItemInput,
-	type CartOrderStatus
+	type CartItemView,
+	type CartOrderStatus,
+	type CartView,
+	type GetCartResponse,
+	type InsufficientStockError,
+	type MergeCartBody,
+	type MergeCartResponse,
+	type UpsertCartItemBody
 } from './cart.js';
 export { rupeesToPaise } from './money.js';
+export {
+	ON_DEMAND_PURCHASE_LIMIT,
+	canFulfillQuantity,
+	getPurchasableLimit,
+	isOnDemand,
+	isOutOfStock,
+	isPurchasable,
+	parseProductStock,
+	type ProductStock
+} from './stock.js';
