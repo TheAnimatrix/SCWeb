@@ -4,12 +4,15 @@
 /// <reference types="vite-plugin-pwa/svelte" />
 /// <reference types="vite-plugin-pwa/vanillajs" />
 
+import type { Session, User } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../supabase/types';
 
 // for information about these interfaces
 declare global {
 	interface RazorpayInstance {
 		open(): void;
+		close(): void;
 		on(event: string, handler: (response: unknown) => void): void;
 	}
 

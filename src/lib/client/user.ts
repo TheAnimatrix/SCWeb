@@ -13,7 +13,7 @@ export async function checkUser(
 	/**
 	 * If the Supabase client is invalid, return false.
 	 */
-	if (!supabase) return Promise.resolve(false);
+	if (!supabase) return Promise.resolve({ error: true, data: 'Supabase client unavailable' });
 
 	/**
 	 * Get the current session from Supabase using `getSession()`.

@@ -39,6 +39,33 @@ export const newAddress = (): Address => {
 	return {};
 };
 
+function optionalString(value: unknown): string | undefined {
+	return value != null ? String(value) : undefined;
+}
+
+export function asAddress(value: unknown): Address {
+	if (!value || typeof value !== 'object') return {};
+
+	const record = value as Record<string, unknown>;
+	return {
+		name: optionalString(record.name),
+		line1: optionalString(record.line1),
+		line2: optionalString(record.line2),
+		city: optionalString(record.city),
+		pincode: optionalString(record.pincode),
+		state: optionalString(record.state),
+		phone: optionalString(record.phone),
+		id: optionalString(record.id),
+		created_at: optionalString(record.created_at),
+		email: optionalString(record.email)
+	};
+}
+
+export function asAddressList(values: unknown): Address[] {
+	if (!Array.isArray(values)) return [];
+	return values.map(asAddress);
+}
+
 export interface Order {
 	created_at: string;
 	payment_status: string;

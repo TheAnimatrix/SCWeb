@@ -1,4 +1,18 @@
+import type { Json } from '../../../supabase/types';
+
 export type ProductStock = { count: number; status?: string | null };
+
+export function parseProductStock(value: Json | null | undefined): ProductStock {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		return { count: 0, status: null };
+	}
+
+	const record = value as Record<string, unknown>;
+	return {
+		count: Number(record.count ?? 0),
+		status: record.status != null ? String(record.status) : null
+	};
+}
 
 const ON_DEMAND_PATTERN = /on[\s-]?demand/i;
 
