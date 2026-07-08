@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783505201374,
+      "tag": "0001_cart_checkout_tables",
+      "breakpoints": true
+    }
+  ]
+}
