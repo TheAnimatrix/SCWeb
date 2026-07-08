@@ -8,12 +8,11 @@ import { chat } from '../db/schema/chat.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import type { Actor } from '../types/context.js';
 import type { PrintRequestEvent } from './print-payments.js';
+import { recalculateCreatorStats } from './creator-stats.js';
 import {
 	ACTION_TRANSITIONS,
 	appendEvent,
 	canTransition,
-	isMakerAction,
-	isUserAction,
 	normalizePrintRequestEvents,
 	type PrintRequestAction
 } from './print-requests.js';
@@ -94,8 +93,9 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 			}
 
 			const action = body.action as PrintRequestAction;
+			let statsMakerId: string | null = null;
 
-			return db.transaction(async (tx) => {
+			const result = await db.transaction(async (tx): Promise<PrintRequestActionResult> => {
 				const [row] = await tx
 					.select()
 					.from(printrequests)
@@ -112,11 +112,14 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 					return { ok: false, status: 403, body: { error: 'forbidden' } };
 				}
 
-				if (isMakerAction(action) && role !== 'maker') {
+				if (
+					(action === 'quote' || action === 'decline' || action === 'shipped') &&
+					role !== 'maker'
+				) {
 					return { ok: false, status: 403, body: { error: 'forbidden' } };
 				}
 
-				if (isUserAction(action) && role !== 'user') {
+				if (action === 'complete' && role !== 'user') {
 					return { ok: false, status: 403, body: { error: 'forbidden' } };
 				}
 
@@ -228,6 +231,7 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 							message: JSON.stringify({ action: 'completed', reason }),
 							messageType: 'action'
 						});
+						statsMakerId = creatorId;
 						break;
 					}
 					default:
@@ -252,6 +256,19 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 					}
 				};
 			});
+
+			if (result.ok && action === 'complete' && statsMakerId) {
+				try {
+					await recalculateCreatorStats(db, statsMakerId);
+				} catch (error) {
+					console.error(
+						`[creator-stats] Failed to recalculate stats for maker ${statsMakerId} after completing print request ${printRequestId}:`,
+						error
+					);
+				}
+			}
+
+			return result;
 		}
 	};
 }

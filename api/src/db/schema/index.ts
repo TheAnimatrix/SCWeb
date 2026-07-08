@@ -1,6 +1,8 @@
 // Prefer `npm run db:pull -w @scweb/api` when POSTGRES_URL is reachable.
 // Hand-written fallback mirrors supabase/types.ts and src/lib/types/product.ts.
 
+export { creatorReviews } from './creatorReviews.js';
+export { creatorStats } from './creatorStats.js';
 export { chat } from './chat.js';
 export { cart } from './cart.js';
 export { cartItems } from './cartItems.js';

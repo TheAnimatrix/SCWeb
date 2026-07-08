@@ -15,10 +15,10 @@ export type MakerAction = 'quote' | 'decline' | 'shipped';
 export type UserAction = 'cancel' | 'complete';
 export type PrintRequestAction = MakerAction | UserAction | 'cancel';
 
-const MAKER_ACTIONS = new Set<PrintRequestAction>(['quote', 'decline', 'shipped', 'cancel']);
+const MAKER_ACTIONS = new Set<PrintRequestAction>(['quote', 'decline', 'shipped']);
 const USER_ACTIONS = new Set<PrintRequestAction>(['cancel', 'complete']);
 
-export function isMakerAction(action: PrintRequestAction): action is MakerAction | 'cancel' {
+export function isMakerAction(action: PrintRequestAction): action is MakerAction {
 	return MAKER_ACTIONS.has(action);
 }
 
@@ -45,7 +45,7 @@ export const ACTION_TRANSITIONS: Record<PrintRequestAction, TransitionRule> = {
 		to: 'cancelled'
 	},
 	shipped: {
-		from: ['paid'],
+		from: ['paid', 'paid_externally'],
 		to: 'shipped'
 	},
 	complete: {

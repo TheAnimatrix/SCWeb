@@ -276,7 +276,7 @@
 			payload: { reason: cancelReason.trim() }
 		});
 		if (!result.ok) {
-			console.error('Error updating order', result.error);
+			toastStore.show(result.error.message, 'error');
 			return;
 		}
 		// 3. Close dialog and clear reason
@@ -374,7 +374,7 @@
 			payload: completeReason.trim() ? { reason: completeReason.trim() } : {}
 		});
 		if (!result.ok) {
-			console.error('Error updating order', result.error);
+			toastStore.show(result.error.message, 'error');
 			return;
 		}
 		completeDialogOpen = false;
