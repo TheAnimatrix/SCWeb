@@ -9,24 +9,42 @@ import { loggingMiddleware } from './middleware/logging.js';
 import { rateLimitMiddleware } from './middleware/rate-limit.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
 import { cartRoutes } from './routes/cart.js';
+import { checkoutRoutes } from './routes/checkout.js';
 import { healthRoutes } from './routes/health.js';
 import { createCartStore, type CartStore } from './services/cart-store.js';
+import { createCheckoutStore, type CheckoutStore } from './services/checkout-store.js';
+import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
 import type { AppVariables } from './types/context.js';
 
 type CreateAppOptions = {
 	env: Env;
 	db: Database;
 	cartStore?: CartStore;
+	checkoutStore?: CheckoutStore;
+	razorpayClient?: RazorpayClient;
 };
 
-export function createApp({ env, db, cartStore }: CreateAppOptions) {
+export function createApp({ env, db, cartStore, checkoutStore, razorpayClient }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
 	const resolvedCartStore = cartStore ?? createCartStore(db);
+	const resolvedRazorpayClient =
+		razorpayClient ??
+		(env.PUBLIC_RAZORPAY_ID && env.RAZORPAY_KEY ? createRazorpayClient(env) : null);
+	const resolvedCheckoutStore =
+		checkoutStore ??
+		(resolvedRazorpayClient
+			? createCheckoutStore(db, resolvedRazorpayClient)
+			: createCheckoutStore(db, {
+					async createOrder() {
+						throw new Error('Razorpay client is not configured');
+					}
+				}));
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
 		c.set('db', db);
 		c.set('cartStore', resolvedCartStore);
+		c.set('checkoutStore', resolvedCheckoutStore);
 		await next();
 	});
 
@@ -48,6 +66,7 @@ export function createApp({ env, db, cartStore }: CreateAppOptions) {
 
 	app.route('/', healthRoutes);
 	app.route('/', cartRoutes);
+	app.route('/', checkoutRoutes);
 
 	app.onError(errorHandler);
 
