@@ -1,4 +1,5 @@
-// Introspected schema lands here via `npm run db:pull -w @scweb/api`.
-// Existing Supabase tables are the source of truth until migrations take over.
+// Prefer `npm run db:pull -w @scweb/api` when POSTGRES_URL is reachable.
+// Hand-written fallback mirrors supabase/types.ts and src/lib/types/product.ts.
 
-export {};
+export { cart } from './cart.js';
+export { products } from './products.js';
