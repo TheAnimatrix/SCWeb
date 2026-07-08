@@ -15,7 +15,7 @@
 	import { onMount, setContext, getContext } from 'svelte';
 	import Toast from '$lib/components/common/Toast.svelte';
 	import { toastStore } from '$lib/client/toastStore';
-	import { removePostLoginURL } from '$lib/client/postLogin';
+	import { removePostLoginURL, readPostLoginURL } from '$lib/client/postLogin';
 	import { initTheme } from '$lib/client/theme';
 	import { SystemStatusBar, SiteHeader, SiteFooter, PwaInstallPrompt } from '$lib/components/shell';
 	import { pwaInfo } from 'virtual:pwa-info';
@@ -121,7 +121,7 @@
 	});
 
 	$effect.pre(() => {
-		const postLoginUrl = localStorage.getItem('postLoginURL');
+		const postLoginUrl = readPostLoginURL();
 		if (postLoginUrl) {
 			goto(postLoginUrl, { replaceState: true });
 			removePostLoginURL();

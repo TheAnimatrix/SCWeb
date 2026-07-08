@@ -8,6 +8,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { validatePassword } from '$lib/types/helper.js';
 	import { removePostLoginURL, setPostLoginURL } from '$lib/client/postLogin.js';
+	import { sanitizePostLoginUrl } from '$lib/postLoginUrl';
 	import { DotGrid } from '$lib/components/sc';
 	import DriftParticles from '$lib/components/effects/DriftParticles.svelte';
 	import { Breadcrumbs, ScLogo } from '$lib/components/shell';
@@ -22,7 +23,7 @@
 	const PUBLIC_SITE_URL = env.PUBLIC_SITE_URL == undefined ? null : env.PUBLIC_SITE_URL;
 	const PUBLIC_VERCEL_URL = env.PUBLIC_VERCEL_URL == undefined ? null : env.PUBLIC_VERCEL_URL;
 
-	const postLoginPath = $page.url.searchParams.get('postLogin');
+	const postLoginPath = $derived(sanitizePostLoginUrl($page.url.searchParams.get('postLogin')));
 
 	$effect(() => {
 		if (postLoginPath) {

@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 
-export const GET = async ({ url, locals: { supabase, supabaseAdmin } }) => {
-	const { data: session } = await supabase.auth.getSession();
-	if (!session || !session.session?.user) {
+export const GET = async ({ url, locals: { safeGetSession, supabaseAdmin } }) => {
+	const { user } = await safeGetSession();
+	if (!user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
-	const userId = session.session.user.id;
+	const userId = user.id;
 
 	// Pagination params
 	const page = parseInt(url.searchParams.get('page') || '1', 10);
