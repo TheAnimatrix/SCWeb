@@ -5,3 +5,4 @@ export { default as SiteHeader } from './SiteHeader.svelte';
 export { default as SiteFooter } from './SiteFooter.svelte';
 export { default as ThemeToggle } from './ThemeToggle.svelte';
 export { default as PwaInstallPrompt } from './PwaInstallPrompt.svelte';
+export { default as PwaInstallButton } from './PwaInstallButton.svelte';

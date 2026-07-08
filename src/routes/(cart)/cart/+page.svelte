@@ -18,6 +18,7 @@
 	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
 	import { toastStore } from '$lib/client/toastStore';
 	import { cn } from '$lib/utils';
+	import { canFulfillQuantity, getPurchasableLimit, isOnDemand } from '$lib/utils/stock';
 
 	const cart_store = getContext<Writable<CartG>>('userCartStatus');
 
@@ -76,13 +77,19 @@
 		return itemPrice * itemQuantity;
 	}
 
-	function isStockAvailable(stockCount: number, itemQuantity: number) {
-		return itemQuantity <= stockCount;
+	function isStockAvailable(stock: { count: number; status?: string }, itemQuantity: number) {
+		return canFulfillQuantity(stock, itemQuantity);
 	}
 
-	async function updateCartQuantity(index: number, quantity: number, stock: number) {
+	async function updateCartQuantity(
+		index: number,
+		quantity: number,
+		stock: { count: number; status?: string }
+	) {
 		if (isUpdatingCart) return;
 		isUpdatingCart = true;
+
+		const limit = getPurchasableLimit(stock);
 
 		if (!isNaN(quantity) && isStockAvailable(stock, quantity)) {
 			if (!cartDetails?.list) return;
@@ -94,7 +101,7 @@
 					data.supabase_lt,
 					cart_store,
 					product,
-					stock,
+					limit,
 					data.clientId,
 					true
 				);
@@ -110,7 +117,10 @@
 				isUpdatingCart = false;
 			}
 		} else {
-			toastStore.show(`Sorry! we only have ${stock} units at the moment.`, 'error');
+			const message = isOnDemand(stock)
+				? `Sorry! you can only order up to ${limit} units of this made-to-order item at a time.`
+				: `Sorry! we only have ${stock.count} units at the moment.`;
+			toastStore.show(message, 'error');
 			if (cartDetails?.list) {
 				quantityList[index] = cartDetails.list[index].qty.toString();
 			}
@@ -120,7 +130,7 @@
 
 	async function updateQuantity(event: Event, i: number, result: any) {
 		const inputQuantity = parseInt(quantityList[i]);
-		await updateCartQuantity(i, inputQuantity, result.stock.count);
+		await updateCartQuantity(i, inputQuantity, result.stock);
 	}
 
 	const debounceIncrementDecrement: Map<number, NodeJS.Timeout> = new Map();
@@ -136,7 +146,7 @@
 		debounceIncrementDecrement.set(
 			i,
 			setTimeout(() => {
-				updateCartQuantity(i, quantity, result.stock.count);
+				updateCartQuantity(i, quantity, result.stock);
 			}, 400)
 		);
 	}
@@ -153,7 +163,7 @@
 				data.supabase_lt,
 				cart_store,
 				product,
-				result.stock.count,
+				getPurchasableLimit(result.stock),
 				data.clientId,
 				true
 			);
@@ -179,17 +189,12 @@
 	async function checkOut() {
 		if (cartDetails?.list) {
 			for (let i = 0; i < cartDetails.list.length; i++) {
-				if (
-					!isStockAvailable(
-						productDetailsCache[cartDetails.list[i].product_id].stock.count,
-						cartDetails.list[i].qty
-					)
-				) {
-					const cached = productDetailsCache[cartDetails.list[i].product_id];
-					toastStore.show(
-						`Sorry! we only have ${cached.stock.count} unit${cached.stock.count > 1 ? 's' : ''} of ${cached.name} at the moment.`,
-						'error'
-					);
+				const cached = productDetailsCache[cartDetails.list[i].product_id];
+				if (!isStockAvailable(cached.stock, cartDetails.list[i].qty)) {
+					const message = isOnDemand(cached.stock)
+						? `Sorry! you can only order up to ${getPurchasableLimit(cached.stock)} units of ${cached.name} at a time.`
+						: `Sorry! we only have ${cached.stock.count} unit${cached.stock.count > 1 ? 's' : ''} of ${cached.name} at the moment.`;
+					toastStore.show(message, 'error');
 					return;
 				}
 			}
@@ -257,7 +262,9 @@
 								</div>
 							</div>
 						{:then result}
-							{@const inStock = isStockAvailable(result.stock.count, productItem.qty)}
+							{@const inStock = isStockAvailable(result.stock, productItem.qty)}
+							{@const purchasableLimit = getPurchasableLimit(result.stock)}
+							{@const onDemand = isOnDemand(result.stock)}
 							<article
 								class={cn(
 									'overflow-hidden rounded-lg border border-border bg-card transition-colors',
@@ -296,7 +303,13 @@
 											</p>
 										</div>
 
-										<StockBar current={result.stock.count} total={Math.max(result.stock.count, 10)} />
+										{#if onDemand}
+											<p class="font-mono text-xs text-amber-700 dark:text-amber-300">
+												Made to order — ships after production
+											</p>
+										{:else}
+											<StockBar count={result.stock.count} />
+										{/if}
 
 										{#if result.guarantee}
 											<p class="text-xs text-muted-foreground">{result.guarantee}</p>
@@ -320,7 +333,7 @@
 													type="number"
 													bind:value={quantityList[i]}
 													min="1"
-													max={result.stock.count}
+													max={purchasableLimit}
 													class="h-8 w-12 border-y border-border bg-card text-center font-mono text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
 													disabled={isUpdatingCart}
 													onchange={(e) => updateQuantity(e, i, result)}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Star from '@lucide/svelte/icons/star';
 	import ScLogo from './ScLogo.svelte';
+	import PwaInstallButton from './PwaInstallButton.svelte';
 	import { theme } from '$lib/client/theme';
 
 	let { githubStars = null }: { githubStars?: number | null } = $props();
@@ -109,6 +110,7 @@
 			class="mt-12 flex flex-col gap-2 border-t border-border pt-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
 		>
 			<p>© 2026 selfcrafted_india</p>
+			<PwaInstallButton />
 			<p>made_with_care // the_animatrix</p>
 		</div>
 	</div>

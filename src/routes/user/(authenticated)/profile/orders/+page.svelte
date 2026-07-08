@@ -8,6 +8,8 @@
 	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
 	import CheckCircle from '@lucide/svelte/icons/circle-check';
 	import Clock from '@lucide/svelte/icons/clock';
+	import { cubicOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 
 	let { data } = $props();
 	let supabase_lt = data.supabase_lt;
@@ -75,55 +77,66 @@
 			<ScButton href="/crafts" variant="secondary" class="mt-3">Browse crafts</ScButton>
 		</div>
 	{:else}
-		{#each orders as order, i}
-			{@const shipping_address = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address ?? '{}') : (order.shipping_address ?? {})}
-			{@const billing_address = typeof order.billing_address === 'string' ? JSON.parse(order.billing_address ?? '{}') : (order.billing_address ?? {})}
-			<div class="overflow-hidden rounded-md border border-border bg-card">
-				<button
-					class="grid w-full grid-cols-2 items-start gap-3 p-3 text-left transition-colors hover:bg-secondary/50 md:grid-cols-4 md:gap-4"
-					onclick={() => {
-						visible = visible.with(i, !visible[i]);
-					}}>
-					<div class="space-y-0.5 md:col-span-1">
-						<div class="font-mono text-xs text-muted-foreground">id</div>
-						<div class="break-all text-sm font-medium">{order.id}</div>
-					</div>
+		<div class="overflow-hidden rounded-md border border-border">
+			<div
+				class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-3 border-b border-border bg-secondary/30 px-3 py-2 font-mono text-xs text-muted-foreground"
+			>
+				<div>id</div>
+				<div>status</div>
+				<div>date</div>
+				<div class="text-right">amount</div>
+			</div>
 
-					<div class="space-y-0.5">
-						<div class="font-mono text-xs text-muted-foreground">status</div>
-						<div class="flex items-center gap-1.5 text-sm font-medium capitalize {getStatusColor(order.payment_status)}">
-							{#if order.payment_status.toLowerCase() === 'completed'}
-								<CheckCircle class="size-3.5" />
-							{:else}
-								<Clock class="size-3.5" />
-							{/if}
-							{order.payment_status}
-						</div>
-					</div>
+			<ul class="divide-y divide-border">
+				{#each orders as order, i}
+					{@const shipping_address = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address ?? '{}') : (order.shipping_address ?? {})}
+					{@const billing_address = typeof order.billing_address === 'string' ? JSON.parse(order.billing_address ?? '{}') : (order.billing_address ?? {})}
+					<li>
+						<button
+							type="button"
+							class="grid w-full grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-secondary/50"
+							aria-expanded={visible[i]}
+							onclick={() => {
+								visible = visible.with(i, !visible[i]);
+							}}
+						>
+							<div class="break-all text-sm font-medium">{order.id}</div>
 
-					<div class="space-y-0.5">
-						<div class="font-mono text-xs text-muted-foreground">date</div>
-						<div class="text-sm font-medium">{getDate(order.created_at)}</div>
-						<div class="text-xs text-muted-foreground">{getTime(order.created_at)}</div>
-					</div>
+							<div
+								class="flex items-center gap-1.5 text-sm font-medium capitalize {getStatusColor(order.payment_status)}"
+							>
+								{#if order.payment_status.toLowerCase() === 'completed'}
+									<CheckCircle class="size-3.5 shrink-0" />
+								{:else}
+									<Clock class="size-3.5 shrink-0" />
+								{/if}
+								<span class="truncate">{order.payment_status}</span>
+							</div>
 
-					<div class="space-y-0.5">
-						<div class="font-mono text-xs text-muted-foreground">amount</div>
-						<div class="text-sm font-medium">₹{order.amount}</div>
-					</div>
+							<div class="min-w-0">
+								<div class="text-sm font-medium">{getDate(order.created_at)}</div>
+								<div class="text-xs text-muted-foreground">{getTime(order.created_at)}</div>
+							</div>
 
-					<div class="col-span-2 flex justify-center pt-1 text-muted-foreground md:col-span-4 md:hidden">
+							<div class="flex items-start justify-end gap-1 text-sm font-medium">
+								<span>₹{order.amount}</span>
+								<span class="text-muted-foreground">
+									{#if visible[i]}
+										<ChevronUp class="size-4" />
+									{:else}
+										<ChevronDown class="size-4" />
+									{/if}
+								</span>
+							</div>
+						</button>
+
 						{#if visible[i]}
-							<ChevronUp class="size-4" />
-						{:else}
-							<ChevronDown class="size-4" />
-						{/if}
-					</div>
-				</button>
-
-				{#if visible[i]}
-					<div class="border-t border-border">
-						<div class="flex gap-6 bg-secondary/30 p-3 text-sm sm:flex-row">
+							<div
+								class="border-t border-border bg-secondary/20"
+								in:slide={{ duration: 200, easing: cubicOut }}
+								out:slide={{ duration: 200, easing: cubicOut }}
+							>
+								<div class="flex gap-6 p-3 text-sm sm:flex-row">
 							<div class="flex-1">
 								<span class="font-mono text-xs text-muted-foreground">shipping</span>
 								<div class="mt-1 space-y-0.5">
@@ -182,10 +195,10 @@
 									{/if}
 								</div>
 							</div>
-						</div>
-						<!--Tracking if exists-->
-						{#if (order.trackingId && order.trackingCourier) || (order.trackingUrl && order.trackingCourier)}
-							<div class="flex flex-wrap gap-2 border-t border-border p-3 text-sm">
+								</div>
+								<!--Tracking if exists-->
+								{#if (order.trackingId && order.trackingCourier) || (order.trackingUrl && order.trackingCourier)}
+									<div class="flex flex-wrap gap-2 border-t border-border p-3 text-sm">
 								<span class="font-mono text-xs text-muted-foreground">tracking</span>
 								<span>{order.trackingId}</span>
 								{#if order.trackingUrl}
@@ -193,11 +206,11 @@
 								{:else}
 									<span class="text-muted-foreground">{order.trackingCourier}</span>
 								{/if}
-							</div>
-						{/if}
-						<!--Items-->
-						{#if order.payment_method.includes('PrintRequest')}
-							<div class="border-t border-border p-3 text-sm">
+									</div>
+								{/if}
+								<!--Items-->
+								{#if order.payment_method.includes('PrintRequest')}
+									<div class="border-t border-border p-3 text-sm">
 								{#await data.supabase_lt.from('printrequests').select('*').eq('id', order.cart_id).single()}
 									<div class="py-4">
 										<ProseSkeleton lines={4} />
@@ -277,52 +290,55 @@
 								{:catch}
 									<div class="text-center">Error loading 3D print request details</div>
 								{/await}
-							</div>
-						{:else}
-						{#if !order.item_snapshot || order.item_snapshot.length <= 0}
-							<div class="p-3 text-center text-sm text-muted-foreground">Unable to fetch order information</div>
-						{:else}
-							<div class="divide-y divide-border">
-								{#each order.item_snapshot as item}
-									<a
-										href={`/${order.cart_id}/craft/item=${item.product_id}`}
-										class="grid gap-2 p-3 text-sm transition-colors hover:bg-secondary/50 md:grid-cols-3 md:gap-4">
-										<div class="flex items-center justify-between font-medium md:justify-start">
-											<span>{item.product_name}</span>
-											<span class="text-xs text-muted-foreground md:hidden">₹{item.price}</span>
-										</div>
-										<div class="flex justify-between text-muted-foreground md:justify-center">
-											<span class="md:hidden text-xs">qty</span>
-											<span>{item.qty}</span>
-										</div>
-										<div class="flex justify-between md:justify-end">
-											<span class="text-xs text-muted-foreground md:hidden">subtotal</span>
-											<span class="font-medium">₹{item.price * item.qty}</span>
-										</div>
-									</a>
-								{/each}
-
-								<div class="grid grid-cols-2 gap-2 p-3 text-sm text-muted-foreground md:grid-cols-3">
-									<div>shipping</div>
-									<div class="hidden md:block"></div>
-									<div class="text-right">
-										₹{order.amount -
-											order.item_snapshot.reduce((acc, item) => acc + item.price * item.qty, 0)}
 									</div>
-								</div>
+								{:else if !order.item_snapshot || order.item_snapshot.length <= 0}
+									<div class="border-t border-border p-3 text-center text-sm text-muted-foreground">
+										Unable to fetch order information
+									</div>
+								{:else}
+									<div class="divide-y divide-border border-t border-border">
+										{#each order.item_snapshot as item}
+											<a
+												href={`/${order.cart_id}/craft/item=${item.product_id}`}
+												class="grid gap-2 p-3 text-sm transition-colors hover:bg-secondary/50 md:grid-cols-3 md:gap-4"
+											>
+												<div class="flex items-center justify-between font-medium md:justify-start">
+													<span>{item.product_name}</span>
+													<span class="text-xs text-muted-foreground md:hidden">₹{item.price}</span>
+												</div>
+												<div class="flex justify-between text-muted-foreground md:justify-center">
+													<span class="text-xs md:hidden">qty</span>
+													<span>{item.qty}</span>
+												</div>
+												<div class="flex justify-between md:justify-end">
+													<span class="text-xs text-muted-foreground md:hidden">subtotal</span>
+													<span class="font-medium">₹{item.price * item.qty}</span>
+												</div>
+											</a>
+										{/each}
 
-								<div class="grid grid-cols-2 gap-2 p-3 text-sm font-medium md:grid-cols-3">
-									<div>total</div>
-									<div class="hidden md:block"></div>
-									<div class="text-right">₹{order.amount}</div>
-								</div>
+										<div class="grid grid-cols-2 gap-2 p-3 text-sm text-muted-foreground md:grid-cols-3">
+											<div>shipping</div>
+											<div class="hidden md:block"></div>
+											<div class="text-right">
+												₹{order.amount -
+													order.item_snapshot.reduce((acc, item) => acc + item.price * item.qty, 0)}
+											</div>
+										</div>
+
+										<div class="grid grid-cols-2 gap-2 p-3 text-sm font-medium md:grid-cols-3">
+											<div>total</div>
+											<div class="hidden md:block"></div>
+											<div class="text-right">₹{order.amount}</div>
+										</div>
+									</div>
+								{/if}
 							</div>
 						{/if}
-						{/if}
-					</div>
-				{/if}
-			</div>
-		{/each}
+					</li>
+				{/each}
+			</ul>
+		</div>
 	{/if}
 </div>
 

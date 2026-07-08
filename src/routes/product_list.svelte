@@ -23,6 +23,7 @@
 			{product}
 			href={getLink(index, product)}
 			onclick={() => onClick(index, product)}
+			dimOutOfStock
 		/>
 	{/each}
 </div>

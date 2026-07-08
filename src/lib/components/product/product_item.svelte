@@ -2,6 +2,7 @@
 	import { PlaceholderImage } from '$lib/components/sc';
 	import Icon from '@iconify/svelte';
 	import type { Product } from '$lib/types/product';
+	import { isOnDemand, isOutOfStock, isPurchasable } from '$lib/utils/stock';
 	import { HSLToHex, HexToHSL } from '$lib/types/helper';
 	interface Props {
 		product: Product;
@@ -10,18 +11,27 @@
 	}
 
 	let { product, href, onClick }: Props = $props();
+
+	const unavailable = $derived(isOutOfStock(product.stock));
+	const onDemand = $derived(isOnDemand(product.stock));
+	const purchasable = $derived(isPurchasable(product.stock));
 </script>
 
 <a
 	href={href}
-	class="group bg-[#151515] border border-[#252525] hover:border-[#353535] rounded-2xl overflow-hidden transition-all duration-300 flex flex-col h-full relative {product.stock.count <= 0 ? 'opacity-70' : ''}"
+	class="group bg-[#151515] border border-[#252525] hover:border-[#353535] rounded-2xl overflow-hidden transition-all duration-300 flex flex-col h-full relative {unavailable ? 'opacity-70' : ''}"
 	onclick={onClick}>
 	
-	<!-- Out of stock overlay -->
-	{#if product.stock.count <= 0}
+	{#if unavailable}
 		<div class="absolute inset-0 bg-black/50 z-20 flex items-center justify-center">
 			<div class="bg-black/80 text-white px-4 py-2 rounded-lg font-medium">
 				Out of Stock
+			</div>
+		</div>
+	{:else if onDemand}
+		<div class="absolute top-4 left-4 z-20">
+			<div class="bg-amber-500/90 text-amber-950 px-3 py-1 rounded-lg text-xs font-semibold uppercase tracking-wide">
+				On demand
 			</div>
 		</div>
 	{/if}
@@ -80,16 +90,17 @@
 		<!-- Bottom actions -->
 		<div class="mt-auto pt-4 flex justify-between items-center">
 			<!-- Stock status -->
-			<div class="{product.stock.count > 0 ? 'text-accent' : 'text-red-400'} text-sm font-medium">
+			<div class="{purchasable ? 'text-accent' : 'text-red-400'} text-sm font-medium">
 				{#if product.stock.count > 0}
 					<span>{product.stock.count} in stock</span>
+				{:else if onDemand}
+					<span>Made to order</span>
 				{:else if product.stock.status}
 					<span>{product.stock.status}</span>
 				{/if}
 			</div>
 			
-			<!-- Add to cart button -->
-			{#if product.stock.count > 0}
+			{#if purchasable}
 				<button class="w-10 h-10 rounded-lg bg-[#252525] hover:bg-accent hover:text-black text-white flex items-center justify-center transition-colors">
 					<Icon icon="ph:shopping-cart-simple-bold" class="text-xl" />
 				</button>

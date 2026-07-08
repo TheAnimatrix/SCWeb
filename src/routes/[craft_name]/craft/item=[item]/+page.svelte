@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { goto, preloadData } from '$app/navigation';
+	import { goto, preloadData, invalidate } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { writable, type Writable } from 'svelte/store';
 	import { changeCart, type CartG, type CartItem } from '$lib/client/cart';
@@ -13,6 +13,7 @@
 		RelatedProducts
 	} from '$lib/components/product';
 	import type { Product } from '$lib/types/product';
+	import { getPurchasableLimit } from '$lib/utils/stock';
 
 	interface VariantOption {
 		id: string;
@@ -24,7 +25,7 @@
 
 	const productItem = $derived(data.product);
 	let indicatorCur = $state(0);
-	let cartQty = $state(0);
+	let cartQty = $state(1);
 	let addToCartSuccess: boolean | null = $state(null);
 	let addToCartMsg = $state('');
 	interface PageReview {
@@ -47,7 +48,7 @@
 				page.url.pathname.includes('/craft/item='))
 	);
 
-	const cartQtyMax = $derived(productItem.stock.count);
+	const cartQtyMax = $derived(getPurchasableLimit(productItem.stock));
 	const cartStore = getContext<Writable<CartG>>('userCartStatus');
 
 	function productHref(item: Product): string {
@@ -144,7 +145,7 @@
 		productItem.id;
 		variantNavigating = false;
 		indicatorCur = 0;
-		cartQty = 0;
+		cartQty = 1;
 		addToCartSuccess = null;
 	});
 
@@ -181,8 +182,20 @@
 		}
 	}
 
+	function showCartFeedback(success: boolean, message: string) {
+		addToCartSuccess = success;
+		addToCartMsg = message;
+		if (timeoutId) clearTimeout(timeoutId);
+		timeoutId = setTimeout(() => {
+			addToCartSuccess = null;
+		}, 5000);
+	}
+
 	async function cartSubmit() {
-		if (cartQty <= 0) return;
+		if (cartQty <= 0) {
+			showCartFeedback(false, 'Quantity must be at least 1');
+			return;
+		}
 
 		addToCartMsg = `${cartQty}`;
 		const cartItem: CartItem = {
@@ -201,18 +214,13 @@
 		);
 
 		if (!result.error) {
-			addToCartSuccess = true;
+			showCartFeedback(true, addToCartMsg);
+			await invalidate('cart:change');
 		} else {
-			addToCartSuccess = false;
-			addToCartMsg = result.data;
+			showCartFeedback(false, result.data);
 		}
 
-		if (timeoutId) clearTimeout(timeoutId);
-		timeoutId = setTimeout(() => {
-			addToCartSuccess = null;
-		}, 5000);
-
-		cartQty = 0;
+		cartQty = 1;
 	}
 </script>
 

@@ -4,6 +4,7 @@
 	import { TagBadge, MetaChip, ScButton, TrustSignals, Skeleton } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { buildProductTags } from '$lib/utils/productTypeTag';
+	import { getPurchasableLimit, isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import type { Product } from '$lib/types/product';
 
 	interface VariantOption {
@@ -29,7 +30,7 @@
 
 	let {
 		product,
-		cartQty = $bindable(0),
+		cartQty = $bindable(1),
 		addToCartSuccess = null,
 		addToCartMsg = '',
 		variants = [],
@@ -44,8 +45,10 @@
 
 	let favorited = $state(false);
 
-	const isOutOfStock = $derived(product.stock.count <= 0);
-	const isLowStock = $derived(!isOutOfStock && product.stock.count <= 5);
+	const unavailable = $derived(isOutOfStock(product.stock));
+	const onDemand = $derived(isOnDemand(product.stock));
+	const isLowStock = $derived(!unavailable && !onDemand && product.stock.count <= 5);
+	const purchasableLimit = $derived(getPurchasableLimit(product.stock));
 	const displayTags = $derived(buildProductTags(product.type, product.tags));
 	const hasRating = $derived(
 		product.rating?.rating != null && product.rating.rating > 0
@@ -153,15 +156,19 @@
 				</MetaChip>
 			{/if}
 
-			{#if isOutOfStock}
+			{#if unavailable}
 				<MetaChip tone="destructive">Out of stock</MetaChip>
+			{:else if onDemand}
+				<MetaChip class="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+					On demand
+				</MetaChip>
 			{:else if isLowStock}
 				<MetaChip>Only {product.stock.count} left</MetaChip>
 			{:else}
 				<MetaChip tone="muted">{product.stock.count} in stock</MetaChip>
 			{/if}
 
-			{#if product.stock.status}
+			{#if product.stock.status && !onDemand}
 				<MetaChip tone="muted">{product.stock.status}</MetaChip>
 			{/if}
 
@@ -213,7 +220,7 @@
 			<button
 				type="button"
 				class="flex h-10 w-10 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
-				disabled={isOutOfStock || cartQty <= 0}
+				disabled={unavailable || cartQty <= 0}
 				onclick={onDecrement}
 				aria-label="Decrease quantity"
 			>
@@ -225,7 +232,7 @@
 			<button
 				type="button"
 				class="flex h-10 w-10 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
-				disabled={isOutOfStock || cartQty >= product.stock.count}
+				disabled={unavailable || cartQty >= purchasableLimit}
 				onclick={onIncrement}
 				aria-label="Increase quantity"
 			>
@@ -236,10 +243,10 @@
 		<div class="flex min-w-0 gap-2">
 		<ScButton
 			class="min-h-10 min-w-0 flex-1 whitespace-normal font-mono text-sm disabled:pointer-events-none disabled:opacity-50"
-			onclick={isOutOfStock ? undefined : onAddToCart}
+			onclick={unavailable ? undefined : onAddToCart}
 			arrow
 		>
-			{isOutOfStock ? 'out_of_stock' : 'add_to_cart'}
+			{unavailable ? 'out_of_stock' : 'add_to_cart'}
 		</ScButton>
 
 		<button

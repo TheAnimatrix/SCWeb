@@ -1,6 +1,7 @@
 <script lang="ts">
 	import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
 	import { ProseSkeleton } from '$lib/components/sc';
+	import { renderCostingMarkdown } from '$lib/utils/markdown';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
 	import { cn } from '$lib/utils';
@@ -175,7 +176,7 @@
 											{/if}
 										{/await}
 									{:else if product.documentation?.at(2)?.data}
-										<HTMLWrapper html={product.documentation.at(2)?.data ?? ''} />
+										<HTMLWrapper html={renderCostingMarkdown(product.documentation.at(2)?.data ?? '')} />
 									{:else}
 										<p class="text-muted-foreground">No costing details available.</p>
 									{/if}

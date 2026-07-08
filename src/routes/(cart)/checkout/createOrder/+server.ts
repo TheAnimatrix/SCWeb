@@ -2,6 +2,7 @@ import Razorpay from 'razorpay';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { type CartItem } from '$lib/client/cart';
 import type { Product } from '$lib/types/product';
+import { canFulfillQuantity, isOnDemand } from '$lib/utils/stock';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 import { RAZORPAY_KEY } from '$env/static/private';
 import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers';
@@ -80,10 +81,18 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 				}
 				//change stock
 				if (result_get_stock && result_get_stock.data && result_get_stock.data.length > 0) {
-					await locals.supabaseServer
-						.from('products')
-						.update({ stock: { count: result_get_stock.data[0].stock.count - item.qty , status: result_get_stock.data[0].stock.status} })
-						.eq('id', item.product_id);
+					const currentStock = result_get_stock.data[0].stock;
+					if (!isOnDemand(currentStock)) {
+						await locals.supabaseServer
+							.from('products')
+							.update({
+								stock: {
+									count: currentStock.count - item.qty,
+									status: currentStock.status
+								}
+							})
+							.eq('id', item.product_id);
+					}
 				}
 			}
 			// add to purchases
@@ -159,7 +168,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 					{ error: true, message: 'One ore more products in the cart are invalid' },
 					{ status: 400 }
 				);
-			if (productResult.data[0].stock.count < item.qty)
+			const stock = productResult.data[0].stock;
+			if (!canFulfillQuantity(stock, item.qty))
 				return json({ error: true, message: 'Unable to checkout. One ore more products in the cart are out of stock.' }, { status: 400 });
 			const product: Product = productResult.data[0];
 			totalPrice += product.price.new * item.qty;

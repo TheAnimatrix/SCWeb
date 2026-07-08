@@ -8,17 +8,26 @@
 	let { count = 3 }: Props = $props();
 </script>
 
-<div class="space-y-3" aria-hidden="true">
-	{#each Array(count) as _, i (i)}
-		<div class="overflow-hidden rounded-md border border-border bg-card">
-			<div class="grid grid-cols-2 gap-3 p-3 md:grid-cols-4 md:gap-4">
-				{#each Array(4) as _, j (j)}
-					<div class="space-y-1.5">
-						<Skeleton class="h-3 w-8 rounded-sm" />
-						<Skeleton class="h-4 w-20 rounded-sm" />
-					</div>
-				{/each}
+<div class="overflow-hidden rounded-md border border-border" aria-hidden="true">
+	<div
+		class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-3 border-b border-border bg-secondary/30 px-3 py-2"
+	>
+		<Skeleton class="h-3 w-6 rounded-sm" />
+		<Skeleton class="h-3 w-10 rounded-sm" />
+		<Skeleton class="h-3 w-8 rounded-sm" />
+		<Skeleton class="h-3 w-12 rounded-sm justify-self-end" />
+	</div>
+
+	<div class="divide-y divide-border">
+		{#each Array(count) as _, i (i)}
+			<div
+				class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-3 px-3 py-3"
+			>
+				<Skeleton class="h-4 w-16 rounded-sm" />
+				<Skeleton class="h-4 w-20 rounded-sm" />
+				<Skeleton class="h-4 w-24 rounded-sm" />
+				<Skeleton class="h-4 w-12 rounded-sm justify-self-end" />
 			</div>
-		</div>
-	{/each}
+		{/each}
+	</div>
 </div>

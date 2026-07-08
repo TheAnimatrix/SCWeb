@@ -14,6 +14,7 @@
 	} from '$lib/components/sc';
 	import type { BrowseFilters, BrowseSort } from '$lib/types/browse';
 	import type { Product } from '$lib/types/product';
+	import { formatActiveTagLabel } from '$lib/utils/browseTags';
 
 	interface ActiveFilterChip {
 		id: string;
@@ -55,13 +56,9 @@
 		}
 
 		if (data.filters.tag) {
-			const tag =
-				data.allTagOptions.find((option) => option.key === data.filters.tag) ??
-				data.tagOptions.find((option) => option.key === data.filters.tag);
-
 			chips.push({
 				id: 'tag',
-				label: `tag: ${tag?.label ?? data.filters.tag}`,
+				label: formatActiveTagLabel(data.filters.tag, data.allTagOptions),
 				patch: { tag: null, page: 1 }
 			});
 		}
@@ -230,7 +227,8 @@
 				<FilterSidebar
 					filters={data.filters}
 					categoryCounts={data.categoryCounts}
-					tagOptions={data.tagOptions}
+					tagGroups={data.tagGroups}
+					standaloneTags={data.standaloneTags}
 					onchange={navigate}
 					class="hidden md:sticky md:top-[5.25rem] md:flex md:self-start"
 				/>
@@ -249,7 +247,7 @@
 					{:else if data.products.length > 0}
 						<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4">
 							{#each data.products as product (product.id)}
-								<ProductCard {product} href={productHref(product)} />
+								<ProductCard {product} href={productHref(product)} dimOutOfStock />
 							{/each}
 						</div>
 
@@ -317,7 +315,8 @@
 				<FilterSidebar
 					filters={data.filters}
 					categoryCounts={data.categoryCounts}
-					tagOptions={data.tagOptions}
+					tagGroups={data.tagGroups}
+					standaloneTags={data.standaloneTags}
 					onchange={navigate}
 				/>
 			</div>

@@ -1,54 +1,47 @@
 <script lang="ts">
-	// Removed unused 'run' import
-	// import { run } from 'svelte/legacy';
-
-	import { error } from '@sveltejs/kit';
-	import { newAddress, validateAddress, type Address } from '$lib/types/product';
-	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { goto } from '$app/navigation';
-	import { type CartG, type Cart } from '$lib/client/cart';
-	// Removed unused 'browser' import
-	// import { browser } from '$app/environment';
-	import { getContext, onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	import { type Writable } from 'svelte/store';
 	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
+	import UserCircle from '@lucide/svelte/icons/user-circle';
+	import LogIn from '@lucide/svelte/icons/log-in';
+	import Receipt from '@lucide/svelte/icons/receipt';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import Lock from '@lucide/svelte/icons/lock';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Package from '@lucide/svelte/icons/package';
+	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
+	import { Breadcrumbs } from '$lib/components/shell';
+	import {
+		CheckoutLineSkeleton,
+		PlaceholderImage,
+		ScButton,
+		Skeleton
+	} from '$lib/components/sc';
+	import { type CartG, type Cart } from '$lib/client/cart';
+	import { newAddress, validateAddress, type Address } from '$lib/types/product';
 	import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers.js';
-	import { fade, fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import Icon from '@iconify/svelte';
 	import { toastStore } from '$lib/client/toastStore.js';
-	import { Skeleton } from '$lib/components/sc';
 
 	let { data } = $props();
-	// Removed $state declarations for derived values
-	// let cartData: Cart = $state();
-	// let subtotal = $state(0);
 
 	let validAddress: Address | undefined = $state();
-
-	// Cache for product details to avoid repeated lookups
 	let productDetailsCache: Record<string, any> = {};
 
 	async function getProductDetails(productId: string) {
-		// Use cached data if available
-		if (productDetailsCache[productId]) {
-			return productDetailsCache[productId];
-		}
+		if (productDetailsCache[productId]) return productDetailsCache[productId];
 
 		const result = await data.supabase_lt
 			.from('products')
 			.select('name,images,price,author')
 			.eq('id', productId);
-		if (result.data && result.data[0]) {
-			// Cache the result
+		if (result.data?.[0]) {
 			productDetailsCache[productId] = result.data[0];
 			return result.data[0];
-		} else {
-			return null;
 		}
+		return null;
 	}
 
-	// Updated function to accept cart argument
 	function calcSubTotal(cart: Cart | undefined) {
 		let total = 0;
 		cart?.list?.forEach((item) => {
@@ -57,31 +50,10 @@
 		return total;
 	}
 
-	// Updated function to accept cart argument
-	function debugPaymentCalculation(cart: Cart | undefined) {
-		let calculatedTotal = 0;
-		cart?.list?.forEach((item, index) => {
-			const itemTotal = item.price * item.qty;
-			calculatedTotal += itemTotal;
-		});
-
-		return calculatedTotal;
-	}
-
-	// Use $derived for reactive calculations
 	let cartData = $derived(data.cart?.error ? undefined : data.cart?.data);
 	let subtotal = $derived(calcSubTotal(cartData));
-
-	// Use $effect for side effects like debugging logs based on derived values
-	$effect(() => {
-		if (cartData) {
-			const currentSubtotal = subtotal; // Read the derived value
-			const debugTotal = debugPaymentCalculation(cartData);
-			if (currentSubtotal !== debugTotal) {
-				console.error('MISMATCH IN CALCULATION!', { subtotal: currentSubtotal, debugTotal });
-			}
-		}
-	});
+	let cartItems = $derived(cartData?.list ?? []);
+	let hasItems = $derived(cartItems.length > 0);
 
 	let addressValid: boolean = $state(false);
 	if (data.userExists && data.addresses && data.addresses.length > 0) {
@@ -98,23 +70,23 @@
 		validAddress = newAddress();
 	}
 
-	let cart_store = getContext<Writable<CartG>>('userCartStatus');
+	const cart_store = getContext<Writable<CartG>>('userCartStatus');
 	let isPaying = $state(false);
+
+	function productHref(name: string, id: string): string {
+		return `/${name.replaceAll(' ', '_')}/craft/item=${id}`;
+	}
 
 	async function payNow() {
 		if (isPaying) return;
 
-		// Add check to ensure cartData is defined
 		if (!cartData) {
-			console.error('Cannot proceed to payment: Cart data is not available.');
-			alert('An error occurred preparing your order. Please try again.');
+			toastStore.show('An error occurred preparing your order. Please try again.', 'error');
 			return;
 		}
 
-		// Add check for validAddress being defined
 		if (!validAddress) {
-			console.error('Cannot proceed to payment: Shipping address is not selected or invalid.');
-			alert('Please select or enter a valid shipping address.');
+			toastStore.show('Please select or enter a valid shipping address.', 'error');
 			return;
 		}
 
@@ -122,32 +94,36 @@
 		const formData = new FormData();
 		formData.append('orderId', cartData.id);
 		formData.append('address', JSON.stringify(validAddress));
-		const result = await fetch('/checkout/createOrder', { method: 'POST', body: formData });
+
 		try {
+			const result = await fetch('/checkout/createOrder', { method: 'POST', body: formData });
 			const dataResult = await result.json();
+
 			if (!result.ok || !dataResult || dataResult.error) {
-				// Check result.ok as well
-				console.error('Error creating Razorpay order:', dataResult?.error || result.statusText);
 				toastStore.show(
-					`${dataResult?.message ?? 'Failed to create payment order. Please check your details and try again.'}`,
+					dataResult?.message ??
+						'Failed to create payment order. Please check your details and try again.',
 					'error'
 				);
-				isPaying = false; // Stop loading on error
+				isPaying = false;
 				return;
 			}
-			var options = {
-				key: PUBLIC_RAZORPAY_ID, // Enter the Key ID generated from the Dashboard
-				amount: dataResult.amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+
+			const options = {
+				key: PUBLIC_RAZORPAY_ID,
+				amount: dataResult.amount,
 				currency: 'INR',
 				name: 'SelfCrafted',
 				image:
 					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
-				order_id: dataResult.orderId, //This is a sample Order ID. Pass the `id` obtained in the response of Step 1
-				handler: async function (response: any) {
-					// Add check for cartData inside handler as well, just in case
+				order_id: dataResult.orderId,
+				handler: async function (response: {
+					razorpay_order_id: string;
+					razorpay_payment_id: string;
+					razorpay_signature: string;
+				}) {
 					if (!cartData) {
-						console.error('Cart data became unavailable during payment processing.');
-						isPaying = false; // Stop loading on error
+						isPaying = false;
 						return;
 					}
 					const formData2 = new FormData();
@@ -157,17 +133,12 @@
 					const patchResult = await fetch('/checkout/createOrder', {
 						method: 'PATCH',
 						body: formData2
-					}); // Use a different variable name
+					});
 					if (!patchResult.ok) {
-						console.error('Failed to update order status after payment.');
-						// Potentially redirect to a different summary page or show an error
-						// Still set loading false and navigate, maybe to an error page?
-						isPaying = false; // Stop loading even if PATCH fails
-						// Decide on navigation for PATCH failure, e.g., goto('/summary/error');
+						isPaying = false;
 						return;
 					}
 					cart_store.set({ valid: false, itemCount: 0 });
-					// Explicitly set loading to false *before* navigating
 					isPaying = false;
 					goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
 				},
@@ -181,43 +152,34 @@
 					color: '#2084fe'
 				}
 			};
-			// @ts-ignore - Razorpay is loaded from external script
-			var rzp1 = new Razorpay(options);
+
+			// @ts-expect-error Razorpay is loaded from external script
+			const rzp1 = new Razorpay(options);
 			if (!rzp1) {
-				alert('Issue with Payment Provider, try again');
+				toastStore.show('Issue with payment provider. Please try again.', 'error');
 				isPaying = false;
 				return;
 			}
 			rzp1.open();
-			rzp1.on('payment.failed', function (response: any) {
-				// Ensure cartData is available for the failure URL
+			rzp1.on('payment.failed', function (response: {
+				error: { metadata: { order_id: string } };
+			}) {
 				if (!cartData) {
-					console.error('Cart data unavailable for failure redirect.');
 					isPaying = false;
 					rzp1.close();
-					// Maybe redirect to a generic failure page
 					goto('/summary/failure');
 					return;
 				}
 				isPaying = false;
 				rzp1.close();
 				window.location.href = `/summary/failure/${cartData.id}/${response.error.metadata.order_id}`;
-				// goto(`/summary/failure/${cartData.id}/${response.error.metadata.order_id}`,{invalidateAll:true});
 			});
-			// Removed redundant payment.success handler as it's covered by the main handler
-			// rzp1.on('payment.success', function (response: any) {
-			// 	goto(`/summary/success/${cartData.id}/${response.razorpay_payment_id}`);
-			// });
 		} catch (e: unknown) {
-			// Explicitly type caught error as unknown
-			console.error('Error during payment process:', e);
-			// Provide more specific error feedback if possible
 			toastStore.show(
 				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
 				'error'
 			);
-			isPaying = false; // Ensure loading stops on catch
-			return;
+			isPaying = false;
 		}
 	}
 </script>
@@ -226,221 +188,244 @@
 	<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </svelte:head>
 
-<div class="min-h-screen bg-[#0c0c0c] text-white">
-	<div class="container mx-auto px-4 py-12">
-		<!-- Page Header -->
-		<div class="text-center mb-10" in:fly={{ y: -20, duration: 600, delay: 200, easing: cubicOut }}>
-			<div class="inline-flex items-center justify-center mb-4">
-				<span class="w-4 h-4 rounded-full bg-accent mr-2"></span>
-				<span class="text-accent text-sm uppercase tracking-wider font-medium">Checkout</span>
-			</div>
-			<div class="text-4xl font-bold mb-2">Complete Your Order</div>
-			<p class="text-gray-400">Almost there! Add your shipping details to complete your purchase</p>
+<div class="min-h-screen bg-background text-foreground">
+	<div class="mx-auto max-w-7xl px-4 py-8 md:py-12">
+		<Breadcrumbs
+			items={[
+				{ label: 'home', href: '/' },
+				{ label: 'cart', href: '/cart' },
+				{ label: 'checkout' }
+			]}
+		/>
+
+		<div class="mt-6 flex flex-col gap-2 border-b border-border pb-6">
+			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Checkout</h1>
+			<p class="text-sm text-muted-foreground">
+				Add your shipping details to complete your purchase.
+			</p>
 		</div>
 
-		<!-- Main Content -->
-		<div
-			class="flex flex-col lg:flex-row gap-8 mb-16"
-			in:fly={{ y: 20, duration: 400, delay: 300, easing: cubicOut }}>
-			<!-- Checkout Form -->
-			<div class="lg:w-2/3 space-y-6 flex-1">
+		<div class="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
+			<div class="flex-1 space-y-4">
 				{#if !data.userExists}
-					<div
-						class="bg-[#151515]/40 backdrop-blur-xs rounded-2xl border border-[#252525] p-6 transition-all duration-300 hover:shadow-glow">
-						<div id="loginOption" class="flex flex-col mb-6">
-							<div class="flex items-center gap-2 mb-3">
-								<Icon icon="ph:user-circle-bold" class="text-accent text-xl" />
-								<span class="text-white font-medium">Account Benefits</span>
+					<div class="rounded-lg border border-border bg-card p-5">
+						<div class="flex items-start gap-3">
+							<div class="rounded-full bg-muted p-2">
+								<UserCircle class="size-5 text-foreground" aria-hidden="true" />
 							</div>
-							<p class="text-gray-400 mb-4">
-								Sign in for faster checkout, detailed order tracking, saved addresses, and exclusive
-								offers!
-							</p>
-							<button
-								class="w-fit mb-2 px-5 py-2 flex items-center gap-2 bg-accent hover:bg-accent/80 text-black font-medium rounded-lg transition-all duration-200"
-								onclick={() => goto('/user/sign')}>
-								<Icon icon="ph:sign-in-bold" />
-								<span>Login or Register</span>
-							</button>
+							<div class="min-w-0 flex-1">
+								<h2 class="text-sm font-medium text-foreground">Account benefits</h2>
+								<p class="mt-1 text-sm text-muted-foreground">
+									Sign in for faster checkout, order tracking, saved addresses, and exclusive offers.
+								</p>
+								<div class="mt-4">
+									<ScButton href="/user/sign" variant="secondary">
+										<LogIn class="mr-2 inline size-4" aria-hidden="true" />
+										Login or register
+									</ScButton>
+								</div>
+							</div>
 						</div>
-						<div class="relative py-3 my-6">
-							<div class="absolute inset-0 flex items-center">
-								<div class="w-full border-t border-[#353535]"></div>
+
+						<div class="relative my-6">
+							<div class="absolute inset-0 flex items-center" aria-hidden="true">
+								<div class="w-full border-t border-border"></div>
 							</div>
 							<div class="relative flex justify-center">
-								<span class="bg-[#151515] px-4 text-sm text-gray-400">Continue as guest</span>
+								<span class="bg-card px-3 text-sm text-muted-foreground">Continue as guest</span>
 							</div>
 						</div>
-					</div>
-				{:else}
-					<!-- Address Section with Title -->
+
 						<AddressInputSelector
 							email={data.email}
 							userExists={data.userExists}
 							addresses={data.addresses}
 							bind:address={validAddress}
-							bind:addressValid />
+							bind:addressValid
+						/>
+					</div>
+				{:else}
+					<AddressInputSelector
+						email={data.email}
+						userExists={data.userExists}
+						addresses={data.addresses}
+						bind:address={validAddress}
+						bind:addressValid
+					/>
 				{/if}
 			</div>
 
-			<!-- Order Summary -->
-			<div class="lg:w-1/3">
-				<div
-					class="relative bg-[#151515]/30 backdrop-blur-md rounded-2xl border border-[#252525] overflow-hidden sticky top-4 transition-all duration-300 hover:shadow-glow"
-					in:fade={{ duration: 200, delay: 300 }}>
-					<div class="p-5 border-b border-[#252525]">
-						<div class="text-xl font-bold flex items-center">
-							<Icon icon="ph:receipt-bold" class="mr-2 text-accent" />
-							Order Summary
-						</div>
+			<aside class="w-full lg:w-80 lg:shrink-0">
+				<div class="sticky top-20 rounded-lg border border-border bg-card">
+					<div class="flex items-center gap-2 border-b border-border px-5 py-4">
+						<Receipt class="size-4 text-foreground" aria-hidden="true" />
+						<h2 class="text-sm font-medium text-foreground">Order summary</h2>
 					</div>
 
-					<div class="p-5 space-y-4">
-						{#if cartData?.list && cartData.list.length > 0}
-							<div class="max-h-60 overflow-y-auto pr-2 scrollbar mb-4">
-								{#each cartData.list as item}
+					<div class="space-y-4 p-5">
+						{#if hasItems}
+							<div class="max-h-60 space-y-3 overflow-y-auto pr-1">
+								{#each cartItems as item (item.product_id)}
 									{#await getProductDetails(item.product_id)}
-										<div
-											class="flex items-center justify-between py-2 border-b border-[#252525]/50">
-											<div class="flex items-center gap-3">
-												<div
-													class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
-													{item.qty}
+										<div class="border-b border-border pb-3 last:border-0 last:pb-0">
+											<div class="flex items-center justify-between gap-3">
+												<div class="flex min-w-0 flex-1 items-center gap-3">
+													<span
+														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
+													>
+														{item.qty}
+													</span>
+													<Skeleton class="size-10 shrink-0 rounded-md" />
+													<div class="min-w-0 flex-1 space-y-1.5">
+														<Skeleton class="h-4 w-3/4 max-w-[140px] rounded-sm" />
+														<Skeleton class="h-3 w-1/2 max-w-[90px] rounded-sm" />
+													</div>
 												</div>
-												<Skeleton class="size-8 rounded-md" />
-												<div class="flex min-w-0 flex-col gap-1.5">
-													<Skeleton class="h-4 w-32 rounded-sm" />
-													<Skeleton class="h-3 w-20 rounded-sm" />
-												</div>
+												<span class="shrink-0 text-sm font-medium text-foreground">
+													₹{(item.price * item.qty).toLocaleString('en-IN')}
+												</span>
 											</div>
-											<div class="font-medium">₹{item.price * item.qty}</div>
 										</div>
 									{:then product}
-										<div
-											class="flex items-center justify-between py-2 border-b border-[#252525]/50">
-											<div class="flex items-center gap-3 flex-1">
-												<div
-													class="text-accent font-medium w-6 h-6 flex items-center justify-center bg-accent/10 rounded-full">
-													{item.qty}
-												</div>
-												{#if product && product.images && product.images.length > 0}
-													<div class="w-8 h-8 overflow-hidden rounded-md">
-														<img
-															src={product.images[0].url}
-															alt={product.name}
-															class="w-full h-full object-cover"
-															loading="lazy" />
-													</div>
-												{:else}
-													<div
-														class="w-8 h-8 bg-[#252525] rounded-md flex items-center justify-center">
-														<Icon icon="ph:cube-bold" class="text-xs text-accent/50" />
-													</div>
-												{/if}
-												<div class="flex flex-col">
-													<div class="text-sm truncate max-w-[150px]">
-														{product ? product.name : `Item #${item.product_id.substring(0, 8)}`}
-													</div>
-													{#if product && product.author}
-														<div class="text-xs text-accent/70">{product.author}</div>
+										<div class="border-b border-border pb-3 last:border-0 last:pb-0">
+											<div class="flex items-center justify-between gap-3">
+												<div class="flex min-w-0 flex-1 items-center gap-3">
+													<span
+														class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
+													>
+														{item.qty}
+													</span>
+													{#if product}
+														<a
+															href={productHref(product.name, item.product_id)}
+															class="size-10 shrink-0 overflow-hidden rounded-md"
+														>
+															{#if product.images?.length}
+																<PlaceholderImage
+																	src={product.images[0].url}
+																	alt={product.name}
+																	class="size-10"
+																/>
+															{:else}
+																<div
+																	class="flex size-10 items-center justify-center rounded-md bg-muted"
+																>
+																	<Package
+																		class="size-4 text-muted-foreground"
+																		aria-hidden="true"
+																	/>
+																</div>
+															{/if}
+														</a>
+													{:else}
+														<div
+															class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted"
+														>
+															<Package class="size-4 text-muted-foreground" aria-hidden="true" />
+														</div>
 													{/if}
-													<div class="text-xs text-gray-400">
-														Price: ₹{item.price} × {item.qty}
+													<div class="min-w-0">
+														{#if product}
+															<a
+																href={productHref(product.name, item.product_id)}
+																class="block truncate text-sm font-medium text-foreground hover:text-foreground/80"
+															>
+																{product.name}
+															</a>
+														{:else}
+															<p class="truncate text-sm font-medium text-foreground">
+																Item #{item.product_id.substring(0, 8)}
+															</p>
+														{/if}
+														{#if product?.author}
+															<p class="truncate text-xs text-muted-foreground">
+																by @{product.author}
+															</p>
+														{/if}
+														<p class="text-xs text-muted-foreground">
+															₹{item.price.toLocaleString('en-IN')} × {item.qty}
+														</p>
 													</div>
 												</div>
+												<span class="shrink-0 text-sm font-semibold text-foreground">
+													₹{(item.price * item.qty).toLocaleString('en-IN')}
+												</span>
 											</div>
-											<div class="font-medium pl-2">₹{item.price * item.qty}</div>
+										</div>
+									{:catch}
+										<div
+											class="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground"
+										>
+											<Package class="size-4 shrink-0" aria-hidden="true" />
+											<span>Could not load item details.</span>
 										</div>
 									{/await}
 								{/each}
 							</div>
+						{:else}
+							<CheckoutLineSkeleton count={2} />
 						{/if}
 
-						<div class="flex justify-between items-center">
-							<span class="text-gray-400">Subtotal</span>
-							<span class="font-medium">₹{subtotal.toFixed(2)}</span>
+						<div class="flex items-center justify-between text-sm">
+							<span class="text-muted-foreground">Subtotal</span>
+							<span class="font-medium text-foreground">
+								₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+							</span>
 						</div>
 
-						<div class="flex justify-between items-center pb-4 border-b border-[#252525]">
+						<div class="flex items-center justify-between border-b border-border pb-4 text-sm">
 							<div>
-								<span class="text-gray-400">Shipping</span>
-								<div class="text-xs text-gray-500">India-Wide Flat Rate</div>
+								<span class="text-muted-foreground">Shipping</span>
+								<p class="text-xs text-muted-foreground">India-wide flat rate</p>
 							</div>
-							<span class="font-medium">₹{DELIVERY_FLAT_FEE}</span>
+							<span class="font-medium text-foreground">
+								₹{DELIVERY_FLAT_FEE.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+							</span>
 						</div>
 
-						<div class="flex justify-between items-center pt-1">
-							<span class="text-lg font-bold">Total</span>
-							<span class="text-2xl font-bold text-accent">
-								₹{(subtotal + DELIVERY_FLAT_FEE).toFixed(2)}
+						<div class="flex items-center justify-between">
+							<span class="font-medium text-foreground">Total</span>
+							<span class="text-xl font-semibold text-foreground">
+								₹{(subtotal + DELIVERY_FLAT_FEE).toLocaleString('en-IN', {
+									minimumFractionDigits: 2
+								})}
 							</span>
 						</div>
 
 						<button
-							class={`w-full mt-5 relative group/button overflow-hidden ${!addressValid || (cartData?.list ?? []).length <= 0 || isPaying ? 'opacity-50 cursor-not-allowed' : ''}`}
-							disabled={(cartData?.list ?? []).length <= 0 || !addressValid || isPaying}
-							onclick={payNow}>
-							<div
-								class="absolute inset-0 bg-accent opacity-10 group-hover/button:opacity-20 transition-opacity duration-300">
-							</div>
-
-							<div
-								class="relative flex items-center justify-center gap-2 bg-transparent border border-accent/30 rounded-xl px-5 py-3 font-medium text-accent">
-								<Icon icon="ph:credit-card-bold" />
-								<span>{isPaying ? 'Opening payment…' : 'Proceed to Payment'}</span>
-
-								<div
-									class="absolute right-4 opacity-0 group-hover/button:opacity-100 transform group-hover/button:translate-x-1 transition-all duration-300">
-									<Icon icon="ph:arrow-right-bold" />
-								</div>
-							</div>
+							type="button"
+							class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
+							disabled={!hasItems || !addressValid || isPaying}
+							onclick={payNow}
+						>
+							{isPaying ? 'Opening payment…' : 'Proceed to payment'}
+							{#if !isPaying}
+								<span aria-hidden="true">→</span>
+							{/if}
 						</button>
 
-						<div class="text-center mt-3">
-							<button
-								class="text-sm text-gray-400 hover:text-white transition-colors duration-300 flex items-center justify-center gap-1 mx-auto"
-								onclick={() => goto('/cart')}>
-								<Icon icon="ph:arrow-left-bold" />
-								Return to Cart
-							</button>
+						<div class="text-center">
+							<ScButton href="/cart" variant="ghost" class="text-sm">
+								<ArrowLeft class="mr-1 inline size-3.5" aria-hidden="true" />
+								Return to cart
+							</ScButton>
 						</div>
 
 						<div
-							class="pt-4 border-t border-[#252525] flex items-center justify-center gap-3 text-gray-500">
-							<Icon icon="ph:shield-check-bold" class="text-accent opacity-50" />
-							<span class="text-xs">Secure Checkout</span>
-							<Icon icon="ph:lock-simple-bold" class="text-accent opacity-50" />
+							class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground"
+						>
+							<span class="inline-flex items-center gap-1">
+								<ShieldCheck class="size-3.5" aria-hidden="true" />
+								Secure
+							</span>
+							<span class="inline-flex items-center gap-1">
+								<Lock class="size-3.5" aria-hidden="true" />
+								Encrypted
+							</span>
 						</div>
 					</div>
 				</div>
-			</div>
+			</aside>
 		</div>
 	</div>
 </div>
-
-<style>
-	.shadow-glow {
-		@apply [box-shadow:0_4px_20px_-5px_var(--color-accent)/10];
-	}
-
-	/* Scrollbar styling */
-	.scrollbar::-webkit-scrollbar {
-		width: 4px;
-	}
-
-	.scrollbar::-webkit-scrollbar-track {
-		background: #252525;
-		border-radius: 10px;
-	}
-
-	.scrollbar::-webkit-scrollbar-thumb {
-		background: var(--color-accent);
-		border-radius: 10px;
-		opacity: 0.5;
-	}
-
-	.scrollbar::-webkit-scrollbar-thumb:hover {
-		background: var(--color-accent);
-		opacity: 0.7;
-	}
-</style>

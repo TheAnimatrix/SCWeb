@@ -64,7 +64,8 @@ export default defineConfig({
 				]
 			},
 			devOptions: {
-				enabled: true
+				// Workbox 7.4 + Vite 6 fail to bundle the dev service worker (source-phase import error).
+				enabled: false
 			}
 		})
 	],

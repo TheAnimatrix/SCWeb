@@ -24,4 +24,13 @@ export interface TagOption {
 	label: string;
 	count: number;
 	variants: string[];
+	parentKey?: string | null;
+}
+
+export interface TagGroup {
+	key: string;
+	label: string;
+	count: number;
+	variants: string[];
+	children: TagOption[];
 }

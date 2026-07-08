@@ -1,25 +1,38 @@
 <script lang="ts">
-	import type { BrowseCategory, BrowseFilters, CategoryCounts, TagOption } from '$lib/types/browse';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import type { BrowseCategory, BrowseFilters, CategoryCounts, TagGroup, TagOption } from '$lib/types/browse';
 	import { cn } from '$lib/utils';
 	import { ScInput } from '$lib/components/sc';
 
 	interface Props {
 		filters: BrowseFilters;
 		categoryCounts: CategoryCounts;
-		tagOptions: TagOption[];
+		tagGroups: TagGroup[];
+		standaloneTags: TagOption[];
 		onchange?: (patch: Partial<BrowseFilters>) => void;
 		class?: string;
 	}
 
-	let { filters, categoryCounts, tagOptions, onchange, class: className }: Props = $props();
+	let { filters, categoryCounts, tagGroups, standaloneTags, onchange, class: className }: Props =
+		$props();
 
 	let optimisticInStock = $state<boolean | undefined>(undefined);
 	const inStockChecked = $derived(optimisticInStock ?? filters.inStock);
+
+	const expandedGroups = $state<Record<string, boolean>>({});
 
 	$effect(() => {
 		filters.inStock;
 		optimisticInStock = undefined;
 	});
+
+	function isGroupExpanded(groupKey: string, group: TagGroup): boolean {
+		if (expandedGroups[groupKey] !== undefined) {
+			return expandedGroups[groupKey];
+		}
+
+		return filters.tag === groupKey || group.children.some((child) => child.key === filters.tag);
+	}
 
 	const categories: { value: BrowseCategory; label: string; countKey: keyof CategoryCounts }[] = [
 		{ value: 'all', label: 'all', countKey: 'all' },
@@ -27,6 +40,8 @@
 		{ value: 'spares', label: 'spares', countKey: 'spares' },
 		{ value: 'flea_market', label: 'flea_market', countKey: 'flea_market' }
 	];
+
+	const hasCraftFilters = $derived(tagGroups.length > 0 || standaloneTags.length > 0);
 
 	function parsePrice(value: string): number | null {
 		const trimmed = value.trim();
@@ -58,6 +73,10 @@
 			tag: filters.tag === tagKey ? null : tagKey,
 			page: 1
 		});
+	}
+
+	function toggleGroupExpanded(groupKey: string, group: TagGroup) {
+		expandedGroups[groupKey] = !isGroupExpanded(groupKey, group);
 	}
 
 	function toggleInStock() {
@@ -113,25 +132,86 @@
 		</div>
 	</section>
 
-	{#if tagOptions.length > 0}
+	{#if hasCraftFilters}
 		<section class="flex flex-col gap-3">
-			<p class="font-mono text-xs text-muted-foreground">// tag</p>
-			<div class="flex flex-wrap gap-2">
-				{#each tagOptions as tag (tag.key)}
-					<button
-						type="button"
-						onclick={() => toggleTag(tag.key)}
-						class={cn(
-							'rounded-full border px-3 py-1 font-mono text-xs transition-colors',
-							filters.tag === tag.key
-								? 'border-black bg-black text-white'
-								: 'border-border bg-card text-foreground hover:border-foreground/30'
-						)}
-					>
-						{tag.label}
-					</button>
+			<p class="font-mono text-xs text-muted-foreground">// craft</p>
+
+			<ul class="flex flex-col gap-1">
+				{#each tagGroups as group (group.key)}
+					<li class="flex flex-col">
+						<div class="flex items-center gap-1">
+							{#if group.children.length > 0}
+								<button
+									type="button"
+									class="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+									aria-expanded={isGroupExpanded(group.key, group)}
+									aria-label="{isGroupExpanded(group.key, group) ? 'Collapse' : 'Expand'} {group.label}"
+									onclick={() => toggleGroupExpanded(group.key, group)}
+								>
+									<ChevronDown
+										class={cn(
+											'size-3.5 transition-transform duration-200',
+											isGroupExpanded(group.key, group) ? 'rotate-0' : '-rotate-90'
+										)}
+										aria-hidden="true"
+									/>
+								</button>
+							{:else}
+								<span class="size-6 shrink-0" aria-hidden="true"></span>
+							{/if}
+
+							<label
+								class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1 font-mono text-sm text-foreground"
+							>
+								<input
+									type="checkbox"
+									class="size-3.5 rounded border-border accent-black"
+									checked={filters.tag === group.key}
+									onchange={() => toggleTag(group.key)}
+								/>
+								<span class="flex-1 truncate">{group.label}</span>
+								<span class="text-muted-foreground">{group.count}</span>
+							</label>
+						</div>
+
+						{#if group.children.length > 0 && isGroupExpanded(group.key, group)}
+							<ul class="ml-7 flex flex-col gap-1 border-l border-border pl-3">
+								{#each group.children as child (child.key)}
+									<li>
+										<label
+											class="flex cursor-pointer items-center gap-2 py-1 font-mono text-sm text-foreground"
+										>
+											<input
+												type="checkbox"
+												class="size-3.5 rounded border-border accent-black"
+												checked={filters.tag === child.key}
+												onchange={() => toggleTag(child.key)}
+											/>
+											<span class="flex-1 truncate">{child.label}</span>
+											<span class="text-muted-foreground">{child.count}</span>
+										</label>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</li>
 				{/each}
-			</div>
+
+				{#each standaloneTags as tag (tag.key)}
+					<li>
+						<label class="flex cursor-pointer items-center gap-2 py-1 pl-7 font-mono text-sm text-foreground">
+							<input
+								type="checkbox"
+								class="size-3.5 rounded border-border accent-black"
+								checked={filters.tag === tag.key}
+								onchange={() => toggleTag(tag.key)}
+							/>
+							<span class="flex-1 truncate">{tag.label}</span>
+							<span class="text-muted-foreground">{tag.count}</span>
+						</label>
+					</li>
+				{/each}
+			</ul>
 		</section>
 	{/if}
 

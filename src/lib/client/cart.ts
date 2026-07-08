@@ -10,10 +10,12 @@ import {  writable, type Writable } from 'svelte/store';
 //create cart type { cart_id((if signed in)/(if signed out store in localstorage)), cart_list:{product_id, quantity}[], cart_purchased }
 export interface Cart {
 	id: string;
+	client_id?: string;
 	list?: CartItem[];
 	status?: string;
 	price: number;
 	last_updated?: string;
+	updated_at?: string;
 }
 
 export type CartItem = {
@@ -34,8 +36,41 @@ export const initCartG = (): Writable<CartG> => {
 	});
 };
 
+function normalizeCartList(list: Cart['list']): CartItem[] {
+	return Array.isArray(list) ? list : [];
+}
+
+function cartItemCount(cart: Cart): number {
+	return normalizeCartList(cart.list).reduce((sum, item) => sum + item.qty, 0);
+}
+
+function selectActiveCart(carts: Cart[], clientId: string): Cart {
+	const normalized = carts.map((cart) => ({
+		...cart,
+		list: normalizeCartList(cart.list)
+	}));
+
+	return normalized.sort((a, b) => {
+		const aClientMatch = a.client_id === clientId ? 1 : 0;
+		const bClientMatch = b.client_id === clientId ? 1 : 0;
+		if (aClientMatch !== bClientMatch) return bClientMatch - aClientMatch;
+
+		const aItems = cartItemCount(a);
+		const bItems = cartItemCount(b);
+		if (aItems !== bItems) return bItems - aItems;
+
+		const aUpdated = a.updated_at ?? a.last_updated ?? '';
+		const bUpdated = b.updated_at ?? b.last_updated ?? '';
+		return bUpdated.localeCompare(aUpdated);
+	})[0];
+}
+
+function syncCartStore(cart_store: Writable<CartG>, cart: Cart) {
+	cart_store.set({ valid: true, itemCount: cartItemCount(cart) });
+}
+
 /**
- * 
+ *
  */
 
 /**
@@ -68,7 +103,7 @@ export async function changeCart(
 			newQty = (sameCartItem?.qty ?? 0) + changed.qty;
 		else
 			newQty = changed.qty;
-		
+
 		if (newQty === 0) {
 			cart.list.splice(itemIndex, 1);
 		} else if(newQty> changedItemStock){
@@ -78,24 +113,28 @@ export async function changeCart(
 			cart.list[itemIndex].qty = newQty;
 		}
 	} else {
+		if (changed.qty > changedItemStock) {
+			return {
+				error: true,
+				data: `We only have ${changedItemStock} left.`
+			};
+		}
 		cart.list.push(changed);
 	}
-	const { error } = await supabase.rpc('update_cart_by_id', {
+	const { data: updatedRows, error } = await supabase.rpc('update_cart_by_id', {
 		in_client_id: clientId,
 		in_cart_id: cart.id,
 		in_list: cart.list,
 		in_status: 'active'
 	});
-	if (!error) {
-		let itemCount = 0;
-		cart.list?.forEach((item) => {
-			itemCount += item.qty;
-		});
-		cart_store.set({ valid: true, itemCount: itemCount });
+	if (!error && updatedRows && updatedRows.length > 0) {
+		syncCartStore(cart_store, cart);
 		return { error: false, data: 'updated cart' };
-	} else {
-		return { error: true, data: error.message };
 	}
+	return {
+		error: true,
+		data: error?.message ?? 'Failed to update cart'
+	};
 
 	// cartg.update((cur) => {
 	// 	// Find the index of the item to change in the cart list
@@ -132,23 +171,20 @@ export async function getActiveCart(
 	clientId: string
 ): Promise<CResult<Cart | undefined>> {
 	const result = await supabase.rpc('get_cart_by_uid', { in_clientid: clientId });
-	let cart: Cart;
 	if (!result.error && result.data.length > 0) {
-		cart = result.data[0] as Cart;
+		const cart = selectActiveCart(result.data as Cart[], clientId);
 		return { error: false, data: cart };
-	} else {
-		//create cart
-		const resultCart = await supabase
-			.from('cart')
-			.insert({ client_id: clientId, status: 'active' });
-		if (!resultCart.error && resultCart.statusText == 'Created') {
-			const result2 = await supabase.rpc('get_cart_by_uid', { in_clientid: clientId });
-			if (!result2.error && result2.data.length > 0) {
-				cart = result2.data[0] as Cart;
-				return { error: false, data: cart };
-			} else return { error: true, data: undefined };
-		} else return { error: true, data: undefined };
 	}
+
+	const resultCart = await supabase.from('cart').insert({ client_id: clientId, status: 'active' });
+	if (!resultCart.error && resultCart.statusText == 'Created') {
+		const result2 = await supabase.rpc('get_cart_by_uid', { in_clientid: clientId });
+		if (!result2.error && result2.data.length > 0) {
+			const cart = selectActiveCart(result2.data as Cart[], clientId);
+			return { error: false, data: cart };
+		}
+	}
+	return { error: true, data: undefined };
 	// if (!result.error) {
 	// 	//user not logged in, try to get cart w/ clientID
 	// 	let resultCart = await supabase

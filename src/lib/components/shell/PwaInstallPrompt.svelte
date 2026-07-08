@@ -3,65 +3,55 @@
 	import Download from '@lucide/svelte/icons/download';
 	import Share from '@lucide/svelte/icons/share';
 	import { Button } from '$lib/components/ui/button';
+	import { wasInstallPromptDismissed } from '$lib/client/pwaInstall';
 	import {
-		type BeforeInstallPromptEvent,
 		dismissInstallPrompt,
+		initPwaInstallState,
+		installEvent,
+		installing,
 		isIosDevice,
 		isStandaloneDisplayMode,
-		wasInstallPromptDismissed
-	} from '$lib/client/pwaInstall';
+		promptPwaInstall
+	} from '$lib/client/pwaInstallState';
 
 	let open = $state(false);
-	let installEvent = $state<BeforeInstallPromptEvent | null>(null);
 	let showIosInstructions = $state(false);
-	let installing = $state(false);
+
+	$effect(() => {
+		if ($installEvent) {
+			showIosInstructions = false;
+		}
+	});
 
 	onMount(() => {
+		initPwaInstallState();
+
 		if (isStandaloneDisplayMode() || wasInstallPromptDismissed()) {
 			return;
 		}
-
-		const showPrompt = () => {
-			open = true;
-		};
-
-		const onBeforeInstallPrompt = (event: Event) => {
-			event.preventDefault();
-			installEvent = event as BeforeInstallPromptEvent;
-			showIosInstructions = false;
-		};
-
-		window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
 
 		if (isIosDevice()) {
 			showIosInstructions = true;
 		}
 
-		const timer = window.setTimeout(showPrompt, 1500);
+		const timer = window.setTimeout(() => {
+			open = true;
+		}, 1500);
 
 		return () => {
 			window.clearTimeout(timer);
-			window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
 		};
 	});
 
 	async function handleInstall() {
-		if (!installEvent) return;
+		if (!$installEvent) return;
 
-		installing = true;
+		const outcome = await promptPwaInstall();
 
-		try {
-			await installEvent.prompt();
-			const { outcome } = await installEvent.userChoice;
-
-			if (outcome === 'accepted') {
-				open = false;
-			} else {
-				dismissInstallPrompt();
-			}
-		} finally {
-			installing = false;
-			installEvent = null;
+		if (outcome === 'accepted') {
+			open = false;
+		} else if (outcome === 'dismissed') {
+			dismissInstallPrompt();
 		}
 	}
 
@@ -89,9 +79,9 @@
 				<div>
 					<p id="pwa-install-title" class="font-semibold text-foreground">Install Selfcrafted</p>
 					<p id="pwa-install-description" class="mt-1 text-sm text-muted-foreground">
-						{#if showIosInstructions && !installEvent}
+						{#if showIosInstructions && !$installEvent}
 							Add this app to your home screen for quick access and a full-screen experience.
-						{:else if installEvent}
+						{:else if $installEvent}
 							Install the app for faster access, offline browsing, and a native-like experience.
 						{:else}
 							Install this app from your browser menu for quicker access and offline browsing.
@@ -99,7 +89,7 @@
 					</p>
 				</div>
 
-				{#if showIosInstructions && !installEvent}
+				{#if showIosInstructions && !$installEvent}
 					<ol class="space-y-1 text-sm text-muted-foreground">
 						<li class="flex items-center gap-2">
 							<Share class="size-4 shrink-0" />
@@ -113,13 +103,13 @@
 				{/if}
 
 				<div class="flex flex-wrap gap-2">
-					{#if installEvent}
-						<Button onclick={handleInstall} disabled={installing}>
-							{installing ? 'Installing…' : 'Install app'}
+					{#if $installEvent}
+						<Button onclick={handleInstall} disabled={$installing}>
+							{$installing ? 'Installing…' : 'Install app'}
 						</Button>
 					{/if}
 					<Button variant="outline" onclick={handleDismiss}>
-						{showIosInstructions && !installEvent ? 'Not now' : 'Maybe later'}
+						{showIosInstructions && !$installEvent ? 'Not now' : 'Maybe later'}
 					</Button>
 				</div>
 			</div>

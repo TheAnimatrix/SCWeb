@@ -1,22 +1,30 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
+	import MapPin from '@lucide/svelte/icons/map-pin';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import Check from '@lucide/svelte/icons/check';
+	import X from '@lucide/svelte/icons/x';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Phone from '@lucide/svelte/icons/phone';
+	import Mail from '@lucide/svelte/icons/mail';
+	import User from '@lucide/svelte/icons/user';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import {
-		getValidState,
 		type Address,
 		compareAddress,
 		validateAddress,
 		newAddress
 	} from '$lib/types/product';
+	import { ScInput } from '$lib/components/sc';
+	import { cn } from '$lib/utils';
 
 	function getWithoutCountryCode(phone: string | undefined) {
 		if (!phone) return '';
 		if (phone.startsWith('+91')) return phone.substring(3);
-		else return phone;
+		return phone;
 	}
 
-
 	let addressError: string | undefined = $state();
-
 
 	let onDeleteLocal = () => {
 		if (type == 'text' || !address.id) onDelete(false);
@@ -25,8 +33,6 @@
 			onDelete(true);
 		}
 	};
-
-
 
 	interface Props {
 		email: string | undefined;
@@ -51,35 +57,35 @@
 		address = $bindable(newAddress()),
 		address_old = $bindable(newAddress()),
 		onDelete = (isCloseOnly: boolean) => {
-		if (isCloseOnly) {
-			address = {...address_old};
-			type = 'text';
-		} else {
-			address = {...newAddress()};
-			addressValid = false;
-			type='edit';
-		}
-	},
+			if (isCloseOnly) {
+				address = { ...address_old };
+				type = 'text';
+			} else {
+				address = { ...newAddress() };
+				addressValid = false;
+				type = 'edit';
+			}
+		},
 		onSave = (isChanged: boolean, addr: Address): boolean => {
-		if (addr.phone?.startsWith('+91')) addr.phone = addr.phone.substring(3);
-		let result = validateAddress(addr, !userExists);
-		if (result) addressError = result;
-		else addressError = undefined;
-		if (!result) {
-			address.phone = '+91' + (addr.phone || '');
-			address = {...address};
-			addressValid = true;
-			return true;
-		} else return false;
-	},
+			if (addr.phone?.startsWith('+91')) addr.phone = addr.phone.substring(3);
+			const result = validateAddress(addr, !userExists);
+			if (result) addressError = result;
+			else addressError = undefined;
+			if (!result) {
+				address.phone = '+91' + (addr.phone || '');
+				address = { ...address };
+				addressValid = true;
+				return true;
+			}
+			return false;
+		},
 		onEditStart = (): boolean => {
-		addressValid = false;
-		if (address.phone?.startsWith('+91')) address.phone = address.phone.substring(3);
-		return true;
-	},
+			addressValid = false;
+			if (address.phone?.startsWith('+91')) address.phone = address.phone.substring(3);
+			return true;
+		},
 		class: className = ''
 	}: Props = $props();
-	
 
 	function toggleType() {
 		let k = true;
@@ -94,236 +100,193 @@
 	let showAddressList = $state(false);
 	let addressCount = addresses?.length ?? 0;
 
-	//default behavior
 	if (!userExists) type = 'edit';
-	else {
-		if (addresses && addressCount) {
-			address = addresses[0];
-			type = 'text';
-		} else type = 'edit';
-	}
+	else if (addresses && addressCount) {
+		address = addresses[0];
+		type = 'text';
+	} else type = 'edit';
 
-	// Input styling
-	const inputClasses = "w-full px-4 py-3 bg-[#252525]/80 rounded-lg border border-[#353535] focus:border-accent/50 focus:ring-1 focus:ring-accent/30 outline-hidden text-white placeholder-gray-500 transition-all";
+	const labelClass = 'text-sm font-medium text-foreground';
 </script>
 
-<div class="bg-[#151515]/30 rounded-xl border border-[#252525] overflow-hidden transition-all duration-300">
-	<!-- Header Section -->
-	<div class="flex justify-between items-center p-4 border-b border-[#252525]">
-		<div class="flex items-center gap-2">
-			<button 
-				class="group flex items-center gap-2 focus:outline-hidden"
+<div class={cn('overflow-hidden rounded-lg border border-border bg-card', className)}>
+	<div class="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+		<div class="flex min-w-0 flex-1 items-center gap-2">
+			<button
+				type="button"
+				class="group flex min-w-0 items-center gap-2 text-left focus:outline-none"
 				onclick={() => {
 					if (userExists && addressCount) {
 						showAddressList = !showAddressList;
 					}
 				}}
 			>
-				<span class="text-lg font-medium group-hover:text-accent transition-colors">
-					<div class="flex items-center gap-2">
-						<Icon icon="ph:map-pin-bold" class="text-accent text-xl" />
-						Shipping Address
-					</div>
+				<MapPin class="size-4 shrink-0 text-foreground" aria-hidden="true" />
+				<span class="text-sm font-medium text-foreground transition-colors group-hover:text-foreground/80">
+					Shipping address
 				</span>
-				
 				{#if userExists && addressCount}
-					<div class="text-accent/70 transition-transform duration-300 group-hover:text-accent" class:rotate-180={showAddressList}>
-						<Icon icon="ph:caret-down-bold" />
-					</div>
+					<ChevronDown
+						class={cn(
+							'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+							showAddressList && 'rotate-180'
+						)}
+						aria-hidden="true"
+					/>
 				{/if}
 			</button>
-			
+
 			{#if addressError}
-				<span class="text-red-400 text-sm ml-2 animate-pulse">
-					{addressError}
-				</span>
+				<span class="truncate text-sm text-destructive">{addressError}</span>
 			{/if}
 		</div>
-		
-		<div class="flex items-center gap-2">
+
+		<div class="flex shrink-0 items-center gap-1">
 			<button
-				class="p-2 text-gray-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-all"
+				type="button"
+				class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 				onclick={toggleType}
 				aria-label={type === 'text' ? 'Edit address' : 'Save address'}
 			>
-				<Icon icon={type === 'text' ? 'ph:pencil-bold' : 'ph:check-bold'} class="text-xl" />
+				{#if type === 'text'}
+					<Pencil class="size-4" />
+				{:else}
+					<Check class="size-4" />
+				{/if}
 			</button>
-			
+
 			<button
-				class="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+				type="button"
+				class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 				onclick={onDeleteLocal}
 				aria-label={type === 'edit' && address.id ? 'Cancel edit' : 'Delete address'}
 			>
-				<Icon 
-					icon={type === 'edit' && address.id ? 'ph:x-bold' : 'ph:trash-bold'} 
-					class="text-xl" 
-				/>
+				{#if type === 'edit' && address.id}
+					<X class="size-4" />
+				{:else}
+					<Trash2 class="size-4" />
+				{/if}
 			</button>
 		</div>
 	</div>
-	
-	<!-- Address Content -->
+
 	<div class="p-5">
 		{#if !showAddressList}
 			{#if type === 'text'}
-				<!-- Read-only address display -->
-				<div class="space-y-2 text-gray-300">
-					<div class="text-lg font-medium text-accent">{address.name || 'Name'}</div>
-					
-					<div class="flex items-start">
-						<Icon icon="ph:map-pin-bold" class="mt-1 mr-2 text-accent/50" />
-						<div class="space-y-1">
-							<div>{address.line1 || 'Address Line 1'}</div>
-							<div>{address.line2 || 'Address Line 2'}</div>
-							<div>{address.city || 'City'} - {address.pincode || 'Pincode'}, {address.state || 'State'}</div>
+				<div class="space-y-3 text-sm text-foreground">
+					<p class="text-base font-medium">{address.name || 'Name'}</p>
+
+					<div class="flex items-start gap-2">
+						<MapPin class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+						<div class="space-y-0.5">
+							<p>{address.line1 || 'Address line 1'}</p>
+							{#if address.line2}
+								<p class="text-muted-foreground">{address.line2}</p>
+							{/if}
+							<p>
+								{address.city || 'City'} – {address.pincode || 'Pincode'}, {address.state || 'State'}
+							</p>
 						</div>
 					</div>
-					
+
 					{#if address.phone}
-						<div class="flex items-center mt-2">
-							<Icon icon="ph:phone-bold" class="mr-2 text-accent/50" />
+						<div class="flex items-center gap-2">
+							<Phone class="size-4 text-muted-foreground" aria-hidden="true" />
 							<span>+91 {getWithoutCountryCode(address.phone)}</span>
 						</div>
 					{/if}
-					
+
 					{#if address.email && !email}
-						<div class="flex items-center mt-2">
-							<Icon icon="ph:envelope-bold" class="mr-2 text-accent/50" />
+						<div class="flex items-center gap-2">
+							<Mail class="size-4 text-muted-foreground" aria-hidden="true" />
 							<span>{address.email}</span>
 						</div>
 					{/if}
 				</div>
 			{:else}
-				<!-- Edit mode with form fields -->
 				<div class="space-y-4">
-					<!-- Name field -->
-					<div>
-						<label for="name" class="text-sm font-medium text-gray-400 mb-1 block">Full Name</label>
-						<div class="relative">
-							<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
-								<Icon icon="ph:user-bold" />
-							</div>
-							<input
-								id="name"
-								type="text"
-								class="{inputClasses} pl-10"
-								placeholder="Enter your full name"
-								bind:value={address.name}
-							/>
-						</div>
-					</div>
-					
-					<!-- Address fields -->
-					<div>
-						<label for="line1" class="text-sm font-medium text-gray-400 mb-1 block">Address Line 1</label>
-						<div class="relative">
-							<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
-								<Icon icon="ph:map-pin-bold" />
-							</div>
-							<input
-								id="line1"
-								type="text"
-								class="{inputClasses} pl-10"
-								placeholder="Street address"
-								bind:value={address.line1}
-							/>
-						</div>
-					</div>
-					
-					<div>
-						<label for="line2" class="text-sm font-medium text-gray-400 mb-1 block">Address Line 2</label>
-						<input
-							id="line2"
-							type="text"
-							class="{inputClasses}"
-							placeholder="Apartment, suite, unit, building, floor, etc."
-							bind:value={address.line2}
+					<ScInput
+						id="address-name"
+						label="Full name"
+						{labelClass}
+						icon={User}
+						placeholder="Enter your full name"
+						bind:value={address.name}
+					/>
+
+					<ScInput
+						id="address-line1"
+						label="Address line 1"
+						{labelClass}
+						icon={MapPin}
+						placeholder="Street address"
+						bind:value={address.line1}
+					/>
+
+					<ScInput
+						id="address-line2"
+						label="Address line 2"
+						{labelClass}
+						placeholder="Apartment, suite, unit, etc."
+						bind:value={address.line2}
+					/>
+
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+						<ScInput
+							id="address-city"
+							label="City"
+							{labelClass}
+							placeholder="City"
+							bind:value={address.city}
+						/>
+						<ScInput
+							id="address-pincode"
+							label="Pincode"
+							{labelClass}
+							placeholder="Pincode / ZIP"
+							bind:value={address.pincode}
+						/>
+						<ScInput
+							id="address-state"
+							label="State"
+							{labelClass}
+							placeholder="State"
+							bind:value={address.state}
 						/>
 					</div>
-					
-					<!-- City, Pincode, State in a row for larger screens -->
-					<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-						<div>
-							<label for="city" class="text-sm font-medium text-gray-400 mb-1 block">City</label>
-							<input
-								id="city"
-								type="text"
-								class="{inputClasses}"
-								placeholder="City"
-								bind:value={address.city}
-							/>
-						</div>
-						
-						<div>
-							<label for="pincode" class="text-sm font-medium text-gray-400 mb-1 block">Pincode</label>
-							<input
-								id="pincode"
-								type="text"
-								class="{inputClasses}"
-								placeholder="Pincode / ZIP"
-								bind:value={address.pincode}
-							/>
-						</div>
-						
-						<div>
-							<label for="state" class="text-sm font-medium text-gray-400 mb-1 block">State</label>
-							<input
-								id="state"
-								type="text"
-								class="{inputClasses}"
-								placeholder="State"
-								bind:value={address.state}
-							/>
-						</div>
-					</div>
-					
-					<!-- Phone and Email in a row -->
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div>
-							<label for="phone" class="text-sm font-medium text-gray-400 mb-1 block">Phone Number</label>
-							<div class="relative">
-								<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
-									<Icon icon="ph:phone-bold" />
-								</div>
-								<div class="absolute left-10 top-1/2 transform -translate-y-1/2 text-gray-500">
-									+91
-								</div>
-								<input
-									id="phone"
-									type="tel"
-									class="{inputClasses} pl-18"
-									placeholder="Phone number"
-									bind:value={address.phone}
-								/>
-							</div>
-						</div>
-						
+
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<ScInput
+							id="address-phone"
+							type="tel"
+							label="Phone number"
+							{labelClass}
+							icon={Phone}
+							prefix="+91"
+							placeholder="Phone number"
+							bind:value={address.phone}
+						/>
+
 						{#if !email}
-							<div>
-								<label for="email" class="text-sm font-medium text-gray-400 mb-1 block">Email</label>
-								<div class="relative">
-									<div class="absolute left-4 top-1/2 transform -translate-y-1/2 text-accent/70">
-										<Icon icon="ph:envelope-bold" />
-									</div>
-									<input
-										id="email"
-										type="email"
-										class="{inputClasses} pl-10"
-										placeholder="Email address"
-										bind:value={address.email}
-									/>
-								</div>
-							</div>
+							<ScInput
+								id="address-email"
+								type="email"
+								label="Email"
+								{labelClass}
+								icon={Mail}
+								placeholder="Email address"
+								bind:value={address.email}
+							/>
 						{/if}
 					</div>
 				</div>
 			{/if}
 		{:else if addresses && addresses.length > 0}
-			<!-- Address list for selection -->
-			<div class="max-h-80 overflow-y-auto pr-1 scrollbar">
-				{#each addresses as addrItem, i}
+			<div class="max-h-80 space-y-2 overflow-y-auto pr-1">
+				{#each addresses as addrItem (addrItem.id ?? addrItem.line1)}
 					<button
-						class="flex flex-col w-full text-left p-3 rounded-lg transition-all duration-200 hover:bg-accent/5 mb-2 border border-[#353535] hover:border-accent/30"
+						type="button"
+						class="flex w-full flex-col rounded-md border border-border p-4 text-left text-sm transition-colors hover:border-foreground/20 hover:bg-muted/40"
 						onclick={() => {
 							address = addrItem;
 							showAddressList = false;
@@ -331,58 +294,28 @@
 							type = 'text';
 						}}
 					>
-						<div class="text-lg font-medium text-accent">{addrItem.name || ''}</div>
-						<div class="text-gray-300">{addrItem.line1 || ''}</div>
-						<div class="text-gray-300">{addrItem.line2 || ''}</div>
-						<div class="text-gray-300">
-							{addrItem.city || ''} - {addrItem.pincode || ''}, {addrItem.state || ''}
-						</div>
+						<p class="font-medium text-foreground">{addrItem.name || ''}</p>
+						<p class="mt-1 text-muted-foreground">{addrItem.line1 || ''}</p>
+						{#if addrItem.line2}
+							<p class="text-muted-foreground">{addrItem.line2}</p>
+						{/if}
+						<p class="text-muted-foreground">
+							{addrItem.city || ''} – {addrItem.pincode || ''}, {addrItem.state || ''}
+						</p>
 						{#if addrItem.phone}
-							<div class="text-gray-300 flex items-center gap-1 mt-1">
-								<Icon icon="ph:phone-bold" class="text-accent/50" />
-								<span>+91 {addrItem.phone.startsWith('+91') ? addrItem.phone.substring(3) : addrItem.phone}</span>
-							</div>
+							<p class="mt-2 flex items-center gap-1.5 text-muted-foreground">
+								<Phone class="size-3.5" aria-hidden="true" />
+								+91 {addrItem.phone.startsWith('+91') ? addrItem.phone.substring(3) : addrItem.phone}
+							</p>
 						{/if}
 					</button>
 				{/each}
 			</div>
 		{:else}
-			<div class="p-4 text-center text-red-400">
-				<Icon icon="ph:warning-circle" class="text-3xl mb-2" />
-				<p>Unknown error occurred, please refresh the page.</p>
+			<div class="flex flex-col items-center gap-2 py-6 text-center text-sm text-destructive">
+				<AlertCircle class="size-8" aria-hidden="true" />
+				<p>Unknown error occurred. Please refresh the page.</p>
 			</div>
 		{/if}
 	</div>
 </div>
-
-<style>
-  /* Scrollbar styling */
-  .scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  
-  .scrollbar::-webkit-scrollbar-track {
-    background: #252525;
-    border-radius: 10px;
-  }
-  
-  .scrollbar::-webkit-scrollbar-thumb {
-    background: var(--color-accent);
-    border-radius: 10px;
-    opacity: 0.5;
-  }
-  
-  .scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent);
-    opacity: 0.7;
-  }
-  
-  .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: .5; }
-  }
-</style>

@@ -89,8 +89,8 @@
 		},
 		{
 			name: 'Osprey',
-			level: 'master',
-			desc: 'Exceptional reputation, premium visibility, dedicated support.'
+			level: 'sc_original',
+			desc: 'SelfCrafted Original — products designed and fulfilled by us, with end-to-end support through purchase and beyond.'
 		}
 	];
 </script>
