@@ -3,7 +3,7 @@
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import { tick } from 'svelte';
-	import { ScButton, AddressCardSkeleton } from '$lib/components/sc';
+	import { ScButton } from '$lib/components/sc';
 	import Plus from '@lucide/svelte/icons/plus';
 	import AlertCircle from '@lucide/svelte/icons/circle-alert';
 	import X from '@lucide/svelte/icons/x';
@@ -18,8 +18,10 @@
 
 	let errorMsg = $state('');
 	let errorShow = $state(false);
-	let editing = $state<boolean[]>([]);
 	let addresses = $state<Address[]>([]);
+	addresses = data.addresses;
+	let editing = $state<boolean[]>([]);
+	editing = data.editing;
 	let timeoutId = $state<ReturnType<typeof setTimeout> | undefined>(undefined);
 	let isLoading = $state(false);
 	let isConfirmDialogOpen = $state(false);
@@ -27,10 +29,6 @@
 
 	$effect(() => {
 		return () => clearTimeout(timeoutId);
-	});
-
-	$effect(() => {
-		setup();
 	});
 
 	function showError(message: string) {
@@ -41,33 +39,6 @@
 
 	function isEditingAny(): boolean {
 		return editing.includes(true);
-	}
-
-	async function setup() {
-		isLoading = true;
-		errorShow = false;
-		try {
-			const result = await supabase()
-				.from('addresses')
-				.select('*')
-				.order('created_at', { ascending: false });
-
-			if (result.error) {
-				showError(`Failed to load addresses: ${result.error.message}`);
-				addresses = [];
-				editing = [];
-			} else {
-				const fetchedAddresses = (result.data as Address[]) || [];
-				addresses = fetchedAddresses;
-				editing = new Array(fetchedAddresses.length).fill(false);
-			}
-		} catch {
-			showError('An unexpected error occurred while loading addresses.');
-			addresses = [];
-			editing = [];
-		} finally {
-			isLoading = false;
-		}
 	}
 
 	async function addNewAddressEntry() {
@@ -307,10 +278,6 @@
 				</div>
 			{/each}
 		</div>
-	{/if}
-
-	{#if isLoading && addresses.length === 0}
-		<AddressCardSkeleton count={2} />
 	{/if}
 </div>
 

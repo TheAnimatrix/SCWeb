@@ -7,7 +7,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		return { addresses: [] as Address[], editing: [] as boolean[] };
 	}
 
-	const result = await supabase.from('addresses').select('*').eq('uid', user.id);
+	const result = await supabase
+		.from('addresses')
+		.select('*')
+		.eq('uid', user.id)
+		.order('created_at', { ascending: false });
 	const addresses: Address[] = [];
 	const editing: boolean[] = [];
 

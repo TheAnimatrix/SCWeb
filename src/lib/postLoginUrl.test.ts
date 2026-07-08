@@ -52,4 +52,22 @@ describe('sanitizePostLoginUrl', () => {
 		expect(sanitizePostLoginUrl('user/profile')).toBeNull();
 		expect(sanitizePostLoginUrl(' /user/profile')).toBeNull();
 	});
+
+	it('rejects values over 2048 characters', () => {
+		expect(sanitizePostLoginUrl(`/${'a'.repeat(2048)}`)).toBeNull();
+		expect(sanitizePostLoginUrl(`/${'a'.repeat(2047)}`)).toBe(`/${'a'.repeat(2047)}`);
+	});
+
+	it('rejects control characters', () => {
+		expect(sanitizePostLoginUrl('/user/profile\x00')).toBeNull();
+		expect(sanitizePostLoginUrl('/user/profile%0Aorders')).toBeNull();
+	});
+
+	it('rejects double-encoded javascript scheme', () => {
+		expect(sanitizePostLoginUrl('/javascript%253aalert(1)')).toBeNull();
+	});
+
+	it('rejects encoded backslash open redirects', () => {
+		expect(sanitizePostLoginUrl('/%5c%5cevil.com')).toBeNull();
+	});
 });
