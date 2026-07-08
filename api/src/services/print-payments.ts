@@ -20,8 +20,8 @@ export function isPayablePrintRequestStage(
 
 export type LatestQuoteRejection = 'no_quote' | 'invalid_quote';
 
-// Events are still client-writable until portal mutations move server-side (WU-3D) —
-// this is defense-in-depth, and WU-3D + RLS lockdown is the completing fix.
+// Portal mutations are server-side; quote provenance is enforced by the actions endpoint.
+// RLS lockdown (Phase 4) remains defense-in-depth.
 export function getLatestQuoteRejection(events: unknown): LatestQuoteRejection | null {
 	if (!Array.isArray(events)) return 'no_quote';
 

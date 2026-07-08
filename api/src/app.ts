@@ -12,7 +12,14 @@ import { cartRoutes } from './routes/cart.js';
 import { checkoutRoutes } from './routes/checkout.js';
 import { healthRoutes } from './routes/health.js';
 import { printFilesRoutes } from './routes/print-files.js';
+import { createChatsRoutes } from './routes/chats.js';
+import { createPrintRequestsRoutes } from './routes/print-requests.js';
 import { printPaymentsRoutes } from './routes/print-payments.js';
+import { createChatsStore, type ChatsStore } from './services/chats-store.js';
+import {
+	createPrintRequestsStore,
+	type PrintRequestsStore
+} from './services/print-requests-store.js';
 import { createCartStore, type CartStore } from './services/cart-store.js';
 import { createCheckoutStore, type CheckoutStore } from './services/checkout-store.js';
 import {
@@ -35,6 +42,8 @@ type CreateAppOptions = {
 	checkoutStore?: CheckoutStore;
 	printFilesStore?: PrintFilesStore | null;
 	printPaymentsStore?: PrintPaymentsStore;
+	printRequestsStore?: PrintRequestsStore;
+	chatsStore?: ChatsStore;
 	razorpayClient?: RazorpayClient;
 };
 
@@ -45,6 +54,8 @@ export function createApp({
 	checkoutStore,
 	printFilesStore,
 	printPaymentsStore,
+	printRequestsStore,
+	chatsStore,
 	razorpayClient
 }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
@@ -77,6 +88,8 @@ export function createApp({
 				}
 			}
 		);
+	const resolvedPrintRequestsStore = printRequestsStore ?? createPrintRequestsStore(db);
+	const resolvedChatsStore = chatsStore ?? createChatsStore(db);
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
@@ -85,6 +98,8 @@ export function createApp({
 		c.set('checkoutStore', resolvedCheckoutStore);
 		c.set('printFilesStore', resolvedPrintFilesStore);
 		c.set('printPaymentsStore', resolvedPrintPaymentsStore);
+		c.set('printRequestsStore', resolvedPrintRequestsStore);
+		c.set('chatsStore', resolvedChatsStore);
 		await next();
 	});
 
@@ -109,6 +124,14 @@ export function createApp({
 	app.route('/', checkoutRoutes);
 	app.route('/', printFilesRoutes);
 	app.route('/', printPaymentsRoutes);
+	app.route(
+		'/',
+		createPrintRequestsRoutes((c) => c.get('printRequestsStore'))
+	);
+	app.route(
+		'/',
+		createChatsRoutes((c) => c.get('chatsStore'))
+	);
 
 	app.onError(errorHandler);
 

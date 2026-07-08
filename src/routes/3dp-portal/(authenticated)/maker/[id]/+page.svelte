@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
 	import Icon from '@iconify/svelte';
+	import { performPrintRequestAction } from '$lib/client/portalApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
 	import * as Drawer from '$lib/components/ui/drawer';
@@ -115,62 +116,16 @@
 			return;
 		}
 		shippedLoading = true;
-		// Fetch updated order
-		const updatedOrderRes = await supabase()
-			.from('printrequests')
-			.select('*')
-			.eq('id', req.id)
-			.single();
-		if (updatedOrderRes.error || !updatedOrderRes.data) {
-			shippedError = 'Error fetching updated order.';
-			shippedLoading = false;
-			return;
-		}
-		const updatedOrder = updatedOrderRes.data;
-		// 1. Send chat message of type 'action'
-		const chatInsert = await supabase()
-			.from('Chat')
-			.insert([
-				{
-					sender_id: data.session.data.user.id,
-					recipient_id: updatedOrder.user_id ?? '',
-					message: JSON.stringify({
-						action: 'shipped',
-						courier: courierName,
-						tracking_id: trackingId,
-						tracking_link: trackingLink
-					}),
-					relationship_id: updatedOrder.id,
-					message_type: 'action',
-					status: 'sent'
-				}
-			]);
-		if (chatInsert.error) {
-			shippedError = 'Error sending shipped message.';
-			shippedLoading = false;
-			return;
-		}
-		// 2. Update print request's request_stage and events
-		const updateRes = await supabase()
-			.from('printrequests')
-			.update({
-				request_stage: 'shipped',
-				last_updated: new Date().toISOString(),
-				update_count: (updatedOrder?.update_count || 0) + 1,
-				events: [
-					...(updatedOrder?.events || []),
-					{
-						type: 'shipped',
-						reason: `Courier: ${courierName}, Tracking ID: ${trackingId}, Tracking Link: ${trackingLink}`,
-						timestamp: new Date().toISOString(),
-						by: 'maker',
-						extra: { courier: courierName, tracking_id: trackingId, tracking_link: trackingLink }
-					}
-				]
-			})
-			.eq('id', updatedOrder.id);
-		if (updateRes.error) {
-			shippedError = 'Error updating print request.';
+		const result = await performPrintRequestAction(fetch, req.id, {
+			action: 'shipped',
+			payload: {
+				courier: courierName.trim(),
+				tracking_id: trackingId.trim() || undefined,
+				tracking_link: trackingLink.trim() || undefined
+			}
+		});
+		if (!result.ok) {
+			shippedError = result.error.message;
 			shippedLoading = false;
 			return;
 		}
@@ -231,56 +186,21 @@
 			toastStore.show('No valid order selected', 'error');
 			return;
 		}
-		//fetch updated order
-		const updatedOrderRes = await supabase()
-			.from('printrequests')
-			.select('*')
-			.eq('id', req.id)
-			.single();
-		if (updatedOrderRes.error) {
-			toastStore.show('Error fetching updated order', 'error');
+		const amount = Number(quote);
+		if (!Number.isInteger(amount) || amount <= 0) {
+			toastStore.show('Quote must be a positive whole number in rupees', 'error');
 			return;
 		}
-		const updatedOrder = updatedOrderRes.data;
-
 		quoteLoading = true;
-		//update request_stage to 'quoted' && update "events"
-		const updateQuote = await supabase()
-			.from('printrequests')
-			.update({
-				request_stage: 'quoted',
-				events: [
-					...(updatedOrder?.events || []),
-					{
-						type: 'quoted',
-						reason: quoteBreakdown,
-						timestamp: new Date().toISOString(),
-						by: 'maker',
-						extra: { quote: quote }
-					}
-				]
-			})
-			.eq('id', updatedOrder.id);
-		if (updateQuote.error) {
-			toastStore.show('Error updating quote', 'error');
-			quoteLoading = false;
-			return;
-		}
-		//send chat message of type 'quote'
-		const chatInsert = await supabase()
-			.from('Chat')
-			.insert([
-				{
-					sender_id: data.session?.data?.user?.id ?? '',
-					recipient_id: updatedOrder.user_id ?? '',
-					message: JSON.stringify({ action: 'quoted', reason: quoteBreakdown, quote: quote }),
-					relationship_id: updatedOrder.id,
-					message_type: 'quote',
-					status: 'sent'
-				}
-			]);
-		if (chatInsert.error) {
-			toastStore.show('Error sending quote', 'error');
+		const result = await performPrintRequestAction(fetch, req.id, {
+			action: 'quote',
+			payload: {
+				amount,
+				reason: quoteBreakdown || undefined
+			}
+		});
+		if (!result.ok) {
+			toastStore.show(result.error.message, 'error');
 			quoteLoading = false;
 			return;
 		}
@@ -299,46 +219,12 @@
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
 		if (!req || !req.id || !data.session?.data?.user?.id || !cancelReason.trim()) return;
-		//repull the order data
-		const updatedOrder = await supabase()
-			.from('printrequests')
-			.select('*')
-			.eq('id', req.id)
-			.single();
-		if (!updatedOrder.data) return;
-		// 1. Send chat message of type 'action'
-		await supabase()
-			.from('Chat')
-			.insert([
-				{
-					sender_id: data.session.data.user.id,
-					recipient_id: updatedOrder.data.user_id ?? '',
-					message: JSON.stringify({ action: 'cancelled', reason: cancelReason }),
-					relationship_id: updatedOrder.data.id,
-					message_type: 'action',
-					status: 'sent'
-				}
-			]);
-		// 2. Update print request's request_stage
-		await supabase()
-			.from('printrequests')
-			.update({
-				request_stage: 'cancelled',
-				last_updated: new Date().toISOString(),
-				update_count: (updatedOrder.data?.update_count || 0) + 1,
-				events: [
-					...(updatedOrder.data?.events || []),
-					{
-						type: 'cancelled',
-						reason: cancelReason,
-						timestamp: new Date().toISOString(),
-						by: 'maker'
-					}
-				]
-			})
-			.eq('id', updatedOrder.data.id);
-		if (updatedOrder.error) {
-			console.error('Error updating order', updatedOrder.error);
+		const result = await performPrintRequestAction(fetch, req.id, {
+			action: 'decline',
+			payload: { reason: cancelReason.trim() }
+		});
+		if (!result.ok) {
+			console.error('Error cancelling order', result.error);
 			return;
 		}
 		// 3. Close dialog and clear reason

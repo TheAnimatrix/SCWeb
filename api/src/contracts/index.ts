@@ -36,13 +36,25 @@ export {
 } from './checkout.js';
 export { rupeesToPaise } from './money.js';
 export {
+	sendChatMessageBodySchema,
+	sendChatMessageResponseSchema,
+	type SendChatMessageBody,
+	type SendChatMessageResponse
+} from './chats.js';
+export {
+	printRequestActionBodySchema,
+	printRequestActionResponseSchema,
+	printRequestIdParamSchema,
+	type PrintRequestActionBody,
+	type PrintRequestActionResponse
+} from './print-requests.js';
+export {
 	confirmPrintPaymentBodySchema,
 	confirmPrintPaymentResponseSchema,
 	createPrintPaymentOrderBodySchema,
 	createPrintPaymentOrderResponseSchema,
 	failPrintPaymentBodySchema,
 	failPrintPaymentResponseSchema,
-	printRequestIdParamSchema,
 	type ConfirmPrintPaymentBody,
 	type ConfirmPrintPaymentResponse,
 	type CreatePrintPaymentOrderBody,

@@ -6,6 +6,7 @@
 	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import Star from '@lucide/svelte/icons/star';
 	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
+	import { performPrintRequestAction } from '$lib/client/portalApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
 	import {
@@ -270,46 +271,12 @@
 	async function onConfirmCancel(e: MouseEvent) {
 		e.preventDefault();
 		if (!req || !data.session?.data?.user?.id || !cancelReason.trim()) return;
-		//repull the order data
-		const updatedOrder = await supabase()
-			.from('printrequests')
-			.select('*')
-			.eq('id', req.id)
-			.single();
-		if (!updatedOrder.data) return;
-		// 1. Send chat message of type 'action'
-		await supabase()
-			.from('Chat')
-			.insert([
-				{
-					sender_id: data.session.data.user.id,
-					recipient_id: req.creator_id ?? '',
-					message: JSON.stringify({ action: 'cancelled', reason: cancelReason }),
-					relationship_id: req.id,
-					message_type: 'action',
-					status: 'sent'
-				}
-			]);
-		// 2. Update print request's request_stage
-		await supabase()
-			.from('printrequests')
-			.update({
-				request_stage: 'cancelled',
-				last_updated: new Date().toISOString(),
-				update_count: (updatedOrder.data?.update_count || 0) + 1,
-				events: [
-					...(updatedOrder.data?.events || []),
-					{
-						type: 'cancelled',
-						reason: cancelReason,
-						timestamp: new Date().toISOString(),
-						by: 'user'
-					}
-				]
-			})
-			.eq('id', req.id);
-		if (updatedOrder.error) {
-			console.error('Error updating order', updatedOrder.error);
+		const result = await performPrintRequestAction(fetch, req.id, {
+			action: 'cancel',
+			payload: { reason: cancelReason.trim() }
+		});
+		if (!result.ok) {
+			toastStore.show(result.error.message, 'error');
 			return;
 		}
 		// 3. Close dialog and clear reason
@@ -402,50 +369,12 @@
 	async function onConfirmComplete(e: MouseEvent) {
 		e.preventDefault();
 		if (!req || !data.session?.data?.user?.id) return;
-		const updatedOrder = await supabase()
-			.from('printrequests')
-			.select('*')
-			.eq('id', req.id)
-			.single();
-		if (!updatedOrder.data) return;
-		// 1. Send chat message of type 'action' (optional: can add a message for completion)
-		await supabase()
-			.from('Chat')
-			.insert([
-				{
-					sender_id: data.session.data.user.id,
-					recipient_id: req.creator_id ?? '',
-					message: JSON.stringify({ action: 'completed', reason: completeReason }),
-					relationship_id: req.id,
-					message_type: 'action',
-					status: 'sent'
-				}
-			]);
-		// 2. Update print request's request_stage
-		await supabase()
-			.from('printrequests')
-			.update({
-				request_stage: 'completed',
-				last_updated: new Date().toISOString(),
-				update_count: (updatedOrder.data?.update_count || 0) + 1,
-				events: [
-					...(updatedOrder.data?.events || []),
-					{
-						type: 'completed',
-						reason: completeReason,
-						timestamp: new Date().toISOString(),
-						by: 'user'
-					}
-				]
-			})
-			.eq('id', req.id);
-		// 3. Invoke creator stats update
-		await fetch('/3dp-portal/maker/' + req.creator_id + '/statsUpdate', {
-			method: 'POST'
+		const result = await performPrintRequestAction(fetch, req.id, {
+			action: 'complete',
+			payload: completeReason.trim() ? { reason: completeReason.trim() } : {}
 		});
-
-		if (updatedOrder.error) {
-			console.error('Error updating order', updatedOrder.error);
+		if (!result.ok) {
+			toastStore.show(result.error.message, 'error');
 			return;
 		}
 		completeDialogOpen = false;

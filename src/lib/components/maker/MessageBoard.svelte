@@ -4,6 +4,7 @@
 	import type { SupabaseClient } from '@supabase/supabase-js';
 	import { onMount, tick } from 'svelte';
 	import { Filter } from 'bad-words';
+	import { sendChatMessage } from '$lib/client/portalApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { PortalSectionLabel } from '$lib/components/portal';
 	import { MessageBubbleSkeleton, ScButton } from '$lib/components/sc';
@@ -219,21 +220,17 @@
 	async function sendMessage(e: Event) {
 		e.preventDefault();
 		if (!newMessage.trim() || !session?.data?.user?.id) return;
-		const { error: sendError } = await supabase_lt.from('Chat').insert([
-			{
-				sender_id: session.data.user.id,
-				recipient_id: receiverId,
-				message: newMessage,
-				relationship_id: orderId,
-				message_type: 'text',
-				status: 'sent'
-			}
-		]);
-		if (!sendError) {
+		const result = await sendChatMessage(fetch, {
+			relationship_id: orderId,
+			recipient_id: receiverId,
+			message: newMessage,
+			message_type: 'text',
+			status: 'sent'
+		});
+		if (result.ok) {
 			newMessage = '';
-		}
-		if (sendError) {
-			toastStore.show(`Unable to send message: ${sendError.message}`, 'error');
+		} else {
+			toastStore.show(`Unable to send message: ${result.error.message}`, 'error');
 		}
 	}
 
