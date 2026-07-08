@@ -9,7 +9,7 @@ type LegacyCartItem = {
 import type { Product } from '$lib/types/product';
 import { canFulfillQuantity, isOnDemand, parseProductStock } from '$lib/utils/stock';
 import { env } from '$env/dynamic/private';
-import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 import { DELIVERY_FLAT_FEE } from '@scweb/api/contracts';
 import { isCartOwnedBy } from '$lib/server/cart';
 import { purchaseAlreadyPaid } from '$lib/server/purchases';
@@ -26,12 +26,22 @@ function getRazorpayKey(): string {
 	return key;
 }
 
+function getPublicRazorpayId(): string {
+	const id = publicEnv.PUBLIC_RAZORPAY_ID;
+	if (!id) {
+		throw new Error(
+			'PUBLIC_RAZORPAY_ID is not set. Configure it as a runtime environment variable.'
+		);
+	}
+	return id;
+}
+
 let razorpayInstance: Razorpay | null = null;
 
 function getRazorpayInstance(): Razorpay {
 	if (!razorpayInstance) {
 		razorpayInstance = new Razorpay({
-			key_id: PUBLIC_RAZORPAY_ID,
+			key_id: getPublicRazorpayId(),
 			key_secret: getRazorpayKey()
 		});
 	}

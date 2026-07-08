@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/sveltekit';
-import { PUBLIC_IS_PRODUCTION, PUBLIC_SUPABASE_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 import { createServerClient } from '@supabase/ssr';
 import { sequence } from '@sveltejs/kit/hooks';
 import type { Handle, HandleServerError } from '@sveltejs/kit';
@@ -22,6 +22,26 @@ function getSupabaseServiceKey(): string {
 	return key;
 }
 
+function getPublicSupabaseUrl(): string {
+	const url = publicEnv.PUBLIC_SUPABASE_URL;
+	if (!url) {
+		throw new Error(
+			'PUBLIC_SUPABASE_URL is not set. Configure it as a runtime environment variable.'
+		);
+	}
+	return url;
+}
+
+function getPublicSupabaseAnonKey(): string {
+	const key = publicEnv.PUBLIC_SUPABASE_KEY;
+	if (!key) {
+		throw new Error(
+			'PUBLIC_SUPABASE_KEY is not set. Configure it as a runtime environment variable.'
+		);
+	}
+	return key;
+}
+
 if (sentryDsn) {
 	Sentry.init({
 		dsn: sentryDsn,
@@ -34,7 +54,7 @@ function generateUniqueId(): string {
 	return uuidv4();
 }
 
-const isProduction = PUBLIC_IS_PRODUCTION !== 'false';
+const isProduction = publicEnv.PUBLIC_IS_PRODUCTION !== 'false';
 
 const appHandle: Handle = async ({ event, resolve }) => {
 	const requestId = sanitizeRequestId(event.request.headers.get('x-request-id'));
@@ -53,7 +73,7 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	});
 
 	// User-scoped client: anon key + cookies (RLS applies).
-	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_KEY, {
+	event.locals.supabase = createServerClient(getPublicSupabaseUrl(), getPublicSupabaseAnonKey(), {
 		cookies: {
 			getAll: () => event.cookies.getAll(),
 			setAll: (cookiesToSet) => {
@@ -65,7 +85,7 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	});
 
 	// Privileged client: service role, server-only, no cookie session.
-	event.locals.supabaseAdmin = createServerClient(PUBLIC_SUPABASE_URL, getSupabaseServiceKey(), {
+	event.locals.supabaseAdmin = createServerClient(getPublicSupabaseUrl(), getSupabaseServiceKey(), {
 		cookies: {
 			getAll: () => [],
 			setAll: () => {}

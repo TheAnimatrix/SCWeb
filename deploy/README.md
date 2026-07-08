@@ -5,30 +5,10 @@ One Docker image runs both the SvelteKit web app (port **3000**) and the Hono AP
 ## Build
 
 ```bash
-docker build \
-  --build-arg PUBLIC_SUPABASE_URL=https://your-project.supabase.co \
-  --build-arg PUBLIC_SUPABASE_KEY=your-anon-key \
-  --build-arg PUBLIC_RAZORPAY_ID=your-razorpay-key-id \
-  --build-arg PUBLIC_IS_PRODUCTION=true \
-  --build-arg PUBLIC_SITE_URL=https://your-main-domain \
-  --build-arg PUBLIC_VERCEL_URL= \
-  --build-arg PUBLIC_SENTRY_DSN= \
-  .
+docker build .
 ```
 
-### Build args
-
-Only **public** `PUBLIC_*` values are baked in at build time. **Private secrets** (`SUPABASE_KEY`, `RAZORPAY_KEY`, `SENTRY_DSN`, etc.) are read at **runtime** only — the Docker build does not need them and they must not be passed as build args.
-
-| Arg                    | Purpose                              |
-| ---------------------- | ------------------------------------ |
-| `PUBLIC_SUPABASE_URL`  | Supabase project URL                 |
-| `PUBLIC_SUPABASE_KEY`  | Supabase anon key                    |
-| `PUBLIC_RAZORPAY_ID`   | Razorpay key id                      |
-| `PUBLIC_IS_PRODUCTION` | `true` in production                 |
-| `PUBLIC_SITE_URL`      | Canonical site URL (OAuth redirects) |
-| `PUBLIC_VERCEL_URL`    | Optional hosting URL fallback        |
-| `PUBLIC_SENTRY_DSN`    | Optional browser error monitoring    |
+No build args or environment variables are required — all configuration is injected at **runtime** via Dokploy's Environment tab.
 
 ## Dokploy setup
 
@@ -43,7 +23,7 @@ Traefik (via Dokploy) routes each hostname to the matching exposed port.
 
 ## Runtime environment
 
-Set these on the Dokploy application at **runtime** (never as Docker build args):
+Set all variables on the Dokploy application at **runtime** (Environment tab). Do not pass them as Docker build args.
 
 | Variable                                     | Required | Purpose                                                                                         |
 | -------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
@@ -52,10 +32,13 @@ Set these on the Dokploy application at **runtime** (never as Docker build args)
 | `PUBLIC_SUPABASE_KEY` / `SUPABASE_ANON_KEY`  | Yes      | Supabase anon key (browser + API)                                                               |
 | `SUPABASE_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Yes      | Service role key (server only)                                                                  |
 | `RAZORPAY_KEY`                               | Yes      | Razorpay secret                                                                                 |
-| `PUBLIC_RAZORPAY_ID`                         | Yes      | Razorpay key id (also baked at build time)                                                      |
+| `PUBLIC_RAZORPAY_ID`                         | Yes      | Razorpay key id                                                                                 |
+| `PUBLIC_IS_PRODUCTION`                       | Yes      | `true` in production; set to `false` for local/staging                                          |
+| `PUBLIC_SITE_URL`                            | No       | Canonical site URL (OAuth redirects)                                                            |
+| `PUBLIC_VERCEL_URL`                          | No       | Optional hosting URL fallback                                                                   |
 | `API_CORS_ORIGINS`                           | Yes      | Comma-separated browser origins, e.g. `https://selfcrafted.in,https://www.selfcrafted.in`       |
 | `SENTRY_DSN`                                 | No       | Server error monitoring (web + API processes)                                                   |
-| `PUBLIC_SENTRY_DSN`                          | No       | Browser error monitoring (set at build time)                                                    |
+| `PUBLIC_SENTRY_DSN`                          | No       | Browser error monitoring                                                                        |
 | `CLIENT_ID_SIGNING_SECRET`                   | No       | Guest cart client-id signing                                                                    |
 
 `API_ORIGIN` defaults to `http://127.0.0.1:3001` inside the container so the web app proxies `/api` to the co-located API process. You normally **do not** override this.
