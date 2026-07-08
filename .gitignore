@@ -12,3 +12,5 @@ vite.config.ts.timestamp-*
 mcp.json
 .mcp.json
 dev-dist/
+api/dist/
+api/drizzle/

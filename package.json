@@ -2,9 +2,15 @@
 	"name": "scweb",
 	"version": "0.0.1",
 	"private": true,
+	"workspaces": [
+		"api"
+	],
 	"scripts": {
 		"dev": "vite dev --host",
+		"dev:api": "npm run dev -w @scweb/api",
 		"build": "vite build",
+		"build:api": "npm run build -w @scweb/api",
+		"check:api": "npm run check -w @scweb/api",
 		"preview": "vite preview",
 		"test": "npm run test:integration && npm run test:unit",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
