@@ -8,6 +8,11 @@
 	import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
+	import {
+		confirmPrintPayment,
+		createPrintPaymentOrder,
+		failPrintPayment
+	} from '$lib/client/printPaymentsApi';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -117,12 +122,11 @@
 
 	let payLoading = $state(false);
 
-	async function payQuote(amount: number) {
+	async function payQuote() {
 		if (payLoading) return;
 		const order = req;
-		if (!order?.model) return;
+		if (!order?.model || latestQuoteAmount == null) return;
 		payLoading = true;
-		//check for address validity
 		let addressValidity = validateAddress(validAddress);
 		if (addressValidity) {
 			highlightAddressSelector();
@@ -130,31 +134,13 @@
 			payLoading = false;
 			return;
 		}
-		//check for user session
-		const { data: userRes, error: userErr } = await supabase().auth.getSession();
-		if (userErr || !userRes?.session?.access_token) {
-			toastStore.show('Invalid session, please reload the page or login again', 'error');
+		const orderResult = await createPrintPaymentOrder(fetch, order.id, validAddress);
+		if (!orderResult.ok) {
+			toastStore.show(orderResult.error.message, 'error');
 			payLoading = false;
 			return;
 		}
-		//POST request to create a new order ('/3dp-portal/user/[id]')
-		const res = await fetch(`/3dp-portal/user/${order.id}`, {
-			method: 'POST',
-			body: JSON.stringify({ address: validAddress, amount: amount })
-		});
-		if (res.ok) {
-			const data = await res.json();
-			if (data.success) {
-				//Order created successfully now open rzp dialog
-				openRazorpayDialog(data.order_id, data.amount);
-				payLoading = false;
-				return;
-			} else {
-				toastStore.show(data.error, 'error');
-			}
-		} else {
-			toastStore.show('Failed to create order', 'error');
-		}
+		openRazorpayDialog(orderResult.data.razorpayOrderId, orderResult.data.amountPaise);
 		payLoading = false;
 	}
 
@@ -168,23 +154,22 @@
 				image:
 					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
 				order_id: order_id, //This is a sample Order ID. Pass the `id` obtained in the response of Step 1
-				handler: async function (response: any) {
-					// Add check for cartData inside handler as well, just in case
+				handler: async function (response: {
+					razorpay_order_id: string;
+					razorpay_payment_id: string;
+					razorpay_signature: string;
+				}) {
 					if (!req) {
 						console.error('Print request data became unavailable during payment processing.');
 						return;
 					}
-					const formData2 = new FormData();
-					formData2.append('payment_id_a', response.razorpay_order_id);
-					formData2.append('payment_id_b', response.razorpay_payment_id);
-					formData2.append('payment_signature', response.razorpay_signature);
-					formData2.append('amount', amount.toString());
-					const patchResult = await fetch(`/3dp-portal/user/${req.id}`, {
-						method: 'PATCH',
-						body: formData2
-					}); // Use a different variable name
-					if (!patchResult.ok) {
-						console.error('Failed to update order status after payment.');
+					const confirmResult = await confirmPrintPayment(fetch, req.id, {
+						razorpayOrderId: response.razorpay_order_id,
+						razorpayPaymentId: response.razorpay_payment_id,
+						razorpaySignature: response.razorpay_signature
+					});
+					if (!confirmResult.ok) {
+						toastStore.show(confirmResult.error.message, 'error');
 						return;
 					}
 					goto(`/summary/success/${req.id}/${response.razorpay_payment_id}`);
@@ -215,16 +200,21 @@
 			// @ts-ignore - Razorpay is loaded from external script
 			rzp1.open();
 			// @ts-ignore - Razorpay is loaded from external script
-			rzp1.on('payment.failed', function (response: any) {
-				toastStore.show('Payment failed, please try again', 'error');
-				// @ts-ignore - Razorpay is loaded from external script
-				rzp1.close();
-				const orderId = req?.id;
-				if (orderId) {
-					window.location.href = `/summary/failure/${orderId}/${response.error.metadata.order_id}`;
+			rzp1.on(
+				'payment.failed',
+				function (response: { error: { metadata: { order_id: string }; description?: string } }) {
+					toastStore.show('Payment failed, please try again', 'error');
+					// @ts-ignore - Razorpay is loaded from external script
+					rzp1.close();
+					const orderId = req?.id;
+					const razorpayOrderId = response.error.metadata.order_id;
+					if (orderId && razorpayOrderId) {
+						void failPrintPayment(fetch, orderId, razorpayOrderId, response.error.description);
+						window.location.href = `/summary/failure/${orderId}/${razorpayOrderId}`;
+					}
+					return;
 				}
-				return;
-			});
+			);
 		} catch (e) {
 			// Explicitly type caught error as unknown
 			console.error('Error during payment process:', e);
@@ -775,7 +765,7 @@
 						disabled={payLoading || latestQuoteAmount == null}
 						bind:this={payButtonRef}
 						onclick={() => {
-							if (latestQuoteAmount != null) void payQuote(latestQuoteAmount);
+							void payQuote();
 						}}>
 						{payLoading ? 'Processing…' : `Pay ${latestQuoteAmount ?? latestQuote}₹`}
 					</button>

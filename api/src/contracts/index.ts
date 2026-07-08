@@ -36,6 +36,21 @@ export {
 } from './checkout.js';
 export { rupeesToPaise } from './money.js';
 export {
+	confirmPrintPaymentBodySchema,
+	confirmPrintPaymentResponseSchema,
+	createPrintPaymentOrderBodySchema,
+	createPrintPaymentOrderResponseSchema,
+	failPrintPaymentBodySchema,
+	failPrintPaymentResponseSchema,
+	printRequestIdParamSchema,
+	type ConfirmPrintPaymentBody,
+	type ConfirmPrintPaymentResponse,
+	type CreatePrintPaymentOrderBody,
+	type CreatePrintPaymentOrderResponse,
+	type FailPrintPaymentBody,
+	type FailPrintPaymentResponse
+} from './print-payments.js';
+export {
 	type DownloadUrlResponse,
 	type UploadMetadata,
 	type UploadPrintFileResponse,

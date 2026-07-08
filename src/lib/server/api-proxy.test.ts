@@ -4,12 +4,14 @@ import { buildProxyTargetUrl, getProxyTimeoutMs, isAllowedProxyPath } from './ap
 const API_ORIGIN = 'http://localhost:3001';
 
 describe('isAllowedProxyPath', () => {
-	it('allows cart, checkout, and print-files paths', () => {
+	it('allows cart, checkout, print-files, and print-payments paths', () => {
 		expect(isAllowedProxyPath('cart')).toBe(true);
 		expect(isAllowedProxyPath('cart/items/abc')).toBe(true);
 		expect(isAllowedProxyPath('checkout/order')).toBe(true);
 		expect(isAllowedProxyPath('print-files/upload')).toBe(true);
 		expect(isAllowedProxyPath('print-files/abc/download-url')).toBe(true);
+		expect(isAllowedProxyPath('print-payments/abc/order')).toBe(true);
+		expect(isAllowedProxyPath('print-payments/abc/confirm')).toBe(true);
 	});
 
 	it('rejects paths outside the allowlist', () => {
