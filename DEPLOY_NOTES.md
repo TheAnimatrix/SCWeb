@@ -8,6 +8,6 @@ Newest entries first. Check off each item when done for a given release.
 - [ ] **Apply Supabase migrations (after code deploy)** — run `supabase/migrations/20260708120000_purchases_payment_id_b_unique.sql` and `supabase/migrations/20260708130000_rls_lockdown.sql` against production **after** the new code is live.
 - [ ] **Apply API Drizzle migrations** — run pending migrations under `api/drizzle/` (`npm run db:migrate -w @scweb/api` or your usual apply path).
 - [ ] **Backfill carts** — `npm run db:backfill-carts -w @scweb/api` after Drizzle migrations.
-- [ ] **`POSTGRES_URL`** — set to the Supabase **session pooler** connection string (port 6543), not the direct IPv6-only host.
+- [ ] **`POSTGRES_URL`** — set to a Supabase **pooler** connection string (not the direct IPv6-only host). **Session pooler** uses port **5432** on the pooler host (recommended); **Transaction pooler** uses port **6543**. Either works with this codebase (`prepare: false`, single-connection transactions).
 - [ ] **Supabase keys** — `PUBLIC_SUPABASE_KEY` = anon key (browser); `SUPABASE_KEY` = service role (server only).
 - [ ] **API proxy / CORS** — `API_ORIGIN` points at the Hono API; `API_CORS_ORIGINS` includes every browser origin that calls guest cart/checkout mutations (comma-separated).

@@ -8,21 +8,38 @@ type LegacyCartItem = {
 };
 import type { Product } from '$lib/types/product';
 import { canFulfillQuantity, isOnDemand, parseProductStock } from '$lib/utils/stock';
+import { env } from '$env/dynamic/private';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
-import { RAZORPAY_KEY } from '$env/static/private';
-import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers';
+import { DELIVERY_FLAT_FEE } from '@scweb/api/contracts';
 import { isCartOwnedBy } from '$lib/server/cart';
 import { purchaseAlreadyPaid } from '$lib/server/purchases';
 import { verifyRazorpaySignature } from '$lib/server/razorpay';
 import { getAuthenticatedUserId } from '$lib/server/user';
 
-const instance = new Razorpay({
-	key_id: PUBLIC_RAZORPAY_ID,
-	key_secret: RAZORPAY_KEY
-});
+function getRazorpayKey(): string {
+	const key = env.RAZORPAY_KEY;
+	if (!key) {
+		throw new Error(
+			'RAZORPAY_KEY is not set. Configure it as a runtime environment variable (Razorpay secret).'
+		);
+	}
+	return key;
+}
+
+let razorpayInstance: Razorpay | null = null;
+
+function getRazorpayInstance(): Razorpay {
+	if (!razorpayInstance) {
+		razorpayInstance = new Razorpay({
+			key_id: PUBLIC_RAZORPAY_ID,
+			key_secret: getRazorpayKey()
+		});
+	}
+	return razorpayInstance;
+}
 
 export const PATCH: RequestHandler = async ({ locals, request }) => {
-	if (!locals.supabase || !locals.supabaseAdmin || !instance) {
+	if (!locals.supabase || !locals.supabaseAdmin) {
 		return json({ error: true, message: 'Internal server error' }, { status: 500 });
 	}
 
@@ -45,7 +62,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 			return json({ error: true, message: 'invalid payment details' }, { status: 400 });
 		}
 
-		if (!verifyRazorpaySignature(paymentIdA, paymentIdB, paymentSignature, RAZORPAY_KEY)) {
+		if (!verifyRazorpaySignature(paymentIdA, paymentIdB, paymentSignature, getRazorpayKey())) {
 			return json({ error: true, message: 'invalid payment signature' }, { status: 400 });
 		}
 
@@ -168,7 +185,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
-	if (!locals.supabase || !locals.supabaseAdmin || !instance) {
+	if (!locals.supabase || !locals.supabaseAdmin) {
 		return json({ error: true, message: 'Internal server error' }, { status: 500 });
 	}
 
@@ -264,7 +281,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		totalPrice += DELIVERY_FLAT_FEE;
 
 		try {
-			const paymentOrderResult = await instance.orders.create({
+			const paymentOrderResult = await getRazorpayInstance().orders.create({
 				amount: totalPrice * 100,
 				currency: 'INR',
 				receipt: orderData.id

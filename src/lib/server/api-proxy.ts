@@ -14,8 +14,26 @@ export function getProxyTimeoutMs(path: string | undefined): number {
 
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE']);
 
+function containsDotDotSegment(path: string): boolean {
+	const hasDotDot = (value: string) => value.split('/').some((segment) => segment === '..');
+
+	if (hasDotDot(path)) {
+		return true;
+	}
+
+	try {
+		return hasDotDot(decodeURIComponent(path));
+	} catch {
+		return false;
+	}
+}
+
 export function isAllowedProxyPath(path: string | undefined): boolean {
 	if (!path) {
+		return false;
+	}
+
+	if (containsDotDotSegment(path)) {
 		return false;
 	}
 
