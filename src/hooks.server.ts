@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/sveltekit';
-import { SUPABASE_KEY } from '$env/static/private';
 import { PUBLIC_IS_PRODUCTION, PUBLIC_SUPABASE_KEY, PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { env } from '$env/dynamic/private';
 import { createServerClient } from '@supabase/ssr';
@@ -12,6 +11,16 @@ import { scrubSentryEvent } from '$lib/sentry-scrub';
 import { sanitizeRequestId } from '$lib/server/request-id';
 
 const sentryDsn = env.SENTRY_DSN;
+
+function getSupabaseServiceKey(): string {
+	const key = env.SUPABASE_KEY;
+	if (!key) {
+		throw new Error(
+			'SUPABASE_KEY is not set. Configure it as a runtime environment variable (service role key).'
+		);
+	}
+	return key;
+}
 
 if (sentryDsn) {
 	Sentry.init({
@@ -56,7 +65,7 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	});
 
 	// Privileged client: service role, server-only, no cookie session.
-	event.locals.supabaseAdmin = createServerClient(PUBLIC_SUPABASE_URL, SUPABASE_KEY, {
+	event.locals.supabaseAdmin = createServerClient(PUBLIC_SUPABASE_URL, getSupabaseServiceKey(), {
 		cookies: {
 			getAll: () => [],
 			setAll: () => {}

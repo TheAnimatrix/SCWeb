@@ -18,6 +18,8 @@ docker build \
 
 ### Build args
 
+Only **public** `PUBLIC_*` values are baked in at build time. **Private secrets** (`SUPABASE_KEY`, `RAZORPAY_KEY`, `SENTRY_DSN`, etc.) are read at **runtime** only — the Docker build does not need them and they must not be passed as build args.
+
 | Arg                    | Purpose                              |
 | ---------------------- | ------------------------------------ |
 | `PUBLIC_SUPABASE_URL`  | Supabase project URL                 |
@@ -41,7 +43,7 @@ Traefik (via Dokploy) routes each hostname to the matching exposed port.
 
 ## Runtime environment
 
-Set these on the Dokploy application (runtime — not build args):
+Set these on the Dokploy application at **runtime** (never as Docker build args):
 
 | Variable                                     | Required | Purpose                                                                                         |
 | -------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
