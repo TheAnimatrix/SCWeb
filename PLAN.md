@@ -74,12 +74,16 @@ code — all of this gets rebuilt properly in Phases 2–3, but none of it can w
 
 Nothing user-visible moves yet; this phase makes migration slices cheap.
 
-- [ ] Repo layout for two apps + shared contracts: `apps/web` (SvelteKit),
-      `apps/api` (Hono), `packages/shared` (types, zod schemas, constants).
-- [ ] Drizzle setup pointed at the existing Postgres (Supabase's PG is just a
-      connection string — vendor independence lives in the schema and queries,
-      not the host). Introspect current tables; from here on `drizzle-kit`
-      migrations are the source of truth for schema changes.
+- [ ] Repo layout (decided 2026-07-08): Hono service lives in `api/` inside this
+      repo with its own `package.json`/`tsconfig`; shared contracts (types, zod
+      schemas, status constants) live in `api/src/contracts` and are consumed by
+      SvelteKit via the exported Hono client type (`hc<AppType>`) and a TS path
+      alias — no separate packages workspace.
+- [ ] Drizzle setup in `api/` pointed at the existing Postgres via `POSTGRES_URL`
+      (already in `.env`; Supabase's PG is just a connection string — vendor
+      independence lives in the schema and queries, not the host). Introspect
+      current tables; from here on `drizzle-kit` migrations are the source of
+      truth for schema changes.
 - [ ] Hono app skeleton with cross-cutting middleware, so every migrated route
       inherits it for free:
       - identity: verify Supabase JWT → user id, else signed `clientId` cookie →
