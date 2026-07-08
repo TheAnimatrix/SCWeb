@@ -5,6 +5,7 @@ import Razorpay from 'razorpay';
 import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 import { RAZORPAY_KEY } from '$env/static/private';
 import { CLIENT_ID_COOKIE_NAME } from '$lib/constants/cookies';
+import { purchaseAlreadyPaid } from '$lib/server/purchases';
 import { verifyRazorpaySignature } from '$lib/server/razorpay';
 
 const instance = new Razorpay({
@@ -25,19 +26,6 @@ function getLatestQuote(events: unknown): number | null {
 		);
 	if (quotedEvents.length === 0) return null;
 	return Number(quotedEvents[0].extra.quote);
-}
-
-async function purchaseAlreadyPaid(
-	supabaseAdmin: App.Locals['supabaseAdmin'],
-	paymentIdB: string
-): Promise<boolean> {
-	const { data } = await supabaseAdmin
-		.from('purchases')
-		.select('id')
-		.eq('payment_id_b', paymentIdB)
-		.eq('payment_status', 'paid')
-		.maybeSingle();
-	return data != null;
 }
 
 export const POST = (async ({ params, request, locals }) => {

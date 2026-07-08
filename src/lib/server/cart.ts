@@ -3,13 +3,18 @@ type CartOwnerRow = {
 	uid: string | null;
 };
 
-/** Returns true when the cart belongs to the anonymous clientId and/or authenticated user. */
+/**
+ * Returns true when the requester owns the cart.
+ * User-owned carts (uid set) require a matching authenticated userId.
+ * Guest carts (uid null) are matched by clientId only.
+ */
 export function isCartOwnedBy(
 	cart: CartOwnerRow,
 	clientId: string,
 	userId: string | null | undefined
 ): boolean {
-	if (userId && cart.uid === userId) return true;
-	if (cart.client_id && cart.client_id === clientId) return true;
-	return false;
+	if (cart.uid) {
+		return userId === cart.uid;
+	}
+	return cart.client_id === clientId;
 }

@@ -1,14 +1,6 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { isCartOwnedBy } from '$lib/server/cart';
-
-async function getAuthenticatedUserId(
-	supabase: App.Locals['supabase']
-): Promise<string | null> {
-	const {
-		data: { user }
-	} = await supabase.auth.getUser();
-	return user?.id ?? null;
-}
+import { getAuthenticatedUserId } from '$lib/server/user';
 
 /**
  * Idempotent, ownership-checked cart failure finalization.

@@ -7,34 +7,14 @@ import { PUBLIC_RAZORPAY_ID } from '$env/static/public';
 import { RAZORPAY_KEY } from '$env/static/private';
 import { DELIVERY_FLAT_FEE } from '$lib/constants/numbers';
 import { isCartOwnedBy } from '$lib/server/cart';
+import { purchaseAlreadyPaid } from '$lib/server/purchases';
 import { verifyRazorpaySignature } from '$lib/server/razorpay';
+import { getAuthenticatedUserId } from '$lib/server/user';
 
 const instance = new Razorpay({
 	key_id: PUBLIC_RAZORPAY_ID,
 	key_secret: RAZORPAY_KEY
 });
-
-async function getAuthenticatedUserId(
-	supabase: App.Locals['supabase']
-): Promise<string | null> {
-	const {
-		data: { user }
-	} = await supabase.auth.getUser();
-	return user?.id ?? null;
-}
-
-async function purchaseAlreadyPaid(
-	supabaseAdmin: App.Locals['supabaseAdmin'],
-	paymentIdB: string
-): Promise<boolean> {
-	const { data } = await supabaseAdmin
-		.from('purchases')
-		.select('id')
-		.eq('payment_id_b', paymentIdB)
-		.eq('payment_status', 'paid')
-		.maybeSingle();
-	return data != null;
-}
 
 export const PATCH: RequestHandler = async ({ locals, request }) => {
 	if (!locals.supabase || !locals.supabaseAdmin || !instance) {
