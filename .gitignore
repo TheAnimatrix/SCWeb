@@ -14,4 +14,3 @@ mcp.json
 dev-dist/
 api/dist/
 api/drizzle/
-.vercel/

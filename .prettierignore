@@ -9,4 +9,3 @@ build
 dev-dist/
 api/dist/
 api/drizzle
-.vercel
