@@ -44,7 +44,8 @@ describe('createEmailService', () => {
 			SMTP_USER: 'user',
 			SMTP_PASS: 'pass',
 			SMTP_SECURE: false,
-			EMAIL_FROM: 'Selfcrafted <noreply@selfcrafted.in>'
+			EMAIL_FROM: 'Selfcrafted <noreply@selfcrafted.in>',
+			ORDERS_INBOX_EMAIL: 'orders@selfcrafted.in'
 		});
 
 		expect(service.isConfigured).toBe(true);
