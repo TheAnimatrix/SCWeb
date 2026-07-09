@@ -2,8 +2,10 @@ import { getGithubStars } from '$lib/server/github';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({
+	depends,
 	locals: { getLayoutSession, clientId, supabase }
 }) => {
+	depends('supabase:auth');
 	const [{ session, user }, githubStars] = await Promise.all([
 		getLayoutSession(),
 		getGithubStars()

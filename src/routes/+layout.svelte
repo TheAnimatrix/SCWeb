@@ -8,7 +8,7 @@
 	} from '$lib/client/cartApi';
 	import './styles.css';
 	import { page } from '$app/state';
-	import { goto, invalidate, afterNavigate } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import '../app.css';
 	import type { Writable } from 'svelte/store';
@@ -16,8 +16,12 @@
 	import Toast from '$lib/components/common/Toast.svelte';
 	import { toastStore } from '$lib/client/toastStore';
 	import { removePostLoginURL, readPostLoginURL } from '$lib/client/postLogin';
+	import { initAuthSync } from '$lib/client/authSync';
 	import { initTheme } from '$lib/client/theme';
 	import { SystemStatusBar, SiteHeader, SiteFooter, PwaInstallPrompt } from '$lib/components/shell';
+	import { SeoHead } from '$lib/components/seo';
+	import { isNoIndexPath } from '$lib/seo/site';
+	import { env } from '$env/dynamic/public';
 	import { pwaInfo } from 'virtual:pwa-info';
 
 	let { data, children } = $props();
@@ -51,6 +55,8 @@
 
 	const currentPath = $derived(page.url.pathname);
 	const cartCount = $derived($cart_store.itemCount);
+	const shouldNoIndex = $derived(isNoIndexPath(currentPath));
+	const googleVerification = $derived(env.PUBLIC_GOOGLE_SITE_VERIFICATION);
 
 	let topBar = $state<HTMLElement | null>(null);
 
@@ -101,31 +107,19 @@
 			setTimeout(loadCart, 100);
 		}
 
-		const { data: authListener } = supabaseClient.auth.onAuthStateChange(
-			async (event, newSession) => {
-				if (newSession?.expires_at !== data.session?.expires_at) {
-					invalidate('supabase:auth');
+		initAuthSync(supabaseClient, {
+			onSignedIn: async () => {
+				const mergeResult = await mergeGuestCart(fetch, data.clientId);
+				if (!mergeResult.ok) {
+					console.error('Failed to merge guest cart:', mergeResult.error);
+					toastStore.show("Couldn't merge your guest cart", 'error');
 				}
-
-				if (event === 'SIGNED_IN') {
-					const mergeResult = await mergeGuestCart(fetch, data.clientId);
-					if (!mergeResult.ok) {
-						console.error('Failed to merge guest cart:', mergeResult.error);
-						toastStore.show("Couldn't merge your guest cart", 'error');
-					}
-					const cart = await getCart(fetch);
-					if (cart.ok) {
-						syncCartStore(cart_store, cart.data.cart);
-					}
-				}
-
-				if (event === 'SIGNED_OUT') {
-					goto('/user/sign', { replaceState: true });
+				const cart = await getCart(fetch);
+				if (cart.ok) {
+					syncCartStore(cart_store, cart.data.cart);
 				}
 			}
-		);
-
-		return () => authListener.subscription.unsubscribe();
+		});
 	});
 
 	afterNavigate(({ from, to }) => {
@@ -135,9 +129,16 @@
 	});
 </script>
 
+{#if shouldNoIndex}
+	<SeoHead meta={{ noindex: true }} />
+{/if}
+
 <svelte:head>
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- vite-plugin-pwa generated manifest link -->
 	{@html webManifestLink}
+	{#if googleVerification}
+		<meta name="google-site-verification" content={googleVerification} />
+	{/if}
 </svelte:head>
 
 <div class="flex min-h-screen w-full max-w-full flex-col bg-background text-foreground">
