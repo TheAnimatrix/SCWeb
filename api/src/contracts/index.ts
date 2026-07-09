@@ -29,6 +29,7 @@ export {
 	failCheckoutResponseSchema,
 	type ConfirmCheckoutBody,
 	type ConfirmCheckoutResponse,
+	type CheckoutOrderAddresses,
 	type CreateCheckoutOrderBody,
 	type CreateCheckoutOrderResponse,
 	type FailCheckoutBody,
@@ -97,3 +98,16 @@ export {
 	parseProductStock,
 	type ProductStock
 } from './stock.js';
+export {
+	passwordResetConfirmBodySchema,
+	passwordResetConfirmFormSchema,
+	passwordResetConfirmResponseSchema,
+	passwordResetRequestBodySchema,
+	passwordResetRequestResponseSchema,
+	passwordSchema,
+	signupBodySchema,
+	signupResponseSchema,
+	type PasswordResetConfirmBody,
+	type PasswordResetRequestBody,
+	type SignupBody
+} from './auth.js';

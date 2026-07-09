@@ -29,12 +29,15 @@ export const rateLimitMiddleware = (): MiddlewareHandler<{ Variables: AppVariabl
 		const key = getClientKey(c);
 		const now = Date.now();
 		const path = c.req.path;
+		const isAuthRoute = path.startsWith('/auth');
 		const isReadHeavy =
 			c.req.method === 'GET' &&
 			(/^\/(catalog|constants|products)/.test(path) || path.startsWith('/catalog'));
-		const maxRequests = isReadHeavy
-			? env.RATE_LIMIT_MAX_REQUESTS * 3
-			: env.RATE_LIMIT_MAX_REQUESTS;
+		const maxRequests = isAuthRoute
+			? Math.max(5, Math.floor(env.RATE_LIMIT_MAX_REQUESTS / 4))
+			: isReadHeavy
+				? env.RATE_LIMIT_MAX_REQUESTS * 3
+				: env.RATE_LIMIT_MAX_REQUESTS;
 		const existing = buckets.get(key);
 
 		if (!existing || existing.resetAt <= now) {

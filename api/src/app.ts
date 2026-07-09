@@ -16,6 +16,7 @@ import { createChatsRoutes } from './routes/chats.js';
 import { createPrintRequestsRoutes } from './routes/print-requests.js';
 import { printPaymentsRoutes } from './routes/print-payments.js';
 import { catalogRoutes } from './routes/catalog.js';
+import { authRoutes } from './routes/auth.js';
 import { createChatsStore, type ChatsStore } from './services/chats-store.js';
 import {
 	createPrintRequestsStore,
@@ -35,6 +36,8 @@ import {
 } from './services/print-payments-store.js';
 import { createCatalogStore, type CatalogStore } from './services/catalog-store.js';
 import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
+import { createEmailService, type EmailService } from './services/email.js';
+import { createAuthStore, type AuthStore } from './services/auth-store.js';
 import type { AppVariables } from './types/context.js';
 
 type CreateAppOptions = {
@@ -48,6 +51,8 @@ type CreateAppOptions = {
 	chatsStore?: ChatsStore;
 	catalogStore?: CatalogStore;
 	razorpayClient?: RazorpayClient;
+	emailService?: EmailService;
+	authStore?: AuthStore;
 };
 
 export function createApp({
@@ -60,17 +65,23 @@ export function createApp({
 	printRequestsStore,
 	chatsStore,
 	catalogStore,
-	razorpayClient
+	razorpayClient,
+	emailService,
+	authStore
 }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
 	const resolvedCartStore = cartStore ?? createCartStore(db);
+	const resolvedEmailService = emailService ?? createEmailService(env);
 	const resolvedRazorpayClient =
 		razorpayClient ??
 		(env.PUBLIC_RAZORPAY_ID && env.RAZORPAY_KEY ? createRazorpayClient(env) : null);
 	const resolvedCheckoutStore =
 		checkoutStore ??
 		(resolvedRazorpayClient
-			? createCheckoutStore(db, resolvedRazorpayClient)
+			? createCheckoutStore(db, resolvedRazorpayClient, {
+					emailService: resolvedEmailService,
+					env
+				})
 			: createCheckoutStore(db, {
 					async createOrder() {
 						throw new Error('Razorpay client is not configured');
@@ -90,11 +101,21 @@ export function createApp({
 				async createOrder() {
 					throw new Error('Razorpay client is not configured');
 				}
+			},
+			{
+				emailService: resolvedEmailService,
+				env
 			}
 		);
-	const resolvedPrintRequestsStore = printRequestsStore ?? createPrintRequestsStore(db);
+	const resolvedPrintRequestsStore =
+		printRequestsStore ??
+		createPrintRequestsStore(db, {
+			emailService: resolvedEmailService,
+			env
+		});
 	const resolvedChatsStore = chatsStore ?? createChatsStore(db);
 	const resolvedCatalogStore = catalogStore ?? createCatalogStore(db);
+	const resolvedAuthStore = authStore ?? createAuthStore(db, env, resolvedEmailService);
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
@@ -106,6 +127,8 @@ export function createApp({
 		c.set('printRequestsStore', resolvedPrintRequestsStore);
 		c.set('chatsStore', resolvedChatsStore);
 		c.set('catalogStore', resolvedCatalogStore);
+		c.set('emailService', resolvedEmailService);
+		c.set('authStore', resolvedAuthStore);
 		await next();
 	});
 
@@ -126,6 +149,7 @@ export function createApp({
 	app.use('*', csrfMiddleware());
 
 	app.route('/', healthRoutes);
+	app.route('/', authRoutes);
 	app.route('/', catalogRoutes);
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
