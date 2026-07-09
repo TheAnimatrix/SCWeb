@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { X, Trash2, Pencil } from '@lucide/svelte';
-	import { ReviewCard } from '$lib/components/sc';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+				import { ReviewCard } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { formatTimeAgo } from './productSpecs';
 	import type { SupabaseClient } from '@supabase/supabase-js';
@@ -168,14 +170,14 @@
 						type="button"
 						class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:bg-muted"
 						onclick={editReview}>
-						<Pencil class="h-3.5 w-3.5" />
+						<Icon icon={F.edit} class="h-3.5 w-3.5" />
 						edit_review
 					</button>
 					<button
 						type="button"
 						class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-destructive transition-colors hover:bg-muted"
 						onclick={() => (showDeleteConfirmation = true)}>
-						<Trash2 class="h-3.5 w-3.5" />
+						<Icon icon={F.delete} class="h-3.5 w-3.5" />
 						delete
 					</button>
 				{:else if supabase}
@@ -229,7 +231,7 @@
 				class="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
 				onclick={() => (showReviewModal = false)}
 				aria-label="Close review modal">
-				<X class="h-5 w-5" />
+				<Icon icon={F.dismiss} class="h-5 w-5" />
 			</button>
 
 			<h2 class="pr-8 text-lg font-semibold text-foreground">
@@ -312,7 +314,7 @@
 					type="button"
 					class="flex flex-1 items-center justify-center gap-2 rounded-md bg-destructive px-4 py-2 font-mono text-sm text-white hover:bg-destructive/90"
 					onclick={deleteReview}>
-					<Trash2 class="h-4 w-4" />
+					<Icon icon={F.delete} class="h-4 w-4" />
 					delete_review
 				</button>
 			</div>

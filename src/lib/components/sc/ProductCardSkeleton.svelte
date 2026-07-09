@@ -10,7 +10,10 @@
 </script>
 
 <article
-	class={cn('overflow-hidden rounded-lg border border-border bg-card', className)}
+	class={cn(
+		'h-full w-full max-h-[20rem] overflow-hidden rounded-lg border border-border bg-card',
+		className
+	)}
 	aria-hidden="true">
 	<Skeleton class="aspect-[4/3] w-full rounded-none border-0" />
 	<div class="flex flex-col gap-1.5 p-3">

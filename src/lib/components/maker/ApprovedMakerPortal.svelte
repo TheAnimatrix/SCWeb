@@ -1,11 +1,12 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import FilamentManagement from './FilamentManagement.svelte';
 	import OrderManagement from './OrderManagement.svelte';
 	import { PortalCard } from '$lib/components/portal';
 	import { Skeleton } from '$lib/components/sc';
-	import AlertCircle from '@lucide/svelte/icons/circle-alert';
-	import CircleCheck from '@lucide/svelte/icons/circle-check';
-	import type { TypedSupabaseClient } from '$lib/types/database';
+			import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { Filament } from '$lib/types/filament';
 
 	let {
@@ -47,7 +48,7 @@
 						{#if filamentData.data.some((filament) => ((filament as Filament).quantity_kg ?? 0) <= 0)}
 							<span
 								class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning">
-								<AlertCircle class="size-4 shrink-0" strokeWidth={2} />
+								<Icon icon={F.errorCircle} class="size-4 shrink-0" />
 								Unlisted — add quantity to be visible
 							</span>
 						{:else}
@@ -56,14 +57,14 @@
 								<span
 									class="sc-stripes-bold pointer-events-none absolute inset-0 opacity-20"
 									aria-hidden="true"></span>
-								<CircleCheck class="relative size-4 shrink-0" strokeWidth={2.25} />
+								<Icon icon={F.checkCircle} class="relative size-4 shrink-0" />
 								<span class="relative">Listed · visible to customers</span>
 							</span>
 						{/if}
 					{:else}
 						<span
 							class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning">
-							<AlertCircle class="size-4 shrink-0" strokeWidth={2} />
+							<Icon icon={F.errorCircle} class="size-4 shrink-0" />
 							Unlisted — add filaments to be visible
 						</span>
 					{/if}

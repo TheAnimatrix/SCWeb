@@ -1,13 +1,12 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { navigating, page } from '$app/state';
 	import { validatePassword } from '$lib/types/helper.js';
 	import { FormSectionSkeleton, ScButton, ScInput, TierBadge } from '$lib/components/sc';
 	import { Button } from '$lib/components/ui/button';
-	import Pencil from '@lucide/svelte/icons/pencil';
-	import Check from '@lucide/svelte/icons/check';
-	import X from '@lucide/svelte/icons/x';
-
+			
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
@@ -60,8 +59,10 @@
 	}
 
 	async function logout() {
-		await supabase.auth.signOut({ scope: 'global' });
-		goto('/user/sign', { replaceState: true });
+		const { error } = await supabase.auth.signOut();
+		if (error) {
+			error_msg = 'Failed to sign out.';
+		}
 	}
 
 	function validateUsername(value: string): { error: boolean; msg?: string } {
@@ -153,7 +154,7 @@
 									onclick={saveUsername}
 									disabled={isUpdatingUsername || newUsername === username}
 									aria-label="Save username">
-									<Check class="size-4" />
+									<Icon icon={F.check} class="size-4" />
 								</Button>
 								<Button
 									variant="ghost"
@@ -161,7 +162,7 @@
 									class="size-9 shrink-0"
 									onclick={cancelEditUsername}
 									aria-label="Cancel">
-									<X class="size-4" />
+									<Icon icon={F.dismiss} class="size-4" />
 								</Button>
 							</div>
 							{#if username_error}
@@ -178,7 +179,7 @@
 									class="size-8 shrink-0"
 									onclick={startEditUsername}
 									aria-label="Edit username">
-									<Pencil class="size-3.5" />
+									<Icon icon={F.edit} class="size-3.5" />
 								</Button>
 							</div>
 						{/if}

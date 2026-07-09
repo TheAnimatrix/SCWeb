@@ -1,11 +1,10 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Package from '@lucide/svelte/icons/package';
-	import Star from '@lucide/svelte/icons/star';
-	import PlaceholderImage from './PlaceholderImage.svelte';
+					import PlaceholderImage from './PlaceholderImage.svelte';
 
 	interface Props {
 		products: Product[];
@@ -147,13 +146,12 @@
 										<div class="space-y-1 text-sm text-muted-foreground">
 											<p class="truncate text-foreground">@{makerName(product)}</p>
 											<p class="inline-flex items-center gap-1">
-												<Package class="size-3.5 shrink-0" aria-hidden="true" />
+												<Icon icon={F.box} class="size-3.5 shrink-0" aria-hidden="true" />
 												{product.stock.count} units
 											</p>
 											{#if product.rating}
 												<p class="inline-flex items-center gap-1">
-													<Star
-														class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+													<Icon icon={F.star} class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
 														aria-hidden="true" />
 													{product.rating.rating}
 													<span class="text-muted-foreground">
@@ -193,7 +191,7 @@
 						onblur={() => (paused = false)}
 						onkeydown={handleKeydown}
 						onclick={goPrev}>
-						<ChevronLeft class="size-4" />
+						<Icon icon={F.chevronLeft} class="size-4" />
 					</button>
 
 					<div class="flex items-center gap-1.5">
@@ -224,7 +222,7 @@
 						onblur={() => (paused = false)}
 						onkeydown={handleKeydown}
 						onclick={goNext}>
-						<ChevronRight class="size-4" />
+						<Icon icon={F.chevronRight} class="size-4" />
 					</button>
 				</div>
 			{/if}

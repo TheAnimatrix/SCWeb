@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import Check from '@lucide/svelte/icons/check';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
 
+	import { cn } from '$lib/utils';
+	
 	interface Step {
 		id: string;
 		label: string;
@@ -39,7 +41,7 @@
 								: 'border-border'
 					)}>
 					{#if step.done && step.id !== current}
-						<Check class="size-3" strokeWidth={2.5} />
+						<Icon icon={F.check} class="size-3" />
 					{:else}
 						{i + 1}
 					{/if}

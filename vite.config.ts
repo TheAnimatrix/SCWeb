@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
 	// Pre-bundle UI libs at dev-server start so the first visit to a page that
-	// uses bits-ui / lucide / drawers does not trigger a mid-session dep reload
+	// uses bits-ui / iconify / drawers does not trigger a mid-session dep reload
 	// (that reload corrupts Svelte's effect tree and throws get_next_sibling errors).
 	optimizeDeps: {
 		include: [
@@ -26,7 +26,7 @@ export default defineConfig({
 			// Route-local deps added during the 2026-07 overhaul — each one, when
 			// first discovered on a route visit, forced a mid-session re-optimize
 			// + full reload (mixed ?v= chunk hashes, get_next_sibling crashes).
-			'isomorphic-dompurify',
+			'dompurify',
 			'bad-words',
 			'snarkdown',
 			'uuid',
@@ -39,10 +39,7 @@ export default defineConfig({
 			'three/examples/jsm/loaders/3MFLoader.js',
 			'three/examples/jsm/loaders/STLLoader.js'
 		],
-		// Per-icon subpath imports (60+ across routes) each register as a separate
-		// dep — every newly visited route triggered a re-optimize + full reload.
-		// The icon modules are pure ESM; they don't need pre-bundling at all.
-		exclude: ['@lucide/svelte']
+		// Iconify loads icons on demand; no pre-bundling needed.
 	},
 	resolve: {
 		dedupe: ['svelte']

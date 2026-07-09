@@ -1,8 +1,9 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { onMount } from 'svelte';
-	import Download from '@lucide/svelte/icons/download';
-	import Share from '@lucide/svelte/icons/share';
-	import { Button } from '$lib/components/ui/button';
+			import { Button } from '$lib/components/ui/button';
 	import { wasInstallPromptDismissed } from '$lib/client/pwaInstall';
 	import {
 		dismissInstallPrompt,
@@ -89,11 +90,11 @@
 				{#if showIosInstructions && !$installEvent}
 					<ol class="space-y-1 text-sm text-muted-foreground">
 						<li class="flex items-center gap-2">
-							<Share class="size-4 shrink-0" />
+							<Icon icon={F.share} class="size-4 shrink-0" />
 							<span>Tap Share in Safari</span>
 						</li>
 						<li class="flex items-center gap-2">
-							<Download class="size-4 shrink-0" />
+							<Icon icon={F.download} class="size-4 shrink-0" />
 							<span>Select Add to Home Screen</span>
 						</li>
 					</ol>

@@ -1,12 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ url, route, locals: { supabase } }) => {
+export const load: LayoutServerLoad = async ({ depends, route, locals: { supabase } }) => {
+	depends('supabase:auth');
 	const session = await supabase.auth.getUser();
 	if (session.error || !session.data.user) {
-		// Construct the redirect URL with the current path as postLogin query parameter
-		const postLoginRedirect = `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`;
-		redirect(302, postLoginRedirect); // Redirect if not logged in
+		redirect(302, '/user/sign');
 	}
 
 	// Original redirect logic

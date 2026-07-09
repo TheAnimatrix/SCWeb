@@ -1,15 +1,13 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
 	import { cn } from '$lib/utils';
-	import type { Component } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
-
-	type Icon = Component<{ class?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
 
 	interface Props extends Omit<HTMLInputAttributes, 'size'> {
 		value?: string;
 		label?: string;
 		labelClass?: string;
-		icon?: Icon;
+		icon?: string;
 		prefix?: string;
 		class?: string;
 		wrapperClass?: string;
@@ -18,10 +16,10 @@
 	}
 
 	let {
-		value = $bindable(''),
+		value = $bindable<string | undefined>(),
 		label,
 		labelClass = 'font-mono text-xs text-muted-foreground',
-		icon: Icon,
+		icon,
 		prefix,
 		class: className,
 		wrapperClass,
@@ -36,7 +34,7 @@
 		cn(
 			'peer w-full rounded-md border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-foreground/10',
 			size === 'sm' ? 'h-9' : 'h-10',
-			Icon || prefix ? 'pl-10 pr-4' : 'px-3',
+			icon || prefix ? 'pl-10 pr-4' : 'px-3',
 			className
 		)
 	);
@@ -44,8 +42,9 @@
 
 {#snippet field()}
 	<div class={cn('relative isolate', wrapperClass)}>
-		{#if Icon}
+		{#if icon}
 			<Icon
+				{icon}
 				class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 				aria-hidden={true} />
 		{:else if prefix}

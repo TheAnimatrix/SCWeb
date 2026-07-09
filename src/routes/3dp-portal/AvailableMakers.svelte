@@ -1,17 +1,13 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { toastStore } from '$lib/client/toastStore';
 	import { ScButton, MakerRowSkeleton, TierBadge } from '$lib/components/sc';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
 	import { getTierStyle } from '$lib/types/tiers';
 	import { cn } from '$lib/utils';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import ChevronUp from '@lucide/svelte/icons/chevron-up';
-	import Printer from '@lucide/svelte/icons/printer';
-	import Star from '@lucide/svelte/icons/star';
-	import Timer from '@lucide/svelte/icons/timer';
-	import Users from '@lucide/svelte/icons/users';
-	import AlertCircle from '@lucide/svelte/icons/circle-alert';
-	import type { TypedSupabaseClient } from '$lib/types/database';
+								import type { TypedSupabaseClient } from '$lib/types/database';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
@@ -241,7 +237,7 @@
 		<div class="mb-1 flex flex-wrap items-end justify-between gap-3">
 			<div>
 				<div class="mb-1 flex items-center gap-2">
-					<Users class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.people} class="size-4 text-muted-foreground" />
 					<span class="text-sm font-medium text-foreground">Available makers</span>
 					{#if !loading}
 						<span class="text-xs text-muted-foreground">({makers.length})</span>
@@ -256,7 +252,7 @@
 		{#if !hasModel}
 			<div
 				class="mt-4 flex items-start gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-3">
-				<AlertCircle class="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+				<Icon icon={F.errorCircle} class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
 				<p class="text-sm text-muted-foreground">
 					Upload a model above to unlock maker selection and quote requests.
 				</p>
@@ -315,7 +311,7 @@
 							<div class="flex shrink-0 items-center gap-3">
 								{#if rating}
 									<div class="flex items-center gap-1 text-sm text-foreground">
-										<Star class="size-3.5 fill-foreground text-foreground" strokeWidth={1.5} />
+										<Icon icon={F.star} class="size-3.5 fill-foreground text-foreground" />
 										<span>{rating}</span>
 										<span class="text-muted-foreground">({maker.reviews.length})</span>
 									</div>
@@ -323,9 +319,9 @@
 									<span class="text-xs text-muted-foreground">No ratings</span>
 								{/if}
 								{#if isExpanded}
-									<ChevronUp class="size-4 text-muted-foreground" strokeWidth={1.5} />
+									<Icon icon={F.chevronUp} class="size-4 text-muted-foreground" />
 								{:else}
-									<ChevronDown class="size-4 text-muted-foreground" strokeWidth={1.5} />
+									<Icon icon={F.chevronDown} class="size-4 text-muted-foreground" />
 								{/if}
 							</div>
 						</button>
@@ -354,7 +350,7 @@
 										{#if response}
 											<span
 												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
-												<Timer class="size-3" strokeWidth={1.5} />
+												<Icon icon={F.timer} class="size-3" />
 												Response {response}
 											</span>
 										{/if}
@@ -366,7 +362,7 @@
 									{#each Object.keys(maker.filaments) as mat (mat)}
 										<div class="rounded-md border border-border bg-muted/20 p-3">
 											<div class="mb-2 flex items-center gap-2">
-												<Printer class="size-3.5 text-muted-foreground" strokeWidth={1.5} />
+												<Icon icon={F.print} class="size-3.5 text-muted-foreground" />
 												<span class="text-xs font-medium text-foreground">{mat}</span>
 											</div>
 											<div class="flex flex-wrap gap-2">

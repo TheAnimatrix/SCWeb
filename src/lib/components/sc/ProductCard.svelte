@@ -34,11 +34,11 @@
 	{href}
 	{onclick}
 	class={cn(
-		'group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/20',
+		'group relative flex h-full w-full max-h-[20rem] flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/20',
 		dimOutOfStock && unavailable && 'opacity-60 saturate-50',
 		className
 	)}>
-	<div class="relative aspect-[4/3] overflow-hidden">
+	<div class="relative aspect-[4/3] min-h-0 w-full shrink overflow-hidden">
 		<PlaceholderImage
 			src={imageUrl}
 			alt={product.name}
@@ -60,7 +60,7 @@
 		{/if}
 	</div>
 
-	<div class="flex flex-col gap-0.5 p-3">
+	<div class="flex shrink-0 flex-col gap-0.5 p-3">
 		<div class="flex items-start justify-between gap-2">
 			<div class="min-w-0">
 				<h3 class="line-clamp-2 text-xs font-medium leading-snug text-foreground">

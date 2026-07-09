@@ -1,6 +1,8 @@
 <script lang="ts">
-	import Star from '@lucide/svelte/icons/star';
-	import ScLogo from './ScLogo.svelte';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+		import ScLogo from './ScLogo.svelte';
 	import PwaInstallButton from './PwaInstallButton.svelte';
 	import { theme } from '$lib/client/theme';
 
@@ -76,7 +78,7 @@
 						rel="noopener noreferrer"
 						class="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
 						aria-label="{githubStars} GitHub stars on SCWeb">
-						<Star class="size-3 fill-current" aria-hidden="true" />
+						<Icon icon={F.star} class="size-3 fill-current" aria-hidden="true" />
 						<span>{githubStars} {githubStars === 1 ? 'star' : 'stars'}</span>
 					</a>
 				{/if}

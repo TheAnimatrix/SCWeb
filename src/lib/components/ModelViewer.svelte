@@ -1,4 +1,7 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { onMount, onDestroy } from 'svelte';
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -6,14 +9,7 @@
 	import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 	import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
 	import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-	import ArrowDown from '@lucide/svelte/icons/arrow-down';
-	import ArrowUp from '@lucide/svelte/icons/arrow-up';
-	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
-	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import RotateCw from '@lucide/svelte/icons/rotate-cw';
-	import ZoomIn from '@lucide/svelte/icons/zoom-in';
-	import ZoomOut from '@lucide/svelte/icons/zoom-out';
-	import { createEventDispatcher } from 'svelte';
+								import { createEventDispatcher } from 'svelte';
 	import Skeleton from '$lib/components/sc/Skeleton.svelte';
 
 	// Material densities in g/cm³
@@ -819,13 +815,13 @@
 		'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground active:bg-muted/60';
 
 	const viewerControls = [
-		{ label: 'Zoom out', icon: ZoomOut, action: zoomOut },
-		{ label: 'Zoom in', icon: ZoomIn, action: zoomIn },
-		{ label: 'Rotate left', icon: RotateCcw, action: rotateLeft },
-		{ label: 'Rotate right', icon: RotateCw, action: rotateRight },
-		{ label: 'Rotate up', icon: ArrowUp, action: rotateUp },
-		{ label: 'Rotate down', icon: ArrowDown, action: rotateDown },
-		{ label: 'Reset view', icon: RefreshCw, action: resetView }
+		{ label: 'Zoom out', icon: F.zoomOut, action: zoomOut },
+		{ label: 'Zoom in', icon: F.zoomIn, action: zoomIn },
+		{ label: 'Rotate left', icon: F.rotateCcw, action: rotateLeft },
+		{ label: 'Rotate right', icon: F.rotateCw, action: rotateRight },
+		{ label: 'Rotate up', icon: F.arrowUp, action: rotateUp },
+		{ label: 'Rotate down', icon: F.arrowDown, action: rotateDown },
+		{ label: 'Reset view', icon: F.refresh, action: resetView }
 	] as const;
 </script>
 
@@ -847,7 +843,7 @@
 					title={control.label}
 					aria-label={control.label}
 					class={controlButtonClass}>
-					<control.icon class="size-3.5" strokeWidth={1.5} />
+					<Icon icon={control.icon} class="size-3.5" />
 				</button>
 			{/each}
 		</div>

@@ -1,9 +1,10 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import CircleHelp from '@lucide/svelte/icons/circle-help';
-	import Wrench from '@lucide/svelte/icons/wrench';
-	import { toastStore } from '$lib/client/toastStore';
+			import { toastStore } from '$lib/client/toastStore';
 	import { mapPrintFilesError } from '$lib/client/printFilesApi';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import { ScButton, TagBadge, Skeleton } from '$lib/components/sc';
@@ -21,6 +22,10 @@
 	import * as THREE from 'three';
 	import AvailableMakers from './AvailableMakers.svelte';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+	import { SeoHead } from '$lib/components/seo';
+	import { portalSeo } from '$lib/seo/meta';
+	import { absoluteUrl } from '$lib/seo/site';
+	import { page } from '$app/state';
 
 	let { data } = $props();
 
@@ -456,6 +461,8 @@
 	}
 </script>
 
+<SeoHead meta={{ ...portalSeo, canonical: absoluteUrl('/3dp-portal', page.url.origin) }} />
+
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-7xl px-4 pb-16">
 		<header class="mb-8 border-b border-border pb-8">
@@ -526,7 +533,7 @@
 				<PortalCard class="flex h-full flex-col">
 					<div class="mb-4 flex items-center justify-between gap-3">
 						<div class="flex items-center gap-2">
-							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
+							<Icon icon={F.wrench} class="size-4 text-muted-foreground" />
 							<span class="text-sm font-medium text-foreground">Print parameters</span>
 						</div>
 					</div>
@@ -645,7 +652,7 @@
 
 			<PortalCard>
 				<div class="mb-4 flex items-center gap-2">
-					<CircleHelp class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.questionCircle} class="size-4 text-muted-foreground" />
 					<span class="text-sm font-medium text-foreground">FAQ</span>
 				</div>
 
@@ -699,7 +706,7 @@
 				{#if !isMaker}
 					<PortalCard>
 						<div class="mb-4 flex items-center gap-2">
-							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
+							<Icon icon={F.wrench} class="size-4 text-muted-foreground" />
 							<span class="text-sm font-medium text-foreground">Join Fabbly</span>
 						</div>
 

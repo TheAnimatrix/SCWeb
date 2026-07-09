@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { F } from '$lib/icons/fluent';
+
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
 	import Icon from '@iconify/svelte';
 	import { performPrintRequestAction } from '$lib/client/portalApi';
@@ -418,7 +420,7 @@
 				<button
 					class="relative bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex justify-center items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40"
 					onclick={() => (messageBoardOpen = true)}>
-					<Icon icon="mdi:message" class="w-5 h-5" />
+					<Icon icon={F.chat} class="w-5 h-5" />
 					<span class="font-medium text-sm">Message</span>
 					{#if unreadCount > 0}
 						<span
@@ -436,7 +438,7 @@
 						}}
 						disabled={downloading}>
 						<div class="flex">
-							<Icon icon="mdi:download" class="w-5 h-5" />
+							<Icon icon={F.download} class="w-5 h-5" />
 							<span class="font-medium text-sm"
 								>{downloading
 									? downloadProgress > 0
@@ -459,21 +461,21 @@
 					<button
 						class="bg-blue-400/10 hover:bg-blue-500/20 text-blue-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-blue-400/20 hover:border-blue-400/40"
 						onclick={quoteOrder}>
-						<Icon icon="mdi:currency-inr" class="w-5 h-5" />
+						<Icon icon={F.money} class="w-5 h-5" />
 						<span class="font-medium text-sm">Quote</span>
 					</button>
 				{:else if req.request_stage === 'quoted'}
 					<button
 						class="bg-blue-400/10 hover:bg-blue-500/20 text-blue-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-blue-400/20 hover:border-blue-400/40"
 						onclick={quoteOrder}>
-						<Icon icon="mdi:currency-inr" class="w-5 h-5" />
+						<Icon icon={F.money} class="w-5 h-5" />
 						<span class="font-medium text-sm">Re-Quote</span>
 					</button>
 				{:else if req.request_stage === 'paid'}
 					<button
 						class="bg-green-400/10 hover:bg-green-500/20 text-green-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-green-400/20 hover:border-green-400/40"
 						onclick={onOpenShippedDialog}>
-						<Icon icon="mdi:truck-delivery" class="w-5 h-5" />
+						<Icon icon={F.truck} class="w-5 h-5" />
 						<span class="font-medium text-sm">Mark as Shipped</span>
 					</button>
 				{/if}
@@ -483,7 +485,7 @@
 					class=" bg-yellow-400/10 hover:bg-yellow-500/20 text-yellow-300 justify-center px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-yellow-400/20 hover:border-yellow-400/40"
 					target="_blank"
 					rel="noopener noreferrer">
-					<Icon icon="ph:discord-logo-duotone" class="w-5 h-5" />
+					<Icon icon={F.brandDiscord} class="w-5 h-5" />
 					<span class="font-medium text-sm">Help</span>
 				</a>
 				<!-- if the current stage is requested, show a button to cancel the request-->
@@ -491,7 +493,7 @@
 					<button
 						class="bg-red-400/10 hover:bg-red-500/20 text-red-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-red-400/20 hover:border-red-400/40"
 						onclick={() => (cancelDialogOpen = true)}>
-						<Icon icon="mdi:cancel" class="w-5 h-5" />
+						<Icon icon={F.dismissCircle} class="w-5 h-5" />
 						<span class="font-medium text-sm">Cancel</span>
 					</button>
 				{/if}
@@ -633,7 +635,7 @@
 				onclick={onSendQuote}
 				disabled={!quote || quoteLoading}>
 				{#if !quoteLoading}
-					<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
+					<Icon icon={F.send} class="text-base" />
 				{/if}
 				{quoteLoading ? 'Sending…' : 'Send Quote'}
 			</button>
@@ -690,7 +692,7 @@
 				onclick={onConfirmShipped}
 				disabled={shippedLoading}>
 				{#if !shippedLoading}
-					<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
+					<Icon icon={F.send} class="text-base" />
 				{/if}
 				{shippedLoading ? 'Saving…' : 'Mark as Shipped'}
 			</button>

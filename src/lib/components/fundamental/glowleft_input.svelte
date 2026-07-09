@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { F } from '$lib/icons/fluent';
+
 	import { fade } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
 
@@ -146,9 +148,9 @@
 		{#if isValid !== undefined}
 			<div class="absolute right-3 top-1/2 transform -translate-y-1/2">
 				{#if isValid}
-					<Icon icon="ph:check-circle" class="text-green-400 text-xl" />
+					<Icon icon={F.checkCircle} class="text-green-400 text-xl" />
 				{:else}
-					<Icon icon="ph:warning-circle" class="text-red-400 text-xl" />
+					<Icon icon={F.warning} class="text-red-400 text-xl" />
 				{/if}
 			</div>
 		{/if}

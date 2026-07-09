@@ -1,11 +1,9 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import CheckCircle from '@lucide/svelte/icons/circle-check';
-	import Download from '@lucide/svelte/icons/download';
-	import MessageSquare from '@lucide/svelte/icons/message-square';
-	import Star from '@lucide/svelte/icons/star';
-	import { env } from '$env/dynamic/public';
+						import { env } from '$env/dynamic/public';
 	import { performPrintRequestAction } from '$lib/client/portalApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
@@ -25,6 +23,7 @@
 	import { newAddress, validateAddress, type Address } from '$lib/types/product';
 	import { cn } from '$lib/utils';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+	import { loadRazorpay, openRazorpayCheckout } from '$lib/client/razorpay';
 	import { asPrintRequest } from '$lib/types/printRequest';
 	import type { CreatorReview } from '$lib/types/database';
 	let { data } = $props();
@@ -136,47 +135,31 @@
 			payLoading = false;
 			return;
 		}
-		const orderResult = await createPrintPaymentOrder(fetch, order.id, validAddress);
-		if (!orderResult.ok) {
-			toastStore.show(orderResult.error.message, 'error');
+
+		const razorpayKey = env.PUBLIC_RAZORPAY_ID;
+		if (!razorpayKey) {
+			toastStore.show('Payment is not configured. Please contact support.', 'error');
 			payLoading = false;
 			return;
 		}
-		const opened = openRazorpayDialog(
-			orderResult.data.razorpayOrderId,
-			orderResult.data.amountPaise
-		);
-		if (!opened) {
-			payLoading = false;
-		}
-	}
 
-	function openRazorpayDialog(order_id: string, amount: number): boolean {
 		try {
-			if (typeof Razorpay === 'undefined') {
-				toastStore.show('Payment provider is unavailable. Please try again.', 'error');
-				return false;
+			const orderResult = await createPrintPaymentOrder(fetch, order.id, validAddress);
+			if (!orderResult.ok) {
+				toastStore.show(orderResult.error.message, 'error');
+				payLoading = false;
+				return;
 			}
 
-			const razorpayKey = env.PUBLIC_RAZORPAY_ID;
-			if (!razorpayKey) {
-				toastStore.show('Payment is not configured. Please contact support.', 'error');
-				return false;
-			}
-
-			var options = {
-				key: razorpayKey, // Enter the Key ID generated from the Dashboard
-				amount: amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+			await openRazorpayCheckout({
+				key: razorpayKey,
+				amount: orderResult.data.amountPaise,
 				currency: 'INR',
 				name: 'SelfCrafted',
 				image:
 					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
-				order_id: order_id, //This is a sample Order ID. Pass the `id` obtained in the response of Step 1
-				handler: async function (response: {
-					razorpay_order_id: string;
-					razorpay_payment_id: string;
-					razorpay_signature: string;
-				}) {
+				order_id: orderResult.data.razorpayOrderId,
+				handler: async function (response) {
 					if (!req) {
 						console.error('Print request data became unavailable during payment processing.');
 						payLoading = false;
@@ -204,35 +187,26 @@
 				prefill: {},
 				theme: {
 					color: '#2084fe'
+				},
+				onPaymentFailed: function (failedResponse) {
+					payLoading = false;
+					toastStore.show('Payment failed, please try again', 'error');
+					const orderId = req?.id;
+					const razorpayOrderId = failedResponse.error?.metadata?.order_id;
+					if (orderId && razorpayOrderId) {
+						void failPrintPayment(fetch, orderId, razorpayOrderId, failedResponse.error?.description);
+						window.location.href = `/summary/failure/${orderId}/${razorpayOrderId}`;
+					}
 				}
-			};
-			var rzp1 = new Razorpay(options);
-			rzp1.open();
-			rzp1.on('payment.failed', function (response) {
-				const failedResponse = response as {
-					error?: { metadata?: { order_id?: string }; description?: string };
-				};
-				payLoading = false;
-				toastStore.show('Payment failed, please try again', 'error');
-				rzp1.close();
-				const orderId = req?.id;
-				const razorpayOrderId = failedResponse.error?.metadata?.order_id;
-				if (orderId && razorpayOrderId) {
-					void failPrintPayment(fetch, orderId, razorpayOrderId, failedResponse.error?.description);
-					window.location.href = `/summary/failure/${orderId}/${razorpayOrderId}`;
-				}
-				return;
 			});
-			return true;
 		} catch (e) {
-			// Explicitly type caught error as unknown
 			console.error('Error during payment process:', e);
-			// Provide more specific error feedback if possible
-			toastStore.show(
-				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
-				'error'
-			);
-			return false;
+			const message =
+				e instanceof Error && e.message.includes('Razorpay')
+					? 'Payment provider is unavailable. Please try again.'
+					: `An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`;
+			toastStore.show(message, 'error');
+			payLoading = false;
 		}
 	}
 
@@ -316,6 +290,10 @@
 	});
 
 	onMount(() => {
+		void loadRazorpay().catch(() => {
+			// payQuote() will surface a user-facing error if the SDK is still unavailable.
+		});
+
 		//track unread counts by subscribing to the chat channel
 		if (!data.session?.data?.user?.id) return;
 		const chatSubscription = supabase()
@@ -495,16 +473,12 @@
 	}
 </script>
 
-<svelte:head>
-	<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-</svelte:head>
-
 <div class="mx-auto max-w-7xl px-4 pb-16">
 	<button
 		type="button"
 		onclick={() => goto('/3dp-portal/user')}
 		class="mb-6 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
-		<ArrowLeft class="size-3.5" strokeWidth={1.5} />
+		<Icon icon={F.arrowLeft} class="size-3.5" />
 		back_to_requests
 	</button>
 
@@ -578,14 +552,14 @@
 						<div class="mt-2 space-y-3">
 							<div class="flex items-center gap-1">
 								{#each [...Array(5).keys()] as i (i)}
-									<Star
+									<Icon
+										icon={F.star}
 										class={cn(
 											'size-4',
 											i < userReview.rating
 												? 'fill-foreground text-foreground'
 												: 'text-muted-foreground/40'
-										)}
-										strokeWidth={1.5} />
+										)} />
 								{/each}
 							</div>
 							<p class="text-sm text-foreground">{userReview.comment}</p>
@@ -611,7 +585,7 @@
 						type="button"
 						class="relative inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
 						onclick={() => (messageBoardOpen = true)}>
-						<MessageSquare class="size-4" strokeWidth={1.5} />
+						<Icon icon={F.chat} class="size-4" />
 						Message
 						{#if unreadCount > 0}
 							<span
@@ -631,7 +605,7 @@
 							}}
 							disabled={downloading}>
 							<span class="inline-flex items-center gap-2">
-								<Download class="size-4" strokeWidth={1.5} />
+								<Icon icon={F.download} class="size-4" />
 								{downloading
 									? downloadProgress > 0
 										? `Downloading… ${downloadProgress}%`
@@ -672,7 +646,7 @@
 							variant="secondary"
 							class="justify-center"
 							onclick={() => (completeDialogOpen = true)}>
-							<CheckCircle class="mr-1.5 size-4" strokeWidth={1.5} />
+							<Icon icon={F.checkCircle} class="mr-1.5 size-4" />
 							Mark as delivered
 						</ScButton>
 					{/if}
@@ -850,12 +824,12 @@
 				<div class="flex gap-1">
 					{#each [...Array(5).keys()] as i (i)}
 						<button type="button" onclick={() => (reviewRating = i + 1)} class="p-1">
-							<Star
+							<Icon
+								icon={F.star}
 								class={cn(
 									'size-5',
 									i < reviewRating ? 'fill-foreground text-foreground' : 'text-muted-foreground/40'
-								)}
-								strokeWidth={1.5} />
+								)} />
 						</button>
 					{/each}
 				</div>

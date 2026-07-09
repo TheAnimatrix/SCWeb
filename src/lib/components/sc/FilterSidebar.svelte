@@ -1,6 +1,8 @@
 <script lang="ts">
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import type {
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+		import type {
 		BrowseCategory,
 		BrowseFilters,
 		CategoryCounts,
@@ -158,8 +160,7 @@
 										? 'Collapse'
 										: 'Expand'} {group.label}"
 									onclick={() => toggleGroupExpanded(group.key, group)}>
-									<ChevronDown
-										class={cn(
+									<Icon icon={F.chevronDown} class={cn(
 											'size-3.5 transition-transform duration-200',
 											isGroupExpanded(group.key, group) ? 'rotate-0' : '-rotate-90'
 										)}

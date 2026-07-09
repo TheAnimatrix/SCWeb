@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { F } from '$lib/icons/fluent';
+
 	import { PlaceholderImage } from '$lib/components/sc';
 	import Icon from '@iconify/svelte';
 	import type { Product } from '$lib/types/product';
@@ -59,7 +61,7 @@
 		{#if product.rating?.count && product.rating?.count > 0}
 			<div
 				class="absolute bottom-4 left-4 z-10 bg-black/60 backdrop-blur-xs rounded-lg px-2 py-1 flex items-center">
-				<Icon icon="iconamoon:star-duotone" class="text-[#ff9b3d] mr-1" />
+				<Icon icon={F.star} class="text-[#ff9b3d] mr-1" />
 				<span class="text-white font-medium">{product.rating?.rating}</span>
 				<span class="text-gray-300 text-xs ml-1">({product.rating?.count})</span>
 			</div>
@@ -104,7 +106,7 @@
 			{#if purchasable}
 				<button
 					class="w-10 h-10 rounded-lg bg-[#252525] hover:bg-accent hover:text-black text-white flex items-center justify-center transition-colors">
-					<Icon icon="ph:shopping-cart-simple-bold" class="text-xl" />
+					<Icon icon={F.cart} class="text-xl" />
 				</button>
 			{/if}
 		</div>

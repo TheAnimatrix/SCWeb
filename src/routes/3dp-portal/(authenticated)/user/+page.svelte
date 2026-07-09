@@ -1,7 +1,8 @@
 <script lang="ts">
-	import MessageSquare from '@lucide/svelte/icons/message-square';
-	import Package from '@lucide/svelte/icons/package';
-	import { navigating, page } from '$app/state';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+			import { navigating, page } from '$app/state';
 	import { PortalCard } from '$lib/components/portal';
 	import { MakerRowSkeleton, MetaChip, TagBadge } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
@@ -100,7 +101,7 @@
 		<MakerRowSkeleton count={4} />
 	{:else if printRequests.length === 0}
 		<PortalCard class="py-16 text-center">
-			<Package class="mx-auto mb-3 size-8 text-muted-foreground" strokeWidth={1.5} />
+			<Icon icon={F.box} class="mx-auto mb-3 size-8 text-muted-foreground" />
 			<p class="font-mono text-sm text-foreground">no_requests_yet</p>
 			<p class="mt-2 text-sm text-muted-foreground">
 				Upload a model on the Fabbly portal to request your first quote.
@@ -110,7 +111,7 @@
 		<div class="space-y-3">
 			<div class="flex items-center justify-between gap-4 border-b border-border pb-4">
 				<div class="flex items-center gap-2">
-					<Package class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.box} class="size-4 text-muted-foreground" />
 					<span class="font-mono text-sm text-foreground">print_requests</span>
 					<span class="font-mono text-xs text-muted-foreground">({printRequests.length})</span>
 				</div>
@@ -136,7 +137,7 @@
 									{#if unreadCounts[req.id] > 0}
 										<span
 											class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-2 py-0.5 font-mono text-xs text-destructive-foreground">
-											<MessageSquare class="size-3" strokeWidth={2} />
+											<Icon icon={F.chat} class="size-3" />
 											{unreadCounts[req.id]}
 										</span>
 									{/if}

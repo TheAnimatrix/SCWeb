@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import Check from '@lucide/svelte/icons/check';
-	import Circle from '@lucide/svelte/icons/circle';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
 
+	import { cn } from '$lib/utils';
+		
 	interface Item {
 		label: string;
 		done: boolean;
@@ -29,10 +30,10 @@
 		{#each items as item (item.label)}
 			<li class="flex items-center gap-2 text-sm">
 				{#if item.done}
-					<Check class="size-3.5 shrink-0 text-foreground" strokeWidth={2} />
+					<Icon icon={F.check} class="size-3.5 shrink-0 text-foreground" />
 					<span class="text-foreground">{item.label}</span>
 				{:else}
-					<Circle class="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.circle} class="size-3.5 shrink-0 text-muted-foreground" />
 					<span class="text-muted-foreground">{item.label}</span>
 				{/if}
 			</li>

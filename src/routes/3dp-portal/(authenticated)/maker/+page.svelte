@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Minus from '@lucide/svelte/icons/minus';
-	import Plus from '@lucide/svelte/icons/plus';
-	import Printer from '@lucide/svelte/icons/printer';
-	import { enhance } from '$app/forms';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+				import { enhance } from '$app/forms';
 	import { page } from '$app/stores';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import ApprovedMakerPortal from '$lib/components/maker/ApprovedMakerPortal.svelte';
@@ -121,7 +121,7 @@
 				{/if}
 
 				<div class="mb-6 flex items-center gap-2">
-					<Printer class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.print} class="size-4 text-muted-foreground" />
 					<span class="font-mono text-sm text-foreground">maker_application</span>
 				</div>
 
@@ -222,7 +222,7 @@
 								onclick={decrementPrinters}
 								disabled={numPrinters <= 1}
 								aria-label="Decrease printer count">
-								<Minus class="size-4" strokeWidth={1.5} />
+								<Icon icon={F.subtract} class="size-4" />
 							</button>
 							<input
 								type="number"
@@ -241,7 +241,7 @@
 								class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card text-foreground transition-colors hover:bg-muted"
 								onclick={incrementPrinters}
 								aria-label="Increase printer count">
-								<Plus class="size-4" strokeWidth={1.5} />
+								<Icon icon={F.add} class="size-4" />
 							</button>
 						</div>
 						{#if $page.form?.errors?.numPrinters}

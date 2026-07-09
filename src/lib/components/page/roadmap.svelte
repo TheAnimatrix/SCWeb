@@ -1,4 +1,6 @@
 <script>
+	import { F } from '$lib/icons/fluent';
+
 	import Checbox from '$lib/components/fundamental/Checbox.svelte';
 	import Icon from '@iconify/svelte';
 </script>
@@ -33,9 +35,9 @@ Follow us on</span>   <a
 				target="_blank"
 				href="https://discord.gg/UQ74TQfMqM"
 				rel="noopener noreferrer"
-				><Icon icon="ph:discord-logo-duotone" class="text-3xl inline-block" /></a>   <a
+				><Icon icon={F.brandDiscord} class="text-3xl inline-block" /></a>   <a
 				rel="noopener noreferrer"
 				target="_blank"
 				href="https://github.com/TheAnimatrix/SCWeb"
-				><Icon icon="ph:github-logo-duotone" class="text-3xl inline-block" /></a></div></pre>
+				><Icon icon={F.brandGithub} class="text-3xl inline-block" /></a></div></pre>
 </div>

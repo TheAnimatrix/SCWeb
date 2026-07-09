@@ -12,10 +12,10 @@
 		sanitize: (source: string, config?: { ADD_TAGS?: string[] }) => string;
 	};
 
-	// isomorphic-dompurify pulls jsdom and costs ~500ms+ just to import on the
-	// server. Sanitize only in the browser so product SSR stays fast.
+	// Use browser-only `dompurify` — isomorphic-dompurify pulls jsdom and can hang
+	// or fail when dynamically imported in the client.
 	const dompurifyPromise: Promise<DomPurifyLike> | null = browser
-		? import('isomorphic-dompurify').then(({ default: DOMPurify }) => DOMPurify as DomPurifyLike)
+		? import('dompurify').then(({ default: DOMPurify }) => DOMPurify as DomPurifyLike)
 		: null;
 
 	function sanitize(DOMPurify: DomPurifyLike, source: string) {
@@ -45,6 +45,8 @@
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- DOMPurify-sanitized creator HTML, then CSS-scoped via modifyHtml() -->
 				{@html sanitize(DOMPurify, html)}
 			</div>
+		{:catch}
+			<p class="text-sm text-muted-foreground">Unable to render content.</p>
 		{/await}
 	{/if}
 {/if}

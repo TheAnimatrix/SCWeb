@@ -1,14 +1,12 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import type { Orders } from '$lib/types/product.js';
 	import type { PrintRequestEvent } from '$lib/types/printRequest';
 	import { navigating, page } from '$app/state';
 	import { OrderCardSkeleton, ProseSkeleton, ScButton } from '$lib/components/sc';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import ChevronUp from '@lucide/svelte/icons/chevron-up';
-	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
-	import CheckCircle from '@lucide/svelte/icons/circle-check';
-	import Clock from '@lucide/svelte/icons/clock';
-	import { cubicOut } from 'svelte/easing';
+						import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
@@ -76,7 +74,7 @@
 		<OrderCardSkeleton count={3} />
 	{:else if orders == undefined || orders.length <= 0}
 		<div class="rounded-md border border-border bg-card px-4 py-8 text-center">
-			<ShoppingBag class="mx-auto mb-3 size-8 text-muted-foreground" />
+			<Icon icon={F.shoppingBag} class="mx-auto mb-3 size-8 text-muted-foreground" />
 			<p class="text-sm text-muted-foreground">No orders yet.</p>
 			<ScButton href="/crafts" variant="secondary" class="mt-3">Browse crafts</ScButton>
 		</div>
@@ -115,9 +113,9 @@
 									order.payment_status
 								)}">
 								{#if order.payment_status.toLowerCase() === 'completed'}
-									<CheckCircle class="size-3.5 shrink-0" />
+									<Icon icon={F.checkCircle} class="size-3.5 shrink-0" />
 								{:else}
-									<Clock class="size-3.5 shrink-0" />
+									<Icon icon={F.clock} class="size-3.5 shrink-0" />
 								{/if}
 								<span class="truncate">{order.payment_status}</span>
 							</div>
@@ -131,9 +129,9 @@
 								<span>₹{order.amount}</span>
 								<span class="text-muted-foreground">
 									{#if visible[i]}
-										<ChevronUp class="size-4" />
+										<Icon icon={F.chevronUp} class="size-4" />
 									{:else}
-										<ChevronDown class="size-4" />
+										<Icon icon={F.chevronDown} class="size-4" />
 									{/if}
 								</span>
 							</div>

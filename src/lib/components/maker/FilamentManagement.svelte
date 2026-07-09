@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { F } from '$lib/icons/fluent';
+
 	import { Button } from '$lib/components/ui/button';
 	import Icon from '@iconify/svelte';
-	import Plus from '@lucide/svelte/icons/plus';
-	import type { TypedSupabaseClient } from '$lib/types/database';
+		import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { Filament, FilamentFormData } from '$lib/types/filament';
 	import { onMount } from 'svelte';
 	import FilamentFormModal from './FilamentFormModal.svelte';
@@ -198,7 +199,7 @@
 			class="flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-foreground/80"
 			onclick={() => (disclaimerVisible = !disclaimerVisible)}>
 			<Icon
-				icon={disclaimerVisible ? 'ph:caret-down-bold' : 'ph:caret-right-bold'}
+				icon={disclaimerVisible ? F.chevronDown : F.chevronRight}
 				class="text-xs text-muted-foreground" />
 			<span class="font-mono text-xs">important_disclaimer</span>
 		</button>
@@ -292,7 +293,7 @@
 									class="rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
 									onclick={() => openEditModal(filament)}
 									aria-label="Edit filament">
-									<Icon icon="ph:pencil-simple-line-bold" class="text-lg" />
+									<Icon icon={F.edit} class="text-lg" />
 								</Button>
 								<Button
 									variant="ghost"
@@ -300,7 +301,7 @@
 									class="ml-1 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 									onclick={() => askDeleteFilament(filament)}
 									aria-label="Delete filament">
-									<Icon icon="ph:trash-bold" class="text-lg" />
+									<Icon icon={F.delete} class="text-lg" />
 								</Button>
 							</td>
 						</tr>
@@ -308,7 +309,7 @@
 						<tr>
 							<td colspan="6" class="px-4 py-10 text-center text-sm text-muted-foreground">
 								<div class="flex flex-col items-center gap-3">
-									<Icon icon="mdi:database-off-outline" class="size-10 text-muted-foreground" />
+									<Icon icon={F.database} class="size-10 text-muted-foreground" />
 									<span>
 										{filamentError ? filamentError : 'Your filament inventory is empty.'}
 									</span>
@@ -323,7 +324,7 @@
 
 	<div class="mt-4 flex justify-end">
 		<ScButton variant="secondary" onclick={openAddModal}>
-			<Plus class="mr-1.5 size-4" strokeWidth={1.5} />
+			<Icon icon={F.add} class="mr-1.5 size-4" />
 			Add filament
 		</ScButton>
 	</div>

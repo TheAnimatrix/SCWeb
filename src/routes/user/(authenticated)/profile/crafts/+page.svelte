@@ -2,7 +2,7 @@
 	import { navigating, page } from '$app/state';
 	import ProductList from '$pages/product_list.svelte';
 	import type { Product } from '$lib/types/product.js';
-	import { ProductCardSkeleton, ScButton } from '$lib/components/sc';
+	import { ProductCardSkeleton, ProductCardList, ProductCardListItem, ScButton } from '$lib/components/sc';
 
 	let { data } = $props();
 
@@ -17,11 +17,13 @@
 </script>
 
 {#if isLoading}
-	<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
+	<ProductCardList aria-hidden="true">
 		{#each [...Array(4).keys()] as i (i)}
-			<ProductCardSkeleton />
+			<ProductCardListItem>
+				<ProductCardSkeleton />
+			</ProductCardListItem>
 		{/each}
-	</div>
+	</ProductCardList>
 {:else if products.length > 0}
 	<ProductList {products} {getLink} />
 {:else}
