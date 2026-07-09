@@ -109,7 +109,6 @@
 			class="mt-6 flex flex-col gap-3 border-t border-border pt-4 font-mono text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:justify-between md:mt-12 md:pt-6">
 			<p>© 2026 selfcrafted_india</p>
 			<PwaInstallButton />
-			<p class="hidden sm:block">made_with_care // the_animatrix</p>
 			<a
 				href="https://avarnic.com"
 				target="_blank"
