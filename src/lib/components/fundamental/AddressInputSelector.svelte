@@ -1,16 +1,10 @@
 <script lang="ts">
-	import MapPin from '@lucide/svelte/icons/map-pin';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import Pencil from '@lucide/svelte/icons/pencil';
-	import Check from '@lucide/svelte/icons/check';
-	import X from '@lucide/svelte/icons/x';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import Phone from '@lucide/svelte/icons/phone';
-	import Mail from '@lucide/svelte/icons/mail';
-	import User from '@lucide/svelte/icons/user';
-	import AlertCircle from '@lucide/svelte/icons/alert-circle';
-	import { type Address, compareAddress, validateAddress, newAddress } from '$lib/types/product';
-	import { ScInput } from '$lib/components/sc';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+	import { type Address, compareAddress, validateAddress, newAddress, normalizeAddress } from '$lib/types/product';
+	import { ScButton, ScInput } from '$lib/components/sc';
+	import AddressLocationFields from '$lib/components/fundamental/AddressLocationFields.svelte';
 	import { cn } from '$lib/utils';
 
 	function getWithoutCountryCode(phone: string | undefined) {
@@ -18,6 +12,22 @@
 		if (phone.startsWith('+91')) return phone.substring(3);
 		return phone;
 	}
+
+	function toEditableFields(addr: Address) {
+		const normalized = normalizeAddress(addr);
+		return {
+			name: normalized.name ?? '',
+			line1: normalized.line1 ?? '',
+			line2: normalized.line2 ?? '',
+			city: normalized.city ?? '',
+			pincode: normalized.pincode ?? '',
+			state: normalized.state ?? '',
+			phone: getWithoutCountryCode(normalized.phone),
+			email: normalized.email ?? ''
+		};
+	}
+
+	let editableAddress = $state(toEditableFields(newAddress()));
 
 	let addressError: string | undefined = $state();
 
@@ -40,6 +50,7 @@
 		onDelete?: (isCloseOnly: boolean) => void;
 		onSave?: (isChanged: boolean, addr: Address) => boolean;
 		onEditStart?: () => boolean;
+		title?: string;
 		class?: string;
 	}
 
@@ -53,10 +64,12 @@
 		address_old = $bindable(newAddress()),
 		onDelete = (isCloseOnly: boolean) => {
 			if (isCloseOnly) {
-				address = { ...address_old };
+				address = normalizeAddress(address_old);
+				editableAddress = toEditableFields(address);
 				type = 'text';
 			} else {
-				address = { ...newAddress() };
+				address = newAddress();
+				editableAddress = toEditableFields(address);
 				addressValid = false;
 				type = 'edit';
 			}
@@ -76,15 +89,26 @@
 		},
 		onEditStart = (): boolean => {
 			addressValid = false;
-			if (address.phone?.startsWith('+91')) address.phone = address.phone.substring(3);
+			editableAddress = toEditableFields(address);
 			return true;
 		},
+		title = 'Shipping address',
 		class: className = ''
 	}: Props = $props();
 
+	function syncEditableToAddress() {
+		address = {
+			...address,
+			...editableAddress
+		};
+	}
+
 	function toggleType() {
 		let k = true;
-		if (type == 'edit') k = onSave(!compareAddress(address_old, address), address);
+		if (type == 'edit') {
+			syncEditableToAddress();
+			k = onSave(!compareAddress(address_old, address), address);
+		}
 		if (type == 'text') {
 			address_old = { ...address };
 			k = onEditStart();
@@ -95,17 +119,27 @@
 	let showAddressList = $state(false);
 	let addressCount = addresses?.length ?? 0;
 
-	if (!userExists) type = 'edit';
-	else if (addresses && addressCount) {
-		address = addresses[0];
+	if (!userExists) {
+		type = 'edit';
+		address = normalizeAddress(address);
+		editableAddress = toEditableFields(address);
+	} else if (addresses && addressCount) {
+		address = normalizeAddress(addresses[0]);
 		type = 'text';
-	} else type = 'edit';
+	} else {
+		type = 'edit';
+		editableAddress = toEditableFields(address);
+	}
 
 	const labelClass = 'text-sm font-medium text-foreground';
 </script>
 
-<div class={cn('overflow-hidden rounded-lg border border-border bg-card', className)}>
-	<div class="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+<div
+	class={cn(
+		'overflow-hidden md:rounded-lg md:border md:border-border md:bg-card',
+		className
+	)}>
+	<div class="flex items-center gap-3 border-b border-border py-4 md:px-5">
 		<div class="flex min-w-0 flex-1 items-center gap-2">
 			<button
 				type="button"
@@ -115,14 +149,13 @@
 						showAddressList = !showAddressList;
 					}
 				}}>
-				<MapPin class="size-4 shrink-0 text-foreground" aria-hidden="true" />
+				<Icon icon={F.location} class="size-4 shrink-0 text-foreground" aria-hidden="true" />
 				<span
 					class="text-sm font-medium text-foreground transition-colors group-hover:text-foreground/80">
-					Shipping address
+					{title}
 				</span>
 				{#if userExists && addressCount}
-					<ChevronDown
-						class={cn(
+					<Icon icon={F.chevronDown} class={cn(
 							'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
 							showAddressList && 'rotate-180'
 						)}
@@ -135,41 +168,16 @@
 			{/if}
 		</div>
 
-		<div class="flex shrink-0 items-center gap-1">
-			<button
-				type="button"
-				class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-				onclick={toggleType}
-				aria-label={type === 'text' ? 'Edit address' : 'Save address'}>
-				{#if type === 'text'}
-					<Pencil class="size-4" />
-				{:else}
-					<Check class="size-4" />
-				{/if}
-			</button>
-
-			<button
-				type="button"
-				class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-				onclick={onDeleteLocal}
-				aria-label={type === 'edit' && address.id ? 'Cancel edit' : 'Delete address'}>
-				{#if type === 'edit' && address.id}
-					<X class="size-4" />
-				{:else}
-					<Trash2 class="size-4" />
-				{/if}
-			</button>
-		</div>
 	</div>
 
-	<div class="p-5">
+	<div class="py-5 md:p-5">
 		{#if !showAddressList}
 			{#if type === 'text'}
 				<div class="space-y-3 text-sm text-foreground">
 					<p class="text-base font-medium">{address.name || 'Name'}</p>
 
 					<div class="flex items-start gap-2">
-						<MapPin class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+						<Icon icon={F.location} class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 						<div class="space-y-0.5">
 							<p>{address.line1 || 'Address line 1'}</p>
 							{#if address.line2}
@@ -184,17 +192,32 @@
 
 					{#if address.phone}
 						<div class="flex items-center gap-2">
-							<Phone class="size-4 text-muted-foreground" aria-hidden="true" />
+							<Icon icon={F.phone} class="size-4 text-muted-foreground" aria-hidden="true" />
 							<span>+91 {getWithoutCountryCode(address.phone)}</span>
 						</div>
 					{/if}
 
 					{#if address.email && !email}
 						<div class="flex items-center gap-2">
-							<Mail class="size-4 text-muted-foreground" aria-hidden="true" />
+							<Icon icon={F.mail} class="size-4 text-muted-foreground" aria-hidden="true" />
 							<span>{address.email}</span>
 						</div>
 					{/if}
+
+					<div
+						class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+						<ScButton
+							variant="secondary"
+							class="text-destructive hover:bg-destructive/10 hover:text-destructive"
+							onclick={onDeleteLocal}>
+							<Icon icon={F.delete} class="mr-2 inline size-4" aria-hidden="true" />
+							Delete address
+						</ScButton>
+						<ScButton onclick={toggleType}>
+							<Icon icon={F.edit} class="mr-2 inline size-4" aria-hidden="true" />
+							Edit address
+						</ScButton>
+					</div>
 				</div>
 			{:else}
 				<div class="space-y-4">
@@ -202,45 +225,31 @@
 						id="address-name"
 						label="Full name"
 						{labelClass}
-						icon={User}
+						icon={F.person}
 						placeholder="Enter your full name"
-						bind:value={address.name} />
+						bind:value={editableAddress.name} />
 
 					<ScInput
 						id="address-line1"
 						label="Address line 1"
 						{labelClass}
-						icon={MapPin}
+						icon={F.location}
 						placeholder="Street address"
-						bind:value={address.line1} />
+						bind:value={editableAddress.line1} />
 
 					<ScInput
 						id="address-line2"
 						label="Address line 2"
 						{labelClass}
 						placeholder="Apartment, suite, unit, etc."
-						bind:value={address.line2} />
+						bind:value={editableAddress.line2} />
 
-					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-						<ScInput
-							id="address-city"
-							label="City"
-							{labelClass}
-							placeholder="City"
-							bind:value={address.city} />
-						<ScInput
-							id="address-pincode"
-							label="Pincode"
-							{labelClass}
-							placeholder="Pincode / ZIP"
-							bind:value={address.pincode} />
-						<ScInput
-							id="address-state"
-							label="State"
-							{labelClass}
-							placeholder="State"
-							bind:value={address.state} />
-					</div>
+					<AddressLocationFields
+						idPrefix="address"
+						{labelClass}
+						bind:pincode={editableAddress.pincode}
+						bind:city={editableAddress.city}
+						bind:state={editableAddress.state} />
 
 					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<ScInput
@@ -248,10 +257,10 @@
 							type="tel"
 							label="Phone number"
 							{labelClass}
-							icon={Phone}
+							icon={F.phone}
 							prefix="+91"
 							placeholder="Phone number"
-							bind:value={address.phone} />
+							bind:value={editableAddress.phone} />
 
 						{#if !email}
 							<ScInput
@@ -259,10 +268,32 @@
 								type="email"
 								label="Email"
 								{labelClass}
-								icon={Mail}
+								icon={F.mail}
 								placeholder="Email address"
-								bind:value={address.email} />
+								bind:value={editableAddress.email} />
 						{/if}
+					</div>
+
+					<div
+						class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+						<ScButton
+							variant="secondary"
+							class={address.id
+								? ''
+								: 'text-destructive hover:bg-destructive/10 hover:text-destructive'}
+							onclick={onDeleteLocal}>
+							{#if address.id}
+								<Icon icon={F.dismiss} class="mr-2 inline size-4" aria-hidden="true" />
+								Cancel
+							{:else}
+								<Icon icon={F.delete} class="mr-2 inline size-4" aria-hidden="true" />
+								Clear form
+							{/if}
+						</ScButton>
+						<ScButton onclick={toggleType}>
+							<Icon icon={F.check} class="mr-2 inline size-4" aria-hidden="true" />
+							Save address
+						</ScButton>
 					</div>
 				</div>
 			{/if}
@@ -273,7 +304,7 @@
 						type="button"
 						class="flex w-full flex-col rounded-md border border-border p-4 text-left text-sm transition-colors hover:border-foreground/20 hover:bg-muted/40"
 						onclick={() => {
-							address = addrItem;
+							address = normalizeAddress(addrItem);
 							showAddressList = false;
 							addressValid = true;
 							type = 'text';
@@ -288,7 +319,7 @@
 						</p>
 						{#if addrItem.phone}
 							<p class="mt-2 flex items-center gap-1.5 text-muted-foreground">
-								<Phone class="size-3.5" aria-hidden="true" />
+								<Icon icon={F.phone} class="size-3.5" aria-hidden="true" />
 								+91 {addrItem.phone.startsWith('+91')
 									? addrItem.phone.substring(3)
 									: addrItem.phone}
@@ -299,7 +330,7 @@
 			</div>
 		{:else}
 			<div class="flex flex-col items-center gap-2 py-6 text-center text-sm text-destructive">
-				<AlertCircle class="size-8" aria-hidden="true" />
+				<Icon icon={F.errorCircle} class="size-8" aria-hidden="true" />
 				<p>Unknown error occurred. Please refresh the page.</p>
 			</div>
 		{/if}

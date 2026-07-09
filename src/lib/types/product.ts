@@ -49,9 +49,23 @@ export interface Address {
 	email?: string;
 }
 
-export const newAddress = (): Address => {
-	return {};
-};
+/** Coerce optional string fields to '' so they can bind to ScInput ($bindable('')). */
+export function normalizeAddress(addr: Address = {}): Address {
+	return {
+		name: addr.name ?? '',
+		line1: addr.line1 ?? '',
+		line2: addr.line2 ?? '',
+		city: addr.city ?? '',
+		pincode: addr.pincode ?? '',
+		state: addr.state ?? '',
+		phone: addr.phone ?? '',
+		email: addr.email ?? '',
+		id: addr.id,
+		created_at: addr.created_at
+	};
+}
+
+export const newAddress = (): Address => normalizeAddress();
 
 function optionalString(value: unknown): string | undefined {
 	return value != null ? String(value) : undefined;
