@@ -1,40 +1,8 @@
+import type { ProductView, ReviewView } from '../contracts/catalog.js';
 import type { products } from '../db/schema/products.js';
 import type { users } from '../db/schema/users.js';
 
-export type ProductUserRef = {
-	username?: string | null;
-	tier?: number | string | null;
-};
-
-export type ProductView = {
-	id: string;
-	name: string;
-	images: { url: string }[];
-	tags: { tag: string }[];
-	offer?: { offer_colorA: string; offer_colorB: string; offer_name: string };
-	rating?: { count: number; rating: number };
-	stock: { count: number; status: string };
-	created_at: string;
-	documentation?: { data: string; isMDUrl: boolean }[];
-	faq?: { question: string; answer: string }[];
-	uid: string;
-	price: { old: number; new: number };
-	author?: string;
-	type: string;
-	guarantee: string;
-	rel: string;
-	users: ProductUserRef | null;
-};
-
-export type ReviewView = {
-	id: string;
-	user_id: string;
-	product_id: string;
-	rating: number;
-	comment: string | null;
-	created_at: string;
-	users?: { username?: string | null; tier?: number | string | null };
-};
+export type { ProductView, ReviewView };
 
 type ProductRow = typeof products.$inferSelect;
 type UserRow = Pick<typeof users.$inferSelect, 'username' | 'tier'>;

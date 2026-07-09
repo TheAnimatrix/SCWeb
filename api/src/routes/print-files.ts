@@ -39,7 +39,7 @@ function isRawUploadRequest(contentType: string | undefined): boolean {
 async function readBoundedBody(
 	request: Request,
 	maxBytes: number
-): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; status: 413 | 400 }> {
+): Promise<{ ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false; status: 413 | 400 }> {
 	const contentLength = request.headers.get('content-length');
 	if (contentLength !== null) {
 		const length = Number(contentLength);
@@ -92,7 +92,7 @@ async function readBoundedBody(
 		offset += chunk.byteLength;
 	}
 
-	return { ok: true, bytes };
+	return { ok: true, bytes: bytes as Uint8Array<ArrayBuffer> };
 }
 
 function parseUploadMetadata(fields: Record<string, FormDataEntryValue | string | undefined>) {
