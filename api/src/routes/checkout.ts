@@ -8,6 +8,7 @@ import { verifyRazorpaySignature } from '../lib/razorpay.js';
 import { validateJson } from '../lib/validation.js';
 import { logCheckoutTransition } from '../middleware/logging.js';
 import { hasActor } from '../services/cart-store.js';
+import { normalizeCheckoutOrderAddresses } from '../services/checkout.js';
 import { isPaymentsConfigured } from '../services/razorpay-client.js';
 import type { CheckoutStore } from '../services/checkout-store.js';
 import type { AppVariables } from '../types/context.js';
@@ -30,7 +31,8 @@ export function createCheckoutRoutes(
 		}
 
 		const body = c.req.valid('json');
-		const result = await getCheckoutStore(c).createOrder(actor, body.address);
+		const addresses = normalizeCheckoutOrderAddresses(body.address, body.billingAddress);
+		const result = await getCheckoutStore(c).createOrder(actor, addresses);
 
 		if (!result.ok) {
 			if (result.status === 400) {

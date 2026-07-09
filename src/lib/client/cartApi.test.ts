@@ -41,7 +41,7 @@ describe('mapApiError', () => {
 });
 
 describe('stripCheckoutAddress', () => {
-	it('drops id, email, and created_at', () => {
+	it('drops id and created_at but keeps email when present', () => {
 		const address: Address = {
 			id: 'addr-1',
 			email: 'user@example.com',
@@ -62,7 +62,8 @@ describe('stripCheckoutAddress', () => {
 			city: 'Bengaluru',
 			pincode: '560001',
 			state: 'Karnataka',
-			phone: '+919876543210'
+			phone: '+919876543210',
+			email: 'user@example.com'
 		});
 	});
 });

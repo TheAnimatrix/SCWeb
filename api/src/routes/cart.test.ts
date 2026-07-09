@@ -6,6 +6,7 @@ import type { CartStore } from '../services/cart-store.js';
 import type { Actor, AppVariables } from '../types/context.js';
 import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
+import { emailEnvDefaults } from '../test/env-defaults.js';
 
 const testEnv = {
 	NODE_ENV: 'test',
@@ -16,7 +17,8 @@ const testEnv = {
 	API_CORS_ORIGINS: 'http://localhost:5173',
 	CLIENT_ID_COOKIE_NAME: 'clientId',
 	RATE_LIMIT_WINDOW_MS: 60_000,
-	RATE_LIMIT_MAX_REQUESTS: 120
+	RATE_LIMIT_MAX_REQUESTS: 120,
+	...emailEnvDefaults
 } satisfies Env;
 
 function createTestApp(actor: Actor, cartStore: CartStore) {

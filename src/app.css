@@ -250,14 +250,15 @@
 		--dot-grid-dot: #d4d4d4;
 	}
 
-	html,
-	body {
-		overflow-x: clip;
+	html {
 		width: 100%;
 		max-width: 100%;
 	}
 
 	body {
+		overflow-x: clip;
+		width: 100%;
+		max-width: 100%;
 		min-height: 100vh;
 		min-height: -webkit-fill-available;
 		min-height: 100svh;
@@ -336,12 +337,24 @@
    intended semi-transparent overlay. */
 .razorpay-container,
 .razorpay-container *,
-[class*='razorpay'] {
+iframe.razorpay-checkout-frame {
 	color-scheme: light !important;
 }
 
-iframe[src*='razorpay'] {
-	color-scheme: light !important;
+.razorpay-container {
+	position: fixed !important;
+	inset: 0 !important;
+	width: 100% !important;
+	height: 100% !important;
+	z-index: 2147483647 !important;
+}
+
+iframe.razorpay-checkout-frame {
+	display: block !important;
+	width: 100% !important;
+	height: 100% !important;
+	max-height: 100dvh !important;
+	border: none !important;
 }
 
 @layer utilities {

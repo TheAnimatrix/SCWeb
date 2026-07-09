@@ -1,17 +1,12 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { goto, invalidate } from '$app/navigation';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { type Writable } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
-	import UserCircle from '@lucide/svelte/icons/user-circle';
-	import LogIn from '@lucide/svelte/icons/log-in';
-	import Receipt from '@lucide/svelte/icons/receipt';
-	import ShieldCheck from '@lucide/svelte/icons/shield-check';
-	import Lock from '@lucide/svelte/icons/lock';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import Package from '@lucide/svelte/icons/package';
-	import AlertCircle from '@lucide/svelte/icons/alert-circle';
-	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
+									import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { PlaceholderImage, ScButton } from '$lib/components/sc';
 	import {
@@ -20,8 +15,9 @@
 		failCheckout,
 		type CartG
 	} from '$lib/client/cartApi';
-	import { newAddress, validateAddress, asAddressList, type Address } from '$lib/types/product';
+	import { newAddress, validateAddress, asAddressList, normalizeAddress, type Address } from '$lib/types/product';
 	import { toastStore } from '$lib/client/toastStore.js';
+	import { loadRazorpay, openRazorpayCheckout } from '$lib/client/razorpay';
 
 	let { data } = $props();
 
@@ -29,6 +25,7 @@
 	// $bindable with a fallback — binding undefined throws props_invalid_value
 	// on first render (the init $effect runs after render).
 	let validAddress: Address = $state(newAddress());
+	let validBillingAddress: Address = $state(newAddress());
 	const addresses = $derived(asAddressList(data.addresses));
 
 	const cartData = $derived(data.cart);
@@ -39,7 +36,13 @@
 	const hasItems = $derived(cartItems.length > 0);
 
 	let addressValid: boolean = $state(false);
+	let billingAddressValid: boolean = $state(true);
+	let billingSameAsShipping = $state(true);
 	let addressInitialized = $state(false);
+
+	const checkoutReady = $derived(
+		addressValid && (billingSameAsShipping || billingAddressValid)
+	);
 
 	$effect(() => {
 		if (addressInitialized) return;
@@ -61,8 +64,30 @@
 		addressInitialized = true;
 	});
 
+	function handleBillingSameChange() {
+		if (billingSameAsShipping) {
+			billingAddressValid = addressValid;
+			return;
+		}
+
+		validBillingAddress = normalizeAddress(validAddress);
+		billingAddressValid = validateAddress(validBillingAddress) == null;
+	}
+
+	$effect(() => {
+		if (billingSameAsShipping) {
+			billingAddressValid = addressValid;
+		}
+	});
+
 	const cart_store = getContext<Writable<CartG>>('userCartStatus');
 	let isPaying = $state(false);
+
+	onMount(() => {
+		void loadRazorpay().catch(() => {
+			// payNow() will surface a user-facing error if the SDK is still unavailable.
+		});
+	});
 
 	function productHref(name: string, id: string): string {
 		return `/${name.replaceAll(' ', '_')}/craft/item=${id}`;
@@ -81,10 +106,16 @@
 			return;
 		}
 
+		if (!billingSameAsShipping && !billingAddressValid) {
+			toastStore.show('Please enter a valid billing address.', 'error');
+			return;
+		}
+
 		isPaying = true;
 
 		try {
-			const orderResult = await createCheckoutOrder(fetch, validAddress);
+			const billingAddress = billingSameAsShipping ? undefined : validBillingAddress;
+			const orderResult = await createCheckoutOrder(fetch, validAddress, billingAddress);
 
 			if (!orderResult.ok) {
 				toastStore.show(orderResult.error.message, 'error');
@@ -102,7 +133,7 @@
 				return;
 			}
 
-			const options = {
+			await openRazorpayCheckout({
 				key: razorpayKey,
 				amount: amountPaise,
 				currency: 'INR',
@@ -110,11 +141,7 @@
 				image:
 					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
 				order_id: razorpayOrderId,
-				handler: async function (response: {
-					razorpay_order_id: string;
-					razorpay_payment_id: string;
-					razorpay_signature: string;
-				}) {
+				handler: async function (response) {
 					const confirmResult = await confirmCheckout(fetch, {
 						razorpayOrderId: response.razorpay_order_id,
 						razorpayPaymentId: response.razorpay_payment_id,
@@ -137,48 +164,32 @@
 				prefill: {},
 				theme: {
 					color: '#2084fe'
+				},
+				onPaymentFailed: async function (failedResponse) {
+					isPaying = false;
+					const orderId = failedResponse.error?.metadata?.order_id;
+					if (!orderId) {
+						goto('/summary/failure');
+						return;
+					}
+					try {
+						await failCheckout(fetch, orderId, failedResponse.error?.description);
+					} catch {
+						// Still navigate so the user sees the failure page.
+					}
+					window.location.href = `/summary/failure/${cartId}/${orderId}`;
 				}
-			};
-
-			if (typeof Razorpay === 'undefined') {
-				toastStore.show('Payment provider is unavailable. Please try again.', 'error');
-				isPaying = false;
-				return;
-			}
-
-			const rzp1 = new Razorpay(options);
-			rzp1.open();
-			rzp1.on('payment.failed', async function (response: unknown) {
-				const failedResponse = response as {
-					error?: { metadata?: { order_id?: string }; description?: string };
-				};
-				isPaying = false;
-				rzp1.close();
-				const orderId = failedResponse.error?.metadata?.order_id;
-				if (!orderId) {
-					goto('/summary/failure');
-					return;
-				}
-				try {
-					await failCheckout(fetch, orderId, failedResponse.error?.description);
-				} catch {
-					// Still navigate so the user sees the failure page.
-				}
-				window.location.href = `/summary/failure/${cartId}/${orderId}`;
 			});
 		} catch (e: unknown) {
-			toastStore.show(
-				`An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`,
-				'error'
-			);
+			const message =
+				e instanceof Error && e.message.includes('Razorpay')
+					? 'Payment provider is unavailable. Please try again.'
+					: `An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`;
+			toastStore.show(message, 'error');
 			isPaying = false;
 		}
 	}
 </script>
-
-<svelte:head>
-	<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-</svelte:head>
 
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-7xl px-4 py-8 md:py-12">
@@ -192,7 +203,7 @@
 		<div class="mt-6 flex flex-col gap-2 border-b border-border pb-6">
 			<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Checkout</h1>
 			<p class="text-sm text-muted-foreground">
-				Add your shipping details to complete your purchase.
+				Add your shipping and billing details to complete your purchase.
 			</p>
 		</div>
 
@@ -202,7 +213,7 @@
 					<div
 						class="flex flex-col items-start gap-4 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground sm:flex-row sm:items-center">
 						<div class="flex items-center gap-3">
-							<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
+							<Icon icon={F.errorCircle} class="size-5 shrink-0 text-foreground" aria-hidden="true" />
 							<p>Could not load your cart. Try refreshing the page.</p>
 						</div>
 						<ScButton variant="secondary" onclick={() => invalidate('cart:change')}>Retry</ScButton>
@@ -211,7 +222,7 @@
 					<div class="rounded-lg border border-border bg-card p-5">
 						<div class="flex items-start gap-3">
 							<div class="rounded-full bg-muted p-2">
-								<UserCircle class="size-5 text-foreground" aria-hidden="true" />
+								<Icon icon={F.personCircle} class="size-5 text-foreground" aria-hidden="true" />
 							</div>
 							<div class="min-w-0 flex-1">
 								<h2 class="text-sm font-medium text-foreground">Account benefits</h2>
@@ -221,7 +232,7 @@
 								</p>
 								<div class="mt-4">
 									<ScButton href="/user/sign" variant="secondary">
-										<LogIn class="mr-2 inline size-4" aria-hidden="true" />
+										<Icon icon={F.signIn} class="mr-2 inline size-4" aria-hidden="true" />
 										Login or register
 									</ScButton>
 								</div>
@@ -237,27 +248,71 @@
 							</div>
 						</div>
 
+						<div class="space-y-4">
+							<AddressInputSelector
+								email={data.email}
+								userExists={data.userExists}
+								{addresses}
+								bind:address={validAddress}
+								bind:addressValid />
+
+							<label
+								class="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-4">
+								<input
+									type="checkbox"
+									class="size-4 rounded border-border text-primary focus:ring-primary"
+									bind:checked={billingSameAsShipping}
+									onchange={handleBillingSameChange} />
+								<span class="text-sm text-foreground">Billing address same as shipping</span>
+							</label>
+
+							{#if !billingSameAsShipping}
+								<AddressInputSelector
+									title="Billing address"
+									email={data.email}
+									userExists={data.userExists}
+									{addresses}
+									bind:address={validBillingAddress}
+									bind:addressValid={billingAddressValid} />
+							{/if}
+						</div>
+					</div>
+				{:else}
+					<div class="space-y-4">
 						<AddressInputSelector
 							email={data.email}
 							userExists={data.userExists}
 							{addresses}
 							bind:address={validAddress}
 							bind:addressValid />
+
+						<label
+							class="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-4">
+							<input
+								type="checkbox"
+								class="size-4 rounded border-border text-primary focus:ring-primary"
+								bind:checked={billingSameAsShipping}
+								onchange={handleBillingSameChange} />
+							<span class="text-sm text-foreground">Billing address same as shipping</span>
+						</label>
+
+						{#if !billingSameAsShipping}
+							<AddressInputSelector
+								title="Billing address"
+								email={data.email}
+								userExists={data.userExists}
+								{addresses}
+								bind:address={validBillingAddress}
+								bind:addressValid={billingAddressValid} />
+						{/if}
 					</div>
-				{:else}
-					<AddressInputSelector
-						email={data.email}
-						userExists={data.userExists}
-						{addresses}
-						bind:address={validAddress}
-						bind:addressValid />
 				{/if}
 			</div>
 
 			<aside class="w-full lg:w-80 lg:shrink-0">
 				<div class="sticky top-20 rounded-lg border border-border bg-card">
 					<div class="flex items-center gap-2 border-b border-border px-5 py-4">
-						<Receipt class="size-4 text-foreground" aria-hidden="true" />
+						<Icon icon={F.receipt} class="size-4 text-foreground" aria-hidden="true" />
 						<h2 class="text-sm font-medium text-foreground">Order summary</h2>
 					</div>
 
@@ -276,7 +331,7 @@
 													{:else}
 														<div
 															class="flex size-16 items-center justify-center rounded-md bg-muted">
-															<Package class="size-5 text-muted-foreground" aria-hidden="true" />
+															<Icon icon={F.box} class="size-5 text-muted-foreground" aria-hidden="true" />
 														</div>
 													{/if}
 												</a>
@@ -334,7 +389,7 @@
 						<button
 							type="button"
 							class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
-							disabled={!hasItems || !addressValid || isPaying}
+							disabled={!hasItems || !checkoutReady || isPaying}
 							onclick={payNow}>
 							{isPaying ? 'Opening payment…' : 'Proceed to payment'}
 							{#if !isPaying}
@@ -344,7 +399,7 @@
 
 						<div class="text-center">
 							<ScButton href="/cart" variant="ghost" class="text-sm">
-								<ArrowLeft class="mr-1 inline size-3.5" aria-hidden="true" />
+								<Icon icon={F.arrowLeft} class="mr-1 inline size-3.5" aria-hidden="true" />
 								Return to cart
 							</ScButton>
 						</div>
@@ -352,11 +407,11 @@
 						<div
 							class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
 							<span class="inline-flex items-center gap-1">
-								<ShieldCheck class="size-3.5" aria-hidden="true" />
+								<Icon icon={F.shieldCheck} class="size-3.5" aria-hidden="true" />
 								Secure
 							</span>
 							<span class="inline-flex items-center gap-1">
-								<Lock class="size-3.5" aria-hidden="true" />
+								<Icon icon={F.lock} class="size-3.5" aria-hidden="true" />
 								Encrypted
 							</span>
 						</div>
