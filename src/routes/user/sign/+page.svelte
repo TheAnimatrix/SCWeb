@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { syncAuthAfterSignIn } from '$lib/client/authSync';
-	import { signup } from '$lib/client/authApi';
+	import { signup, checkUsernameAvailable } from '$lib/client/authApi';
 	import { page } from '$app/stores';
 	import { toastStore } from '$lib/client/toastStore';
 	import { Button } from '$lib/components/ui/button';
@@ -97,10 +97,14 @@
 		}
 		isAuthLoading = true;
 
-		const { data: usernameCheck } = await supabase().rpc('check_username', {
-			desired_username: usernameRegister
-		});
-		if (usernameCheck) {
+		const usernameCheck = await checkUsernameAvailable(fetch, usernameRegister);
+		if (!usernameCheck.ok) {
+			errorShow = 2;
+			errorText = usernameCheck.error.message;
+			isAuthLoading = false;
+			return;
+		}
+		if (!usernameCheck.data.available) {
 			errorShow = 2;
 			errorText = 'Username not available';
 			isAuthLoading = false;

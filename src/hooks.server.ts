@@ -76,7 +76,9 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createServerClient(getPublicSupabaseUrl(), getPublicSupabaseAnonKey(), {
 		cookies: {
 			getAll: () => event.cookies.getAll(),
-			setAll: (cookiesToSet) => {
+			setAll: (
+				cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[]
+			) => {
 				cookiesToSet.forEach(({ name, value, options }) => {
 					event.cookies.set(name, value, { ...options, path: '/' });
 				});

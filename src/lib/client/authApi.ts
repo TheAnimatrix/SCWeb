@@ -97,3 +97,11 @@ export async function confirmPasswordReset(
 		body: JSON.stringify(input)
 	});
 }
+
+export async function checkUsernameAvailable(
+	fetchFn: typeof fetch,
+	username: string
+): Promise<AuthApiResult<{ available: boolean }>> {
+	const params = new URLSearchParams({ username });
+	return authRequest(fetchFn, `auth/username-available?${params.toString()}`);
+}

@@ -8,7 +8,7 @@
 	import { env } from '$env/dynamic/public';
 									import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
 	import { Breadcrumbs } from '$lib/components/shell';
-	import { PlaceholderImage, ScButton } from '$lib/components/sc';
+	import { PlaceholderImage, ScButton, MakerAttribution } from '$lib/components/sc';
 	import {
 		confirmCheckout,
 		createCheckoutOrder,
@@ -136,7 +136,28 @@
 					return;
 				}
 
-				const { razorpayOrderId, amountPaise } = orderResult.data;
+				const { razorpayOrderId, amountPaise, totalRupees } = orderResult.data;
+
+				if (amountPaise !== totalRupees * 100) {
+					toastStore.show('Payment amounts are inconsistent. Please try again.', 'error');
+					isPaying = false;
+					return;
+				}
+
+				if (totalRupees !== cartData.total) {
+					if (!refreshPayment) {
+						refreshPayment = true;
+						continue;
+					}
+					toastStore.show(
+						'Your cart total changed. Please refresh the page and try again.',
+						'error'
+					);
+					await invalidate('cart:change');
+					isPaying = false;
+					return;
+				}
+
 				const outcome = await openRazorpayCheckout({
 					key: razorpayKey,
 					amount: amountPaise,
@@ -363,9 +384,10 @@
 														{item.name}
 													</a>
 													{#if item.author}
-														<p class="truncate text-xs text-muted-foreground">
-															by @{item.author}
-														</p>
+														<MakerAttribution
+															username={item.author}
+															tier={item.authorTier}
+															class="mt-0.5" />
 													{/if}
 													<p class="text-xs text-muted-foreground">
 														₹{item.unitPrice.toLocaleString('en-IN')} × {item.qty}
@@ -409,12 +431,14 @@
 
 						<button
 							type="button"
-							class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
+							class="group inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all duration-200 hover:scale-[1.02] hover:bg-primary/90 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
 							disabled={!hasItems || !checkoutReady || isPaying}
 							onclick={payNow}>
 							{isPaying ? 'Opening payment…' : 'Proceed to payment'}
 							{#if !isPaying}
-								<span aria-hidden="true">→</span>
+								<span
+									class="transition-transform duration-200 group-hover:translate-x-0.5"
+									aria-hidden="true">→</span>
 							{/if}
 						</button>
 

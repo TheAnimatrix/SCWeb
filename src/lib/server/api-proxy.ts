@@ -1,6 +1,3 @@
-export const ALLOWED_PROXY_PATH =
-	/^(auth|cart|checkout|print-files|print-payments|print-requests|chats|catalog|constants|products)(\/|$)/;
-
 const UPLOAD_TIMEOUT_MS = 60_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -28,16 +25,13 @@ function containsDotDotSegment(path: string): boolean {
 	}
 }
 
+/** Reject empty or traversal paths. Everything else is forwarded to Hono. */
 export function isAllowedProxyPath(path: string | undefined): boolean {
 	if (!path) {
 		return false;
 	}
 
-	if (containsDotDotSegment(path)) {
-		return false;
-	}
-
-	return ALLOWED_PROXY_PATH.test(path);
+	return !containsDotDotSegment(path);
 }
 
 export function buildProxyTargetUrl(apiOrigin: string, path: string, search: string): URL {
@@ -49,10 +43,4 @@ export function buildProxyTargetUrl(apiOrigin: string, path: string, search: str
 
 export function isAllowedProxyMethod(method: string): boolean {
 	return ALLOWED_METHODS.has(method);
-}
-
-/** Public catalog reads — no auth token needed; skipping session lookup saves ~100–300ms. */
-export function isPublicReadProxyPath(path: string | undefined, method: string): boolean {
-	if (method !== 'GET' || !path) return false;
-	return /^(catalog|constants|products)(\/|$)/.test(path);
 }

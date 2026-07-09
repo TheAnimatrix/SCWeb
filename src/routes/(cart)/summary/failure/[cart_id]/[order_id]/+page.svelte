@@ -2,9 +2,8 @@
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-						import { Breadcrumbs } from '$lib/components/shell';
+	import { Breadcrumbs } from '$lib/components/shell';
 	import { ScButton } from '$lib/components/sc';
 	import { toastStore } from '$lib/client/toastStore';
 
@@ -16,14 +15,6 @@
 			toastStore.show('Clipboard not supported on HTTP', 'error');
 		}
 	}
-
-	onMount(() => {
-		const cartId = page.params.cart_id;
-		const orderId = page.params.order_id;
-		if (cartId && orderId) {
-			fetch(`/summary/failure/${cartId}/${orderId}`, { method: 'POST' }).catch(() => {});
-		}
-	});
 </script>
 
 <div class="min-h-screen bg-background text-foreground">

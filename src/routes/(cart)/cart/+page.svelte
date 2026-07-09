@@ -7,7 +7,7 @@
 	import { type Writable } from 'svelte/store';
 	import type { CartView } from '@scweb/api/contracts';
 										import { Breadcrumbs } from '$lib/components/shell';
-	import { ScButton, StockBar, PlaceholderImage } from '$lib/components/sc';
+	import { ScButton, StockBar, PlaceholderImage, MakerAttribution } from '$lib/components/sc';
 	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { cn } from '$lib/utils';
@@ -26,6 +26,7 @@
 
 	let cartDetails: CartView | null = $state(data.cart);
 	let isUpdatingCart = $state(false);
+	let isCheckingOut = $state(false);
 	let highlightedRow: number | null = $state(null);
 	let quantityList = $state(data.cart?.items.map((item) => item.qty.toString()) ?? []);
 
@@ -168,6 +169,7 @@
 	}
 
 	async function checkOut() {
+		if (isCheckingOut) return;
 		if (!cartDetails?.items) return;
 
 		for (const item of cartDetails.items) {
@@ -179,7 +181,13 @@
 				return;
 			}
 		}
-		goto('/checkout');
+
+		isCheckingOut = true;
+		try {
+			await goto('/checkout');
+		} finally {
+			isCheckingOut = false;
+		}
 	}
 </script>
 
@@ -258,9 +266,10 @@
 												{item.name}
 											</a>
 											{#if item.author}
-												<p class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground sm:text-xs">
-													by @{item.author}
-												</p>
+												<MakerAttribution
+													username={item.author}
+													tier={item.authorTier}
+													class="mt-0.5" />
 											{/if}
 										</div>
 
@@ -383,11 +392,15 @@
 
 							<button
 								type="button"
-								class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
+								class="group inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all duration-200 hover:scale-[1.02] hover:bg-primary/90 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
 								onclick={checkOut}
-								disabled={isUpdatingCart}>
-								Proceed to checkout
-								<span aria-hidden="true">→</span>
+								disabled={isUpdatingCart || isCheckingOut}>
+								{isCheckingOut ? 'Going to checkout…' : 'Proceed to checkout'}
+								{#if !isCheckingOut}
+									<span
+										class="transition-transform duration-200 group-hover:translate-x-0.5"
+										aria-hidden="true">→</span>
+								{/if}
 							</button>
 
 							<div class="text-center">
