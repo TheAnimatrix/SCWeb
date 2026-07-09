@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { loadEnvFiles } from '../loadEnvFiles.js';
-import { getSiteUrl, loadEnv } from '../env.js';
+import { getSiteUrl, loadEnv, resolveSmtpSecure } from '../env.js';
 
 loadEnvFiles();
 process.env.DATABASE_URL ??= process.env.POSTGRES_URL;
@@ -13,7 +13,7 @@ const profiles = [
 	{
 		label: 'configured',
 		port: env.SMTP_PORT,
-		secure: env.SMTP_SECURE || env.SMTP_PORT === 465
+		secure: resolveSmtpSecure(env)
 	},
 	...(env.SMTP_PORT === 465
 		? [{ label: 'fallback-587-starttls', port: 587, secure: false }]

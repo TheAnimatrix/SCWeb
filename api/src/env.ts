@@ -60,3 +60,24 @@ export function getSiteUrl(env: Env): string {
 export function isSmtpConfigured(env: Env): boolean {
 	return Boolean(env.SMTP_HOST && env.SMTP_PASS);
 }
+
+/** Resend and most providers: 465 = implicit TLS; 587 = plain + STARTTLS. */
+export function resolveSmtpSecure(env: Pick<Env, 'SMTP_PORT' | 'SMTP_SECURE'>): boolean {
+	if (env.SMTP_PORT === 465) {
+		return true;
+	}
+
+	if (env.SMTP_PORT === 587 || env.SMTP_PORT === 25) {
+		return false;
+	}
+
+	return env.SMTP_SECURE;
+}
+
+export function getSmtpTransportSummary(env: Pick<Env, 'SMTP_HOST' | 'SMTP_PORT' | 'SMTP_SECURE'>) {
+	return {
+		host: env.SMTP_HOST ?? null,
+		port: env.SMTP_PORT,
+		secure: resolveSmtpSecure(env)
+	};
+}

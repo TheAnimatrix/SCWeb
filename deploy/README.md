@@ -38,10 +38,10 @@ Set all variables on the Dokploy application at **runtime** (Environment tab). D
 | `PUBLIC_VERCEL_URL`                          | No       | Optional hosting URL fallback                                                                   |
 | `API_CORS_ORIGINS`                           | Yes      | Comma-separated browser origins, e.g. `https://selfcrafted.in,https://www.selfcrafted.in`       |
 | `SMTP_HOST`                                  | Yes\*    | SMTP host for transactional mail (e.g. `smtp.resend.com`)                                       |
-| `SMTP_PORT`                                  | No       | Defaults to `587`; use `465` for Resend                                                         |
+| `SMTP_PORT`                                  | No       | Defaults to `587` (STARTTLS). Use `465` for implicit TLS (Resend recommended)                     |
 | `SMTP_USER`                                  | Yes\*    | SMTP username (e.g. `resend`)                                                                   |
 | `SMTP_PASS` / `SMTP_PASSWORD`                | Yes\*    | SMTP password / API key                                                                         |
-| `SMTP_SECURE`                                | No       | `true`/`false`; port `465` enables TLS automatically                                            |
+| `SMTP_SECURE`                                | No       | Ignored on ports `465`/`587` — port selects TLS mode automatically                              |
 | `EMAIL_FROM`                                 | No       | Defaults to `Selfcrafted <noreply@selfcrafted.in>`                                              |
 | `ORDERS_INBOX_EMAIL`                         | No       | Defaults to `orders@selfcrafted.in` — receives order/quote ops copies                           |
 | `SENTRY_DSN`                                 | No       | Server error monitoring (web + API processes)                                                   |

@@ -4,6 +4,7 @@ import { emailEnvDefaults } from '../test/env-defaults.js';
 import { createAuthRoutes } from './auth.js';
 import type { AuthStore } from '../services/auth-store.js';
 import type { AppVariables } from '../types/context.js';
+import type { Env } from '../env.js';
 
 const baseEnv = {
 	NODE_ENV: 'test' as const,
@@ -16,6 +17,8 @@ const baseEnv = {
 	CLIENT_ID_COOKIE_NAME: 'clientId',
 	RATE_LIMIT_WINDOW_MS: 60_000,
 	RATE_LIMIT_MAX_REQUESTS: 120,
+	SMTP_HOST: 'smtp.example.com',
+	SMTP_PASS: 'smtp-pass',
 	...emailEnvDefaults
 };
 
@@ -23,6 +26,17 @@ function createTestApp(authStore: AuthStore) {
 	const app = new Hono<{ Variables: AppVariables }>();
 	app.use('*', async (c, next) => {
 		c.set('env', baseEnv);
+		c.set('authStore', authStore);
+		await next();
+	});
+	app.route('/', createAuthRoutes((c) => c.get('authStore')));
+	return app;
+}
+
+function createTestAppWithEnv(authStore: AuthStore, env: Env) {
+	const app = new Hono<{ Variables: AppVariables }>();
+	app.use('*', async (c, next) => {
+		c.set('env', env);
 		c.set('authStore', authStore);
 		await next();
 	});
@@ -52,6 +66,34 @@ describe('auth routes', () => {
 
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({ needsConfirmation: true });
+	});
+
+	it('rejects signup when SMTP is not configured', async () => {
+		const authStore = {
+			signup: vi.fn(),
+			requestPasswordReset: vi.fn(),
+			confirmPasswordReset: vi.fn(),
+			isUsernameAvailable: vi.fn()
+		} satisfies AuthStore;
+
+		const app = createTestAppWithEnv(authStore, {
+			...baseEnv,
+			SMTP_HOST: undefined,
+			SMTP_PASS: undefined
+		});
+		const response = await app.request('http://localhost/auth/signup', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				email: 'user@example.com',
+				password: 'Password1',
+				username: 'maker_one'
+			})
+		});
+
+		expect(response.status).toBe(503);
+		await expect(response.json()).resolves.toEqual({ error: 'auth_mail_unconfigured' });
+		expect(authStore.signup).not.toHaveBeenCalled();
 	});
 
 	it('always returns generic message for password reset request', async () => {

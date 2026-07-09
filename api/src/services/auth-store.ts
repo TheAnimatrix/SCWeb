@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { and, eq, sql } from 'drizzle-orm';
-import type { Env } from '../env.js';
+import { isSmtpConfigured, type Env } from '../env.js';
 import type { Database } from '../db/index.js';
 import { users } from '../db/schema/users.js';
 import type {
@@ -35,7 +35,7 @@ function createAdminClient(env: Env): SupabaseClient {
 }
 
 export function isAuthMailConfigured(env: Env): boolean {
-	return Boolean(env.SUPABASE_SERVICE_ROLE_KEY);
+	return Boolean(env.SUPABASE_SERVICE_ROLE_KEY) && isSmtpConfigured(env);
 }
 
 export async function isUsernameTaken(
