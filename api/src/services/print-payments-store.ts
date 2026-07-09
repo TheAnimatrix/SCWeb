@@ -13,6 +13,14 @@ import type { Actor } from '../types/context.js';
 import type { RazorpayClient } from './razorpay-client.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
+import type { Env } from '../env.js';
+import type { EmailService } from './email.js';
+import { notifyPrintPaymentReceived } from './order-notifications.js';
+
+export type PrintPaymentsStoreOptions = {
+	emailService?: EmailService;
+	env?: Env;
+};
 import {
 	buildOrderCreatedEvent,
 	buildPaidEvent,
@@ -78,7 +86,8 @@ function isUniqueViolation(error: unknown): boolean {
 
 export function createPrintPaymentsStore(
 	db: Database,
-	razorpayClient: RazorpayClient
+	razorpayClient: RazorpayClient,
+	options?: PrintPaymentsStoreOptions
 ): PrintPaymentsStore {
 	return {
 		async createOrder(actor, printRequestId, address) {
@@ -234,7 +243,7 @@ export function createPrintPaymentsStore(
 			}
 
 			try {
-				return await db.transaction(async (tx) => {
+				const result = await db.transaction(async (tx) => {
 					const [row] = await tx
 						.select()
 						.from(printrequests)
@@ -381,6 +390,40 @@ export function createPrintPaymentsStore(
 						response: { status: 'paid' as const }
 					};
 				});
+
+				if (
+					result.ok &&
+					result.response.status === 'paid' &&
+					options?.emailService &&
+					options.env
+				) {
+					const [paidRow] = await db
+						.select({
+							events: printrequests.events,
+							orderId: printrequests.orderId
+						})
+						.from(printrequests)
+						.where(eq(printrequests.id, printRequestId))
+						.limit(1);
+
+					const amountInr =
+						paidRow && paidRow.orderId
+							? getOrderCreatedAmount(paidRow.events, paidRow.orderId)
+							: null;
+
+					if (amountInr !== null) {
+						notifyPrintPaymentReceived(
+							db,
+							options.emailService,
+							options.env,
+							printRequestId,
+							userId,
+							amountInr
+						);
+					}
+				}
+
+				return result;
 			} catch (error) {
 				if (isUniqueViolation(error)) {
 					return {

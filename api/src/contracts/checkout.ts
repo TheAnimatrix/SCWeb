@@ -1,9 +1,20 @@
 import { z } from 'zod';
 import { checkoutAddressSchema } from './address.js';
 
+export const checkoutOrderAddressesSchema = z
+	.object({
+		shipping: checkoutAddressSchema,
+		billing: checkoutAddressSchema
+	})
+	.strict();
+
+export type CheckoutOrderAddresses = z.infer<typeof checkoutOrderAddressesSchema>;
+
 export const createCheckoutOrderBodySchema = z
 	.object({
-		address: checkoutAddressSchema
+		/** Shipping address (legacy field name kept for compatibility). */
+		address: checkoutAddressSchema,
+		billingAddress: checkoutAddressSchema.optional()
 	})
 	.strict();
 

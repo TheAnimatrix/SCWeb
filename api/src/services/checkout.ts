@@ -1,5 +1,6 @@
 import { CART_ORDER_STATUS, DELIVERY_FLAT_FEE } from '../contracts/cart.js';
 import type { CheckoutAddress } from '../contracts/address.js';
+import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import {
 	canFulfillQuantity,
 	getPurchasableLimit,
@@ -133,7 +134,57 @@ export function checkoutAddressesEqual(stored: unknown, incoming: CheckoutAddres
 		left.city === right.city &&
 		left.pincode === right.pincode &&
 		left.state === right.state &&
-		left.phone === right.phone
+		left.phone === right.phone &&
+		left.email === right.email
+	);
+}
+
+export function normalizeCheckoutOrderAddresses(
+	shipping: CheckoutAddress,
+	billing?: CheckoutAddress
+): CheckoutOrderAddresses {
+	const normalizedShipping = normalizeCheckoutAddress(shipping);
+	const normalizedBilling = billing
+		? normalizeCheckoutAddress(billing)
+		: normalizedShipping;
+
+	return {
+		shipping: normalizedShipping,
+		billing: normalizedBilling
+	};
+}
+
+function asStoredOrderAddresses(stored: unknown): CheckoutOrderAddresses | null {
+	if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
+		return null;
+	}
+
+	const record = stored as Record<string, unknown>;
+	if ('shipping' in record && 'billing' in record) {
+		return {
+			shipping: record.shipping as CheckoutAddress,
+			billing: record.billing as CheckoutAddress
+		};
+	}
+
+	return {
+		shipping: stored as CheckoutAddress,
+		billing: stored as CheckoutAddress
+	};
+}
+
+export function checkoutOrderAddressesEqual(
+	stored: unknown,
+	incoming: CheckoutOrderAddresses
+): boolean {
+	const left = asStoredOrderAddresses(stored);
+	if (!left) {
+		return false;
+	}
+
+	return (
+		checkoutAddressesEqual(left.shipping, incoming.shipping) &&
+		checkoutAddressesEqual(left.billing, incoming.billing)
 	);
 }
 

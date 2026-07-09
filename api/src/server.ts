@@ -19,6 +19,7 @@ if (process.env.SENTRY_DSN) {
 process.env.SUPABASE_URL ??= process.env.PUBLIC_SUPABASE_URL;
 process.env.SUPABASE_ANON_KEY ??= process.env.PUBLIC_SUPABASE_KEY;
 process.env.DATABASE_URL ??= process.env.POSTGRES_URL;
+process.env.SMTP_PASS ??= process.env.SMTP_PASSWORD;
 
 const env = loadEnv();
 const { db, close } = createDb(env);

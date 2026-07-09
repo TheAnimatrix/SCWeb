@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
 import type { CheckoutAddress } from '../contracts/address.js';
+import { normalizeCheckoutOrderAddresses, type CheckoutOrderAddresses } from '../services/checkout.js';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import { cartItems } from '../db/schema/cartItems.js';
@@ -30,6 +31,13 @@ const ADDRESS: CheckoutAddress = {
 	state: 'Karnataka',
 	phone: '9876543210'
 };
+
+function orderAddresses(
+	shipping: CheckoutAddress = ADDRESS,
+	billing: CheckoutAddress = shipping
+): CheckoutOrderAddresses {
+	return normalizeCheckoutOrderAddresses(shipping, billing);
+}
 
 const PRODUCTS_STUB_SQL = `
 CREATE TABLE IF NOT EXISTS "products" (
@@ -160,7 +168,7 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const razorpay = fakeRazorpay();
 		const store = createCheckoutStore(testDb.db, razorpay);
-		const result = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const result = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -207,7 +215,7 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const razorpay = fakeRazorpay();
 		const store = createCheckoutStore(testDb.db, razorpay);
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 
@@ -238,7 +246,7 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const razorpay = fakeRazorpay();
 		const store = createCheckoutStore(testDb.db, razorpay);
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 
@@ -275,7 +283,7 @@ describe('CheckoutStore (PGlite)', () => {
 		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
 
 		const store = createCheckoutStore(testDb.db, fakeRazorpay());
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 
@@ -309,7 +317,7 @@ describe('CheckoutStore (PGlite)', () => {
 		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
 
 		const store = createCheckoutStore(testDb.db, fakeRazorpay());
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 
@@ -335,7 +343,7 @@ describe('CheckoutStore (PGlite)', () => {
 		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
 
 		const store = createCheckoutStore(testDb.db, fakeRazorpay());
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 
@@ -371,7 +379,7 @@ describe('CheckoutStore (PGlite)', () => {
 		const store = createCheckoutStore(testDb.db, { createOrder });
 		const actor = { userId: null, clientId: CLIENT_A };
 
-		const first = await store.createOrder(actor, ADDRESS);
+		const first = await store.createOrder(actor, orderAddresses());
 		expect(first).toEqual({ ok: false, status: 500, body: { error: 'razorpay_order_failed' } });
 
 		const orderAfterFailure = await testDb.db.select().from(orders);
@@ -380,7 +388,7 @@ describe('CheckoutStore (PGlite)', () => {
 			razorpayOrderId: null
 		});
 
-		const second = await store.createOrder(actor, ADDRESS);
+		const second = await store.createOrder(actor, orderAddresses());
 		expect(second.ok).toBe(true);
 		if (!second.ok) return;
 
@@ -396,7 +404,7 @@ describe('CheckoutStore (PGlite)', () => {
 		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
 
 		const store = createCheckoutStore(testDb.db, fakeRazorpay());
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 
@@ -437,12 +445,12 @@ describe('CheckoutStore (PGlite)', () => {
 		const store = createCheckoutStore(testDb.db, { createOrder });
 		const actor = { userId: null, clientId: CLIENT_A };
 
-		const first = await store.createOrder(actor, ADDRESS);
+		const first = await store.createOrder(actor, orderAddresses());
 		expect(first.ok).toBe(true);
 		if (!first.ok) return;
 
 		const updatedAddress = { ...ADDRESS, name: 'John Smith' };
-		const second = await store.createOrder(actor, updatedAddress);
+		const second = await store.createOrder(actor, orderAddresses(updatedAddress));
 		expect(second.ok).toBe(true);
 		if (!second.ok) return;
 
@@ -453,9 +461,9 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(orderRow[0]).toMatchObject({
 			subtotal: 200,
 			deliveryFee: 99,
-			total: 299,
-			address: updatedAddress
+			total: 299
 		});
+		expect(orderRow[0]?.address).toEqual(orderAddresses(updatedAddress));
 
 		const items = await testDb.db
 			.select()
@@ -502,7 +510,7 @@ describe('CheckoutStore (PGlite)', () => {
 		const store = createCheckoutStore(testDb.db, { createOrder });
 		const actor = { userId: null, clientId: CLIENT_A };
 
-		const first = await store.createOrder(actor, ADDRESS);
+		const first = await store.createOrder(actor, orderAddresses());
 		expect(first.ok).toBe(true);
 		if (!first.ok) return;
 
@@ -511,7 +519,7 @@ describe('CheckoutStore (PGlite)', () => {
 			.set({ qty: 2 })
 			.where(and(eq(cartItems.cartId, cart.id), eq(cartItems.productId, PRODUCT_1)));
 
-		const second = await store.createOrder(actor, ADDRESS);
+		const second = await store.createOrder(actor, orderAddresses());
 		expect(second.ok).toBe(true);
 		if (!second.ok) return;
 
@@ -548,7 +556,7 @@ describe('CheckoutStore (PGlite)', () => {
 		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
 
 		const store = createCheckoutStore(testDb.db, fakeRazorpay());
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 
@@ -579,12 +587,35 @@ describe('CheckoutStore (PGlite)', () => {
 		);
 	});
 
+	it('stores separate billing and shipping addresses when provided', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+
+		const billingAddress: CheckoutAddress = {
+			...ADDRESS,
+			name: 'Billing Contact',
+			line1: '456 Billing Avenue Block B'
+		};
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const result = await store.createOrder(
+			{ userId: null, clientId: CLIENT_A },
+			orderAddresses(ADDRESS, billingAddress)
+		);
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		const [orderRow] = await testDb.db.select().from(orders);
+		expect(orderRow?.address).toEqual(orderAddresses(ADDRESS, billingAddress));
+	});
+
 	it('rolls back audit rows when confirm transaction fails', async () => {
 		await seedProduct(testDb.db, PRODUCT_1, 2);
 		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
 
 		const store = createCheckoutStore(testDb.db, fakeRazorpay());
-		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, ADDRESS);
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
 		expect(created.ok).toBe(true);
 		if (!created.ok) return;
 

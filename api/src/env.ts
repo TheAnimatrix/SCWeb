@@ -14,7 +14,20 @@ const envSchema = z.object({
 	// Razorpay KEY SECRET (name kept for parity with the web app's .env).
 	RAZORPAY_KEY: z.string().min(1).optional(),
 	RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
-	RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120)
+	RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120),
+	SMTP_HOST: z.string().min(1).optional(),
+	SMTP_PORT: z.coerce.number().int().positive().default(587),
+	SMTP_USER: z.string().optional(),
+	SMTP_PASS: z.string().optional(),
+	SMTP_SECURE: z
+		.preprocess(
+			(value) => value === 'true' || value === '1' || value === true,
+			z.boolean()
+		)
+		.default(false),
+	EMAIL_FROM: z.string().default('Selfcrafted <noreply@selfcrafted.in>'),
+	SITE_URL: z.string().url().optional(),
+	PUBLIC_SITE_URL: z.string().url().optional()
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -36,4 +49,12 @@ export function getCorsOrigins(env: Env): string[] {
 	return env.API_CORS_ORIGINS.split(',')
 		.map((origin) => origin.trim())
 		.filter(Boolean);
+}
+
+export function getSiteUrl(env: Env): string {
+	return (env.SITE_URL ?? env.PUBLIC_SITE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+}
+
+export function isSmtpConfigured(env: Env): boolean {
+	return Boolean(env.SMTP_HOST);
 }

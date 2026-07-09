@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { CheckoutAddress } from '../contracts/address.js';
+import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import type {
 	ConfirmCheckoutResponse,
 	CreateCheckoutOrderResponse,
@@ -18,9 +19,9 @@ import type { ProductSnapshot } from './cart.js';
 import {
 	buildOrderItemSnapshots,
 	computeOrderTotals,
-	checkoutAddressesEqual,
+	checkoutOrderAddressesEqual,
 	isOrderOwnedBy,
-	normalizeCheckoutAddress,
+	normalizeCheckoutOrderAddresses,
 	resolveFailOrderStatus,
 	shouldDecrementStock,
 	shouldReuseRazorpayOrder,
@@ -30,6 +31,14 @@ import {
 import type { RazorpayClient } from './razorpay-client.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
+import type { Env } from '../env.js';
+import type { EmailService } from './email.js';
+import { notifyOrderReceived } from './order-notifications.js';
+
+export type CheckoutStoreOptions = {
+	emailService?: EmailService;
+	env?: Env;
+};
 
 export type CreateOrderResult =
 	| { ok: true; response: CreateCheckoutOrderResponse }
@@ -53,7 +62,7 @@ export type FailOrderResult =
 	| { ok: false; status: 403; body: { error: 'forbidden' } };
 
 export interface CheckoutStore {
-	createOrder(actor: Actor, address: CheckoutAddress): Promise<CreateOrderResult>;
+	createOrder(actor: Actor, addresses: CheckoutOrderAddresses): Promise<CreateOrderResult>;
 	confirmOrder(
 		actor: Actor,
 		razorpayOrderId: string,
@@ -170,10 +179,17 @@ async function decrementProductStock(
 	return updated.length > 0;
 }
 
-export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient): CheckoutStore {
+export function createCheckoutStore(
+	db: Database,
+	razorpayClient: RazorpayClient,
+	options?: CheckoutStoreOptions
+): CheckoutStore {
 	return {
-		async createOrder(actor, address) {
-			const normalizedAddress = normalizeCheckoutAddress(address);
+		async createOrder(actor, addresses) {
+			const normalizedAddresses = normalizeCheckoutOrderAddresses(
+				addresses.shipping,
+				addresses.billing
+			);
 
 			const prepared = await db.transaction(async (tx) => {
 				const cart = await findActiveCartRow(tx, actor);
@@ -212,12 +228,15 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 				if (existingOrder) {
 					const previousTotal = existingOrder.total;
-					const addressChanged = !checkoutAddressesEqual(existingOrder.address, normalizedAddress);
+					const addressChanged = !checkoutOrderAddressesEqual(
+						existingOrder.address,
+						normalizedAddresses
+					);
 
 					await tx
 						.update(orders)
 						.set({
-							address: normalizedAddress,
+							address: normalizedAddresses,
 							subtotal: totals.subtotal,
 							deliveryFee: totals.deliveryFee,
 							total: totals.total,
@@ -271,7 +290,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 							userId: cart.userId,
 							clientId: cart.clientId,
 							status: CART_ORDER_STATUS.PAYMENT_PENDING,
-							address: normalizedAddress,
+							address: normalizedAddresses,
 							subtotal: totals.subtotal,
 							deliveryFee: totals.deliveryFee,
 							total: totals.total
@@ -381,7 +400,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 		async confirmOrder(actor, razorpayOrderId, razorpayPaymentId) {
 			try {
-				return await db.transaction(async (tx) => {
+				const result = await db.transaction(async (tx) => {
 					const [order] = await tx
 						.select()
 						.from(orders)
@@ -520,6 +539,25 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						response: { status: 'paid' as const }
 					};
 				});
+
+				if (
+					result.ok &&
+					result.response.status === 'paid' &&
+					options?.emailService &&
+					options.env
+				) {
+					const [paidOrder] = await db
+						.select({ id: orders.id })
+						.from(orders)
+						.where(eq(orders.razorpayOrderId, razorpayOrderId))
+						.limit(1);
+
+					if (paidOrder) {
+						notifyOrderReceived(db, options.emailService, options.env, paidOrder.id);
+					}
+				}
+
+				return result;
 			} catch (error) {
 				if (isStockConflict(error)) {
 					return {
