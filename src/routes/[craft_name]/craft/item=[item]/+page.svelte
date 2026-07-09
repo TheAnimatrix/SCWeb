@@ -17,6 +17,8 @@
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
 	import { getPurchasableLimit } from '$lib/utils/stock';
+	import { SeoHead, JsonLd } from '$lib/components/seo';
+	import { productBreadcrumbJsonLd, productJsonLd, productSeo } from '$lib/seo/meta';
 
 	interface VariantOption {
 		id: string;
@@ -189,6 +191,11 @@
 		cartQty = 1;
 	}
 </script>
+
+{#if productItem}
+	<SeoHead meta={productSeo(productItem, page.url.origin)} />
+	<JsonLd data={[productJsonLd(productItem, page.url.origin), productBreadcrumbJsonLd(productItem, page.url.origin)]} />
+{/if}
 
 <div class="mx-auto w-full min-w-0 max-w-7xl px-4 py-8 md:py-12">
 	<Breadcrumbs

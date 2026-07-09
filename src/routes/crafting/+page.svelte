@@ -1,9 +1,15 @@
 <script lang="ts">
+	import { F } from '$lib/icons/fluent';
+
 	import Icon from '@iconify/svelte';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { PortalSectionLabel } from '$lib/components/portal';
 	import { DotGrid, ScButton, TagBadge, TierBadge } from '$lib/components/sc';
 	import DriftParticles from '$lib/components/effects/DriftParticles.svelte';
+	import { SeoHead } from '$lib/components/seo';
+	import { craftingSeo } from '$lib/seo/meta';
+	import { absoluteUrl } from '$lib/seo/site';
+	import { page } from '$app/state';
 
 	const craftingSteps = [
 		{
@@ -95,6 +101,8 @@
 	];
 </script>
 
+<SeoHead meta={{ ...craftingSeo, canonical: absoluteUrl('/crafting', page.url.origin) }} />
+
 <div class="min-h-screen bg-background text-foreground">
 	<DotGrid class="relative overflow-hidden border-b border-border">
 		<DriftParticles particleCount={42} accentChance={0.2} />
@@ -117,7 +125,7 @@
 					target="_blank"
 					rel="noopener noreferrer"
 					variant="discord">
-					<Icon icon="ph:discord-logo-bold" class="text-lg" />
+					<Icon icon={F.brandDiscord} class="text-lg" />
 					Join Discord
 				</ScButton>
 			</div>
