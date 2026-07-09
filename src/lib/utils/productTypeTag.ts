@@ -11,7 +11,7 @@ export function getProductTypeLabel(type?: string | null): string {
 			return 'Spare';
 		case 'flea-market':
 		case 'flea':
-			return 'Flea';
+			return 'Flea-Market';
 		default:
 			return type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Product';
 	}

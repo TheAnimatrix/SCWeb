@@ -4,6 +4,8 @@ export { default as TagBadge } from './TagBadge.svelte';
 export { default as MetaChip } from './MetaChip.svelte';
 export { default as DotGrid } from './DotGrid.svelte';
 export { default as ProductCard } from './ProductCard.svelte';
+export { default as ProductCardList } from './ProductCardList.svelte';
+export { default as ProductCardListItem } from './ProductCardListItem.svelte';
 export { default as SpecSheet } from './SpecSheet.svelte';
 export { default as StockBar } from './StockBar.svelte';
 export { default as FeatureModule } from './FeatureModule.svelte';
