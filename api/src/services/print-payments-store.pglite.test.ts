@@ -108,14 +108,24 @@ async function createTestDb(): Promise<TestDb> {
 }
 
 function fakeRazorpay(overrides: Partial<RazorpayClient> = {}): RazorpayClient {
-	return {
-		createOrder: vi.fn(async (amountPaise, receipt) => ({
-			id: `order_${receipt}`,
-			amount: amountPaise,
-			currency: 'INR'
-		})),
-		...overrides
-	};
+	const baseCreateOrder = vi.fn(async (amountPaise: number, receipt: string) => ({
+		id: `order_${receipt}`,
+		amount: amountPaise,
+		currency: 'INR'
+	}));
+	const createOrder = overrides.createOrder ?? baseCreateOrder;
+	const fetchOrder =
+		overrides.fetchOrder ??
+		vi.fn(async (orderId: string) => {
+			for (const result of createOrder.mock.results) {
+				if (result.type !== 'return') continue;
+				const order = await result.value;
+				if (order.id === orderId) return order;
+			}
+			return null;
+		});
+
+	return { createOrder, fetchOrder };
 }
 
 async function seedQuotedPrintRequest(

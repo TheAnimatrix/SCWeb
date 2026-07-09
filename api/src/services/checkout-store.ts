@@ -346,56 +346,68 @@ export function createCheckoutStore(
 			}
 
 			if (prepared.kind === 'reuse') {
-				return {
-					ok: true,
-					response: {
-						orderId: prepared.orderId,
-						razorpayOrderId: prepared.razorpayOrderId,
-						amountPaise: rupeesToPaise(prepared.total),
-						currency: 'INR'
-					}
-				};
-			}
+				const existingRazorpayOrder = await razorpayClient.fetchOrder(prepared.razorpayOrderId);
+				if (existingRazorpayOrder) {
+					return {
+						ok: true,
+						response: {
+							orderId: prepared.orderId,
+							razorpayOrderId: existingRazorpayOrder.id,
+							amountPaise: existingRazorpayOrder.amount,
+							currency: 'INR'
+						}
+					};
+				}
 
-			try {
-				const razorpayOrder = await razorpayClient.createOrder(
-					rupeesToPaise(prepared.total),
-					prepared.orderId
-				);
-
-				await db
-					.update(orders)
-					.set({
-						razorpayOrderId: razorpayOrder.id,
-						updatedAt: sql`now()`
-					})
-					.where(eq(orders.id, prepared.orderId));
-
-				return {
-					ok: true,
-					response: {
-						orderId: prepared.orderId,
-						razorpayOrderId: razorpayOrder.id,
-						amountPaise: razorpayOrder.amount,
-						currency: 'INR'
-					}
-				};
-			} catch (error) {
-				const razorpayError =
-					typeof error === 'object' && error !== null && 'error' in error
-						? (error as { statusCode?: number; error?: { description?: string; code?: string } })
-						: null;
-
-				storeLog('error', 'checkout.order.razorpay_failed', {
+				storeLog('warn', 'checkout.order.stale_razorpay_order', {
 					orderId: prepared.orderId,
-					statusCode: razorpayError?.statusCode ?? null,
-					code: razorpayError?.error?.code ?? null,
-					description: razorpayError?.error?.description ?? null,
-					message: error instanceof Error ? error.message : String(error)
+					razorpayOrderId: prepared.razorpayOrderId
 				});
-
-				return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
 			}
+
+			if (prepared.kind === 'reuse' || prepared.kind === 'created') {
+				try {
+					const razorpayOrder = await razorpayClient.createOrder(
+						rupeesToPaise(prepared.total),
+						prepared.orderId
+					);
+
+					await db
+						.update(orders)
+						.set({
+							razorpayOrderId: razorpayOrder.id,
+							updatedAt: sql`now()`
+						})
+						.where(eq(orders.id, prepared.orderId));
+
+					return {
+						ok: true,
+						response: {
+							orderId: prepared.orderId,
+							razorpayOrderId: razorpayOrder.id,
+							amountPaise: razorpayOrder.amount,
+							currency: 'INR'
+						}
+					};
+				} catch (error) {
+					const razorpayError =
+						typeof error === 'object' && error !== null && 'error' in error
+							? (error as { statusCode?: number; error?: { description?: string; code?: string } })
+							: null;
+
+					storeLog('error', 'checkout.order.razorpay_failed', {
+						orderId: prepared.orderId,
+						statusCode: razorpayError?.statusCode ?? null,
+						code: razorpayError?.error?.code ?? null,
+						description: razorpayError?.error?.description ?? null,
+						message: error instanceof Error ? error.message : String(error)
+					});
+
+					return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
+				}
+			}
+
+			return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
 		},
 
 		async confirmOrder(actor, razorpayOrderId, razorpayPaymentId) {

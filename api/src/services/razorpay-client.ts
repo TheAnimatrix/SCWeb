@@ -9,6 +9,8 @@ export type RazorpayCreateOrderResult = {
 
 export interface RazorpayClient {
 	createOrder(amountPaise: number, receipt: string): Promise<RazorpayCreateOrderResult>;
+	/** Returns null when the order is missing or belongs to a different Razorpay account. */
+	fetchOrder(orderId: string): Promise<RazorpayCreateOrderResult | null>;
 }
 
 export function isPaymentsConfigured(env: Env): boolean {
@@ -38,6 +40,18 @@ export function createRazorpayClient(env: Env): RazorpayClient {
 				amount: Number(order.amount),
 				currency: order.currency
 			};
+		},
+		async fetchOrder(orderId) {
+			try {
+				const order = await instance.orders.fetch(orderId);
+				return {
+					id: order.id,
+					amount: Number(order.amount),
+					currency: order.currency
+				};
+			} catch {
+				return null;
+			}
 		}
 	};
 }

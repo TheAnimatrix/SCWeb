@@ -100,6 +100,9 @@ export function createApp({
 			resolvedRazorpayClient ?? {
 				async createOrder() {
 					throw new Error('Razorpay client is not configured');
+				},
+				async fetchOrder() {
+					return null;
 				}
 			},
 			{

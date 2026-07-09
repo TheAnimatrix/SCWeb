@@ -136,14 +136,24 @@ async function seedGuestCartLine(db: Database, clientId: string, productId: stri
 }
 
 function fakeRazorpay(overrides: Partial<RazorpayClient> = {}): RazorpayClient {
-	return {
-		createOrder: vi.fn(async (amountPaise, receipt) => ({
-			id: `order_${receipt}`,
-			amount: amountPaise,
-			currency: 'INR'
-		})),
-		...overrides
-	};
+	const baseCreateOrder = vi.fn(async (amountPaise: number, receipt: string) => ({
+		id: `order_${receipt}`,
+		amount: amountPaise,
+		currency: 'INR'
+	}));
+	const createOrder = overrides.createOrder ?? baseCreateOrder;
+	const fetchOrder =
+		overrides.fetchOrder ??
+		vi.fn(async (orderId: string) => {
+			for (const result of createOrder.mock.results) {
+				if (result.type !== 'return') continue;
+				const order = await result.value;
+				if (order.id === orderId) return order;
+			}
+			return null;
+		});
+
+	return { createOrder, fetchOrder };
 }
 
 describe('CheckoutStore (PGlite)', () => {
@@ -377,7 +387,7 @@ describe('CheckoutStore (PGlite)', () => {
 				currency: 'INR'
 			}));
 
-		const store = createCheckoutStore(testDb.db, { createOrder });
+		const store = createCheckoutStore(testDb.db, fakeRazorpay({ createOrder }));
 		const actor = { userId: null, clientId: CLIENT_A };
 
 		const first = await store.createOrder(actor, orderAddresses());
@@ -443,7 +453,7 @@ describe('CheckoutStore (PGlite)', () => {
 			amount: amountPaise,
 			currency: 'INR'
 		}));
-		const store = createCheckoutStore(testDb.db, { createOrder });
+		const store = createCheckoutStore(testDb.db, fakeRazorpay({ createOrder }));
 		const actor = { userId: null, clientId: CLIENT_A };
 
 		const first = await store.createOrder(actor, orderAddresses());
@@ -495,6 +505,47 @@ describe('CheckoutStore (PGlite)', () => {
 		]);
 	});
 
+	it('creates a new Razorpay order when the stored order belongs to another account', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		let razorpayCall = 0;
+		const createOrder = vi.fn(async (amountPaise: number, receipt: string) => {
+			razorpayCall += 1;
+			return {
+				id: `order_${receipt}_live_v${razorpayCall}`,
+				amount: amountPaise,
+				currency: 'INR'
+			};
+		});
+		const fetchOrder = vi.fn(async () => null);
+		const store = createCheckoutStore(testDb.db, fakeRazorpay({ createOrder, fetchOrder }));
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const orderRows = await testDb.db.select({ id: orders.id }).from(orders);
+		expect(orderRows).toHaveLength(0);
+
+		const first = await store.createOrder(actor, orderAddresses());
+		expect(first.ok).toBe(true);
+		if (!first.ok) return;
+
+		await testDb.db
+			.update(orders)
+			.set({ razorpayOrderId: 'order_stale_test_key' })
+			.where(eq(orders.id, first.response.orderId));
+
+		const second = await store.createOrder(actor, orderAddresses());
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+
+		expect(second.response.razorpayOrderId).not.toBe('order_stale_test_key');
+		expect(createOrder).toHaveBeenCalledTimes(2);
+		expect(fetchOrder).toHaveBeenCalledWith('order_stale_test_key');
+
+		const orderRow = await testDb.db.select().from(orders);
+		expect(orderRow[0]?.razorpayOrderId).toBe(second.response.razorpayOrderId);
+	});
+
 	it('creates a new Razorpay order when re-entering with changed total', async () => {
 		await seedProduct(testDb.db, PRODUCT_1, 5);
 		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
@@ -508,7 +559,7 @@ describe('CheckoutStore (PGlite)', () => {
 				currency: 'INR'
 			};
 		});
-		const store = createCheckoutStore(testDb.db, { createOrder });
+		const store = createCheckoutStore(testDb.db, fakeRazorpay({ createOrder }));
 		const actor = { userId: null, clientId: CLIENT_A };
 
 		const first = await store.createOrder(actor, orderAddresses());
