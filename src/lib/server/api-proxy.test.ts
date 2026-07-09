@@ -5,6 +5,8 @@ const API_ORIGIN = 'http://localhost:3001';
 
 describe('isAllowedProxyPath', () => {
 	it('allows cart, checkout, print-files, print-payments, print-requests, and chats paths', () => {
+		expect(isAllowedProxyPath('auth/signup')).toBe(true);
+		expect(isAllowedProxyPath('auth/password-reset')).toBe(true);
 		expect(isAllowedProxyPath('cart')).toBe(true);
 		expect(isAllowedProxyPath('cart/items/abc')).toBe(true);
 		expect(isAllowedProxyPath('checkout/order')).toBe(true);
