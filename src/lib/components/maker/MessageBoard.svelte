@@ -183,7 +183,7 @@
 
 	function subscribeToMessages() {
 		subscription = supabase
-			.channel('realtime-chat-channel')
+			.channel(`message-board-chat:${orderId}`)
 			.on(
 				'postgres_changes',
 				{ event: '*', schema: 'public', table: 'Chat', filter: `relationship_id=eq.${orderId}` },

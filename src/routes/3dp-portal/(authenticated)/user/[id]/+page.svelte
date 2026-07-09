@@ -294,18 +294,22 @@
 		void loadRazorpay().catch(() => {
 			// payQuote() will surface a user-facing error if the SDK is still unavailable.
 		});
+	});
 
-		//track unread counts by subscribing to the chat channel
-		if (!data.session?.data?.user?.id) return;
+	$effect(() => {
+		const userId = data.session?.data?.user?.id;
+		const orderId = req?.id;
+		if (!userId || !orderId) return;
+
 		const chatSubscription = supabase()
-			.channel('realtime-chat-global')
+			.channel(`user-order-chat:${userId}:${orderId}`)
 			.on(
 				'postgres_changes',
 				{
 					event: 'INSERT',
 					schema: 'public',
 					table: 'Chat',
-					filter: `recipient_id=eq.${data.session.data.user.id}`
+					filter: `recipient_id=eq.${userId}`
 				},
 				(payload) => {
 					if (payload.new.message_type == 'quote' || payload.new.message_type == 'action') {

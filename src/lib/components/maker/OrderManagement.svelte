@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { F } from '$lib/icons/fluent';
 
-	import type { RealtimeChannel } from '@supabase/supabase-js';
 	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { Json } from '../../../../supabase/types';
 	import type { PrintRequestEvent } from '$lib/types/printRequest';
 	import Icon from '@iconify/svelte';
 		import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
 	import { TableBodySkeleton } from '$lib/components/sc';
@@ -50,7 +48,6 @@
 	let downloadProgress = $state(0);
 
 	let orderUnreadCounts = $state<Record<string, number>>({});
-	let chatSubscription: RealtimeChannel | null = null;
 
 	async function downloadModel(printRequestId: string, modelPath: string, index: number) {
 		const pathParts = modelPath.split('/').pop()?.split('.') ?? [];
@@ -191,40 +188,38 @@
 		orderUnreadCounts = counts;
 	}
 
-	function subscribeToChat() {
-		if (!session?.data?.user?.id) return;
-		chatSubscription = supabase
-			.channel('realtime-chat-global')
+	$effect(() => {
+		fetchOrderUnreadCounts();
+	});
+
+	$effect(() => {
+		const userId = session?.data?.user?.id;
+		if (!userId) return;
+
+		const channel = supabase
+			.channel(`order-management-chat:${userId}`)
 			.on(
 				'postgres_changes',
 				{
 					event: 'INSERT',
 					schema: 'public',
 					table: 'Chat',
-					filter: `recipient_id=eq.${session.data.user.id}`
+					filter: `recipient_id=eq.${userId}`
 				},
 				(payload) => {
 					if (payload.new.message_type === 'action') {
-						//update orders
 						fetchOrders(page);
 					}
-					if (payload.new?.sender_id !== session.data.user.id) {
+					if (payload.new?.sender_id !== userId) {
 						toastStore.show('New chat message received!', 'info');
 						fetchOrderUnreadCounts();
 					}
 				}
 			)
 			.subscribe();
-	}
 
-	$effect(() => {
-		fetchOrderUnreadCounts();
-	});
-
-	onMount(() => {
-		subscribeToChat();
 		return () => {
-			if (chatSubscription) supabase.removeChannel(chatSubscription);
+			supabase.removeChannel(channel);
 		};
 	});
 </script>

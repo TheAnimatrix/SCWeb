@@ -10,7 +10,6 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { goto, invalidate } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { asPrintRequest } from '$lib/types/printRequest';
 	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
@@ -308,18 +307,20 @@
 		}
 	});
 
-	onMount(() => {
-		//track unread counts by subscribing to the chat channel
-		if (!data.session?.data?.user?.id) return;
+	$effect(() => {
+		const userId = data.session?.data?.user?.id;
+		const orderId = req?.id;
+		if (!userId || !orderId) return;
+
 		const chatSubscription = supabase()
-			.channel('realtime-chat-global')
+			.channel(`maker-order-chat:${userId}:${orderId}`)
 			.on(
 				'postgres_changes',
 				{
 					event: 'INSERT',
 					schema: 'public',
 					table: 'Chat',
-					filter: `recipient_id=eq.${data.session.data.user.id}`
+					filter: `recipient_id=eq.${userId}`
 				},
 				(payload) => {
 					if (payload.new.message_type == 'quote' || payload.new.message_type == 'action') {

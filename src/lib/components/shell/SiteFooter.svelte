@@ -2,6 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
+	import AvarnicLogo from '$lib/svg/avarnic-logo.svg';
 	import ScLogo from './ScLogo.svelte';
 	import PwaInstallButton from './PwaInstallButton.svelte';
 	import { theme } from '$lib/client/theme';
@@ -104,10 +105,23 @@
 		</div>
 
 		<div
-			class="mt-6 flex flex-col gap-2 border-t border-border pt-4 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:mt-12 md:pt-6">
+			class="mt-6 flex flex-col gap-3 border-t border-border pt-4 font-mono text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:justify-between md:mt-12 md:pt-6">
 			<p>© 2026 selfcrafted_india</p>
 			<PwaInstallButton />
 			<p class="hidden sm:block">made_with_care // the_animatrix</p>
+			<a
+				href="https://avarnic.com"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="inline-flex items-center gap-1.5 transition-colors hover:text-foreground sm:ml-auto"
+				aria-label="Designed by avarnic">
+				<span>designed by</span>
+				<img
+					src={AvarnicLogo}
+					alt=""
+					class="h-3.5 w-auto opacity-60 grayscale"
+					aria-hidden="true" />
+			</a>
 		</div>
 	</div>
 </footer>

@@ -67,7 +67,7 @@
 	$effect(() => {
 		if (!data.session?.data?.user?.id) return;
 		const chatSubscription = supabase()
-			.channel('realtime-chat-global')
+			.channel(`user-portal-chat:${data.session.data.user.id}`)
 			.on(
 				'postgres_changes',
 				{
