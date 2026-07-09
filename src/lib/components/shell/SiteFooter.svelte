@@ -3,6 +3,7 @@
 	import { F } from '$lib/icons/fluent';
 
 	import AvarnicLogo from '$lib/svg/avarnic-logo.svg';
+	import { cn } from '$lib/utils';
 	import ScLogo from './ScLogo.svelte';
 	import PwaInstallButton from './PwaInstallButton.svelte';
 	import { theme } from '$lib/client/theme';
@@ -113,13 +114,16 @@
 				href="https://avarnic.com"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center gap-1.5 transition-colors hover:text-foreground sm:ml-auto"
+				class="group inline-flex items-center gap-1.5 transition-colors hover:text-foreground sm:ml-auto"
 				aria-label="Designed by avarnic">
 				<span>designed by</span>
 				<img
 					src={AvarnicLogo}
 					alt=""
-					class="h-3.5 w-auto opacity-60 grayscale"
+					class={cn(
+						'h-3.5 w-auto brightness-0 transition-opacity group-hover:opacity-80',
+						logoVariant === 'light' ? 'opacity-[0.45]' : 'invert opacity-55'
+					)}
 					aria-hidden="true" />
 			</a>
 		</div>
