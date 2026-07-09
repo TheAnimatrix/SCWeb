@@ -9,6 +9,7 @@ import type { PrintPaymentsStore } from '../services/print-payments-store.js';
 import type { PrintRequestsStore } from '../services/print-requests-store.js';
 import type { CatalogStore } from '../services/catalog-store.js';
 import type { EmailService } from '../services/email.js';
+import type { MailService } from '../services/mail.js';
 import type { AuthStore } from '../services/auth-store.js';
 import type { OrdersStore } from '../services/orders-store.js';
 import type { MakersStore } from '../services/makers-store.js';
@@ -30,6 +31,7 @@ export type AppVariables = {
 	chatsStore: ChatsStore;
 	catalogStore: CatalogStore;
 	emailService: EmailService;
+	mailService: MailService;
 	authStore: AuthStore;
 	ordersStore: OrdersStore;
 	makersStore: MakersStore;

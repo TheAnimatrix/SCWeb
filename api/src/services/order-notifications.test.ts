@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { emailEnvDefaults } from '../test/env-defaults.js';
 import type { EmailService } from './email.js';
+import { createMailService, type MailService } from './mail.js';
 import {
-	getOrdersInboxEmail,
 	notifyOrderReceived,
 	notifyPrintMessageReceived,
 	notifyPrintQuoteRequested,
@@ -23,21 +23,6 @@ const baseEnv = {
 	...emailEnvDefaults
 };
 
-function createMockEmailService() {
-	const sent: Array<{ to: string; subject: string }> = [];
-	const emailService: EmailService = {
-		isConfigured: true,
-		send: vi.fn(async (message) => {
-			sent.push({ to: message.to, subject: message.subject });
-		}),
-		sendSafe(message) {
-			void this.send(message);
-		}
-	};
-
-	return { emailService, sent };
-}
-
 function createSelectChain(rows: unknown[]) {
 	const result = Promise.resolve(rows);
 	const chain = {
@@ -51,13 +36,50 @@ function createSelectChain(rows: unknown[]) {
 	return chain;
 }
 
+function createMockMail() {
+	const sent: Array<{ to: string; subject: string }> = [];
+	const transport: EmailService = {
+		isConfigured: true,
+		send: vi.fn(async (message) => {
+			sent.push({ to: message.to, subject: message.subject });
+		}),
+		sendSafe(message) {
+			void this.send(message);
+		}
+	};
+
+	const mail: MailService = {
+		...createMailService(baseEnv, { select: vi.fn() } as never, transport),
+		resolveUserEmail: vi.fn(async () => 'jane@example.com'),
+		resolveUserEmails: vi.fn(async (userIds: string[]) => {
+			const known = new Map([
+				['user-1', 'user@example.com'],
+				['maker-1', 'maker@example.com']
+			]);
+
+			return new Map(
+				userIds
+					.filter((id) => known.has(id))
+					.map((id) => [id, known.get(id)!] as const)
+			);
+		})
+	};
+
+	return { mail, sent, transport };
+}
+
 describe('order-notifications', () => {
 	it('uses orders inbox default', () => {
-		expect(getOrdersInboxEmail(baseEnv)).toBe('orders@selfcrafted.in');
+		const mail = createMailService(baseEnv, { select: vi.fn() } as never, {
+			isConfigured: true,
+			send: vi.fn(),
+			sendSafe: vi.fn()
+		});
+		expect(mail.ordersInbox).toBe('orders@selfcrafted.in');
 	});
 
 	it('notifies inbox, customer, and makers on order placed', async () => {
-		const { emailService, sent } = createMockEmailService();
+		const { mail, sent } = createMockMail();
 		const orderSelect = createSelectChain([
 			{
 				id: 'order-1',
@@ -71,7 +93,6 @@ describe('order-notifications', () => {
 				totalPaise: 100_00
 			}
 		]);
-		const recipientSelect = createSelectChain([{ email: 'jane@example.com' }]);
 		const lineSelect = createSelectChain([
 			{
 				qty: 1,
@@ -80,20 +101,15 @@ describe('order-notifications', () => {
 				productUid: 'maker-1'
 			}
 		]);
-		const makerSelect = createSelectChain([
-			{ id: 'maker-1', email: 'maker@example.com' }
-		]);
 
 		const db = {
 			select: vi
 				.fn()
 				.mockImplementationOnce(() => orderSelect)
-				.mockImplementationOnce(() => recipientSelect)
 				.mockImplementationOnce(() => lineSelect)
-				.mockImplementationOnce(() => makerSelect)
 		} as never;
 
-		notifyOrderReceived(db, emailService, baseEnv, 'order-1');
+		notifyOrderReceived(db, mail, 'order-1');
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(sent.map((entry) => entry.to).sort()).toEqual([
@@ -104,16 +120,10 @@ describe('order-notifications', () => {
 	});
 
 	it('notifies inbox, user, and maker on print quote requested', async () => {
-		const { emailService, sent } = createMockEmailService();
-		const userSelect = createSelectChain([
-			{ id: 'user-1', email: 'user@example.com' },
-			{ id: 'maker-1', email: 'maker@example.com' }
-		]);
-		const db = {
-			select: vi.fn(() => userSelect)
-		} as never;
+		const { mail, sent } = createMockMail();
+		const db = { select: vi.fn() } as never;
 
-		notifyPrintQuoteRequested(db, emailService, baseEnv, 'print-1', {
+		notifyPrintQuoteRequested(db, mail, 'print-1', {
 			userId: 'user-1',
 			creatorId: 'maker-1'
 		});
@@ -127,22 +137,22 @@ describe('order-notifications', () => {
 	});
 
 	it('notifies inbox, user, and maker on print status update', async () => {
-		const { emailService, sent } = createMockEmailService();
-		const userSelect = createSelectChain([
-			{ id: 'user-1', email: 'user@example.com' },
-			{ id: 'maker-1', email: 'maker@example.com' }
-		]);
-		const db = {
-			select: vi.fn(() => userSelect)
-		} as never;
+		const { mail, sent } = createMockMail();
+		const db = { select: vi.fn() } as never;
 
-		notifyPrintStatusUpdate(db, emailService, baseEnv, 'print-1', {
-			userId: 'user-1',
-			creatorId: 'maker-1'
-		}, {
-			action: 'quote',
-			amountInr: 500
-		});
+		notifyPrintStatusUpdate(
+			db,
+			mail,
+			'print-1',
+			{
+				userId: 'user-1',
+				creatorId: 'maker-1'
+			},
+			{
+				action: 'quote',
+				amountInr: 500
+			}
+		);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(sent.map((entry) => entry.to).sort()).toEqual([
@@ -153,49 +163,31 @@ describe('order-notifications', () => {
 	});
 
 	it('notifies only the customer user for print chat messages', async () => {
-		const { emailService, sent } = createMockEmailService();
+		const { mail, sent } = createMockMail();
 		const printSelect = createSelectChain([{ userId: 'user-1' }]);
-		const userSelect = createSelectChain([{ email: 'user@example.com' }]);
 		const db = {
-			select: vi
-				.fn()
-				.mockImplementationOnce(() => printSelect)
-				.mockImplementationOnce(() => userSelect)
+			select: vi.fn().mockImplementationOnce(() => printSelect)
 		} as never;
 
-		notifyPrintMessageReceived(
-			db,
-			emailService,
-			baseEnv,
-			'print-1',
-			'user-1',
-			'Can you use blue filament?'
-		);
+		notifyPrintMessageReceived(db, mail, 'print-1', 'user-1', 'Can you use blue filament?');
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(sent).toEqual([
 			{
-				to: 'user@example.com',
+				to: 'jane@example.com',
 				subject: expect.stringContaining('New message')
 			}
 		]);
 	});
 
 	it('skips print chat email when recipient is the maker', async () => {
-		const { emailService, sent } = createMockEmailService();
+		const { mail, sent } = createMockMail();
 		const printSelect = createSelectChain([{ userId: 'user-1' }]);
 		const db = {
 			select: vi.fn(() => printSelect)
 		} as never;
 
-		notifyPrintMessageReceived(
-			db,
-			emailService,
-			baseEnv,
-			'print-1',
-			'maker-1',
-			'On my way'
-		);
+		notifyPrintMessageReceived(db, mail, 'print-1', 'maker-1', 'On my way');
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(sent).toEqual([]);

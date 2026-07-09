@@ -37,6 +37,7 @@ import {
 import { createCatalogStore, type CatalogStore } from './services/catalog-store.js';
 import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
 import { createEmailService, type EmailService } from './services/email.js';
+import { createMailService, type MailService } from './services/mail.js';
 import { createAuthStore, type AuthStore } from './services/auth-store.js';
 import { createOrdersStore, type OrdersStore } from './services/orders-store.js';
 import { createOrdersRoutes } from './routes/orders.js';
@@ -61,6 +62,7 @@ type CreateAppOptions = {
 	catalogStore?: CatalogStore;
 	razorpayClient?: RazorpayClient;
 	emailService?: EmailService;
+	mailService?: MailService;
 	authStore?: AuthStore;
 	ordersStore?: OrdersStore;
 	makersStore?: MakersStore;
@@ -79,6 +81,7 @@ export function createApp({
 	catalogStore,
 	razorpayClient,
 	emailService,
+	mailService,
 	authStore,
 	ordersStore,
 	makersStore,
@@ -87,6 +90,7 @@ export function createApp({
 	const app = new Hono<{ Variables: AppVariables }>();
 	const resolvedCartStore = cartStore ?? createCartStore(db);
 	const resolvedEmailService = emailService ?? createEmailService(env);
+	const resolvedMailService = mailService ?? createMailService(env, db, resolvedEmailService);
 	const resolvedRazorpayClient =
 		razorpayClient ??
 		(env.PUBLIC_RAZORPAY_ID && env.RAZORPAY_KEY ? createRazorpayClient(env) : null);
@@ -94,8 +98,7 @@ export function createApp({
 		checkoutStore ??
 		(resolvedRazorpayClient
 			? createCheckoutStore(db, resolvedRazorpayClient, {
-					emailService: resolvedEmailService,
-					env
+					mail: resolvedMailService
 				})
 			: createCheckoutStore(db, {
 					async createOrder() {
@@ -109,8 +112,7 @@ export function createApp({
 		printFilesStore === undefined
 			? isFilesConfigured(env)
 				? createPrintFilesStore(db, createSupabaseStorage(env), {
-						emailService: resolvedEmailService,
-						env
+						mail: resolvedMailService
 					})
 				: null
 			: printFilesStore;
@@ -127,31 +129,27 @@ export function createApp({
 				}
 			},
 			{
-				emailService: resolvedEmailService,
-				env
+				mail: resolvedMailService
 			}
 		);
 	const resolvedPrintRequestsStore =
 		printRequestsStore ??
 		createPrintRequestsStore(db, {
-			emailService: resolvedEmailService,
-			env
+			mail: resolvedMailService
 		});
 	const resolvedChatsStore =
 		chatsStore ??
 		createChatsStore(db, {
-			emailService: resolvedEmailService,
-			env
+			mail: resolvedMailService
 		});
 	const resolvedCatalogStore = catalogStore ?? createCatalogStore(db);
-	const resolvedAuthStore = authStore ?? createAuthStore(db, env, resolvedEmailService);
+	const resolvedAuthStore = authStore ?? createAuthStore(db, env, resolvedMailService);
 	const resolvedOrdersStore = ordersStore ?? createOrdersStore(db);
 	const resolvedMakersStore = makersStore ?? createMakersStore(db);
 	const resolvedRazorpayWebhookService =
 		razorpayWebhookService ??
 		createRazorpayWebhookService(db, {
-			emailService: resolvedEmailService,
-			env
+			mail: resolvedMailService
 		});
 
 	app.use('*', async (c, next) => {
@@ -165,6 +163,7 @@ export function createApp({
 		c.set('chatsStore', resolvedChatsStore);
 		c.set('catalogStore', resolvedCatalogStore);
 		c.set('emailService', resolvedEmailService);
+		c.set('mailService', resolvedMailService);
 		c.set('authStore', resolvedAuthStore);
 		c.set('ordersStore', resolvedOrdersStore);
 		c.set('makersStore', resolvedMakersStore);

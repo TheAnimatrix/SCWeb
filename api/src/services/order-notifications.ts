@@ -1,133 +1,32 @@
-import { eq, inArray } from 'drizzle-orm';
-import type { CheckoutAddress } from '../contracts/address.js';
-import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
+import { eq } from 'drizzle-orm';
 import { paiseToRupees } from '../contracts/money.js';
-import { getSiteUrl, type Env } from '../env.js';
 import type { Database } from '../db/index.js';
 import { orderItems } from '../db/schema/orderItems.js';
 import { orders } from '../db/schema/orders.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import { products } from '../db/schema/products.js';
-import { users } from '../db/schema/users.js';
 import {
 	renderOrderReceivedEmail,
 	renderOrderStatusUpdateEmail
 } from './email-templates/index.js';
-import type { EmailMessage, EmailService } from './email.js';
-
-function asOrderAddresses(stored: unknown): CheckoutOrderAddresses | null {
-	if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
-		return null;
-	}
-
-	const record = stored as Record<string, unknown>;
-	if ('shipping' in record && 'billing' in record) {
-		return {
-			shipping: record.shipping as CheckoutAddress,
-			billing: record.billing as CheckoutAddress
-		};
-	}
-
-	return {
-		shipping: stored as CheckoutAddress,
-		billing: stored as CheckoutAddress
-	};
-}
-
-export function getOrdersInboxEmail(env: Env): string {
-	return env.ORDERS_INBOX_EMAIL;
-}
-
-export async function resolveRecipientEmail(
-	db: Database,
-	userId: string | null | undefined,
-	address: unknown
-): Promise<string | null> {
-	if (userId) {
-		const [user] = await db
-			.select({ email: users.email })
-			.from(users)
-			.where(eq(users.id, userId))
-			.limit(1);
-
-		if (user?.email) {
-			return user.email;
-		}
-	}
-
-	const addresses = asOrderAddresses(address);
-	return addresses?.shipping.email ?? addresses?.billing.email ?? null;
-}
-
-async function resolveUserEmails(db: Database, userIds: string[]): Promise<Map<string, string>> {
-	const uniqueIds = [...new Set(userIds.filter(Boolean))];
-	if (uniqueIds.length === 0) {
-		return new Map();
-	}
-
-	const rows = await db
-		.select({ id: users.id, email: users.email })
-		.from(users)
-		.where(inArray(users.id, uniqueIds));
-
-	return new Map(
-		rows
-			.filter((row): row is { id: string; email: string } => Boolean(row.email))
-			.map((row) => [row.id, row.email])
-	);
-}
-
-function sendTemplateToRecipients(
-	emailService: EmailService,
-	recipients: Array<string | null | undefined>,
-	template: Pick<EmailMessage, 'subject' | 'html' | 'text'>
-): void {
-	const uniqueRecipients = [...new Set(recipients.filter((email): email is string => Boolean(email)))];
-
-	for (const to of uniqueRecipients) {
-		emailService.sendSafe({ to, ...template });
-	}
-}
+import type { MailService, RenderedEmail } from './mail.js';
 
 type PrintParties = {
 	userId: string;
 	creatorId: string;
 };
 
-async function resolvePrintPartyEmails(
-	db: Database,
-	parties: PrintParties
-): Promise<{ userEmail: string | null; makerEmail: string | null }> {
-	const emails = await resolveUserEmails(db, [parties.userId, parties.creatorId]);
-	return {
-		userEmail: emails.get(parties.userId) ?? null,
-		makerEmail: emails.get(parties.creatorId) ?? null
-	};
-}
-
-function sendPrintStatusEmails(
-	emailService: EmailService,
-	env: Env,
-	partyEmails: { userEmail: string | null; makerEmail: string | null },
-	copies: {
-		user?: Pick<EmailMessage, 'subject' | 'html' | 'text'>;
-		maker?: Pick<EmailMessage, 'subject' | 'html' | 'text'>;
-		inbox: Pick<EmailMessage, 'subject' | 'html' | 'text'>;
-	}
-): void {
-	sendTemplateToRecipients(emailService, [getOrdersInboxEmail(env)], copies.inbox);
-
-	if (copies.user) {
-		sendTemplateToRecipients(emailService, [partyEmails.userEmail], copies.user);
-	}
-
-	if (copies.maker) {
-		sendTemplateToRecipients(emailService, [partyEmails.makerEmail], copies.maker);
-	}
-}
+type PrintStatusNotification = {
+	action: 'quote' | 'decline' | 'cancel' | 'shipped' | 'complete';
+	amountInr?: number;
+	trackingId?: string;
+	trackingLink?: string;
+	courier?: string;
+	reason?: string;
+};
 
 function buildPrintStatusTemplate(
-	env: Env,
+	mail: MailService,
 	printRequestId: string,
 	input: {
 		title: string;
@@ -137,10 +36,9 @@ function buildPrintStatusTemplate(
 		details?: Array<{ label: string; value: string }>;
 		ctaHref: string;
 	}
-) {
-	const siteUrl = getSiteUrl(env);
+): RenderedEmail {
 	return renderOrderStatusUpdateEmail({
-		siteUrl,
+		siteUrl: mail.siteUrl,
 		title: input.title,
 		preheader: input.preheader,
 		intro: input.intro,
@@ -154,17 +52,46 @@ function buildPrintStatusTemplate(
 	});
 }
 
-export function notifyOrderReceived(
-	db: Database,
-	emailService: EmailService,
-	env: Env,
-	orderId: string
-): void {
-	void (async () => {
-		const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-		if (!order) return;
+async function resolvePrintPartyEmails(
+	mail: MailService,
+	parties: PrintParties
+): Promise<{ userEmail: string | null; makerEmail: string | null }> {
+	const emails = await mail.resolveUserEmails([parties.userId, parties.creatorId]);
+	return {
+		userEmail: emails.get(parties.userId) ?? null,
+		makerEmail: emails.get(parties.creatorId) ?? null
+	};
+}
 
-		const customerEmail = await resolveRecipientEmail(db, order.userId, order.address);
+function sendPrintStatusEmails(
+	mail: MailService,
+	partyEmails: { userEmail: string | null; makerEmail: string | null },
+	copies: {
+		user?: RenderedEmail;
+		maker?: RenderedEmail;
+		inbox: RenderedEmail;
+	},
+	meta: Record<string, unknown>
+): void {
+	mail.send(mail.ordersInbox, copies.inbox, meta);
+
+	if (copies.user) {
+		mail.send(partyEmails.userEmail, copies.user, meta);
+	}
+
+	if (copies.maker) {
+		mail.send(partyEmails.makerEmail, copies.maker, meta);
+	}
+}
+
+export function notifyOrderReceived(db: Database, mail: MailService, orderId: string): void {
+	mail.dispatch('order.received', async () => {
+		const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+		if (!order) {
+			return;
+		}
+
+		const customerEmail = await mail.resolveUserEmail(order.userId, order.address);
 		const lines = await db
 			.select({
 				qty: orderItems.qty,
@@ -181,14 +108,15 @@ export function notifyOrderReceived(
 				lines.map((line) => line.productUid).filter((uid): uid is string => Boolean(uid))
 			)
 		];
-		const makerEmails = await resolveUserEmails(db, makerIds);
+		const makerEmails = await mail.resolveUserEmails(makerIds);
+		const addresses = order.address as {
+			shipping?: { name?: string };
+		} | null;
 
-		const siteUrl = getSiteUrl(env);
-		const addresses = asOrderAddresses(order.address);
 		const customerTemplate = renderOrderReceivedEmail({
-			siteUrl,
+			siteUrl: mail.siteUrl,
 			orderId: order.id,
-			customerName: addresses?.shipping.name,
+			customerName: addresses?.shipping?.name,
 			items: lines.map((line) => ({
 				name: line.productName,
 				qty: line.qty,
@@ -197,28 +125,34 @@ export function notifyOrderReceived(
 			subtotalInr: paiseToRupees(order.subtotalPaise),
 			deliveryFeeInr: paiseToRupees(order.deliveryFeePaise),
 			totalInr: paiseToRupees(order.totalPaise),
-			ordersUrl: `${siteUrl}/user/profile/orders`
+			ordersUrl: `${mail.siteUrl}/user/profile/orders`
 		});
 
 		const inboxTemplate = renderOrderStatusUpdateEmail({
-			siteUrl,
+			siteUrl: mail.siteUrl,
 			title: 'New order placed',
 			preheader: `Order ${order.id} was placed.`,
 			intro: 'A new storefront order was placed and payment was confirmed.',
 			orderId: order.id,
 			statusLabel: 'Paid',
 			details: [
-				{ label: 'Customer', value: addresses?.shipping.name ?? customerEmail ?? 'Unknown' },
-				{ label: 'Total', value: `₹${paiseToRupees(order.totalPaise).toLocaleString('en-IN')}` }
+				{
+					label: 'Customer',
+					value: addresses?.shipping?.name ?? customerEmail ?? 'Unknown'
+				},
+				{
+					label: 'Total',
+					value: `₹${paiseToRupees(order.totalPaise).toLocaleString('en-IN')}`
+				}
 			],
 			cta: {
 				label: 'View orders',
-				href: `${siteUrl}/user/profile/orders`
+				href: `${mail.siteUrl}/user/profile/orders`
 			}
 		});
 
 		const makerTemplate = renderOrderStatusUpdateEmail({
-			siteUrl,
+			siteUrl: mail.siteUrl,
 			title: 'New order for your product',
 			preheader: `Order ${order.id} includes your product.`,
 			intro: 'A customer placed an order that includes your product.',
@@ -229,154 +163,139 @@ export function notifyOrderReceived(
 					label: 'Items',
 					value: lines.map((line) => `${line.productName} × ${line.qty}`).join(', ')
 				},
-				{ label: 'Total', value: `₹${paiseToRupees(order.totalPaise).toLocaleString('en-IN')}` }
+				{
+					label: 'Total',
+					value: `₹${paiseToRupees(order.totalPaise).toLocaleString('en-IN')}`
+				}
 			]
 		});
 
-		sendTemplateToRecipients(emailService, [getOrdersInboxEmail(env)], inboxTemplate);
-
-		if (customerEmail) {
-			sendTemplateToRecipients(emailService, [customerEmail], customerTemplate);
-		}
+		const meta = { orderId: order.id };
+		mail.send(mail.ordersInbox, inboxTemplate, meta);
+		mail.send(customerEmail, customerTemplate, meta);
 
 		for (const makerEmail of makerEmails.values()) {
-			sendTemplateToRecipients(emailService, [makerEmail], makerTemplate);
+			mail.send(makerEmail, makerTemplate, meta);
 		}
-	})().catch(() => undefined);
+	});
 }
 
 export function notifyPrintQuoteRequested(
 	db: Database,
-	emailService: EmailService,
-	env: Env,
+	mail: MailService,
 	printRequestId: string,
 	parties: PrintParties
 ): void {
-	void (async () => {
-		const partyEmails = await resolvePrintPartyEmails(db, parties);
-		const siteUrl = getSiteUrl(env);
+	mail.dispatch('print.quote_requested', async () => {
+		const partyEmails = await resolvePrintPartyEmails(mail, parties);
+		const meta = { printRequestId };
 
-		const inboxTemplate = buildPrintStatusTemplate(env, printRequestId, {
-			title: 'Print quote requested',
-			preheader: 'A new 3D print quote request was submitted.',
-			intro: 'A customer submitted a new 3D print quote request.',
-			statusLabel: 'Requested',
-			ctaHref: `${siteUrl}/3dp-portal/maker/${printRequestId}`
-		});
-
-		const userTemplate = buildPrintStatusTemplate(env, printRequestId, {
-			title: 'Quote request submitted',
-			preheader: 'Your 3D print quote request is with the maker.',
-			intro: 'We received your 3D print quote request and shared it with the maker.',
-			statusLabel: 'Requested',
-			ctaHref: `${siteUrl}/3dp-portal/user/${printRequestId}`
-		});
-
-		const makerTemplate = buildPrintStatusTemplate(env, printRequestId, {
-			title: 'New print quote request',
-			preheader: 'A customer requested a quote from you.',
-			intro: 'A customer submitted a 3D print quote request for you to review.',
-			statusLabel: 'Requested',
-			ctaHref: `${siteUrl}/3dp-portal/maker/${printRequestId}`
-		});
-
-		sendPrintStatusEmails(emailService, env, partyEmails, {
-			inbox: inboxTemplate,
-			user: userTemplate,
-			maker: makerTemplate
-		});
-	})().catch(() => undefined);
+		sendPrintStatusEmails(
+			mail,
+			partyEmails,
+			{
+				inbox: buildPrintStatusTemplate(mail, printRequestId, {
+					title: 'Print quote requested',
+					preheader: 'A new 3D print quote request was submitted.',
+					intro: 'A customer submitted a new 3D print quote request.',
+					statusLabel: 'Requested',
+					ctaHref: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+				}),
+				user: buildPrintStatusTemplate(mail, printRequestId, {
+					title: 'Quote request submitted',
+					preheader: 'Your 3D print quote request is with the maker.',
+					intro: 'We received your 3D print quote request and shared it with the maker.',
+					statusLabel: 'Requested',
+					ctaHref: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
+				}),
+				maker: buildPrintStatusTemplate(mail, printRequestId, {
+					title: 'New print quote request',
+					preheader: 'A customer requested a quote from you.',
+					intro: 'A customer submitted a 3D print quote request for you to review.',
+					statusLabel: 'Requested',
+					ctaHref: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+				})
+			},
+			meta
+		);
+	});
 }
 
 export function notifyPrintPaymentReceived(
 	db: Database,
-	emailService: EmailService,
-	env: Env,
+	mail: MailService,
 	printRequestId: string,
 	parties: PrintParties,
 	amountInr: number
 ): void {
-	void (async () => {
-		const partyEmails = await resolvePrintPartyEmails(db, parties);
-		const siteUrl = getSiteUrl(env);
+	mail.dispatch('print.payment_received', async () => {
+		const partyEmails = await resolvePrintPartyEmails(mail, parties);
 		const details = [{ label: 'Amount', value: `₹${amountInr.toLocaleString('en-IN')}` }];
+		const meta = { printRequestId, amountInr };
 
-		const inboxTemplate = buildPrintStatusTemplate(env, printRequestId, {
-			title: 'Print order payment received',
-			preheader: 'A 3D print request was paid.',
-			intro: 'Payment was received for a 3D print request.',
-			statusLabel: 'Paid',
-			details,
-			ctaHref: `${siteUrl}/3dp-portal/maker/${printRequestId}`
-		});
-
-		const userTemplate = buildPrintStatusTemplate(env, printRequestId, {
-			title: 'Print order payment received',
-			preheader: 'Your 3D print payment was confirmed.',
-			intro: 'We received your payment for a 3D print request. The maker will begin production.',
-			statusLabel: 'Paid',
-			details,
-			ctaHref: `${siteUrl}/3dp-portal/user/${printRequestId}`
-		});
-
-		const makerTemplate = buildPrintStatusTemplate(env, printRequestId, {
-			title: 'Print order paid',
-			preheader: 'A customer paid for a 3D print request.',
-			intro: 'The customer paid for a 3D print request. You can begin production.',
-			statusLabel: 'Paid',
-			details,
-			ctaHref: `${siteUrl}/3dp-portal/maker/${printRequestId}`
-		});
-
-		sendPrintStatusEmails(emailService, env, partyEmails, {
-			inbox: inboxTemplate,
-			user: userTemplate,
-			maker: makerTemplate
-		});
-	})().catch(() => undefined);
+		sendPrintStatusEmails(
+			mail,
+			partyEmails,
+			{
+				inbox: buildPrintStatusTemplate(mail, printRequestId, {
+					title: 'Print order payment received',
+					preheader: 'A 3D print request was paid.',
+					intro: 'Payment was received for a 3D print request.',
+					statusLabel: 'Paid',
+					details,
+					ctaHref: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+				}),
+				user: buildPrintStatusTemplate(mail, printRequestId, {
+					title: 'Print order payment received',
+					preheader: 'Your 3D print payment was confirmed.',
+					intro: 'We received your payment for a 3D print request. The maker will begin production.',
+					statusLabel: 'Paid',
+					details,
+					ctaHref: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
+				}),
+				maker: buildPrintStatusTemplate(mail, printRequestId, {
+					title: 'Print order paid',
+					preheader: 'A customer paid for a 3D print request.',
+					intro: 'The customer paid for a 3D print request. You can begin production.',
+					statusLabel: 'Paid',
+					details,
+					ctaHref: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+				})
+			},
+			meta
+		);
+	});
 }
-
-type PrintStatusNotification = {
-	action: 'quote' | 'decline' | 'cancel' | 'shipped' | 'complete';
-	amountInr?: number;
-	trackingId?: string;
-	trackingLink?: string;
-	courier?: string;
-	reason?: string;
-};
 
 export function notifyPrintStatusUpdate(
 	db: Database,
-	emailService: EmailService,
-	env: Env,
+	mail: MailService,
 	printRequestId: string,
 	parties: PrintParties,
 	notification: PrintStatusNotification
 ): void {
-	void (async () => {
-		const partyEmails = await resolvePrintPartyEmails(db, parties);
-		const copies = getPrintStatusCopies(env, notification, printRequestId);
+	mail.dispatch(`print.status.${notification.action}`, async () => {
+		const partyEmails = await resolvePrintPartyEmails(mail, parties);
+		const copies = getPrintStatusCopies(mail, notification, printRequestId);
 
-		sendPrintStatusEmails(emailService, env, partyEmails, {
-			inbox: copies.inbox,
-			user: copies.user,
-			maker: copies.maker
+		sendPrintStatusEmails(mail, partyEmails, copies, {
+			printRequestId,
+			action: notification.action
 		});
-	})().catch(() => undefined);
+	});
 }
 
 function getPrintStatusCopies(
-	env: Env,
+	mail: MailService,
 	notification: PrintStatusNotification,
 	printRequestId: string
 ): {
-	inbox: ReturnType<typeof renderOrderStatusUpdateEmail>;
-	user?: ReturnType<typeof renderOrderStatusUpdateEmail>;
-	maker?: ReturnType<typeof renderOrderStatusUpdateEmail>;
+	inbox: RenderedEmail;
+	user?: RenderedEmail;
+	maker?: RenderedEmail;
 } {
-	const siteUrl = getSiteUrl(env);
-	const userHref = `${siteUrl}/3dp-portal/user/${printRequestId}`;
-	const makerHref = `${siteUrl}/3dp-portal/maker/${printRequestId}`;
+	const userHref = `${mail.siteUrl}/3dp-portal/user/${printRequestId}`;
+	const makerHref = `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`;
 
 	switch (notification.action) {
 		case 'quote': {
@@ -385,7 +304,7 @@ function getPrintStatusCopies(
 				: [];
 
 			return {
-				inbox: buildPrintStatusTemplate(env, printRequestId, {
+				inbox: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Print request quoted',
 					preheader: 'A maker sent a quote for a print request.',
 					intro: 'A maker sent a quote for a 3D print request.',
@@ -393,7 +312,7 @@ function getPrintStatusCopies(
 					details,
 					ctaHref: makerHref
 				}),
-				user: buildPrintStatusTemplate(env, printRequestId, {
+				user: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Quote received',
 					preheader: 'A maker sent a quote for your print request.',
 					intro: 'A maker reviewed your 3D print request and shared a quote.',
@@ -401,7 +320,7 @@ function getPrintStatusCopies(
 					details,
 					ctaHref: userHref
 				}),
-				maker: buildPrintStatusTemplate(env, printRequestId, {
+				maker: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Quote submitted',
 					preheader: 'Your quote was sent to the customer.',
 					intro: 'Your quote was sent to the customer for this print request.',
@@ -423,7 +342,7 @@ function getPrintStatusCopies(
 			];
 
 			return {
-				inbox: buildPrintStatusTemplate(env, printRequestId, {
+				inbox: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Print request shipped',
 					preheader: 'A 3D print order was shipped.',
 					intro: 'A 3D print request was marked as shipped.',
@@ -431,7 +350,7 @@ function getPrintStatusCopies(
 					details,
 					ctaHref: makerHref
 				}),
-				user: buildPrintStatusTemplate(env, printRequestId, {
+				user: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Order shipped',
 					preheader: 'Your 3D print order is on the way.',
 					intro: 'Your print request has been shipped.',
@@ -439,7 +358,7 @@ function getPrintStatusCopies(
 					details,
 					ctaHref: userHref
 				}),
-				maker: buildPrintStatusTemplate(env, printRequestId, {
+				maker: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Shipment recorded',
 					preheader: 'You marked a print request as shipped.',
 					intro: 'You marked this print request as shipped.',
@@ -451,21 +370,21 @@ function getPrintStatusCopies(
 		}
 		case 'complete':
 			return {
-				inbox: buildPrintStatusTemplate(env, printRequestId, {
+				inbox: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Print request completed',
 					preheader: 'A 3D print order was completed.',
 					intro: 'A 3D print request was marked complete.',
 					statusLabel: 'Completed',
 					ctaHref: makerHref
 				}),
-				user: buildPrintStatusTemplate(env, printRequestId, {
+				user: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Order completed',
 					preheader: 'You marked your 3D print order complete.',
 					intro: 'You marked this print request as complete. Thanks for using Selfcrafted.',
 					statusLabel: 'Completed',
 					ctaHref: userHref
 				}),
-				maker: buildPrintStatusTemplate(env, printRequestId, {
+				maker: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Order completed',
 					preheader: 'The customer marked the print order complete.',
 					intro: 'The customer marked this print request as complete.',
@@ -480,7 +399,7 @@ function getPrintStatusCopies(
 				: [];
 
 			return {
-				inbox: buildPrintStatusTemplate(env, printRequestId, {
+				inbox: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Print request cancelled',
 					preheader: 'A print request was cancelled.',
 					intro: 'A print request was cancelled.',
@@ -488,7 +407,7 @@ function getPrintStatusCopies(
 					details,
 					ctaHref: makerHref
 				}),
-				user: buildPrintStatusTemplate(env, printRequestId, {
+				user: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Request cancelled',
 					preheader: 'A print request was cancelled.',
 					intro: 'This print request was cancelled.',
@@ -496,7 +415,7 @@ function getPrintStatusCopies(
 					details,
 					ctaHref: userHref
 				}),
-				maker: buildPrintStatusTemplate(env, printRequestId, {
+				maker: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Request cancelled',
 					preheader: 'A print request was cancelled.',
 					intro: 'This print request was cancelled.',
@@ -511,13 +430,12 @@ function getPrintStatusCopies(
 
 export function notifyPrintMessageReceived(
 	db: Database,
-	emailService: EmailService,
-	env: Env,
+	mail: MailService,
 	printRequestId: string,
 	recipientUserId: string,
 	message: string
 ): void {
-	void (async () => {
+	mail.dispatch('print.message_received', async () => {
 		const [row] = await db
 			.select({ userId: printrequests.userId })
 			.from(printrequests)
@@ -528,14 +446,11 @@ export function notifyPrintMessageReceived(
 			return;
 		}
 
-		const to = await resolveRecipientEmail(db, recipientUserId, null);
-		if (!to) return;
-
-		const siteUrl = getSiteUrl(env);
+		const to = await mail.resolveUserEmail(recipientUserId);
 		const preview =
 			message.length > 240 ? `${message.slice(0, 237).trimEnd()}...` : message;
 		const template = renderOrderStatusUpdateEmail({
-			siteUrl,
+			siteUrl: mail.siteUrl,
 			title: 'New message on your print request',
 			preheader: 'You received a new message about your 3D print quote.',
 			intro: `You received a new message: "${preview}"`,
@@ -543,17 +458,12 @@ export function notifyPrintMessageReceived(
 			statusLabel: 'Message',
 			cta: {
 				label: 'View conversation',
-				href: `${siteUrl}/3dp-portal/user/${printRequestId}`
+				href: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
 			}
 		});
 
-		emailService.sendSafe({
-			to,
-			subject: template.subject,
-			html: template.html,
-			text: template.text
-		});
-	})().catch(() => undefined);
+		mail.send(to, template, { printRequestId, recipientUserId });
+	});
 }
 
 export async function getPrintRequestRecipient(

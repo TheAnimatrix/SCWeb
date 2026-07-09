@@ -39,7 +39,7 @@ export function createEmailService(env: Env): EmailService {
 		});
 	}
 
-	return {
+	const service: EmailService = {
 		isConfigured: configured,
 
 		async send(message) {
@@ -67,7 +67,7 @@ export function createEmailService(env: Env): EmailService {
 		},
 
 		sendSafe(message) {
-			void this.send(message).catch((error) => {
+			void service.send(message).catch((error) => {
 				storeLog('error', 'email.failed', {
 					to: message.to,
 					subject: message.subject,
@@ -76,6 +76,8 @@ export function createEmailService(env: Env): EmailService {
 			});
 		}
 	};
+
+	return service;
 }
 
 export function getEmailSiteUrl(env: Env): string {

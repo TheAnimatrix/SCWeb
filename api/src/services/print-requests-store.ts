@@ -18,13 +18,11 @@ import {
 	normalizePrintRequestEvents,
 	type PrintRequestAction
 } from './print-requests.js';
-import type { Env } from '../env.js';
-import type { EmailService } from './email.js';
+import type { MailService } from './mail.js';
 import { getPrintRequestRecipient, notifyPrintStatusUpdate } from './order-notifications.js';
 
 export type PrintRequestsStoreOptions = {
-	emailService?: EmailService;
-	env?: Env;
+	mail?: MailService;
 };
 
 export type PrintRequestActionResult =
@@ -292,13 +290,12 @@ export function createPrintRequestsStore(
 				}
 			}
 
-			if (result.ok && options?.emailService && options?.env) {
+			if (result.ok && options?.mail) {
 				const parties = await getPrintRequestRecipient(db, printRequestId);
 				if (parties) {
 					sendPrintStatusEmail(
 						db,
-						options.emailService,
-						options.env,
+						options.mail,
 						printRequestId,
 						parties,
 						action,
@@ -314,8 +311,7 @@ export function createPrintRequestsStore(
 
 function sendPrintStatusEmail(
 	db: Database,
-	emailService: EmailService,
-	env: Env,
+	mail: MailService,
 	printRequestId: string,
 	parties: { userId: string; creatorId: string },
 	action: PrintRequestAction,
@@ -324,14 +320,14 @@ function sendPrintStatusEmail(
 	switch (action) {
 		case 'quote':
 			if (body.action !== 'quote') return;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
 				action: 'quote',
 				amountInr: body.payload.amount
 			});
 			return;
 		case 'shipped':
 			if (body.action !== 'shipped') return;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
 				action: 'shipped',
 				courier: body.payload.courier,
 				trackingId: body.payload.tracking_id,
@@ -340,14 +336,14 @@ function sendPrintStatusEmail(
 			return;
 		case 'complete':
 			if (body.action !== 'complete') return;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
 				action: 'complete'
 			});
 			return;
 		case 'decline':
 		case 'cancel': {
 			if (body.action !== 'decline' && body.action !== 'cancel') return;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
 				action: body.action === 'decline' ? 'decline' : 'cancel',
 				reason: body.payload.reason
 			});

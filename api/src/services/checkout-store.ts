@@ -42,13 +42,11 @@ import {
 } from './payment-attempts.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
-import type { Env } from '../env.js';
-import type { EmailService } from './email.js';
+import type { MailService } from './mail.js';
 import { notifyOrderReceived } from './order-notifications.js';
 
 export type CheckoutStoreOptions = {
-	emailService?: EmailService;
-	env?: Env;
+	mail?: MailService;
 };
 
 export type CreateOrderResult =
@@ -677,12 +675,7 @@ export function createCheckoutStore(
 					};
 				});
 
-				if (
-					result.ok &&
-					result.response.status === 'paid' &&
-					options?.emailService &&
-					options.env
-				) {
+				if (result.ok && result.response.status === 'paid' && options?.mail) {
 					const [paidOrder] = await db
 						.select({ id: orders.id })
 						.from(orders)
@@ -694,7 +687,7 @@ export function createCheckoutStore(
 						.limit(1);
 
 					if (paidOrder) {
-						notifyOrderReceived(db, options.emailService, options.env, paidOrder.id);
+						notifyOrderReceived(db, options.mail, paidOrder.id);
 					}
 				}
 

@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/node';
 import { serve } from '@hono/node-server';
 import { createApp } from './app.js';
 import { createDb } from './db/index.js';
-import { loadEnv } from './env.js';
+import { loadEnv, isSmtpConfigured } from './env.js';
 import { loadEnvFiles } from './loadEnvFiles.js';
 import { scrubSentryEvent } from './sentry-scrub.js';
 
@@ -24,6 +24,17 @@ process.env.SMTP_PASS ??= process.env.SMTP_PASSWORD;
 const env = loadEnv();
 const { db, close } = createDb(env);
 const app = createApp({ env, db });
+
+console.log(
+	JSON.stringify({
+		level: 'info',
+		message: 'api.mail',
+		timestamp: new Date().toISOString(),
+		smtpConfigured: isSmtpConfigured(env),
+		ordersInbox: env.ORDERS_INBOX_EMAIL,
+		emailFrom: env.EMAIL_FROM
+	})
+);
 
 const server = serve(
 	{

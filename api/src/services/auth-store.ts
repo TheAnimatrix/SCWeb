@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Env } from '../env.js';
-import { getSiteUrl } from '../env.js';
 import type { Database } from '../db/index.js';
 import { users } from '../db/schema/users.js';
 import type {
@@ -13,7 +12,7 @@ import {
 	renderAccountWelcomeEmail,
 	renderPasswordResetEmail
 } from './email-templates/index.js';
-import type { EmailService } from './email.js';
+import type { MailService } from './mail.js';
 import { storeLog } from '../middleware/logging.js';
 
 export type AuthStore = ReturnType<typeof createAuthStore>;
@@ -58,12 +57,11 @@ export async function isUsernameTaken(
 	return Boolean(existing);
 }
 
-export function createAuthStore(db: Database, env: Env, emailService: EmailService) {
-	const siteUrl = getSiteUrl(env);
-
+export function createAuthStore(db: Database, env: Env, mail: MailService) {
 	return {
 		async signup(body: SignupBody): Promise<AuthResult<{ needsConfirmation: boolean }>> {
 			const admin = createAdminClient(env);
+			const siteUrl = mail.siteUrl;
 
 			if (await isUsernameTaken(db, body.username)) {
 				return {
@@ -136,12 +134,7 @@ export function createAuthStore(db: Database, env: Env, emailService: EmailServi
 				confirmUrl
 			});
 
-			emailService.sendSafe({
-				to: body.email,
-				subject: template.subject,
-				html: template.html,
-				text: template.text
-			});
+			mail.send(body.email, template, { kind: 'auth.signup' });
 
 			return { ok: true, data: { needsConfirmation: true } };
 		},
@@ -158,7 +151,7 @@ export function createAuthStore(db: Database, env: Env, emailService: EmailServi
 				type: 'recovery',
 				email: body.email,
 				options: {
-					redirectTo: `${siteUrl}/user/reset-password`
+					redirectTo: `${mail.siteUrl}/user/reset-password`
 				}
 			});
 
@@ -171,20 +164,15 @@ export function createAuthStore(db: Database, env: Env, emailService: EmailServi
 			}
 
 			const resetUrl = linkData.properties.hashed_token
-				? `${siteUrl}/user/reset-password?token_hash=${encodeURIComponent(linkData.properties.hashed_token)}`
+				? `${mail.siteUrl}/user/reset-password?token_hash=${encodeURIComponent(linkData.properties.hashed_token)}`
 				: linkData.properties.action_link;
 
 			const template = renderPasswordResetEmail({
-				siteUrl,
+				siteUrl: mail.siteUrl,
 				resetUrl
 			});
 
-			emailService.sendSafe({
-				to: body.email,
-				subject: template.subject,
-				html: template.html,
-				text: template.text
-			});
+			mail.send(body.email, template, { kind: 'auth.password_reset' });
 
 			return { ok: true, data: { message: genericMessage } };
 		},

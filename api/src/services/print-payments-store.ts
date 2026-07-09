@@ -12,8 +12,7 @@ import type { Actor } from '../types/context.js';
 import type { RazorpayClient } from './razorpay-client.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
-import type { Env } from '../env.js';
-import type { EmailService } from './email.js';
+import type { MailService } from './mail.js';
 import { notifyPrintPaymentReceived, getPrintRequestRecipient } from './order-notifications.js';
 import {
 	createPaymentAttempt,
@@ -39,8 +38,7 @@ import {
 } from './print-payments.js';
 
 export type PrintPaymentsStoreOptions = {
-	emailService?: EmailService;
-	env?: Env;
+	mail?: MailService;
 };
 
 export type CreatePrintPaymentOrderResult =
@@ -427,12 +425,7 @@ export function createPrintPaymentsStore(
 					};
 				});
 
-				if (
-					result.ok &&
-					result.response.status === 'paid' &&
-					options?.emailService &&
-					options.env
-				) {
+				if (result.ok && result.response.status === 'paid' && options?.mail) {
 					const [paidRow] = await db
 						.select({
 							activePaymentAttemptId: printrequests.activePaymentAttemptId
@@ -455,8 +448,7 @@ export function createPrintPaymentsStore(
 						if (parties) {
 							notifyPrintPaymentReceived(
 								db,
-								options.emailService,
-								options.env,
+								options.mail,
 								printRequestId,
 								parties,
 								amountInr

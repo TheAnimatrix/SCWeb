@@ -1,11 +1,10 @@
 import { eq } from 'drizzle-orm';
 import type { SendChatMessageBody, SendChatMessageResponse } from '../contracts/chats.js';
-import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
 import { chat } from '../db/schema/chat.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import type { Actor } from '../types/context.js';
-import type { EmailService } from './email.js';
+import type { MailService } from './mail.js';
 import { notifyPrintMessageReceived } from './order-notifications.js';
 
 export type SendChatMessageResult =
@@ -19,8 +18,7 @@ export interface ChatsStore {
 }
 
 export type ChatsStoreOptions = {
-	emailService?: EmailService;
-	env?: Env;
+	mail?: MailService;
 };
 
 function trimMessage(message: string): string {
@@ -82,11 +80,10 @@ export function createChatsStore(db: Database, options?: ChatsStoreOptions): Cha
 				return { ok: false, status: 403, body: { error: 'forbidden' } };
 			}
 
-			if (options?.emailService && options.env) {
+			if (options?.mail) {
 				notifyPrintMessageReceived(
 					db,
-					options.emailService,
-					options.env,
+					options.mail,
 					body.relationship_id,
 					body.recipient_id,
 					message

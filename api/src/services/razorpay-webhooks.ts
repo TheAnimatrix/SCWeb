@@ -13,10 +13,9 @@ import { orders } from '../db/schema/orders.js';
 import { paymentAttempts } from '../db/schema/paymentAttempts.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import { products } from '../db/schema/products.js';
-import type { Env } from '../env.js';
 import { storeLog } from '../middleware/logging.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
-import type { EmailService } from './email.js';
+import type { MailService } from './mail.js';
 import { notifyOrderReceived, notifyPrintPaymentReceived } from './order-notifications.js';
 import { appendLegacyPrintRequestEvent, insertPrintRequestEvent } from './print-request-events.js';
 import { buildPaidEvent, buildPaymentFailedEvent } from './print-payments.js';
@@ -63,8 +62,7 @@ export type RazorpayWebhookResult =
 	| { ok: false; status: 400; error: 'invalid_payload' };
 
 export type RazorpayWebhookServiceOptions = {
-	emailService?: EmailService;
-	env?: Env;
+	mail?: MailService;
 };
 
 export interface RazorpayWebhookService {
@@ -515,14 +513,13 @@ export function createRazorpayWebhookService(
 
 			if (payment.event === 'payment.captured') {
 				const result = await handleCaptured(db, payment, eventId);
-				if (result.orderToNotify && options?.emailService && options.env) {
-					notifyOrderReceived(db, options.emailService, options.env, result.orderToNotify);
+				if (result.orderToNotify && options?.mail) {
+					notifyOrderReceived(db, options.mail, result.orderToNotify);
 				}
-				if (result.printToNotify && options?.emailService && options.env) {
+				if (result.printToNotify && options?.mail) {
 					notifyPrintPaymentReceived(
 						db,
-						options.emailService,
-						options.env,
+						options.mail,
 						result.printToNotify.id,
 						{
 							userId: result.printToNotify.userId,
