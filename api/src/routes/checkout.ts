@@ -32,7 +32,9 @@ export function createCheckoutRoutes(
 
 		const body = c.req.valid('json');
 		const addresses = normalizeCheckoutOrderAddresses(body.address, body.billingAddress);
-		const result = await getCheckoutStore(c).createOrder(actor, addresses);
+		const result = await getCheckoutStore(c).createOrder(actor, addresses, {
+			refreshPayment: body.refreshPayment
+		});
 
 		if (!result.ok) {
 			if (result.status === 400) {

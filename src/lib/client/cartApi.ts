@@ -199,17 +199,23 @@ export async function mergeGuestCart(
 export async function createCheckoutOrder(
 	fetchFn: typeof fetch,
 	shippingAddress: Address,
-	billingAddress?: Address
+	billingAddress?: Address,
+	options?: { refreshPayment?: boolean }
 ): Promise<CartApiResult<CreateCheckoutOrderResponse>> {
 	const body: {
 		address: ReturnType<typeof stripCheckoutAddress>;
 		billingAddress?: ReturnType<typeof stripCheckoutAddress>;
+		refreshPayment?: boolean;
 	} = {
 		address: stripCheckoutAddress(shippingAddress)
 	};
 
 	if (billingAddress) {
 		body.billingAddress = stripCheckoutAddress(billingAddress);
+	}
+
+	if (options?.refreshPayment) {
+		body.refreshPayment = true;
 	}
 
 	return apiRequest<CreateCheckoutOrderResponse>(fetchFn, '/checkout/order', {

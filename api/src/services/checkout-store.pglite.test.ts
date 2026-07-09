@@ -3,7 +3,7 @@ import { eq, and } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
 import type { CheckoutAddress } from '../contracts/address.js';
 import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
@@ -141,7 +141,9 @@ function fakeRazorpay(overrides: Partial<RazorpayClient> = {}): RazorpayClient {
 		amount: amountPaise,
 		currency: 'INR'
 	}));
-	const createOrder = overrides.createOrder ?? baseCreateOrder;
+	const createOrder = (overrides.createOrder ?? baseCreateOrder) as Mock<
+		RazorpayClient['createOrder']
+	>;
 	const fetchOrder =
 		overrides.fetchOrder ??
 		vi.fn(async (orderId: string) => {

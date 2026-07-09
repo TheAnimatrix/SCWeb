@@ -85,6 +85,9 @@ export function createApp({
 			: createCheckoutStore(db, {
 					async createOrder() {
 						throw new Error('Razorpay client is not configured');
+					},
+					async fetchOrder() {
+						return null;
 					}
 				}));
 	const resolvedPrintFilesStore =

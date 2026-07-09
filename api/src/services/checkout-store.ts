@@ -62,7 +62,11 @@ export type FailOrderResult =
 	| { ok: false; status: 403; body: { error: 'forbidden' } };
 
 export interface CheckoutStore {
-	createOrder(actor: Actor, addresses: CheckoutOrderAddresses): Promise<CreateOrderResult>;
+	createOrder(
+		actor: Actor,
+		addresses: CheckoutOrderAddresses,
+		options?: { refreshPayment?: boolean }
+	): Promise<CreateOrderResult>;
 	confirmOrder(
 		actor: Actor,
 		razorpayOrderId: string,
@@ -185,7 +189,8 @@ export function createCheckoutStore(
 	options?: CheckoutStoreOptions
 ): CheckoutStore {
 	return {
-		async createOrder(actor, addresses) {
+		async createOrder(actor, addresses, options) {
+			const refreshPayment = options?.refreshPayment === true;
 			const normalizedAddresses = normalizeCheckoutOrderAddresses(
 				addresses.shipping,
 				addresses.billing
@@ -265,6 +270,7 @@ export function createCheckoutStore(
 					});
 
 					if (
+						!refreshPayment &&
 						shouldReuseRazorpayOrder(existingOrder.razorpayOrderId) &&
 						totals.total === previousTotal
 					) {

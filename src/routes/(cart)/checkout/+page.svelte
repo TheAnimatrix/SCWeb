@@ -115,15 +115,6 @@
 
 		try {
 			const billingAddress = billingSameAsShipping ? undefined : validBillingAddress;
-			const orderResult = await createCheckoutOrder(fetch, validAddress, billingAddress);
-
-			if (!orderResult.ok) {
-				toastStore.show(orderResult.error.message, 'error');
-				isPaying = false;
-				return;
-			}
-
-			const { razorpayOrderId, amountPaise } = orderResult.data;
 			const cartId = cartData.id;
 
 			const razorpayKey = env.PUBLIC_RAZORPAY_ID;
@@ -133,53 +124,83 @@
 				return;
 			}
 
-			await openRazorpayCheckout({
-				key: razorpayKey,
-				amount: amountPaise,
-				currency: 'INR',
-				name: 'SelfCrafted',
-				image:
-					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
-				order_id: razorpayOrderId,
-				handler: async function (response) {
-					const confirmResult = await confirmCheckout(fetch, {
-						razorpayOrderId: response.razorpay_order_id,
-						razorpayPaymentId: response.razorpay_payment_id,
-						razorpaySignature: response.razorpay_signature
-					});
-					if (!confirmResult.ok) {
-						toastStore.show(confirmResult.error.message, 'error');
-						isPaying = false;
-						return;
-					}
-					cart_store.set({ valid: true, itemCount: 0 });
+			let refreshPayment = false;
+			for (let attempt = 0; attempt < 2; attempt++) {
+				const orderResult = await createCheckoutOrder(fetch, validAddress, billingAddress, {
+					refreshPayment
+				});
+
+				if (!orderResult.ok) {
+					toastStore.show(orderResult.error.message, 'error');
 					isPaying = false;
-					goto(`/summary/success/${cartId}/${response.razorpay_payment_id}`);
-				},
-				modal: {
-					ondismiss: function () {
-						isPaying = false;
-					}
-				},
-				prefill: {},
-				theme: {
-					color: '#2084fe'
-				},
-				onPaymentFailed: async function (failedResponse) {
-					isPaying = false;
-					const orderId = failedResponse.error?.metadata?.order_id;
-					if (!orderId) {
-						goto('/summary/failure');
-						return;
-					}
-					try {
-						await failCheckout(fetch, orderId, failedResponse.error?.description);
-					} catch {
-						// Still navigate so the user sees the failure page.
-					}
-					window.location.href = `/summary/failure/${cartId}/${orderId}`;
+					return;
 				}
-			});
+
+				const { razorpayOrderId, amountPaise } = orderResult.data;
+				const outcome = await openRazorpayCheckout({
+					key: razorpayKey,
+					amount: amountPaise,
+					currency: 'INR',
+					name: 'SelfCrafted',
+					image:
+						'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
+					order_id: razorpayOrderId,
+					handler: async function (response) {
+						const confirmResult = await confirmCheckout(fetch, {
+							razorpayOrderId: response.razorpay_order_id,
+							razorpayPaymentId: response.razorpay_payment_id,
+							razorpaySignature: response.razorpay_signature
+						});
+						if (!confirmResult.ok) {
+							toastStore.show(confirmResult.error.message, 'error');
+							isPaying = false;
+							return;
+						}
+						cart_store.set({ valid: true, itemCount: 0 });
+						isPaying = false;
+						goto(`/summary/success/${cartId}/${response.razorpay_payment_id}`);
+					},
+					modal: {
+						ondismiss: function () {
+							isPaying = false;
+						}
+					},
+					prefill: {
+						...(validAddress.name ? { name: validAddress.name } : {}),
+						...(validAddress.email ? { email: validAddress.email } : {}),
+						...(validAddress.phone ? { contact: validAddress.phone } : {})
+					},
+					theme: {
+						color: '#2084fe'
+					},
+					onPaymentFailed: async function (failedResponse) {
+						isPaying = false;
+						const orderId = failedResponse.error?.metadata?.order_id;
+						if (!orderId) {
+							goto('/summary/failure');
+							return;
+						}
+						try {
+							await failCheckout(fetch, orderId, failedResponse.error?.description);
+						} catch {
+							// Still navigate so the user sees the failure page.
+						}
+						window.location.href = `/summary/failure/${cartId}/${orderId}`;
+					}
+				});
+
+				if (outcome === 'init_failed' && attempt === 0) {
+					refreshPayment = true;
+					continue;
+				}
+
+				if (outcome === 'init_failed') {
+					toastStore.show('Unable to start payment. Please try again.', 'error');
+					isPaying = false;
+				}
+
+				return;
+			}
 		} catch (e: unknown) {
 			const message =
 				e instanceof Error && e.message.includes('Razorpay')

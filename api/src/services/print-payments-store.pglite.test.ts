@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { CheckoutAddress } from '../contracts/address.js';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
@@ -113,7 +113,9 @@ function fakeRazorpay(overrides: Partial<RazorpayClient> = {}): RazorpayClient {
 		amount: amountPaise,
 		currency: 'INR'
 	}));
-	const createOrder = overrides.createOrder ?? baseCreateOrder;
+	const createOrder = (overrides.createOrder ?? baseCreateOrder) as Mock<
+		RazorpayClient['createOrder']
+	>;
 	const fetchOrder =
 		overrides.fetchOrder ??
 		vi.fn(async (orderId: string) => {
@@ -337,7 +339,7 @@ describe('PrintPaymentsStore (PGlite)', () => {
 			amount: amountPaise,
 			currency: 'INR'
 		}));
-		const store = createPrintPaymentsStore(testDb.db, { createOrder });
+		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay({ createOrder }));
 		const actor = { userId: USER_ID, clientId: CLIENT_ID };
 
 		const first = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
@@ -375,7 +377,7 @@ describe('PrintPaymentsStore (PGlite)', () => {
 				currency: 'INR'
 			};
 		});
-		const store = createPrintPaymentsStore(testDb.db, { createOrder });
+		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay({ createOrder }));
 		const actor = { userId: USER_ID, clientId: CLIENT_ID };
 
 		const first = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);

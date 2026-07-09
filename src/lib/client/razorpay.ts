@@ -7,8 +7,21 @@ import type {
 
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 const LOAD_TIMEOUT_MS = 20_000;
+const CHECKOUT_ERROR_WATCH_MS = 15_000;
 
 let loadPromise: Promise<typeof Razorpay> | null = null;
+
+export type OpenRazorpayResult = 'success' | 'dismissed' | 'failed' | 'init_failed';
+
+export function isStaleRazorpayOrderError(description: string | undefined): boolean {
+	if (!description) return false;
+	const normalized = description.toLowerCase();
+	return (
+		normalized.includes('does not exist') ||
+		normalized.includes('id provided') ||
+		normalized.includes('invalid order')
+	);
+}
 
 function waitForGlobalRazorpay(): Promise<typeof Razorpay> {
 	return new Promise((resolve, reject) => {
@@ -120,16 +133,41 @@ function watchRazorpayFrame(): void {
 	window.setTimeout(() => observer.disconnect(), 10_000);
 }
 
+function watchRazorpayInitFailure(onInitFailed: () => void): () => void {
+	const seen = { value: false };
+	const trigger = () => {
+		if (seen.value) return;
+		seen.value = true;
+		onInitFailed();
+	};
+
+	const observer = new MutationObserver(() => {
+		const container = document.querySelector('.razorpay-container');
+		if (!container) return;
+		const text = container.textContent ?? '';
+		if (text.includes('Something went wrong') || text.includes('Uh! oh!')) {
+			trigger();
+		}
+	});
+
+	observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+	const timer = window.setTimeout(() => observer.disconnect(), CHECKOUT_ERROR_WATCH_MS);
+
+	return () => {
+		window.clearTimeout(timer);
+		observer.disconnect();
+	};
+}
+
 export type OpenRazorpayOptions = RazorpayCheckoutOptions & {
 	onPaymentFailed?: (response: RazorpayPaymentFailedResponse) => void;
 };
 
-/** Opens Razorpay checkout after ensuring the SDK is ready and layout can host the overlay. */
-export async function openRazorpayCheckout(options: OpenRazorpayOptions): Promise<void> {
+/** Opens Razorpay checkout and resolves when the user completes, dismisses, or checkout fails to start. */
+export async function openRazorpayCheckout(options: OpenRazorpayOptions): Promise<OpenRazorpayResult> {
 	const { onPaymentFailed, ...razorpayOptions } = options;
 	const RazorpayConstructor = await loadRazorpay();
 
-	// Let the current frame finish layout before Razorpay measures the viewport.
 	await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 	lockPageForRazorpay();
@@ -140,32 +178,54 @@ export async function openRazorpayCheckout(options: OpenRazorpayOptions): Promis
 		unlockPageForRazorpay();
 	};
 
-	const instance = new RazorpayConstructor({
-		...razorpayOptions,
-		handler: async (response: RazorpayCheckoutSuccessResponse) => {
-			try {
-				await razorpayOptions.handler(response);
-			} finally {
-				unlock();
-			}
-		},
-		modal: {
-			...razorpayOptions.modal,
-			ondismiss: () => {
-				unlock();
-				razorpayOptions.modal?.ondismiss?.();
-			}
-		}
-	});
+	return new Promise<OpenRazorpayResult>((resolve) => {
+		let settled = false;
+		const finish = (result: OpenRazorpayResult) => {
+			if (settled) return;
+			settled = true;
+			stopWatchingInitFailure();
+			resolve(result);
+		};
 
-	if (onPaymentFailed) {
+		const stopWatchingInitFailure = watchRazorpayInitFailure(() => {
+			unlock();
+			finish('init_failed');
+		});
+
+		const instance = new RazorpayConstructor({
+			...razorpayOptions,
+			handler: async (response: RazorpayCheckoutSuccessResponse) => {
+				try {
+					await razorpayOptions.handler(response);
+					finish('success');
+				} catch {
+					finish('failed');
+				} finally {
+					unlock();
+				}
+			},
+			modal: {
+				...razorpayOptions.modal,
+				ondismiss: () => {
+					unlock();
+					razorpayOptions.modal?.ondismiss?.();
+					finish('dismissed');
+				}
+			}
+		});
+
 		instance.on('payment.failed', (response) => {
 			unlock();
-			onPaymentFailed(response);
+			if (isStaleRazorpayOrderError(response.error?.description)) {
+				finish('init_failed');
+				return;
+			}
+			onPaymentFailed?.(response);
+			finish('failed');
 		});
-	}
 
-	instance.open();
-	watchRazorpayFrame();
-	nudgeRazorpayLayout();
+		instance.open();
+		watchRazorpayFrame();
+		nudgeRazorpayLayout();
+	});
 }

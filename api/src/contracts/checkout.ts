@@ -14,7 +14,9 @@ export const createCheckoutOrderBodySchema = z
 	.object({
 		/** Shipping address (legacy field name kept for compatibility). */
 		address: checkoutAddressSchema,
-		billingAddress: checkoutAddressSchema.optional()
+		billingAddress: checkoutAddressSchema.optional(),
+		/** Skip reusing a stored Razorpay order (e.g. after a stale order_id error). */
+		refreshPayment: z.boolean().optional()
 	})
 	.strict();
 
