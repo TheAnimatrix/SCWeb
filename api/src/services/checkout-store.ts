@@ -7,12 +7,13 @@ import type {
 	FailCheckoutResponse
 } from '../contracts/checkout.js';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
-import { rupeesToPaise } from '../contracts/money.js';
+import { rupeesToPaise, paiseToRupees } from '../contracts/money.js';
 import type { Database, DbExecutor } from '../db/index.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { orderItems } from '../db/schema/orderItems.js';
 import { orders } from '../db/schema/orders.js';
+import { paymentAttempts } from '../db/schema/paymentAttempts.js';
 import { products } from '../db/schema/products.js';
 import type { Actor } from '../types/context.js';
 import type { ProductSnapshot } from './cart.js';
@@ -29,6 +30,16 @@ import {
 	type CheckoutLine
 } from './checkout.js';
 import type { RazorpayClient } from './razorpay-client.js';
+import {
+	createPaymentAttempt,
+	findPaymentAttemptById,
+	findPaymentAttemptByProviderOrderId,
+	markPaymentAttemptFailed,
+	markPaymentAttemptPaid,
+	PAYMENT_ATTEMPT_KIND,
+	PAYMENT_ATTEMPT_STATUS,
+	resolveProviderOrderId
+} from './payment-attempts.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
 import type { Env } from '../env.js';
@@ -84,16 +95,6 @@ function isUniqueViolation(error: unknown): boolean {
 	);
 }
 
-const STOCK_CONFLICT = Symbol('checkout.stock_conflict');
-
-function stockConflictError(): Error {
-	return Object.assign(new Error('stock_conflict'), { [STOCK_CONFLICT]: true });
-}
-
-function isStockConflict(error: unknown): boolean {
-	return typeof error === 'object' && error !== null && STOCK_CONFLICT in error;
-}
-
 function checkoutCartCondition(actor: Actor) {
 	const checkoutStatuses = [CART_ORDER_STATUS.ACTIVE, CART_ORDER_STATUS.PAYMENT_PENDING];
 
@@ -112,11 +113,20 @@ function checkoutCartCondition(actor: Actor) {
 	return null;
 }
 
-async function findActiveCartRow(db: DbExecutor, actor: Actor) {
+async function findCheckoutCartRow(db: DbExecutor, actor: Actor) {
 	const condition = checkoutCartCondition(actor);
 	if (!condition) return null;
 
-	const [row] = await db.select().from(carts).where(condition).limit(1);
+	const [row] = await db
+		.select()
+		.from(carts)
+		.where(condition)
+		.orderBy(
+			sql`CASE WHEN ${carts.status} = ${CART_ORDER_STATUS.ACTIVE} THEN 0 ELSE 1 END`,
+			carts.updatedAt
+		)
+		.limit(1);
+
 	return row ?? null;
 }
 
@@ -161,7 +171,7 @@ async function replaceOrderItems(
 			orderId,
 			productId: item.productId,
 			productName: item.productName,
-			unitPrice: item.unitPrice,
+			unitPricePaise: item.unitPricePaise,
 			qty: item.qty
 		}))
 	);
@@ -183,6 +193,62 @@ async function decrementProductStock(
 	return updated.length > 0;
 }
 
+async function resolveStoredRazorpayOrderId(
+	tx: DbExecutor,
+	order: { activePaymentAttemptId: string | null }
+): Promise<string | null> {
+	if (!order.activePaymentAttemptId) {
+		return null;
+	}
+
+	const attempt = await findPaymentAttemptById(tx, order.activePaymentAttemptId);
+	const providerOrderId = resolveProviderOrderId(attempt);
+	if (providerOrderId && attempt?.status !== PAYMENT_ATTEMPT_STATUS.FAILED) {
+		return providerOrderId;
+	}
+
+	return null;
+}
+
+async function findCheckoutOrderByProviderOrderId(tx: DbExecutor, razorpayOrderId: string) {
+	const attempt = await findPaymentAttemptByProviderOrderId(tx, razorpayOrderId);
+	if (attempt?.kind !== PAYMENT_ATTEMPT_KIND.CART_ORDER) {
+		return null;
+	}
+
+	const [order] = await tx
+		.select()
+		.from(orders)
+		.where(eq(orders.id, attempt.entityId))
+		.limit(1);
+
+	return order ?? null;
+}
+
+async function persistCheckoutPaymentAttempt(
+	tx: DbExecutor,
+	orderId: string,
+	providerOrderId: string,
+	amountPaise: number
+) {
+	const attempt = await createPaymentAttempt(tx, {
+		kind: PAYMENT_ATTEMPT_KIND.CART_ORDER,
+		entityId: orderId,
+		providerOrderId,
+		amountPaise
+	});
+
+	await tx
+		.update(orders)
+		.set({
+			activePaymentAttemptId: attempt.id,
+			updatedAt: sql`now()`
+		})
+		.where(eq(orders.id, orderId));
+
+	return attempt;
+}
+
 export function createCheckoutStore(
 	db: Database,
 	razorpayClient: RazorpayClient,
@@ -197,7 +263,7 @@ export function createCheckoutStore(
 			);
 
 			const prepared = await db.transaction(async (tx) => {
-				const cart = await findActiveCartRow(tx, actor);
+				const cart = await findCheckoutCartRow(tx, actor);
 				if (!cart) {
 					return { kind: 'cart_empty' as const };
 				}
@@ -232,7 +298,7 @@ export function createCheckoutStore(
 				let orderId: string;
 
 				if (existingOrder) {
-					const previousTotal = existingOrder.total;
+					const previousTotalPaise = existingOrder.totalPaise;
 					const addressChanged = !checkoutOrderAddressesEqual(
 						existingOrder.address,
 						normalizedAddresses
@@ -242,9 +308,9 @@ export function createCheckoutStore(
 						.update(orders)
 						.set({
 							address: normalizedAddresses,
-							subtotal: totals.subtotal,
-							deliveryFee: totals.deliveryFee,
-							total: totals.total,
+							subtotalPaise: totals.subtotalPaise,
+							deliveryFeePaise: totals.deliveryFeePaise,
+							totalPaise: totals.totalPaise,
 							updatedAt: sql`now()`
 						})
 						.where(eq(orders.id, existingOrder.id));
@@ -253,9 +319,9 @@ export function createCheckoutStore(
 					orderId = existingOrder.id;
 
 					const auditMeta: Record<string, unknown> = { addressChanged };
-					if (totals.total !== previousTotal) {
-						auditMeta.previousTotal = previousTotal;
-						auditMeta.total = totals.total;
+					if (totals.totalPaise !== previousTotalPaise) {
+						auditMeta.previousTotalPaise = previousTotalPaise;
+						auditMeta.totalPaise = totals.totalPaise;
 					}
 
 					await writeAudit(tx, {
@@ -269,23 +335,25 @@ export function createCheckoutStore(
 						meta: auditMeta
 					});
 
+					const storedRazorpayOrderId = await resolveStoredRazorpayOrderId(tx, existingOrder);
+
 					if (
 						!refreshPayment &&
-						shouldReuseRazorpayOrder(existingOrder.razorpayOrderId) &&
-						totals.total === previousTotal
+						shouldReuseRazorpayOrder(storedRazorpayOrderId) &&
+						totals.totalPaise === previousTotalPaise
 					) {
 						return {
 							kind: 'reuse' as const,
 							orderId,
-							razorpayOrderId: existingOrder.razorpayOrderId!,
-							total: totals.total
+							razorpayOrderId: storedRazorpayOrderId!,
+							totalPaise: totals.totalPaise
 						};
 					}
 
 					return {
 						kind: 'created' as const,
 						orderId,
-						total: totals.total,
+						totalPaise: totals.totalPaise,
 						razorpayOrderId: null
 					};
 				} else {
@@ -297,9 +365,9 @@ export function createCheckoutStore(
 							clientId: cart.clientId,
 							status: CART_ORDER_STATUS.PAYMENT_PENDING,
 							address: normalizedAddresses,
-							subtotal: totals.subtotal,
-							deliveryFee: totals.deliveryFee,
-							total: totals.total
+							subtotalPaise: totals.subtotalPaise,
+							deliveryFeePaise: totals.deliveryFeePaise,
+							totalPaise: totals.totalPaise
 						})
 						.returning();
 
@@ -313,7 +381,7 @@ export function createCheckoutStore(
 						action: 'created',
 						fromState: null,
 						toState: CART_ORDER_STATUS.PAYMENT_PENDING,
-						meta: { cartId: cart.id, total: totals.total }
+						meta: { cartId: cart.id, totalPaise: totals.totalPaise }
 					});
 
 					await tx
@@ -330,7 +398,7 @@ export function createCheckoutStore(
 				return {
 					kind: 'created' as const,
 					orderId,
-					total: totals.total,
+					totalPaise: totals.totalPaise,
 					razorpayOrderId: null
 				};
 			});
@@ -352,14 +420,19 @@ export function createCheckoutStore(
 			}
 
 			if (prepared.kind === 'reuse') {
+				const expectedAmountPaise = prepared.totalPaise;
 				const existingRazorpayOrder = await razorpayClient.fetchOrder(prepared.razorpayOrderId);
-				if (existingRazorpayOrder) {
+				if (
+					existingRazorpayOrder &&
+					existingRazorpayOrder.amount === expectedAmountPaise
+				) {
 					return {
 						ok: true,
 						response: {
 							orderId: prepared.orderId,
 							razorpayOrderId: existingRazorpayOrder.id,
-							amountPaise: existingRazorpayOrder.amount,
+							amountPaise: expectedAmountPaise,
+							totalRupees: paiseToRupees(prepared.totalPaise),
 							currency: 'INR'
 						}
 					};
@@ -367,31 +440,35 @@ export function createCheckoutStore(
 
 				storeLog('warn', 'checkout.order.stale_razorpay_order', {
 					orderId: prepared.orderId,
-					razorpayOrderId: prepared.razorpayOrderId
+					razorpayOrderId: prepared.razorpayOrderId,
+					expectedAmountPaise,
+					actualAmountPaise: existingRazorpayOrder?.amount ?? null
 				});
 			}
 
 			if (prepared.kind === 'reuse' || prepared.kind === 'created') {
 				try {
 					const razorpayOrder = await razorpayClient.createOrder(
-						rupeesToPaise(prepared.total),
+						prepared.totalPaise,
 						prepared.orderId
 					);
 
-					await db
-						.update(orders)
-						.set({
-							razorpayOrderId: razorpayOrder.id,
-							updatedAt: sql`now()`
-						})
-						.where(eq(orders.id, prepared.orderId));
+					await db.transaction(async (tx) => {
+						await persistCheckoutPaymentAttempt(
+							tx,
+							prepared.orderId,
+							razorpayOrder.id,
+							razorpayOrder.amount
+						);
+					});
 
 					return {
 						ok: true,
 						response: {
 							orderId: prepared.orderId,
 							razorpayOrderId: razorpayOrder.id,
-							amountPaise: razorpayOrder.amount,
+							amountPaise: prepared.totalPaise,
+							totalRupees: paiseToRupees(prepared.totalPaise),
 							currency: 'INR'
 						}
 					};
@@ -418,11 +495,20 @@ export function createCheckoutStore(
 
 		async confirmOrder(actor, razorpayOrderId, razorpayPaymentId) {
 			try {
-				const result = await db.transaction(async (tx) => {
+				const result = await db.transaction(async (tx): Promise<ConfirmOrderResult> => {
+					const located = await findCheckoutOrderByProviderOrderId(tx, razorpayOrderId);
+					if (!located) {
+						return {
+							ok: false as const,
+							status: 404 as const,
+							body: { error: 'order_not_found' as const }
+						};
+					}
+
 					const [order] = await tx
 						.select()
 						.from(orders)
-						.where(eq(orders.razorpayOrderId, razorpayOrderId))
+						.where(eq(orders.id, located.id))
 						.for('update')
 						.limit(1);
 
@@ -456,7 +542,6 @@ export function createCheckoutStore(
 							.update(orders)
 							.set({
 								status: CART_ORDER_STATUS.PAID,
-								razorpayPaymentId,
 								updatedAt: sql`now()`
 							})
 							.where(
@@ -500,6 +585,8 @@ export function createCheckoutStore(
 						};
 					}
 
+					await markPaymentAttemptPaid(tx, razorpayOrderId, razorpayPaymentId);
+
 					await writeAudit(tx, {
 						actorUserId: actor.userId,
 						actorClientId: actor.clientId,
@@ -524,6 +611,8 @@ export function createCheckoutStore(
 						.innerJoin(products, eq(orderItems.productId, products.id))
 						.where(eq(orderItems.orderId, order.id));
 
+					let stockConflict: { productId: string; qty: number } | null = null;
+
 					for (const line of lines) {
 						if (!shouldDecrementStock(line.stock)) {
 							continue;
@@ -531,14 +620,8 @@ export function createCheckoutStore(
 
 						const decremented = await decrementProductStock(tx, line.productId, line.qty);
 						if (!decremented) {
-							storeLog('error', 'checkout.confirm.stock_conflict', {
-								orderId: order.id,
-								razorpayOrderId,
-								razorpayPaymentId,
-								productId: line.productId,
-								qty: line.qty
-							});
-							throw stockConflictError();
+							stockConflict = { productId: line.productId, qty: line.qty };
+							break;
 						}
 					}
 
@@ -551,6 +634,42 @@ export function createCheckoutStore(
 						.where(eq(carts.id, order.cartId));
 
 					await tx.delete(cartItems).where(eq(cartItems.cartId, order.cartId));
+
+					if (stockConflict) {
+						storeLog('error', 'checkout.confirm.stock_conflict', {
+							orderId: order.id,
+							razorpayOrderId,
+							razorpayPaymentId,
+							productId: stockConflict.productId,
+							qty: stockConflict.qty,
+							requiresManualSupport: true
+						});
+
+						await writeAudit(tx, {
+							actorUserId: actor.userId,
+							actorClientId: actor.clientId,
+							entityType: 'order',
+							entityId: order.id,
+							action: 'paid_stock_conflict',
+							fromState: CART_ORDER_STATUS.PAID,
+							toState: CART_ORDER_STATUS.PAID,
+							providerIds: {
+								razorpayOrderId,
+								razorpayPaymentId
+							},
+							meta: {
+								productId: stockConflict.productId,
+								qty: stockConflict.qty,
+								requiresManualSupport: true
+							}
+						});
+
+						return {
+							ok: false,
+							status: 409,
+							body: { error: 'stock_conflict' }
+						};
+					}
 
 					return {
 						ok: true as const,
@@ -567,7 +686,11 @@ export function createCheckoutStore(
 					const [paidOrder] = await db
 						.select({ id: orders.id })
 						.from(orders)
-						.where(eq(orders.razorpayOrderId, razorpayOrderId))
+						.innerJoin(
+							paymentAttempts,
+							eq(paymentAttempts.id, orders.activePaymentAttemptId)
+						)
+						.where(eq(paymentAttempts.providerOrderId, razorpayOrderId))
 						.limit(1);
 
 					if (paidOrder) {
@@ -577,13 +700,6 @@ export function createCheckoutStore(
 
 				return result;
 			} catch (error) {
-				if (isStockConflict(error)) {
-					return {
-						ok: false,
-						status: 409,
-						body: { error: 'stock_conflict' }
-					};
-				}
 				if (isUniqueViolation(error)) {
 					return {
 						ok: true,
@@ -596,11 +712,7 @@ export function createCheckoutStore(
 
 		async failOrder(actor, razorpayOrderId, reason) {
 			return db.transaction(async (tx) => {
-				const [order] = await tx
-					.select()
-					.from(orders)
-					.where(eq(orders.razorpayOrderId, razorpayOrderId))
-					.limit(1);
+				const order = await findCheckoutOrderByProviderOrderId(tx, razorpayOrderId);
 
 				if (!order) {
 					return {
@@ -639,6 +751,8 @@ export function createCheckoutStore(
 							updatedAt: sql`now()`
 						})
 						.where(eq(carts.id, order.cartId));
+
+					await markPaymentAttemptFailed(tx, razorpayOrderId, reason);
 
 					await writeAudit(tx, {
 						actorUserId: actor.userId,

@@ -1,4 +1,5 @@
 import { CART_ORDER_STATUS, DELIVERY_FLAT_FEE } from '../contracts/cart.js';
+import { rupeesToPaise } from '../contracts/money.js';
 import type { CheckoutAddress } from '../contracts/address.js';
 import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import {
@@ -9,7 +10,6 @@ import {
 } from '../contracts/stock.js';
 import type { Actor } from '../types/context.js';
 import type { ProductSnapshot } from './cart.js';
-import { computeCartTotals, computeSubtotal } from './cart.js';
 
 export type CheckoutLine = {
 	productId: string;
@@ -20,7 +20,7 @@ export type CheckoutLine = {
 export type OrderItemSnapshot = {
 	productId: string;
 	productName: string;
-	unitPrice: number;
+	unitPricePaise: number;
 	qty: number;
 };
 
@@ -31,9 +31,9 @@ export type StockValidationFailure = {
 };
 
 export type OrderTotals = {
-	subtotal: number;
-	deliveryFee: number;
-	total: number;
+	subtotalPaise: number;
+	deliveryFeePaise: number;
+	totalPaise: number;
 };
 
 export function isOrderOwnedBy(
@@ -76,20 +76,24 @@ export function buildOrderItemSnapshots(lines: CheckoutLine[]): OrderItemSnapsho
 		return {
 			productId: line.productId,
 			productName: line.product.name ?? '',
-			unitPrice,
+			unitPricePaise: rupeesToPaise(unitPrice),
 			qty: line.qty
 		};
 	});
 }
 
 export function computeOrderTotals(items: OrderItemSnapshot[]): OrderTotals {
-	const pricedItems = items.map((item) => ({
-		unitPrice: item.unitPrice,
-		qty: item.qty
-	}));
+	const subtotalPaise = items.reduce(
+		(sum, item) => sum + item.unitPricePaise * item.qty,
+		0
+	);
+	const deliveryFeePaise = rupeesToPaise(DELIVERY_FLAT_FEE);
 
-	const subtotal = computeSubtotal(pricedItems);
-	return computeCartTotals(subtotal);
+	return {
+		subtotalPaise,
+		deliveryFeePaise,
+		totalPaise: subtotalPaise + deliveryFeePaise
+	};
 }
 
 export function shouldReuseRazorpayOrder(razorpayOrderId: string | null | undefined): boolean {
@@ -154,7 +158,7 @@ export function normalizeCheckoutOrderAddresses(
 	};
 }
 
-function asStoredOrderAddresses(stored: unknown): CheckoutOrderAddresses | null {
+export function asStoredOrderAddresses(stored: unknown): CheckoutOrderAddresses | null {
 	if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
 		return null;
 	}

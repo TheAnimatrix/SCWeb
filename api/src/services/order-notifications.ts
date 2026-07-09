@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { CheckoutAddress } from '../contracts/address.js';
 import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
+import { paiseToRupees } from '../contracts/money.js';
 import { getSiteUrl, type Env } from '../env.js';
 import type { Database } from '../db/index.js';
 import { orderItems } from '../db/schema/orderItems.js';
@@ -70,7 +71,7 @@ export function notifyOrderReceived(
 			.select({
 				qty: orderItems.qty,
 				productName: orderItems.productName,
-				unitPrice: orderItems.unitPrice
+				unitPricePaise: orderItems.unitPricePaise
 			})
 			.from(orderItems)
 			.where(eq(orderItems.orderId, orderId));
@@ -84,11 +85,11 @@ export function notifyOrderReceived(
 			items: lines.map((line) => ({
 				name: line.productName,
 				qty: line.qty,
-				priceInr: line.unitPrice
+				priceInr: paiseToRupees(line.unitPricePaise)
 			})),
-			subtotalInr: order.subtotal,
-			deliveryFeeInr: order.deliveryFee,
-			totalInr: order.total,
+			subtotalInr: paiseToRupees(order.subtotalPaise),
+			deliveryFeeInr: paiseToRupees(order.deliveryFeePaise),
+			totalInr: paiseToRupees(order.totalPaise),
 			ordersUrl: `${siteUrl}/user/profile/orders`
 		});
 

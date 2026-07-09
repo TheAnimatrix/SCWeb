@@ -16,6 +16,7 @@ import { orderItems } from '../db/schema/orderItems.js';
 import { orders } from '../db/schema/orders.js';
 import { products } from '../db/schema/products.js';
 import { auditLog } from '../db/schema/auditLog.js';
+import { paymentAttempts } from '../db/schema/paymentAttempts.js';
 import { createCheckoutStore } from './checkout-store.js';
 import type { RazorpayClient } from './razorpay-client.js';
 
@@ -71,14 +72,42 @@ const auditMigrationSql = readFileSync(
 	'utf8'
 );
 
+const paymentAttemptsMigrationSql = readFileSync(
+	resolve(import.meta.dirname, '../../drizzle/0005_payment_attempts.sql'),
+	'utf8'
+);
+
+const paiseMigrationSql = readFileSync(
+	resolve(import.meta.dirname, '../../drizzle/0006_money_paise.sql'),
+	'utf8'
+);
+
+async function execMigrationStatements(client: PGlite, sql: string) {
+	const statements = sql
+		.split('--> statement-breakpoint')
+		.map((statement) => statement.trim())
+		.filter(Boolean);
+
+	for (const statement of statements) {
+		await client.exec(statement);
+	}
+}
+
 type TestDb = {
 	client: PGlite;
 	db: Database;
 };
 
+const PRINTREQUESTS_STUB_SQL = `
+CREATE TABLE IF NOT EXISTS "printrequests" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL
+);
+`;
+
 async function createTestDb(): Promise<TestDb> {
 	const client = new PGlite();
 	await client.exec(PRODUCTS_STUB_SQL);
+	await client.exec(PRINTREQUESTS_STUB_SQL);
 
 	const statements = migrationSql
 		.split('--> statement-breakpoint')
@@ -89,14 +118,9 @@ async function createTestDb(): Promise<TestDb> {
 		await client.exec(statement);
 	}
 
-	const auditStatements = auditMigrationSql
-		.split('--> statement-breakpoint')
-		.map((statement) => statement.trim())
-		.filter(Boolean);
-
-	for (const statement of auditStatements) {
-		await client.exec(statement);
-	}
+	await execMigrationStatements(client, auditMigrationSql);
+	await execMigrationStatements(client, paymentAttemptsMigrationSql);
+	await execMigrationStatements(client, paiseMigrationSql);
 
 	const db = drizzle(client, { schema }) as unknown as Database;
 	return { client, db };
@@ -189,12 +213,15 @@ describe('CheckoutStore (PGlite)', () => {
 		const orderRows = await testDb.db.select().from(orders);
 		expect(orderRows).toHaveLength(1);
 		expect(orderRows[0]).toMatchObject({
-			subtotal: 300,
-			deliveryFee: 99,
-			total: 399,
-			status: CART_ORDER_STATUS.PAYMENT_PENDING,
-			razorpayOrderId: `order_${orderRows[0]!.id}`
+			subtotalPaise: 30000,
+			deliveryFeePaise: 9900,
+			totalPaise: 39900,
+			status: CART_ORDER_STATUS.PAYMENT_PENDING
 		});
+		expect(orderRows[0]?.activePaymentAttemptId).toBeTruthy();
+
+		const [attempt] = await testDb.db.select().from(paymentAttempts);
+		expect(attempt?.providerOrderId).toBe(`order_${orderRows[0]!.id}`);
 
 		const items = await testDb.db
 			.select()
@@ -205,13 +232,13 @@ describe('CheckoutStore (PGlite)', () => {
 				expect.objectContaining({
 					productId: PRODUCT_1,
 					productName: 'Widget A',
-					unitPrice: 100,
+					unitPricePaise: 10000,
 					qty: 2
 				}),
 				expect.objectContaining({
 					productId: PRODUCT_2,
 					productName: 'Widget B',
-					unitPrice: 100,
+					unitPricePaise: 10000,
 					qty: 1
 				})
 			])
@@ -220,6 +247,53 @@ describe('CheckoutStore (PGlite)', () => {
 		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
 		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
 		expect(razorpay.createOrder).toHaveBeenCalledWith(39900, orderRows[0]!.id);
+	});
+
+	it('charges the active cart when an abandoned payment_pending cart also exists', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+		await seedProduct(testDb.db, PRODUCT_2, 5, 'Widget B');
+
+		const pendingCart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+		await testDb.db.insert(cartItems).values({
+			cartId: pendingCart.id,
+			productId: PRODUCT_2,
+			qty: 1
+		});
+		await testDb.db
+			.update(carts)
+			.set({ status: CART_ORDER_STATUS.PAYMENT_PENDING })
+			.where(eq(carts.id, pendingCart.id));
+
+		const [pendingOrder] = await testDb.db
+			.insert(orders)
+			.values({
+				cartId: pendingCart.id,
+				clientId: CLIENT_A,
+				status: CART_ORDER_STATUS.PAYMENT_PENDING,
+				address: { shipping: ADDRESS, billing: ADDRESS },
+				subtotalPaise: 30000,
+				deliveryFeePaise: 9900,
+				totalPaise: 39900
+			})
+			.returning();
+
+		const activeCart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+
+		const razorpay = fakeRazorpay();
+		const store = createCheckoutStore(testDb.db, razorpay);
+		const result = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		expect(result.response.totalRupees).toBe(199);
+		expect(result.response.amountPaise).toBe(19900);
+		expect(razorpay.createOrder).toHaveBeenCalledWith(19900, expect.any(String));
+
+		const orderRows = await testDb.db.select().from(orders);
+		const activeOrder = orderRows.find((row) => row.cartId === activeCart.id);
+		expect(activeOrder).toBeTruthy();
+		expect(activeOrder?.id).not.toBe(pendingOrder.id);
 	});
 
 	it('confirms once and decrements stock exactly once', async () => {
@@ -253,7 +327,7 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(remainingItems).toHaveLength(0);
 	});
 
-	it('rolls back on stock conflict during confirm', async () => {
+	it('persists payment evidence on stock conflict during confirm', async () => {
 		await seedProduct(testDb.db, PRODUCT_1, 2);
 		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
 
@@ -281,14 +355,75 @@ describe('CheckoutStore (PGlite)', () => {
 		});
 
 		const orderRow = await testDb.db.select().from(orders);
-		expect(orderRow[0]?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
-		expect(orderRow[0]?.razorpayPaymentId).toBeNull();
+		expect(orderRow[0]?.status).toBe(CART_ORDER_STATUS.PAID);
+		const [attempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.providerOrderId, created.response.razorpayOrderId));
+		expect(attempt?.status).toBe('paid');
+		expect(attempt?.providerPaymentId).toBe('pay_conflict');
 
 		const cartItemsLeft = await testDb.db
 			.select()
 			.from(cartItems)
 			.where(eq(cartItems.cartId, cart.id));
-		expect(cartItemsLeft).toHaveLength(1);
+		expect(cartItemsLeft).toHaveLength(0);
+
+		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
+		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.PAID);
+
+		const stockConflictAudit = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'paid_stock_conflict'));
+		expect(stockConflictAudit).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				toState: CART_ORDER_STATUS.PAID,
+				providerIds: {
+					razorpayOrderId: created.response.razorpayOrderId,
+					razorpayPaymentId: 'pay_conflict'
+				},
+				meta: {
+					productId: PRODUCT_1,
+					qty: 2,
+					requiresManualSupport: true
+				}
+			})
+		]);
+	});
+
+	it('returns already_paid on duplicate confirm after stock conflict', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 2);
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder({ userId: null, clientId: CLIENT_A }, orderAddresses());
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		await testDb.db
+			.update(products)
+			.set({ stock: { count: 1, status: 'in stock' } })
+			.where(eq(products.id, PRODUCT_1));
+
+		const first = await store.confirmOrder(
+			{ userId: null, clientId: CLIENT_A },
+			created.response.razorpayOrderId,
+			'pay_conflict_dup'
+		);
+		const second = await store.confirmOrder(
+			{ userId: null, clientId: CLIENT_A },
+			created.response.razorpayOrderId,
+			'pay_conflict_dup'
+		);
+
+		expect(first).toEqual({
+			ok: false,
+			status: 409,
+			body: { error: 'stock_conflict' }
+		});
+		expect(second).toEqual({ ok: true, response: { status: 'already_paid' } });
 	});
 
 	it('marks payment_pending orders and carts as failed', async () => {
@@ -398,7 +533,7 @@ describe('CheckoutStore (PGlite)', () => {
 		const orderAfterFailure = await testDb.db.select().from(orders);
 		expect(orderAfterFailure[0]).toMatchObject({
 			status: CART_ORDER_STATUS.PAYMENT_PENDING,
-			razorpayOrderId: null
+			activePaymentAttemptId: null
 		});
 
 		const second = await store.createOrder(actor, orderAddresses());
@@ -409,7 +544,12 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(second.response.razorpayOrderId).toMatch(/^order_/);
 
 		const orderAfterRetry = await testDb.db.select().from(orders);
-		expect(orderAfterRetry[0]?.razorpayOrderId).toBe(second.response.razorpayOrderId);
+		expect(orderAfterRetry[0]?.activePaymentAttemptId).toBeTruthy();
+		const [retryAttempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.providerOrderId, second.response.razorpayOrderId));
+		expect(retryAttempt).toBeTruthy();
 	});
 
 	it('rejects confirm and fail from another actor', async () => {
@@ -472,9 +612,9 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const orderRow = await testDb.db.select().from(orders);
 		expect(orderRow[0]).toMatchObject({
-			subtotal: 200,
-			deliveryFee: 99,
-			total: 299
+			subtotalPaise: 20000,
+			deliveryFeePaise: 9900,
+			totalPaise: 29900
 		});
 		expect(orderRow[0]?.address).toEqual(orderAddresses(updatedAddress));
 
@@ -486,7 +626,7 @@ describe('CheckoutStore (PGlite)', () => {
 			expect.objectContaining({
 				productId: PRODUCT_1,
 				productName: 'Widget A',
-				unitPrice: 100,
+				unitPricePaise: 10000,
 				qty: 2
 			})
 		]);
@@ -532,9 +672,9 @@ describe('CheckoutStore (PGlite)', () => {
 		if (!first.ok) return;
 
 		await testDb.db
-			.update(orders)
-			.set({ razorpayOrderId: 'order_stale_test_key' })
-			.where(eq(orders.id, first.response.orderId));
+			.update(paymentAttempts)
+			.set({ providerOrderId: 'order_stale_test_key' })
+			.where(eq(paymentAttempts.providerOrderId, first.response.razorpayOrderId));
 
 		const second = await store.createOrder(actor, orderAddresses());
 		expect(second.ok).toBe(true);
@@ -545,7 +685,52 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(fetchOrder).toHaveBeenCalledWith('order_stale_test_key');
 
 		const orderRow = await testDb.db.select().from(orders);
-		expect(orderRow[0]?.razorpayOrderId).toBe(second.response.razorpayOrderId);
+		const [latestAttempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.id, orderRow[0]!.activePaymentAttemptId!));
+		expect(latestAttempt?.providerOrderId).toBe(second.response.razorpayOrderId);
+	});
+
+	it('creates a new Razorpay order when the stored Razorpay amount no longer matches the cart', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		let razorpayCall = 0;
+		const createOrder = vi.fn(async (amountPaise: number, receipt: string) => {
+			razorpayCall += 1;
+			return {
+				id: `order_${receipt}_v${razorpayCall}`,
+				amount: amountPaise,
+				currency: 'INR'
+			};
+		});
+		const fetchOrder = vi.fn(async () => ({
+			id: 'order_stale_amount',
+			amount: 249600,
+			currency: 'INR'
+		}));
+		const store = createCheckoutStore(testDb.db, fakeRazorpay({ createOrder, fetchOrder }));
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const first = await store.createOrder(actor, orderAddresses());
+		expect(first.ok).toBe(true);
+		if (!first.ok) return;
+
+		await testDb.db
+			.update(paymentAttempts)
+			.set({ providerOrderId: 'order_stale_amount' })
+			.where(eq(paymentAttempts.providerOrderId, first.response.razorpayOrderId));
+
+		const second = await store.createOrder(actor, orderAddresses());
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+
+		expect(second.response.totalRupees).toBe(299);
+		expect(second.response.amountPaise).toBe(29900);
+		expect(second.response.razorpayOrderId).not.toBe('order_stale_amount');
+		expect(createOrder).toHaveBeenCalledTimes(2);
+		expect(fetchOrder).toHaveBeenCalledWith('order_stale_amount');
 	});
 
 	it('creates a new Razorpay order when re-entering with changed total', async () => {
@@ -583,10 +768,14 @@ describe('CheckoutStore (PGlite)', () => {
 
 		const orderRow = await testDb.db.select().from(orders);
 		expect(orderRow[0]).toMatchObject({
-			subtotal: 200,
-			total: 299,
-			razorpayOrderId: second.response.razorpayOrderId
+			subtotalPaise: 20000,
+			totalPaise: 29900
 		});
+		const [changedAttempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.providerOrderId, second.response.razorpayOrderId));
+		expect(changedAttempt).toBeTruthy();
 
 		const updatedAuditRows = await testDb.db
 			.select()
@@ -598,8 +787,8 @@ describe('CheckoutStore (PGlite)', () => {
 				action: 'updated',
 				meta: {
 					addressChanged: false,
-					previousTotal: 199,
-					total: 299
+					previousTotalPaise: 19900,
+					totalPaise: 29900
 				}
 			})
 		]);
@@ -664,7 +853,7 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(orderRow?.address).toEqual(orderAddresses(ADDRESS, billingAddress));
 	});
 
-	it('rolls back audit rows when confirm transaction fails', async () => {
+	it('keeps paid audit and writes stock conflict audit when confirm cannot decrement stock', async () => {
 		await seedProduct(testDb.db, PRODUCT_1, 2);
 		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
 
@@ -694,6 +883,12 @@ describe('CheckoutStore (PGlite)', () => {
 			.select()
 			.from(auditLog)
 			.where(eq(auditLog.action, 'paid'));
-		expect(paidAuditRows).toHaveLength(0);
+		expect(paidAuditRows).toHaveLength(1);
+
+		const stockConflictAuditRows = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'paid_stock_conflict'));
+		expect(stockConflictAuditRows).toHaveLength(1);
 	});
 });

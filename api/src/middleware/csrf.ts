@@ -3,6 +3,7 @@ import { getCorsOrigins, type Env } from '../env.js';
 import type { AppVariables } from '../types/context.js';
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const CSRF_EXEMPT_PATHS = new Set(['/webhooks/razorpay']);
 
 function normalizeOrigin(value: string | undefined): string | null {
 	if (!value) {
@@ -23,6 +24,11 @@ function hasBearerToken(authorization: string | undefined): boolean {
 export const csrfMiddleware = (): MiddlewareHandler<{ Variables: AppVariables }> => {
 	return async (c, next) => {
 		if (!MUTATING_METHODS.has(c.req.method)) {
+			await next();
+			return;
+		}
+
+		if (CSRF_EXEMPT_PATHS.has(new URL(c.req.url).pathname)) {
 			await next();
 			return;
 		}

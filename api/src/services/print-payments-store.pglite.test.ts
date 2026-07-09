@@ -1,12 +1,13 @@
 import { PGlite } from '@electric-sql/pglite';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { CheckoutAddress } from '../contracts/address.js';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import { printrequests } from '../db/schema/printrequests.js';
-import { purchases } from '../db/schema/purchases.js';
+import { paymentAttempts } from '../db/schema/paymentAttempts.js';
+import { printRequestEvents } from '../db/schema/printRequestEvents.js';
 import { auditLog } from '../db/schema/auditLog.js';
 import { createPrintPaymentsStore } from './print-payments-store.js';
 import type { RazorpayClient } from './razorpay-client.js';
@@ -44,35 +45,43 @@ CREATE TABLE IF NOT EXISTS "printrequests" (
 	"model_data" jsonb,
 	"request_stage" text,
 	"request_metadata" jsonb,
-	"order_id" text,
-	"payment_id" text,
+	"active_payment_attempt_id" uuid,
 	"address" jsonb
 );
 `;
 
-const PURCHASES_STUB_SQL = `
-CREATE TABLE IF NOT EXISTS "purchases" (
-	"id" serial PRIMARY KEY NOT NULL,
-	"amount" double precision,
-	"billing_address" jsonb,
-	"cart_id" uuid,
-	"client_id" text,
+const PAYMENT_ATTEMPTS_STUB_SQL = `
+CREATE TABLE IF NOT EXISTS "payment_attempts" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"kind" text NOT NULL,
+	"entity_id" uuid NOT NULL,
+	"provider" text NOT NULL,
+	"provider_order_id" text NOT NULL,
+	"provider_payment_id" text,
+	"amount_paise" integer NOT NULL,
+	"currency" text DEFAULT 'INR' NOT NULL,
+	"status" text NOT NULL,
+	"failure_reason" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"payment_confirmed" boolean,
-	"payment_id" text NOT NULL,
-	"payment_id_b" text,
-	"payment_method" text,
-	"payment_signature" text,
-	"payment_status" text,
-	"shipping_address" jsonb,
-	"trackingCourier" text,
-	"trackingId" text,
-	"trackingUrl" text,
-	"uid" uuid
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS purchases_razorpay_payment_id_b_paid_unique
-ON purchases (payment_id_b)
-WHERE payment_status = 'paid';
+CREATE UNIQUE INDEX IF NOT EXISTS "payment_attempts_provider_order_id_unique" ON "payment_attempts" ("provider_order_id");
+`;
+
+const PRINT_REQUEST_EVENTS_STUB_SQL = `
+CREATE TABLE IF NOT EXISTS "print_request_events" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"print_request_id" uuid NOT NULL,
+	"type" text NOT NULL,
+	"actor_user_id" uuid,
+	"actor_role" text NOT NULL,
+	"amount_paise" integer,
+	"provider_order_id" text,
+	"provider_payment_id" text,
+	"reason" text,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
 `;
 
 const AUDIT_LOG_STUB_SQL = `
@@ -100,7 +109,8 @@ type TestDb = {
 async function createTestDb(): Promise<TestDb> {
 	const client = new PGlite();
 	await client.exec(PRINTREQUESTS_STUB_SQL);
-	await client.exec(PURCHASES_STUB_SQL);
+	await client.exec(PAYMENT_ATTEMPTS_STUB_SQL);
+	await client.exec(PRINT_REQUEST_EVENTS_STUB_SQL);
 	await client.exec(AUDIT_LOG_STUB_SQL);
 
 	const db = drizzle(client, { schema }) as unknown as Database;
@@ -137,7 +147,6 @@ async function seedQuotedPrintRequest(
 		userId?: string;
 		quote?: number;
 		stage?: string;
-		orderId?: string | null;
 		events?: unknown;
 	} = {}
 ) {
@@ -156,7 +165,6 @@ async function seedQuotedPrintRequest(
 		id: options.id ?? PRINT_REQUEST_ID,
 		userId: options.userId ?? USER_ID,
 		requestStage: options.stage ?? 'quoted',
-		orderId: options.orderId ?? null,
 		events,
 		model: 'models/test.stl'
 	});
@@ -198,16 +206,22 @@ describe('PrintPaymentsStore (PGlite)', () => {
 			.select()
 			.from(printrequests)
 			.where(eq(printrequests.id, PRINT_REQUEST_ID));
-		expect(row?.orderId).toBe(`order_${PRINT_REQUEST_ID}`);
+		expect(row?.activePaymentAttemptId).toBeTruthy();
+		const [attempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.entityId, PRINT_REQUEST_ID));
+		expect(attempt?.providerOrderId).toBe(`order_${PRINT_REQUEST_ID}`);
 		expect(row?.address).toEqual({ shipping: ADDRESS, billing: ADDRESS });
 		expect(row?.events).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					type: 'order_created',
-					extra: {
+					extra: expect.objectContaining({
 						amount: 2500,
+						amount_paise: 250000,
 						order_id: `order_${PRINT_REQUEST_ID}`
-					}
+					})
 				})
 			])
 		);
@@ -224,9 +238,21 @@ describe('PrintPaymentsStore (PGlite)', () => {
 				providerIds: { razorpayOrderId: `order_${PRINT_REQUEST_ID}` }
 			})
 		]);
+
+		const eventRows = await testDb.db
+			.select()
+			.from(printRequestEvents)
+			.where(eq(printRequestEvents.printRequestId, PRINT_REQUEST_ID));
+		expect(eventRows).toEqual([
+			expect.objectContaining({
+				type: 'order_created',
+				amountPaise: 250000,
+				providerOrderId: `order_${PRINT_REQUEST_ID}`
+			})
+		]);
 	});
 
-	it('confirms once and inserts a single purchase with legacy parity columns', async () => {
+	it('confirms once and records a single paid payment attempt', async () => {
 		await seedQuotedPrintRequest(testDb.db);
 
 		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay());
@@ -259,34 +285,31 @@ describe('PrintPaymentsStore (PGlite)', () => {
 			.from(printrequests)
 			.where(eq(printrequests.id, PRINT_REQUEST_ID));
 		expect(row?.requestStage).toBe('paid');
-		expect(row?.paymentId).toBe('pay_123');
+		const [attempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.entityId, PRINT_REQUEST_ID));
+		expect(attempt?.status).toBe('paid');
+		expect(attempt?.providerPaymentId).toBe('pay_123');
 		expect(row?.events).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					type: 'paid',
-					extra: {
+					extra: expect.objectContaining({
 						payment_id_a: created.response.razorpayOrderId,
 						payment_id_b: 'pay_123',
-						amount: 2500
-					}
+						amount: 2500,
+						amount_paise: 250000
+					})
 				})
 			])
 		);
 
-		const purchaseRows = await testDb.db.select().from(purchases);
-		expect(purchaseRows).toHaveLength(1);
-		expect(purchaseRows[0]).toMatchObject({
-			paymentStatus: 'paid',
-			paymentMethod: 'razorpay:PrintRequest',
-			paymentId: created.response.razorpayOrderId,
-			paymentIdB: 'pay_123',
-			cartId: PRINT_REQUEST_ID,
-			amount: 2500,
-			uid: USER_ID,
-			clientId: CLIENT_ID,
-			billingAddress: ADDRESS,
-			shippingAddress: ADDRESS
-		});
+		const eventRows = await testDb.db
+			.select()
+			.from(printRequestEvents)
+			.where(eq(printRequestEvents.printRequestId, PRINT_REQUEST_ID));
+		expect(eventRows.some((event) => event.type === 'paid')).toBe(true);
 
 		const auditRows = await testDb.db.select().from(auditLog).where(eq(auditLog.action, 'paid'));
 		expect(auditRows).toEqual([
@@ -303,7 +326,7 @@ describe('PrintPaymentsStore (PGlite)', () => {
 		]);
 	});
 
-	it('concurrent confirm inserts only one purchase', async () => {
+	it('concurrent confirm marks only one payment attempt paid', async () => {
 		await seedQuotedPrintRequest(testDb.db);
 
 		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay());
@@ -327,8 +350,16 @@ describe('PrintPaymentsStore (PGlite)', () => {
 		expect(statuses).toContain('paid');
 		expect(statuses).toContain('already_paid');
 
-		const purchaseRows = await testDb.db.select().from(purchases);
-		expect(purchaseRows).toHaveLength(1);
+		const paidAttempts = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(
+				and(
+					eq(paymentAttempts.entityId, PRINT_REQUEST_ID),
+					eq(paymentAttempts.status, 'paid')
+				)
+			);
+		expect(paidAttempts).toHaveLength(1);
 	});
 
 	it('reuses Razorpay order when re-entering with unchanged quote', async () => {
@@ -497,9 +528,12 @@ describe('PrintPaymentsStore (PGlite)', () => {
 
 		expect(confirmed).toEqual({ ok: true, response: { status: 'paid' } });
 
-		const purchaseRows = await testDb.db.select().from(purchases);
-		expect(purchaseRows).toHaveLength(1);
-		expect(purchaseRows[0]?.amount).toBe(2500);
+		const [attempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.entityId, PRINT_REQUEST_ID));
+		expect(attempt?.status).toBe('paid');
+		expect(attempt?.amountPaise).toBe(250000);
 
 		const [row] = await testDb.db
 			.select()
@@ -546,7 +580,7 @@ describe('PrintPaymentsStore (PGlite)', () => {
 			.select()
 			.from(printrequests)
 			.where(eq(printrequests.id, PRINT_REQUEST_ID));
-		expect(row?.orderId).toBeNull();
+		expect(row?.activePaymentAttemptId).toBeNull();
 
 		const auditRows = await testDb.db
 			.select()
@@ -616,13 +650,86 @@ describe('PrintPaymentsStore (PGlite)', () => {
 
 		expect(result).toEqual({ ok: false, status: 400, body: { error: 'order_mismatch' } });
 
-		const purchaseRows = await testDb.db.select().from(purchases);
-		expect(purchaseRows).toHaveLength(0);
+		const attemptRows = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.entityId, PRINT_REQUEST_ID));
+		expect(attemptRows.filter((row) => row.status === 'paid')).toHaveLength(0);
 
 		const [row] = await testDb.db
 			.select()
 			.from(printrequests)
 			.where(eq(printrequests.id, PRINT_REQUEST_ID));
 		expect(row?.requestStage).toBe('quoted');
+	});
+
+	it('does not clobber concurrent maker events when appending order_created', async () => {
+		await seedQuotedPrintRequest(testDb.db, { quote: 2500 });
+
+		let releaseRazorpay: (() => void) | undefined;
+		const razorpayGate = new Promise<void>((resolve) => {
+			releaseRazorpay = resolve;
+		});
+
+		const createOrder = vi.fn(async (amountPaise: number, receipt: string) => {
+			await razorpayGate;
+			return {
+				id: `order_${receipt}`,
+				amount: amountPaise,
+				currency: 'INR'
+			};
+		});
+
+		const store = createPrintPaymentsStore(testDb.db, fakeRazorpay({ createOrder }));
+		const actor = { userId: USER_ID, clientId: CLIENT_ID };
+
+		const createPromise = store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+
+		await testDb.db
+			.update(printrequests)
+			.set({
+				events: [
+					{
+						by: 'maker',
+						type: 'quoted',
+						reason: 'Initial quote',
+						timestamp: '2026-01-01T00:00:00.000Z',
+						extra: { quote: 2500 }
+					},
+					{
+						by: 'maker',
+						type: 'quoted',
+						reason: 'Concurrent re-quote',
+						timestamp: '2026-01-03T00:00:00.000Z',
+						extra: { quote: 2800 }
+					}
+				]
+			})
+			.where(eq(printrequests.id, PRINT_REQUEST_ID));
+
+		releaseRazorpay!();
+		const created = await createPromise;
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const [row] = await testDb.db
+			.select()
+			.from(printrequests)
+			.where(eq(printrequests.id, PRINT_REQUEST_ID));
+
+		const events = Array.isArray(row?.events) ? row.events : [];
+		expect(events).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					type: 'quoted',
+					extra: expect.objectContaining({ quote: 2800 })
+				}),
+				expect.objectContaining({
+					type: 'order_created',
+					extra: expect.objectContaining({ amount: 2500 })
+				})
+			])
+		);
+		expect(events).toHaveLength(3);
 	});
 });

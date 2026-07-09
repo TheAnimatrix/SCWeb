@@ -1,3 +1,5 @@
+import { PAYMENT_ATTEMPT_STATUS } from '../contracts/payment-attempts.js';
+import { rupeesToPaise } from '../contracts/money.js';
 import type { CheckoutAddress } from '../contracts/address.js';
 
 export const PAYABLE_PRINT_REQUEST_STAGES = ['quoted'] as const;
@@ -88,15 +90,18 @@ export function getPrintRequestAddressPart(
 	return value as CheckoutAddress;
 }
 
-export function buildOrderCreatedEvent(amount: number, orderId: string): PrintRequestEvent {
+export function buildOrderCreatedEvent(amountRupees: number, orderId: string): PrintRequestEvent {
+	const amountPaise = rupeesToPaise(amountRupees);
 	return {
 		by: 'user',
 		type: 'order_created',
-		reason: `Payment for 3D Print Request of amount ${amount}`,
+		reason: `Payment for 3D Print Request of amount ${amountRupees}`,
 		timestamp: new Date().toISOString(),
 		extra: {
-			amount,
-			order_id: orderId
+			amount: amountRupees,
+			amount_paise: amountPaise,
+			order_id: orderId,
+			provider_order_id: orderId
 		}
 	};
 }
@@ -104,8 +109,9 @@ export function buildOrderCreatedEvent(amount: number, orderId: string): PrintRe
 export function buildPaidEvent(
 	paymentIdA: string,
 	paymentIdB: string,
-	amount: number
+	amountRupees: number
 ): PrintRequestEvent {
+	const amountPaise = rupeesToPaise(amountRupees);
 	return {
 		by: 'user',
 		type: 'paid',
@@ -114,7 +120,10 @@ export function buildPaidEvent(
 		extra: {
 			payment_id_a: paymentIdA,
 			payment_id_b: paymentIdB,
-			amount
+			amount: amountRupees,
+			amount_paise: amountPaise,
+			provider_order_id: paymentIdA,
+			provider_payment_id: paymentIdB
 		}
 	};
 }
@@ -163,6 +172,19 @@ export function shouldReuseRazorpayOrder(
 	if (!orderId) return false;
 	const orderAmount = getOrderCreatedAmount(events, orderId);
 	return orderAmount === latestQuote;
+}
+
+export function shouldReusePrintPaymentOrder(
+	attempt: { amountPaise: number; status: string; providerOrderId: string } | null | undefined,
+	latestQuoteRupees: number
+): boolean {
+	if (!attempt) return false;
+	if (attempt.status === PAYMENT_ATTEMPT_STATUS.FAILED) return false;
+	try {
+		return attempt.amountPaise === rupeesToPaise(latestQuoteRupees);
+	} catch {
+		return false;
+	}
 }
 
 export function isPrintRequestOwnedBy(

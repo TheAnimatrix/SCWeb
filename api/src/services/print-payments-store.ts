@@ -5,10 +5,9 @@ import type {
 	CreatePrintPaymentOrderResponse,
 	FailPrintPaymentResponse
 } from '../contracts/print-payments.js';
-import { rupeesToPaise } from '../contracts/money.js';
-import type { Database } from '../db/index.js';
+import { rupeesToPaise, paiseToRupees } from '../contracts/money.js';
+import type { Database, DbExecutor } from '../db/index.js';
 import { printrequests } from '../db/schema/printrequests.js';
-import { purchases } from '../db/schema/purchases.js';
 import type { Actor } from '../types/context.js';
 import type { RazorpayClient } from './razorpay-client.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
@@ -16,25 +15,33 @@ import { storeLog } from '../middleware/logging.js';
 import type { Env } from '../env.js';
 import type { EmailService } from './email.js';
 import { notifyPrintPaymentReceived } from './order-notifications.js';
-
-export type PrintPaymentsStoreOptions = {
-	emailService?: EmailService;
-	env?: Env;
-};
+import {
+	createPaymentAttempt,
+	findPaymentAttemptById,
+	findActivePaymentAttemptForEntity,
+	markPaymentAttemptFailed,
+	markPaymentAttemptPaid,
+	PAYMENT_ATTEMPT_KIND,
+	PAYMENT_ATTEMPT_STATUS,
+	resolveProviderOrderId
+} from './payment-attempts.js';
+import { insertPrintRequestEvent, appendLegacyPrintRequestEvent } from './print-request-events.js';
 import {
 	buildOrderCreatedEvent,
 	buildPaidEvent,
 	buildPaymentFailedEvent,
 	getLatestQuote,
 	getLatestQuoteRejection,
-	getOrderCreatedAmount,
-	getPrintRequestAddressPart,
 	isPayablePrintRequestStage,
 	isPrintRequestOwnedBy,
 	normalizePrintAddress,
-	normalizePrintEvents,
-	shouldReuseRazorpayOrder
+	shouldReusePrintPaymentOrder
 } from './print-payments.js';
+
+export type PrintPaymentsStoreOptions = {
+	emailService?: EmailService;
+	env?: Env;
+};
 
 export type CreatePrintPaymentOrderResult =
 	| { ok: true; response: CreatePrintPaymentOrderResponse }
@@ -84,6 +91,23 @@ function isUniqueViolation(error: unknown): boolean {
 	);
 }
 
+async function resolveStoredPrintRazorpayOrderId(
+	tx: DbExecutor,
+	row: { activePaymentAttemptId: string | null }
+): Promise<string | null> {
+	if (!row.activePaymentAttemptId) {
+		return null;
+	}
+
+	const attempt = await findPaymentAttemptById(tx, row.activePaymentAttemptId);
+	const providerOrderId = resolveProviderOrderId(attempt);
+	if (providerOrderId && attempt?.status !== PAYMENT_ATTEMPT_STATUS.FAILED) {
+		return providerOrderId;
+	}
+
+	return null;
+}
+
 export function createPrintPaymentsStore(
 	db: Database,
 	razorpayClient: RazorpayClient,
@@ -127,7 +151,12 @@ export function createPrintPaymentsStore(
 
 				const normalizedAddress = normalizePrintAddress(address);
 
-				if (shouldReuseRazorpayOrder(row.orderId, row.events, latestQuote)) {
+				const activeAttempt = row.activePaymentAttemptId
+					? await findPaymentAttemptById(tx, row.activePaymentAttemptId)
+					: null;
+
+				if (shouldReusePrintPaymentOrder(activeAttempt, latestQuote)) {
+					const storedOrderId = activeAttempt!.providerOrderId;
 					await tx
 						.update(printrequests)
 						.set({
@@ -138,7 +167,7 @@ export function createPrintPaymentsStore(
 
 					return {
 						kind: 'reuse' as const,
-						razorpayOrderId: row.orderId!,
+						razorpayOrderId: storedOrderId,
 						amount: latestQuote
 					};
 				}
@@ -153,8 +182,7 @@ export function createPrintPaymentsStore(
 
 				return {
 					kind: 'create' as const,
-					amount: latestQuote,
-					events: normalizePrintEvents(row.events)
+					amount: latestQuote
 				};
 			});
 
@@ -202,14 +230,33 @@ export function createPrintPaymentsStore(
 						.where(eq(printrequests.id, printRequestId))
 						.limit(1);
 
+					const attempt = await createPaymentAttempt(tx, {
+						kind: PAYMENT_ATTEMPT_KIND.PRINT_REQUEST,
+						entityId: printRequestId,
+						providerOrderId: razorpayOrder.id,
+						amountPaise: razorpayOrder.amount
+					});
+
 					await tx
 						.update(printrequests)
 						.set({
-							orderId: razorpayOrder.id,
-							events: [...prepared.events, orderCreatedEvent],
+							activePaymentAttemptId: attempt.id,
 							lastUpdated: sql`now()`
 						})
 						.where(eq(printrequests.id, printRequestId));
+
+					await insertPrintRequestEvent(tx, {
+						printRequestId,
+						type: 'order_created',
+						actorUserId: userId,
+						actorRole: 'user',
+						amountPaise: razorpayOrder.amount,
+						providerOrderId: razorpayOrder.id,
+						reason: orderCreatedEvent.reason,
+						metadata: orderCreatedEvent.extra ?? null
+					});
+
+					await appendLegacyPrintRequestEvent(tx, printRequestId, orderCreatedEvent);
 
 					await writeAudit(tx, {
 						actorUserId: userId,
@@ -274,7 +321,15 @@ export function createPrintPaymentsStore(
 						};
 					}
 
-					if (!row.orderId) {
+					const pendingAttempt = row.activePaymentAttemptId
+						? await findPaymentAttemptById(tx, row.activePaymentAttemptId)
+						: await findActivePaymentAttemptForEntity(
+								tx,
+								PAYMENT_ATTEMPT_KIND.PRINT_REQUEST,
+								printRequestId
+							);
+
+					if (!pendingAttempt) {
 						return {
 							ok: false as const,
 							status: 400 as const,
@@ -282,7 +337,8 @@ export function createPrintPaymentsStore(
 						};
 					}
 
-					if (row.orderId !== razorpayOrderId) {
+					const storedOrderId = pendingAttempt.providerOrderId;
+					if (storedOrderId !== razorpayOrderId) {
 						return {
 							ok: false as const,
 							status: 400 as const,
@@ -290,14 +346,7 @@ export function createPrintPaymentsStore(
 						};
 					}
 
-					const orderAmount = getOrderCreatedAmount(row.events, row.orderId);
-					if (orderAmount === null) {
-						return {
-							ok: false as const,
-							status: 400 as const,
-							body: { error: 'reorder_required' as const }
-						};
-					}
+					const orderAmount = paiseToRupees(pendingAttempt.amountPaise);
 
 					const latestQuote = getLatestQuote(row.events);
 					if (latestQuote !== null && latestQuote !== orderAmount) {
@@ -309,15 +358,11 @@ export function createPrintPaymentsStore(
 					}
 
 					const paidEvent = buildPaidEvent(razorpayOrderId, razorpayPaymentId, orderAmount);
-					const updatedEvents = [...normalizePrintEvents(row.events), paidEvent];
 
 					const claimed = await tx
 						.update(printrequests)
 						.set({
 							requestStage: 'paid',
-							paymentId: razorpayPaymentId,
-							orderId: razorpayOrderId,
-							events: updatedEvents,
 							lastUpdated: sql`now()`
 						})
 						.where(
@@ -346,6 +391,22 @@ export function createPrintPaymentsStore(
 						};
 					}
 
+					await markPaymentAttemptPaid(tx, razorpayOrderId, razorpayPaymentId);
+
+					await insertPrintRequestEvent(tx, {
+						printRequestId,
+						type: 'paid',
+						actorUserId: userId,
+						actorRole: 'user',
+						amountPaise: pendingAttempt.amountPaise,
+						providerOrderId: razorpayOrderId,
+						providerPaymentId: razorpayPaymentId,
+						reason: paidEvent.reason,
+						metadata: paidEvent.extra ?? null
+					});
+
+					await appendLegacyPrintRequestEvent(tx, printRequestId, paidEvent);
+
 					await writeAudit(tx, {
 						actorUserId: userId,
 						actorClientId: actor.clientId,
@@ -359,31 +420,6 @@ export function createPrintPaymentsStore(
 							razorpayPaymentId
 						}
 					});
-
-					const purchaseInsert = {
-						paymentStatus: 'paid',
-						paymentMethod: 'razorpay:PrintRequest',
-						paymentId: razorpayOrderId,
-						paymentIdB: razorpayPaymentId,
-						billingAddress: getPrintRequestAddressPart(row.address, 'billing'),
-						shippingAddress: getPrintRequestAddressPart(row.address, 'shipping'),
-						clientId: actor.clientId ?? 'N/A',
-						cartId: printRequestId,
-						amount: orderAmount,
-						uid: userId
-					};
-
-					try {
-						await tx.insert(purchases).values(purchaseInsert);
-					} catch (error) {
-						if (isUniqueViolation(error)) {
-							return {
-								ok: true as const,
-								response: { status: 'already_paid' as const }
-							};
-						}
-						throw error;
-					}
 
 					return {
 						ok: true as const,
@@ -399,16 +435,19 @@ export function createPrintPaymentsStore(
 				) {
 					const [paidRow] = await db
 						.select({
-							events: printrequests.events,
-							orderId: printrequests.orderId
+							activePaymentAttemptId: printrequests.activePaymentAttemptId
 						})
 						.from(printrequests)
 						.where(eq(printrequests.id, printRequestId))
 						.limit(1);
 
+					const paidAttempt = paidRow?.activePaymentAttemptId
+						? await findPaymentAttemptById(db, paidRow.activePaymentAttemptId)
+						: null;
+
 					const amountInr =
-						paidRow && paidRow.orderId
-							? getOrderCreatedAmount(paidRow.events, paidRow.orderId)
+						paidAttempt?.status === PAYMENT_ATTEMPT_STATUS.PAID
+							? paiseToRupees(paidAttempt.amountPaise)
 							: null;
 
 					if (amountInr !== null) {
@@ -472,14 +511,15 @@ export function createPrintPaymentsStore(
 					};
 				}
 
-				if (!isPayablePrintRequestStage(row.requestStage) || !row.orderId) {
+				if (!isPayablePrintRequestStage(row.requestStage)) {
 					return {
 						ok: true as const,
 						response: { status: row.requestStage ?? 'quoted' }
 					};
 				}
 
-				if (row.orderId !== razorpayOrderId) {
+				const storedOrderId = await resolveStoredPrintRazorpayOrderId(tx, row);
+				if (!storedOrderId || storedOrderId !== razorpayOrderId) {
 					return {
 						ok: true as const,
 						response: { status: row.requestStage ?? 'quoted' }
@@ -487,13 +527,11 @@ export function createPrintPaymentsStore(
 				}
 
 				const failedEvent = buildPaymentFailedEvent(razorpayOrderId, reason);
-				const updatedEvents = [...normalizePrintEvents(row.events), failedEvent];
 
 				const changed = await tx
 					.update(printrequests)
 					.set({
-						orderId: null,
-						events: updatedEvents,
+						activePaymentAttemptId: null,
 						lastUpdated: sql`now()`
 					})
 					.where(
@@ -507,6 +545,20 @@ export function createPrintPaymentsStore(
 						response: { status: row.requestStage ?? 'quoted' }
 					};
 				}
+
+				await markPaymentAttemptFailed(tx, razorpayOrderId, reason);
+
+				await insertPrintRequestEvent(tx, {
+					printRequestId,
+					type: 'payment_failed',
+					actorUserId: userId,
+					actorRole: 'user',
+					providerOrderId: razorpayOrderId,
+					reason: failedEvent.reason,
+					metadata: failedEvent.extra ?? null
+				});
+
+				await appendLegacyPrintRequestEvent(tx, printRequestId, failedEvent);
 
 				await writeAudit(tx, {
 					actorUserId: userId,

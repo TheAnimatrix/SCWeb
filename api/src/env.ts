@@ -13,6 +13,7 @@ const envSchema = z.object({
 	PUBLIC_RAZORPAY_ID: z.string().min(1).optional(),
 	// Razorpay KEY SECRET (name kept for parity with the web app's .env).
 	RAZORPAY_KEY: z.string().min(1).optional(),
+	RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
 	RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
 	RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120),
 	SMTP_HOST: z.string().min(1).optional(),

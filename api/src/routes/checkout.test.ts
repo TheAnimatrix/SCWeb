@@ -130,6 +130,7 @@ describe('checkout routes', () => {
 			orderId: '00000000-0000-0000-0000-000000000001',
 			razorpayOrderId: 'order_existing',
 			amountPaise: 50000,
+			totalRupees: 500,
 			currency: 'INR'
 		};
 		const createOrder = vi.fn(async () => ({ ok: true as const, response: responseBody }));

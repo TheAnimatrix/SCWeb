@@ -26,6 +26,8 @@ export const createCheckoutOrderResponseSchema = z.object({
 	orderId: z.string().uuid(),
 	razorpayOrderId: z.string(),
 	amountPaise: z.number().int().positive(),
+	/** Whole INR rupees — mirrors the cart total used for this payment. */
+	totalRupees: z.number().int().positive(),
 	currency: z.literal('INR')
 });
 

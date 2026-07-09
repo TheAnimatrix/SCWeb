@@ -121,6 +121,7 @@ export type ProductSnapshot = {
 	id: string;
 	name: string | null;
 	author: string | null;
+	authorTier?: string | null;
 	guarantee: string | null;
 	price: { new: number; old: number } | null;
 	stock: unknown;
@@ -141,6 +142,7 @@ export function mapProductToCartItem(product: ProductSnapshot, qty: number): Car
 		qty,
 		name: product.name ?? '',
 		author: product.author,
+		authorTier: product.authorTier ?? null,
 		guarantee: product.guarantee,
 		imageUrl,
 		unitPrice,
