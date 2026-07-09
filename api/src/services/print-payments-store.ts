@@ -14,7 +14,7 @@ import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
 import type { Env } from '../env.js';
 import type { EmailService } from './email.js';
-import { notifyPrintPaymentReceived } from './order-notifications.js';
+import { notifyPrintPaymentReceived, getPrintRequestRecipient } from './order-notifications.js';
 import {
 	createPaymentAttempt,
 	findPaymentAttemptById,
@@ -451,14 +451,17 @@ export function createPrintPaymentsStore(
 							: null;
 
 					if (amountInr !== null) {
-						notifyPrintPaymentReceived(
-							db,
-							options.emailService,
-							options.env,
-							printRequestId,
-							userId,
-							amountInr
-						);
+						const parties = await getPrintRequestRecipient(db, printRequestId);
+						if (parties) {
+							notifyPrintPaymentReceived(
+								db,
+								options.emailService,
+								options.env,
+								printRequestId,
+								parties,
+								amountInr
+							);
+						}
 					}
 				}
 

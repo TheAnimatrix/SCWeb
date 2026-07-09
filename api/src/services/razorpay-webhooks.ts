@@ -48,6 +48,7 @@ type CapturedHandlerResult = {
 type PrintPaymentNotification = {
 	id: string;
 	userId: string;
+	creatorId: string;
 	amountInr: number;
 };
 
@@ -372,14 +373,15 @@ async function handleCaptured(
 			const result = await handlePrintCaptured(tx, attempt, payment, eventId);
 			if (result.status === 'processed' && result.notifyCustomer) {
 				const [row] = await tx
-					.select({ userId: printrequests.userId })
+					.select({ userId: printrequests.userId, creatorId: printrequests.creatorId })
 					.from(printrequests)
 					.where(eq(printrequests.id, attempt.entityId))
 					.limit(1);
-				if (row?.userId) {
+				if (row?.userId && row.creatorId) {
 					printToNotify = {
 						id: attempt.entityId,
 						userId: row.userId,
+						creatorId: row.creatorId,
 						amountInr: paiseToRupees(attempt.amountPaise)
 					};
 				}
@@ -522,7 +524,10 @@ export function createRazorpayWebhookService(
 						options.emailService,
 						options.env,
 						result.printToNotify.id,
-						result.printToNotify.userId,
+						{
+							userId: result.printToNotify.userId,
+							creatorId: result.printToNotify.creatorId
+						},
 						result.printToNotify.amountInr
 					);
 				}

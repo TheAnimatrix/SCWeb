@@ -108,7 +108,10 @@ export function createApp({
 	const resolvedPrintFilesStore =
 		printFilesStore === undefined
 			? isFilesConfigured(env)
-				? createPrintFilesStore(db, createSupabaseStorage(env))
+				? createPrintFilesStore(db, createSupabaseStorage(env), {
+						emailService: resolvedEmailService,
+						env
+					})
 				: null
 			: printFilesStore;
 	const resolvedPrintPaymentsStore =
@@ -134,7 +137,12 @@ export function createApp({
 			emailService: resolvedEmailService,
 			env
 		});
-	const resolvedChatsStore = chatsStore ?? createChatsStore(db);
+	const resolvedChatsStore =
+		chatsStore ??
+		createChatsStore(db, {
+			emailService: resolvedEmailService,
+			env
+		});
 	const resolvedCatalogStore = catalogStore ?? createCatalogStore(db);
 	const resolvedAuthStore = authStore ?? createAuthStore(db, env, resolvedEmailService);
 	const resolvedOrdersStore = ordersStore ?? createOrdersStore(db);

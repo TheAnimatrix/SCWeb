@@ -302,8 +302,7 @@ export function createPrintRequestsStore(
 						printRequestId,
 						parties,
 						action,
-						body,
-						actorId
+						body
 					);
 				}
 			}
@@ -320,20 +319,19 @@ function sendPrintStatusEmail(
 	printRequestId: string,
 	parties: { userId: string; creatorId: string },
 	action: PrintRequestAction,
-	body: PrintRequestActionBody,
-	actorId: string
+	body: PrintRequestActionBody
 ) {
 	switch (action) {
 		case 'quote':
 			if (body.action !== 'quote') return;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties.userId, {
+			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
 				action: 'quote',
 				amountInr: body.payload.amount
 			});
 			return;
 		case 'shipped':
 			if (body.action !== 'shipped') return;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties.userId, {
+			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
 				action: 'shipped',
 				courier: body.payload.courier,
 				trackingId: body.payload.tracking_id,
@@ -342,15 +340,14 @@ function sendPrintStatusEmail(
 			return;
 		case 'complete':
 			if (body.action !== 'complete') return;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties.creatorId, {
+			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
 				action: 'complete'
 			});
 			return;
 		case 'decline':
 		case 'cancel': {
 			if (body.action !== 'decline' && body.action !== 'cancel') return;
-			const recipientUserId = actorId === parties.userId ? parties.creatorId : parties.userId;
-			notifyPrintStatusUpdate(db, emailService, env, printRequestId, recipientUserId, {
+			notifyPrintStatusUpdate(db, emailService, env, printRequestId, parties, {
 				action: body.action === 'decline' ? 'decline' : 'cancel',
 				reason: body.payload.reason
 			});

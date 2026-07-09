@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
 import { printrequests } from '../db/schema/printrequests.js';
+import type { EmailService } from './email.js';
+import { notifyPrintQuoteRequested } from './order-notifications.js';
 import {
 	buildModelPath,
 	buildStorageKey,
@@ -70,6 +72,11 @@ export interface PrintFilesStore {
 	uploadPrintFile(input: UploadPrintFileInput): Promise<UploadPrintFileResult>;
 	getDownloadUrl(actorUserId: string, printRequestId: string): Promise<DownloadUrlResult>;
 }
+
+export type PrintFilesStoreOptions = {
+	emailService?: EmailService;
+	env?: Env;
+};
 
 export function isFilesConfigured(env: Env): boolean {
 	return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
@@ -203,7 +210,11 @@ function mapPrintRequestRow(row: typeof printrequests.$inferSelect): PrintReques
 	};
 }
 
-export function createPrintFilesStore(db: Database, storage: PrintFilesStorage): PrintFilesStore {
+export function createPrintFilesStore(
+	db: Database,
+	storage: PrintFilesStorage,
+	options?: PrintFilesStoreOptions
+): PrintFilesStore {
 	return {
 		async uploadPrintFile(input) {
 			const limit = await getDailyQuotaLimit(db, input.userId);
@@ -245,6 +256,13 @@ export function createPrintFilesStore(db: Database, storage: PrintFilesStorage):
 						requestStage: 'requested'
 					})
 					.returning();
+
+				if (options?.emailService && options.env && inserted.userId && inserted.creatorId) {
+					notifyPrintQuoteRequested(db, options.emailService, options.env, inserted.id, {
+						userId: inserted.userId,
+						creatorId: inserted.creatorId
+					});
+				}
 
 				return { ok: true, printRequest: mapPrintRequestRow(inserted) };
 			} catch (error) {

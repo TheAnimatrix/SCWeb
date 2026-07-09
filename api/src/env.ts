@@ -27,6 +27,7 @@ const envSchema = z.object({
 		)
 		.default(false),
 	EMAIL_FROM: z.string().default('Selfcrafted <noreply@selfcrafted.in>'),
+	ORDERS_INBOX_EMAIL: z.string().email().default('orders@selfcrafted.in'),
 	SITE_URL: z.string().url().optional(),
 	PUBLIC_SITE_URL: z.string().url().optional()
 });
