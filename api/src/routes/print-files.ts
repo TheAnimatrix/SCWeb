@@ -238,6 +238,28 @@ export function createPrintFilesRoutes(
 		return c.json({ printRequest: result.printRequest });
 	});
 
+	printFilesRoutes.get('/print-files/quota', requireAuth(), async (c) => {
+		const env = c.get('env');
+		const actor = c.get('actor');
+
+		if (!isFilesConfigured(env)) {
+			return c.json({ error: 'files_unconfigured' }, 503);
+		}
+
+		const store = getPrintFilesStore(c);
+		if (!store) {
+			return c.json({ error: 'files_unconfigured' }, 503);
+		}
+
+		const userId = actor.userId;
+		if (!userId) {
+			return c.json({ error: 'forbidden' }, 403);
+		}
+
+		const quota = await store.getUploadQuotaStatus(userId);
+		return c.json(quota);
+	});
+
 	printFilesRoutes.get(
 		'/print-files/:printRequestId/download-url',
 		requireAuth(),

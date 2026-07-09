@@ -24,6 +24,7 @@ type PrintStatusNotification = {
 	trackingLink?: string;
 	courier?: string;
 	reason?: string;
+	initiatedBy?: 'user' | 'maker';
 };
 
 function buildPrintStatusTemplate(
@@ -283,12 +284,26 @@ export function notifyPrintStatusUpdate(
 	notification: PrintStatusNotification
 ): void {
 	mail.dispatch(`print.status.${notification.action}`, async () => {
+		storeLog('info', 'mail.notify.start', {
+			event: `print.status.${notification.action}`,
+			printRequestId,
+			smtpConfigured: mail.isConfigured,
+			ordersInbox: mail.ordersInbox,
+			initiatedBy: notification.initiatedBy
+		});
+
 		const partyEmails = await resolvePrintPartyEmails(mail, parties);
 		const copies = getPrintStatusCopies(mail, notification, printRequestId);
 
 		sendPrintStatusEmails(mail, partyEmails, copies, {
 			printRequestId,
-			action: notification.action
+			action: notification.action,
+			initiatedBy: notification.initiatedBy,
+			recipients: {
+				user: partyEmails.userEmail,
+				maker: partyEmails.makerEmail,
+				inbox: mail.ordersInbox
+			}
 		});
 	});
 }
@@ -405,28 +420,41 @@ function getPrintStatusCopies(
 			const details = notification.reason
 				? [{ label: 'Reason', value: notification.reason }]
 				: [];
+			const userCancelled = notification.initiatedBy === 'user';
 
 			return {
 				inbox: buildPrintStatusTemplate(mail, printRequestId, {
 					title: 'Print request cancelled',
-					preheader: 'A print request was cancelled.',
-					intro: 'A print request was cancelled.',
+					preheader: userCancelled
+						? 'A customer cancelled a print request.'
+						: 'A maker declined a print request.',
+					intro: userCancelled
+						? 'A customer cancelled their 3D print quote request.'
+						: 'A maker declined a 3D print quote request.',
 					statusLabel: 'Cancelled',
 					details,
 					ctaHref: makerHref
 				}),
 				user: buildPrintStatusTemplate(mail, printRequestId, {
-					title: 'Request cancelled',
-					preheader: 'A print request was cancelled.',
-					intro: 'This print request was cancelled.',
+					title: userCancelled ? 'Request cancelled' : 'Request declined by maker',
+					preheader: userCancelled
+						? 'Your print request was cancelled.'
+						: 'The maker declined your print request.',
+					intro: userCancelled
+						? 'You cancelled this 3D print quote request.'
+						: 'The maker declined this 3D print quote request.',
 					statusLabel: 'Cancelled',
 					details,
 					ctaHref: userHref
 				}),
 				maker: buildPrintStatusTemplate(mail, printRequestId, {
-					title: 'Request cancelled',
-					preheader: 'A print request was cancelled.',
-					intro: 'This print request was cancelled.',
+					title: userCancelled ? 'Request cancelled by customer' : 'Request declined',
+					preheader: userCancelled
+						? 'A customer cancelled their print request.'
+						: 'You declined a print request.',
+					intro: userCancelled
+						? 'The customer cancelled this 3D print quote request.'
+						: 'You declined this 3D print quote request.',
 					statusLabel: 'Cancelled',
 					details,
 					ctaHref: makerHref

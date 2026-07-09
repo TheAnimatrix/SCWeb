@@ -345,8 +345,10 @@ function sendPrintStatusEmail(
 			if (body.action !== 'decline' && body.action !== 'cancel') return;
 			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
 				action: body.action === 'decline' ? 'decline' : 'cancel',
-				reason: body.payload.reason
+				reason: body.payload.reason,
+				initiatedBy: body.action === 'decline' ? 'maker' : 'user'
 			});
+			return;
 		}
 	}
 }

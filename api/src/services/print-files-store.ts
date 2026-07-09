@@ -71,6 +71,7 @@ export interface PrintFilesStorage {
 export interface PrintFilesStore {
 	uploadPrintFile(input: UploadPrintFileInput): Promise<UploadPrintFileResult>;
 	getDownloadUrl(actorUserId: string, printRequestId: string): Promise<DownloadUrlResult>;
+	getUploadQuotaStatus(userId: string): Promise<{ limit: number; used: number; remaining: number }>;
 }
 
 export type PrintFilesStoreOptions = {
@@ -315,6 +316,26 @@ export function createPrintFilesStore(
 				ok: true,
 				url: signed.signedUrl,
 				expiresAt: signedUrlExpiresAt(SIGNED_URL_EXPIRY_SECONDS)
+			};
+		},
+
+		async getUploadQuotaStatus(userId) {
+			const limit = await getDailyQuotaLimit(db, userId);
+			const result = await executeRows<{ count: number }>(
+				db,
+				sql`
+					SELECT count
+					FROM upload_quota
+					WHERE user_id = ${userId} AND quota_date = CURRENT_DATE
+					LIMIT 1
+				`
+			);
+			const used = result[0]?.count ?? 0;
+
+			return {
+				limit,
+				used,
+				remaining: Math.max(limit - used, 0)
 			};
 		}
 	};

@@ -58,6 +58,7 @@ function fakeStore(overrides: Partial<PrintFilesStore> = {}): PrintFilesStore {
 	return {
 		uploadPrintFile: vi.fn(),
 		getDownloadUrl: vi.fn(),
+		getUploadQuotaStatus: vi.fn(),
 		...overrides
 	};
 }
@@ -303,5 +304,22 @@ describe('print-files routes', () => {
 			url: 'https://example.supabase.co/signed',
 			expiresAt: '2026-07-08T12:00:00.000Z'
 		});
+	});
+
+	it('returns upload quota status for authenticated users', async () => {
+		const getUploadQuotaStatus = vi.fn(async () => ({
+			limit: 3,
+			used: 0,
+			remaining: 3
+		}));
+		const app = createTestApp(
+			{ userId: USER_ID, clientId: null },
+			fakeStore({ getUploadQuotaStatus })
+		);
+		const response = await app.request('/print-files/quota');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ limit: 3, used: 0, remaining: 3 });
+		expect(getUploadQuotaStatus).toHaveBeenCalledWith(USER_ID);
 	});
 });

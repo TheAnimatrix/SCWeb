@@ -162,6 +162,63 @@ describe('order-notifications', () => {
 		]);
 	});
 
+	it('notifies inbox, user, and maker when a customer cancels', async () => {
+		const { mail, sent } = createMockMail();
+		const db = { select: vi.fn() } as never;
+
+		notifyPrintStatusUpdate(
+			db,
+			mail,
+			'print-1',
+			{
+				userId: 'user-1',
+				creatorId: 'maker-1'
+			},
+			{
+				action: 'cancel',
+				reason: 'Changed mind',
+				initiatedBy: 'user'
+			}
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(sent.map((entry) => entry.to).sort()).toEqual([
+			'maker@example.com',
+			'orders@selfcrafted.in',
+			'user@example.com'
+		]);
+		expect(sent.find((entry) => entry.to === 'user@example.com')?.subject).toContain('cancelled');
+		expect(sent.find((entry) => entry.to === 'maker@example.com')?.subject).toContain('customer');
+	});
+
+	it('notifies inbox, user, and maker when a maker declines', async () => {
+		const { mail, sent } = createMockMail();
+		const db = { select: vi.fn() } as never;
+
+		notifyPrintStatusUpdate(
+			db,
+			mail,
+			'print-1',
+			{
+				userId: 'user-1',
+				creatorId: 'maker-1'
+			},
+			{
+				action: 'decline',
+				reason: 'Too busy',
+				initiatedBy: 'maker'
+			}
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(sent.map((entry) => entry.to).sort()).toEqual([
+			'maker@example.com',
+			'orders@selfcrafted.in',
+			'user@example.com'
+		]);
+		expect(sent.find((entry) => entry.to === 'user@example.com')?.subject).toContain('declined');
+	});
+
 	it('notifies only the customer user for print chat messages', async () => {
 		const { mail, sent } = createMockMail();
 		const printSelect = createSelectChain([{ userId: 'user-1' }]);

@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 			import { toastStore } from '$lib/client/toastStore';
-	import { mapPrintFilesError } from '$lib/client/printFilesApi';
+	import { mapPrintFilesError, getPrintFilesQuota } from '$lib/client/printFilesApi';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import { ScButton, TagBadge, Skeleton } from '$lib/components/sc';
 	import {
@@ -350,30 +350,23 @@
 
 	async function fetchQuoteRequestStats() {
 		loadingRequests = true;
-		const { data: userRes, error: userErr } = await supabase().auth.getUser();
-		if (userErr || !userRes?.user) {
+		if (!data.session) {
 			requestsLeft = null;
 			quoteDailyLimit = null;
 			loadingRequests = false;
 			return;
 		}
-		const user_id = userRes.user.id;
-		// Get user's daily limit
-		const { data: userRow } = await supabase()
-			.from('users')
-			.select('quote_daily_limit')
-			.eq('id', user_id)
-			.single();
-		quoteDailyLimit = userRow?.quote_daily_limit ?? 3;
-		// Get today's printrequests count
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const { count } = await supabase()
-			.from('printrequests')
-			.select('id', { count: 'exact', head: true })
-			.eq('user_id', user_id)
-			.gte('created_at', today.toISOString());
-		requestsLeft = (quoteDailyLimit ?? 0) - (count ?? 0);
+
+		const result = await getPrintFilesQuota(fetch);
+		if (!result.ok) {
+			requestsLeft = null;
+			quoteDailyLimit = null;
+			loadingRequests = false;
+			return;
+		}
+
+		quoteDailyLimit = result.data.limit;
+		requestsLeft = result.data.remaining;
 		loadingRequests = false;
 	}
 

@@ -75,6 +75,7 @@ export {
 } from './payment-attempts.js';
 export {
 	type DownloadUrlResponse,
+	type PrintFilesQuotaResponse,
 	type UploadMetadata,
 	type UploadPrintFileResponse,
 	uploadMetadataSchema

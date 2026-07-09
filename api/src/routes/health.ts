@@ -13,7 +13,7 @@ healthRoutes.get('/health', (c) => {
 		service: '@scweb/api',
 		requestId: c.get('requestId'),
 		mail: {
-			smtpConfigured: Boolean(mail?.isConfigured ?? env.SMTP_HOST),
+			smtpConfigured: Boolean(mail?.isConfigured),
 			ordersInboxConfigured: Boolean(env.ORDERS_INBOX_EMAIL)
 		}
 	});

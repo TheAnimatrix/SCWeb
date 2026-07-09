@@ -1,4 +1,4 @@
-import type { DownloadUrlResponse } from '@scweb/api/contracts';
+import type { DownloadUrlResponse, PrintFilesQuotaResponse } from '@scweb/api/contracts';
 
 export type PrintFilesApiError =
 	| { kind: 'file_too_large'; message: string }
@@ -120,6 +120,12 @@ async function apiRequest<T>(
 	}
 
 	return { ok: true, data: body as T };
+}
+
+export async function getPrintFilesQuota(
+	fetchFn: typeof fetch
+): Promise<PrintFilesApiResult<PrintFilesQuotaResponse>> {
+	return apiRequest<PrintFilesQuotaResponse>(fetchFn, '/print-files/quota');
 }
 
 export async function getModelDownloadUrl(
