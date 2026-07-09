@@ -35,7 +35,8 @@ describe('auth routes', () => {
 		const authStore = {
 			signup: vi.fn().mockResolvedValue({ ok: true, data: { needsConfirmation: true } }),
 			requestPasswordReset: vi.fn(),
-			confirmPasswordReset: vi.fn()
+			confirmPasswordReset: vi.fn(),
+			isUsernameAvailable: vi.fn()
 		} satisfies AuthStore;
 
 		const app = createTestApp(authStore);
@@ -59,7 +60,8 @@ describe('auth routes', () => {
 			requestPasswordReset: vi
 				.fn()
 				.mockResolvedValue({ ok: true, data: { message: 'If an account exists for that email, we sent password reset instructions.' } }),
-			confirmPasswordReset: vi.fn()
+			confirmPasswordReset: vi.fn(),
+			isUsernameAvailable: vi.fn()
 		} satisfies AuthStore;
 
 		const app = createTestApp(authStore);
@@ -73,5 +75,20 @@ describe('auth routes', () => {
 		await expect(response.json()).resolves.toEqual({
 			message: 'If an account exists for that email, we sent password reset instructions.'
 		});
+	});
+
+	it('returns username availability', async () => {
+		const authStore = {
+			signup: vi.fn(),
+			requestPasswordReset: vi.fn(),
+			confirmPasswordReset: vi.fn(),
+			isUsernameAvailable: vi.fn().mockResolvedValue(true)
+		} satisfies AuthStore;
+
+		const app = createTestApp(authStore);
+		const response = await app.request('http://localhost/auth/username-available?username=maker_one');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ available: true });
 	});
 });

@@ -44,6 +44,18 @@ export const signupResponseSchema = z.object({
 	needsConfirmation: z.boolean()
 });
 
+export const usernameAvailabilityQuerySchema = z.object({
+	username: z
+		.string()
+		.min(3)
+		.max(30)
+		.regex(/^[a-zA-Z0-9_]+$/, 'Username may only contain letters, numbers, and underscores')
+});
+
+export const usernameAvailabilityResponseSchema = z.object({
+	available: z.boolean()
+});
+
 export const passwordResetRequestResponseSchema = z.object({
 	message: z.string()
 });
@@ -55,3 +67,4 @@ export const passwordResetConfirmResponseSchema = z.object({
 export type SignupBody = z.infer<typeof signupBodySchema>;
 export type PasswordResetRequestBody = z.infer<typeof passwordResetRequestBodySchema>;
 export type PasswordResetConfirmBody = z.infer<typeof passwordResetConfirmBodySchema>;
+export type UsernameAvailabilityQuery = z.infer<typeof usernameAvailabilityQuerySchema>;

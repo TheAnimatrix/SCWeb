@@ -22,6 +22,7 @@ import type {
 } from '../contracts/catalog.js';
 import type { Database } from '../db/index.js';
 import { constants } from '../db/schema/constants.js';
+import { makers } from '../db/schema/makers.js';
 import { products } from '../db/schema/products.js';
 import { reviews } from '../db/schema/reviews.js';
 import { users } from '../db/schema/users.js';
@@ -44,7 +45,6 @@ import {
 
 const PAGE_SIZE = 12;
 const RELATED_LIMIT = 4;
-const STATS_CITIES_FALLBACK = 12;
 const HOME_RECENT_LIMIT = 6;
 
 const constantsCache = createTtlCache<GetConstantResponse>(60_000);
@@ -228,13 +228,17 @@ export function createCatalogStore(db: Database): CatalogStore {
 			const cached = homeCatalogCache.get('home');
 			if (cached) return cached;
 
-			const [recentProducts, recentSpares, recentFleaMarket, bannersConstant, listingsResult, makersResult] =
+			const [recentProducts, recentSpares, recentFleaMarket, bannersConstant, listingsResult, makersResult, usersResult] =
 				await Promise.all([
 					loadRecentByType('product'),
 					loadRecentByType('spare'),
 					loadRecentByType('flea-market'),
 					db.select().from(constants).where(eq(constants.key, 'BANNERS')).limit(1),
 					db.select({ value: count() }).from(products),
+					db
+						.select({ value: count() })
+						.from(makers)
+						.where(eq(makers.approvedState, 'approved')),
 					db.select({ value: count() }).from(users)
 				]);
 
@@ -267,9 +271,9 @@ export function createCatalogStore(db: Database): CatalogStore {
 				recentFleaMarket,
 				featuredProducts,
 				stats: {
-					makers: Number(makersResult[0]?.value ?? 48),
-					listings: Number(listingsResult[0]?.value ?? 128),
-					cities: STATS_CITIES_FALLBACK
+					makers: Number(makersResult[0]?.value ?? 0),
+					listings: Number(listingsResult[0]?.value ?? 0),
+					users: Number(usersResult[0]?.value ?? 0)
 				}
 			};
 

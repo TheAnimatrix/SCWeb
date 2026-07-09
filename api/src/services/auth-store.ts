@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Env } from '../env.js';
 import { getSiteUrl } from '../env.js';
 import type { Database } from '../db/index.js';
@@ -39,6 +39,25 @@ export function isAuthMailConfigured(env: Env): boolean {
 	return Boolean(env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
+export async function isUsernameTaken(
+	db: Database,
+	username: string,
+	excludeUserId?: string
+): Promise<boolean> {
+	const conditions = [sql`lower(${users.username}) = lower(${username})`];
+	if (excludeUserId) {
+		conditions.push(sql`${users.id} <> ${excludeUserId}::uuid`);
+	}
+
+	const [existing] = await db
+		.select({ id: users.id })
+		.from(users)
+		.where(and(...conditions))
+		.limit(1);
+
+	return Boolean(existing);
+}
+
 export function createAuthStore(db: Database, env: Env, emailService: EmailService) {
 	const siteUrl = getSiteUrl(env);
 
@@ -46,13 +65,7 @@ export function createAuthStore(db: Database, env: Env, emailService: EmailServi
 		async signup(body: SignupBody): Promise<AuthResult<{ needsConfirmation: boolean }>> {
 			const admin = createAdminClient(env);
 
-			const [existingUsername] = await db
-				.select({ id: users.id })
-				.from(users)
-				.where(sql`lower(${users.username}) = lower(${body.username})`)
-				.limit(1);
-
-			if (existingUsername) {
+			if (await isUsernameTaken(db, body.username)) {
 				return {
 					ok: false,
 					status: 409,
@@ -214,6 +227,10 @@ export function createAuthStore(db: Database, env: Env, emailService: EmailServi
 			}
 
 			return { ok: true, data: { message: 'Password updated. You can sign in now.' } };
+		},
+
+		async isUsernameAvailable(username: string, excludeUserId?: string): Promise<boolean> {
+			return !(await isUsernameTaken(db, username, excludeUserId));
 		}
 	};
 }

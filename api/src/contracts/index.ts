@@ -35,7 +35,7 @@ export {
 	type FailCheckoutBody,
 	type FailCheckoutResponse
 } from './checkout.js';
-export { rupeesToPaise } from './money.js';
+export { rupeesToPaise, paiseToRupees } from './money.js';
 export {
 	sendChatMessageBodySchema,
 	sendChatMessageResponseSchema,
@@ -63,6 +63,16 @@ export {
 	type FailPrintPaymentBody,
 	type FailPrintPaymentResponse
 } from './print-payments.js';
+export {
+	PAYMENT_ATTEMPT_KIND,
+	PAYMENT_ATTEMPT_STATUS,
+	PAYMENT_PROVIDER,
+	paymentAttemptKindSchema,
+	paymentAttemptStatusSchema,
+	type PaymentAttemptKind,
+	type PaymentAttemptStatus,
+	type PaymentProvider
+} from './payment-attempts.js';
 export {
 	type DownloadUrlResponse,
 	type UploadMetadata,
@@ -107,7 +117,34 @@ export {
 	passwordSchema,
 	signupBodySchema,
 	signupResponseSchema,
+	usernameAvailabilityQuerySchema,
+	usernameAvailabilityResponseSchema,
 	type PasswordResetConfirmBody,
 	type PasswordResetRequestBody,
-	type SignupBody
+	type SignupBody,
+	type UsernameAvailabilityQuery
 } from './auth.js';
+export {
+	availableMakerSchema,
+	listAvailableMakersResponseSchema,
+	makerApplicationSchema,
+	makerApprovalStateSchema,
+	makerFilamentSchema,
+	makerProfileSchema,
+	makerReviewSchema,
+	type AvailableMaker,
+	type ListAvailableMakersResponse,
+	type MakerApplication,
+	type MakerApprovalState,
+	type MakerFilament,
+	type MakerProfile,
+	type MakerReview
+} from './makers.js';
+export {
+	listUserOrdersResponseSchema,
+	userOrderItemViewSchema,
+	userOrderViewSchema,
+	type ListUserOrdersResponse,
+	type UserOrderItemView,
+	type UserOrderView
+} from './orders.js';

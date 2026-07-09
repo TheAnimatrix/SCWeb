@@ -38,6 +38,15 @@ import { createCatalogStore, type CatalogStore } from './services/catalog-store.
 import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
 import { createEmailService, type EmailService } from './services/email.js';
 import { createAuthStore, type AuthStore } from './services/auth-store.js';
+import { createOrdersStore, type OrdersStore } from './services/orders-store.js';
+import { createOrdersRoutes } from './routes/orders.js';
+import { createMakersStore, type MakersStore } from './services/makers-store.js';
+import { makersRoutes } from './routes/makers.js';
+import {
+	createRazorpayWebhookService,
+	type RazorpayWebhookService
+} from './services/razorpay-webhooks.js';
+import { razorpayWebhookRoutes } from './routes/razorpay-webhooks.js';
 import type { AppVariables } from './types/context.js';
 
 type CreateAppOptions = {
@@ -53,6 +62,9 @@ type CreateAppOptions = {
 	razorpayClient?: RazorpayClient;
 	emailService?: EmailService;
 	authStore?: AuthStore;
+	ordersStore?: OrdersStore;
+	makersStore?: MakersStore;
+	razorpayWebhookService?: RazorpayWebhookService;
 };
 
 export function createApp({
@@ -67,7 +79,10 @@ export function createApp({
 	catalogStore,
 	razorpayClient,
 	emailService,
-	authStore
+	authStore,
+	ordersStore,
+	makersStore,
+	razorpayWebhookService
 }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
 	const resolvedCartStore = cartStore ?? createCartStore(db);
@@ -122,6 +137,14 @@ export function createApp({
 	const resolvedChatsStore = chatsStore ?? createChatsStore(db);
 	const resolvedCatalogStore = catalogStore ?? createCatalogStore(db);
 	const resolvedAuthStore = authStore ?? createAuthStore(db, env, resolvedEmailService);
+	const resolvedOrdersStore = ordersStore ?? createOrdersStore(db);
+	const resolvedMakersStore = makersStore ?? createMakersStore(db);
+	const resolvedRazorpayWebhookService =
+		razorpayWebhookService ??
+		createRazorpayWebhookService(db, {
+			emailService: resolvedEmailService,
+			env
+		});
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
@@ -135,6 +158,9 @@ export function createApp({
 		c.set('catalogStore', resolvedCatalogStore);
 		c.set('emailService', resolvedEmailService);
 		c.set('authStore', resolvedAuthStore);
+		c.set('ordersStore', resolvedOrdersStore);
+		c.set('makersStore', resolvedMakersStore);
+		c.set('razorpayWebhookService', resolvedRazorpayWebhookService);
 		await next();
 	});
 
@@ -157,8 +183,11 @@ export function createApp({
 	app.route('/', healthRoutes);
 	app.route('/', authRoutes);
 	app.route('/', catalogRoutes);
+	app.route('/', makersRoutes);
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
+	app.route('/', razorpayWebhookRoutes);
+	app.route('/', createOrdersRoutes((c) => c.get('ordersStore')));
 	app.route('/', printFilesRoutes);
 	app.route('/', printPaymentsRoutes);
 	app.route(

@@ -58,7 +58,7 @@ export const homeCatalogResponseSchema = z.object({
 	stats: z.object({
 		makers: z.number(),
 		listings: z.number(),
-		cities: z.number()
+		users: z.number()
 	})
 });
 

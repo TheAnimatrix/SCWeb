@@ -10,6 +10,9 @@ import type { PrintRequestsStore } from '../services/print-requests-store.js';
 import type { CatalogStore } from '../services/catalog-store.js';
 import type { EmailService } from '../services/email.js';
 import type { AuthStore } from '../services/auth-store.js';
+import type { OrdersStore } from '../services/orders-store.js';
+import type { MakersStore } from '../services/makers-store.js';
+import type { RazorpayWebhookService } from '../services/razorpay-webhooks.js';
 
 export type Actor = {
 	userId: string | null;
@@ -28,6 +31,9 @@ export type AppVariables = {
 	catalogStore: CatalogStore;
 	emailService: EmailService;
 	authStore: AuthStore;
+	ordersStore: OrdersStore;
+	makersStore: MakersStore;
+	razorpayWebhookService: RazorpayWebhookService;
 	requestId: string;
 	actor: Actor;
 	user: User | null;
