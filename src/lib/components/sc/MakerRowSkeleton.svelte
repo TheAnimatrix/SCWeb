@@ -8,8 +8,8 @@
 	let { count = 3 }: Props = $props();
 </script>
 
-<div class="space-y-3" aria-hidden="true">
+<div class="contents" aria-hidden="true">
 	{#each [...Array(count).keys()] as i (i)}
-		<Skeleton class="h-16 rounded-md border border-border" />
+		<Skeleton class="h-36 rounded-lg border border-border" />
 	{/each}
 </div>

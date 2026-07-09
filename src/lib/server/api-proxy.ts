@@ -1,8 +1,13 @@
 const UPLOAD_TIMEOUT_MS = 60_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
+export const UPLOAD_PROXY_PATH = 'print-files/upload';
+
+export function isUploadProxyPath(path: string | undefined): boolean {
+	return path === UPLOAD_PROXY_PATH;
+}
 
 export function getProxyTimeoutMs(path: string | undefined): number {
-	if (path === 'print-files/upload') {
+	if (isUploadProxyPath(path)) {
 		return UPLOAD_TIMEOUT_MS;
 	}
 

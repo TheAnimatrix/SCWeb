@@ -35,7 +35,10 @@ fi
 
 export PORT=3000
 export HOST=0.0.0.0
-: "${API_ORIGIN:=http://127.0.0.1:3001}"
-export API_ORIGIN
+# Always proxy to the co-located API — never the public api.* hostname (hairpin/streaming breaks uploads).
+export API_ORIGIN=http://127.0.0.1:3001
+# SvelteKit adapter-node defaults to 512K; STL uploads allow up to 50MB (+ multipart overhead).
+: "${BODY_SIZE_LIMIT:=55M}"
+export BODY_SIZE_LIMIT
 
 exec node build/index.js

@@ -64,6 +64,24 @@
 	let uploadProgress = $state<Record<string, number | null>>({});
 
 	const hasModel = $derived(Boolean(model));
+	const visibleMakers = $derived(
+		material ? makers.filter((maker) => material in maker.filaments) : makers
+	);
+
+	let previousMaterial = $state<string | null>(null);
+
+	$effect(() => {
+		if (expandedMaker && !visibleMakers.some((maker) => maker.maker_id === expandedMaker)) {
+			expandedMaker = '';
+		}
+
+		if (material !== previousMaterial) {
+			previousMaterial = material;
+			if (visibleMakers.length === 1) {
+				expandedMaker = visibleMakers[0].maker_id;
+			}
+		}
+	});
 
 	function formatResponseTime(avgQuoteTime: number | null | string) {
 		if (!avgQuoteTime) return null;
@@ -162,8 +180,11 @@
 				}))
 				.filter(isMakerRow);
 
-			if (makers.length === 1) {
-				expandedMaker = makers[0].maker_id;
+			const visible = material
+				? makers.filter((maker) => material in maker.filaments)
+				: makers;
+			if (visible.length === 1) {
+				expandedMaker = visible[0].maker_id;
 			}
 		} catch (e) {
 			console.error(e);
@@ -216,11 +237,15 @@
 					<Icon icon={F.people} class="size-4 text-muted-foreground" />
 					<span class="text-sm font-medium text-foreground">Available makers</span>
 					{#if !loading}
-						<span class="text-xs text-muted-foreground">({makers.length})</span>
+						<span class="text-xs text-muted-foreground">({visibleMakers.length})</span>
 					{/if}
 				</div>
 				<p class="text-sm text-muted-foreground">
-					Expand a maker, pick a filament color, then request your quote.
+					{#if material}
+						Makers stocked in {material}. Expand one, pick a color, then request your quote.
+					{:else}
+						Expand a maker, pick a filament color, then request your quote.
+					{/if}
 				</p>
 			</div>
 		</div>
@@ -236,7 +261,9 @@
 		{/if}
 
 		{#if loading}
-			<div class="mt-6" aria-hidden="true">
+			<div
+				class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+				aria-hidden="true">
 				<MakerRowSkeleton count={3} />
 			</div>
 		{:else if error}
@@ -245,29 +272,36 @@
 			<div class="mt-6 py-8 text-center text-sm text-muted-foreground">
 				No makers available right now. Check back soon.
 			</div>
+		{:else if visibleMakers.length === 0}
+			<div class="mt-6 py-8 text-center text-sm text-muted-foreground">
+				No makers stock {material} right now. Try a different material above.
+			</div>
 		{:else}
-			<div class="mt-6 space-y-3">
-				{#each makers as maker (maker.maker_id)}
+			<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				{#each visibleMakers as maker (maker.maker_id)}
 					{@const isSelf = maker.maker_id === currentUserId}
 					{@const isExpanded = expandedMaker === maker.maker_id}
 					{@const rating = averageRating(maker.reviews)}
 					{@const tierStyle = getTierStyle(maker.tier)}
 					<div
 						class={cn(
-							'overflow-hidden rounded-lg border bg-card transition-colors',
-							isExpanded ? cn('shadow-sm', tierStyle.cardExpanded) : tierStyle.card,
+							'flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-colors',
+							isExpanded ? cn('shadow-sm sm:col-span-2 xl:col-span-3', tierStyle.cardExpanded) : tierStyle.card,
 							isSelf && 'opacity-60'
 						)}>
 						<button
 							type="button"
 							class={cn(
-								'flex w-full items-center justify-between gap-4 p-4 text-left transition-colors',
+								'flex w-full gap-3 p-4 text-left transition-colors',
+								isExpanded
+									? 'items-center justify-between'
+									: 'flex-col items-stretch',
 								tierStyle.buttonHover
 							)}
 							onclick={() => toggleMaker(maker.maker_id)}
 							aria-expanded={isExpanded}>
 							<div class="flex min-w-0 items-center gap-3">
-								<TierBadge tier={maker.tier} iconOnly class="size-10" />
+								<TierBadge tier={maker.tier} iconOnly class="size-10 shrink-0" />
 								<div class="min-w-0">
 									<div class="truncate font-medium text-foreground">{maker.crafter_name}</div>
 									<div
@@ -284,7 +318,11 @@
 								</div>
 							</div>
 
-							<div class="flex shrink-0 items-center gap-3">
+							<div
+								class={cn(
+									'flex items-center gap-3',
+									isExpanded ? 'shrink-0' : 'justify-between'
+								)}>
 								{#if rating}
 									<div class="flex items-center gap-1 text-sm text-foreground">
 										<Icon icon={F.star} class="size-3.5 fill-foreground text-foreground" />
@@ -334,37 +372,64 @@
 								</div>
 
 								<PortalSectionLabel label="Filament color" />
-								<div class="mt-2 space-y-3">
-									{#each Object.keys(maker.filaments) as mat (mat)}
-										<div class="rounded-md border border-border bg-muted/20 p-3">
-											<div class="mb-2 flex items-center gap-2">
-												<Icon icon={F.print} class="size-3.5 text-muted-foreground" />
-												<span class="text-xs font-medium text-foreground">{mat}</span>
-											</div>
-											<div class="flex flex-wrap gap-2">
-												{#each maker.filaments[mat] as filament, index (`${mat}-${index}-${filament.color}`)}
-													<button
-														type="button"
-														class={cn(
-															'relative size-8 rounded-md border-2 transition-all',
-															color === filament.color && material === mat
-																? 'scale-110 border-primary ring-2 ring-primary/10'
-																: 'border-border hover:scale-105 hover:border-foreground/40'
-														)}
-														onclick={() => {
-															color = filament.color;
-															material = mat;
-														}}
-														aria-label="Select {mat} {filament.color}"
-														title="{mat} · {filament.color}">
-														<span
-															class="block size-full rounded-[4px]"
-															style="background-color: {filament.color};"></span>
-													</button>
-												{/each}
-											</div>
+								<div class="mt-2">
+									{#if material}
+										{@const materialFilaments = maker.filaments[material] ?? []}
+										<div class="flex flex-wrap gap-2">
+											{#each materialFilaments as filament, index (`${material}-${index}-${filament.color}`)}
+												<button
+													type="button"
+													class={cn(
+														'relative size-8 rounded-md border-2 transition-all',
+														color === filament.color
+															? 'scale-110 border-primary ring-2 ring-primary/10'
+															: 'border-border hover:scale-105 hover:border-foreground/40'
+													)}
+													onclick={() => {
+														color = filament.color;
+													}}
+													aria-label="Select {material} {filament.color}"
+													title="{material} · {filament.color}">
+													<span
+														class="block size-full rounded-[4px]"
+														style="background-color: {filament.color};"></span>
+												</button>
+											{/each}
 										</div>
-									{/each}
+									{:else}
+										<div class="space-y-3">
+											{#each Object.keys(maker.filaments) as mat (mat)}
+												<div class="rounded-md border border-border bg-muted/20 p-3">
+													<div class="mb-2 flex items-center gap-2">
+														<Icon icon={F.print} class="size-3.5 text-muted-foreground" />
+														<span class="text-xs font-medium text-foreground">{mat}</span>
+													</div>
+													<div class="flex flex-wrap gap-2">
+														{#each maker.filaments[mat] as filament, index (`${mat}-${index}-${filament.color}`)}
+															<button
+																type="button"
+																class={cn(
+																	'relative size-8 rounded-md border-2 transition-all',
+																	color === filament.color && material === mat
+																		? 'scale-110 border-primary ring-2 ring-primary/10'
+																		: 'border-border hover:scale-105 hover:border-foreground/40'
+																)}
+																onclick={() => {
+																	color = filament.color;
+																	material = mat;
+																}}
+																aria-label="Select {mat} {filament.color}"
+																title="{mat} · {filament.color}">
+																<span
+																	class="block size-full rounded-[4px]"
+																	style="background-color: {filament.color};"></span>
+															</button>
+														{/each}
+													</div>
+												</div>
+											{/each}
+										</div>
+									{/if}
 								</div>
 
 								<div class="mt-5">

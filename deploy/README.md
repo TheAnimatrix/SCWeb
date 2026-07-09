@@ -41,7 +41,9 @@ Set all variables on the Dokploy application at **runtime** (Environment tab). D
 | `PUBLIC_SENTRY_DSN`                          | No       | Browser error monitoring                                                                        |
 | `CLIENT_ID_SIGNING_SECRET`                   | No       | Guest cart client-id signing                                                                    |
 
-`API_ORIGIN` defaults to `http://127.0.0.1:3001` inside the container so the web app proxies `/api` to the co-located API process. You normally **do not** override this.
+`API_ORIGIN` is forced to `http://127.0.0.1:3001` inside the container so the web app proxies `/api` to the co-located API process. **Do not** set it to `https://api.yourdomain` — that breaks file uploads (`api_unreachable` / 502).
+
+`BODY_SIZE_LIMIT` defaults to `55M` so quote-request STL uploads (up to 50MB) pass through the SvelteKit server. The adapter-node default is only `512K`.
 
 ## How traffic flows
 

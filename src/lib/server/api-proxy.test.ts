@@ -3,7 +3,8 @@ import {
 	buildProxyTargetUrl,
 	getProxyTimeoutMs,
 	isAllowedProxyMethod,
-	isAllowedProxyPath
+	isAllowedProxyPath,
+	isUploadProxyPath
 } from './api-proxy';
 
 const API_ORIGIN = 'http://localhost:3001';
@@ -35,6 +36,7 @@ describe('isAllowedProxyMethod', () => {
 
 describe('getProxyTimeoutMs', () => {
 	it('uses a longer timeout for print-files uploads', () => {
+		expect(isUploadProxyPath('print-files/upload')).toBe(true);
 		expect(getProxyTimeoutMs('print-files/upload')).toBe(60_000);
 		expect(getProxyTimeoutMs('print-files/abc/download-url')).toBe(10_000);
 		expect(getProxyTimeoutMs('cart')).toBe(10_000);
