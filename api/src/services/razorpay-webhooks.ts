@@ -45,6 +45,18 @@ type CapturedHandlerResult = {
 	notifyCustomer: boolean;
 };
 
+type PrintPaymentNotification = {
+	id: string;
+	userId: string;
+	amountInr: number;
+};
+
+type CapturedWebhookResult = {
+	status: 'processed' | 'already_processed' | 'ignored';
+	orderToNotify: string | null;
+	printToNotify: PrintPaymentNotification | null;
+};
+
 export type RazorpayWebhookResult =
 	| { ok: true; status: 'processed' | 'ignored' | 'already_processed' }
 	| { ok: false; status: 400; error: 'invalid_payload' };
@@ -330,9 +342,9 @@ async function handleCaptured(
 	db: Database,
 	payment: ReturnType<typeof paymentFromPayload> & {},
 	eventId?: string | null
-) {
+): Promise<CapturedWebhookResult> {
 	let orderToNotify: string | null = null;
-	let printToNotify: { id: string; userId: string; amountInr: number } | null = null;
+	let printToNotify: PrintPaymentNotification | null = null;
 
 	const status = await db.transaction(async (tx) => {
 		const attempt = await findAttemptByProviderOrderId(tx, payment.providerOrderId);
