@@ -50,12 +50,12 @@ export const TIER_STYLES: Record<CrafterTier, TierStyle> = {
 		buttonHover: 'hover:bg-orange-500/8'
 	},
 	Osprey: {
-		badge: 'border-sky-400/70 bg-sky-50 dark:border-sky-500/50 dark:bg-sky-950/40',
+		badge: 'border-violet-400/70 bg-violet-50 dark:border-violet-500/50 dark:bg-violet-950/40',
 		iconFilter:
-			'grayscale(1) sepia(1) saturate(4) hue-rotate(185deg) brightness(1.02) contrast(1.05)',
-		card: 'border-sky-400/35',
-		cardExpanded: 'border-sky-400/60 shadow-sky-500/10',
-		buttonHover: 'hover:bg-sky-500/8'
+			'grayscale(1) sepia(1) saturate(5) hue-rotate(258deg) brightness(0.98) contrast(1.05)',
+		card: 'border-violet-400/35',
+		cardExpanded: 'border-violet-400/60 shadow-violet-500/10',
+		buttonHover: 'hover:bg-violet-500/8'
 	}
 };
 
@@ -75,6 +75,19 @@ export function getTierIcon(tier: string | null | undefined): string | null {
 export function getTierStyle(tier: string | null | undefined): TierStyle {
 	if (!tier || !isCrafterTier(tier)) return DEFAULT_TIER_STYLE;
 	return TIER_STYLES[tier];
+}
+
+export const TIER_TEXT: Record<CrafterTier, string> = {
+	Bee: 'text-amber-600 dark:text-amber-400',
+	Peacock: 'text-teal-600 dark:text-teal-400',
+	Rhino: 'text-stone-600 dark:text-stone-300',
+	Tiger: 'text-orange-600 dark:text-orange-400',
+	Osprey: 'text-violet-700 dark:text-violet-300'
+};
+
+export function getTierTextClass(tier: string | null | undefined): string {
+	if (!tier || !isCrafterTier(tier)) return 'text-muted-foreground';
+	return TIER_TEXT[tier];
 }
 
 export function isCrafterTier(tier: string): tier is CrafterTier {

@@ -4,11 +4,13 @@
 
 	import type { Orders } from '$lib/types/product.js';
 	import type { PrintRequestEvent } from '$lib/types/printRequest';
+	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
 	import { navigating, page } from '$app/state';
-	import { OrderCardSkeleton, ProseSkeleton, ScButton } from '$lib/components/sc';
+	import { OrderCardSkeleton, ProseSkeleton, ScButton, PlaceholderImage, MakerAttribution } from '$lib/components/sc';
 						import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
+	import { formatOrderDisplayId } from '$lib/formatOrderDisplayId';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
@@ -67,6 +69,10 @@
 				return 'text-muted-foreground';
 		}
 	}
+
+	function productHref(name: string, id: string): string {
+		return `/${name.replaceAll(' ', '_')}/craft/item=${id}`;
+	}
 </script>
 
 <div class="space-y-3">
@@ -106,7 +112,9 @@
 							onclick={() => {
 								visible = visible.with(i, !visible[i]);
 							}}>
-							<div class="break-all text-sm font-medium">{order.id}</div>
+							<div class="font-mono text-sm font-medium" title={String(order.id)}>
+								{formatOrderDisplayId(order.id)}
+							</div>
 
 							<div
 								class="flex items-center gap-1.5 text-sm font-medium capitalize {getStatusColor(
@@ -306,10 +314,11 @@
 																	<div class="rounded-md border border-border px-2 py-1.5 text-xs">
 																		<div class="flex items-center justify-between gap-2">
 																			<span class="capitalize"
-																				>{event.type}{event.extra?.amount
-																					? ` (₹${(parseInt(event.extra?.amount) / 100).toFixed(2)})`
-																					: ''}{event.extra?.quote
-																					? ` (₹${event.extra?.quote})`
+																				>{event.type}{formatPrintEventAmountInr(event.extra)
+																					? ` (₹${formatPrintEventAmountInr(event.extra)})`
+																					: ''}{event.extra?.quote &&
+																				!formatPrintEventAmountInr(event.extra)
+																					? ` (₹${event.extra.quote})`
 																					: ''}</span>
 																			<span class="text-muted-foreground"
 																				>{new Date(event.timestamp).toLocaleString()}</span>
@@ -331,26 +340,47 @@
 										{/await}
 									</div>
 								{:else if !order.item_snapshot || order.item_snapshot.length <= 0}
-									<div class="border-t border-border p-3 text-center text-sm text-muted-foreground">
-										Unable to fetch order information
+									<div class="border-t border-border p-3 text-sm">
+										<p class="text-center text-muted-foreground">
+											Line items for this older order were not saved.
+										</p>
+										<div class="mt-2 flex justify-between font-medium">
+											<span>Order total</span>
+											<span>₹{order.amount}</span>
+										</div>
 									</div>
 								{:else}
 									<div class="divide-y divide-border border-t border-border">
 										{#each order.item_snapshot as item (item.product_id + item.qty)}
 											<a
-												href={`/${order.cart_id}/craft/item=${item.product_id}`}
-												class="grid gap-2 p-3 text-sm transition-colors hover:bg-secondary/50 md:grid-cols-3 md:gap-4">
-												<div class="flex items-center justify-between font-medium md:justify-start">
-													<span>{item.product_name}</span>
-													<span class="text-xs text-muted-foreground md:hidden">₹{item.price}</span>
+												href={productHref(item.product_name, item.product_id)}
+												class="flex gap-3 p-3 text-sm transition-colors hover:bg-secondary/50">
+												<div
+													class="relative size-14 shrink-0 overflow-hidden rounded-md border border-border">
+													<PlaceholderImage
+														src={item.image_url ?? undefined}
+														alt={item.product_name}
+														class="size-full object-cover" />
 												</div>
-												<div class="flex justify-between text-muted-foreground md:justify-center">
-													<span class="text-xs md:hidden">qty</span>
-													<span>{item.qty}</span>
-												</div>
-												<div class="flex justify-between md:justify-end">
-													<span class="text-xs text-muted-foreground md:hidden">subtotal</span>
-													<span class="font-medium">₹{item.price * item.qty}</span>
+												<div class="grid min-w-0 flex-1 gap-2 md:grid-cols-3 md:items-center md:gap-4">
+													<div class="min-w-0">
+														<div class="font-medium">{item.product_name}</div>
+														{#if item.author}
+															<MakerAttribution
+																username={item.author}
+																tier={item.authorTier}
+																class="mt-0.5" />
+														{/if}
+														<span class="text-xs text-muted-foreground md:hidden">₹{item.price}</span>
+													</div>
+													<div class="flex justify-between text-muted-foreground md:justify-center">
+														<span class="text-xs md:hidden">qty</span>
+														<span>{item.qty}</span>
+													</div>
+													<div class="flex justify-between md:justify-end">
+														<span class="text-xs text-muted-foreground md:hidden">subtotal</span>
+														<span class="font-medium">₹{item.price * item.qty}</span>
+													</div>
 												</div>
 											</a>
 										{/each}

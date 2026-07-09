@@ -1,6 +1,7 @@
 import type { TagGroup, TagOption } from '$lib/types/browse';
 import type { ProductsSelectQuery } from '$lib/types/database';
 import { isTypeDuplicateTag } from '$lib/utils/productTypeTag';
+import { formatTagDisplayLabel } from '$lib/utils/formatUsername';
 
 type ProductTagSource = {
 	tags: { tag: string }[] | null | undefined;
@@ -16,6 +17,11 @@ export const BROWSE_TAG_TREE: Record<string, string[]> = {
 export const STANDALONE_BROWSE_TAGS = ['made_in_india', 'lora'] as const;
 
 export const MIN_BROWSE_TAG_COUNT = 2;
+
+/** Parent browse filter tag — hidden on product cards; subcategory tags (hotend, probes, toolhead) still show. */
+export function isBrowseHierarchyTag(tag: string): boolean {
+	return Object.keys(BROWSE_TAG_TREE).some((parent) => normalizeTagKey(parent) === normalizeTagKey(tag));
+}
 
 export function normalizeTagKey(value: string): string {
 	let key = value
@@ -257,10 +263,10 @@ export function formatActiveTagLabel(tagKey: string, tagOptions: TagOption[]): s
 		const [parentKey, childKey] = tagKey.split('/');
 		const parent = findTagOption(parentKey, tagOptions);
 		const child = findTagOption(tagKey, tagOptions);
-		const parentLabel = parent?.label ?? parentKey;
-		const childLabel = child?.label ?? childKey;
+		const parentLabel = formatTagDisplayLabel(parent?.label ?? parentKey);
+		const childLabel = formatTagDisplayLabel(child?.label ?? childKey);
 		return `${parentLabel} > ${childLabel}`;
 	}
 
-	return findTagOption(tagKey, tagOptions)?.label ?? tagKey;
+	return formatTagDisplayLabel(findTagOption(tagKey, tagOptions)?.label ?? tagKey);
 }

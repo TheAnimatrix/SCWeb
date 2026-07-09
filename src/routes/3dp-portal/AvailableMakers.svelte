@@ -3,17 +3,18 @@
 	import { F } from '$lib/icons/fluent';
 
 	import { toastStore } from '$lib/client/toastStore';
+	import { listAvailableMakers } from '$lib/client/makersApi';
 	import { ScButton, MakerRowSkeleton, TierBadge } from '$lib/components/sc';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
 	import { getTierStyle } from '$lib/types/tiers';
 	import { cn } from '$lib/utils';
-								import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { AvailableMaker } from '@scweb/api/contracts';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
 	let {
-		supabase,
+		currentUserId = '',
 		model,
 		color = $bindable('#525252'),
 		material = $bindable(null),
@@ -23,7 +24,7 @@
 		walls,
 		requestQuoteCompleter
 	}: {
-		supabase: TypedSupabaseClient;
+		currentUserId?: string;
 		model: File | null;
 		color: string;
 		material: string | null;
@@ -44,17 +45,7 @@
 		) => Promise<void>;
 	} = $props();
 
-	interface Maker {
-		maker_id: string;
-		crafter_name: string;
-		approved_state: string;
-		avg_quote_time: number | null;
-		avg_rating: number | null;
-		completed_orders: number | null;
-		contact_number: string;
-		price_rank: number;
-		delivery_rank: number;
-		email: string;
+	type Maker = Omit<AvailableMaker, 'filaments' | 'tier'> & {
 		filaments: Record<
 			string,
 			Array<{
@@ -62,15 +53,8 @@
 				material_type: string;
 			}>
 		>;
-		reviews: Array<{
-			rating: number;
-			comment: string;
-			created_at: string;
-		}>;
-		max_printer_size: string;
-		number_of_printers: number;
 		tier: string;
-	}
+	};
 
 	let makers: Maker[] = $state([]);
 	let loading = $state(true);
@@ -78,7 +62,6 @@
 	let expandedMaker = $state('');
 	let loadingQuote = $state<string>('');
 	let uploadProgress = $state<Record<string, number | null>>({});
-	let currentUserId = $state('');
 
 	const hasModel = $derived(Boolean(model));
 
@@ -161,30 +144,23 @@
 	onMount(async () => {
 		loading = true;
 		try {
-			const { data: user } = await supabase.auth.getUser();
-			currentUserId = user.user?.id ?? '';
-			const response = await supabase.rpc('get_creator_full_profile');
+			const response = await listAvailableMakers(fetch);
 
-			if (response.error) {
-				error = 'Failed to load makers.';
+			if (!response.ok) {
+				error = response.error.message || 'Failed to load makers.';
 				loading = false;
 				return;
 			}
 
-			const profileRows = Array.isArray(response.data) ? response.data : [];
-			makers = (profileRows as unknown[]).filter(isMakerRow);
-			makers.forEach((maker: Maker) => {
-				const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
-				if (Array.isArray(maker.filaments)) {
-					maker.filaments.forEach((filament: { color: string; material_type: string }) => {
-						if (!filamentObj[filament.material_type]) {
-							filamentObj[filament.material_type] = [];
-						}
-						filamentObj[filament.material_type].push(filament);
-					});
-					maker.filaments = filamentObj;
-				}
-			});
+			const profileRows = response.data.makers;
+			makers = profileRows
+				.map((maker) => ({
+					...maker,
+					reviews: maker.reviews ?? [],
+					filaments: groupFilaments(maker.filaments),
+					tier: maker.tier ?? 'Bee'
+				}))
+				.filter(isMakerRow);
 
 			if (makers.length === 1) {
 				expandedMaker = makers[0].maker_id;
@@ -206,28 +182,28 @@
 		return (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1);
 	}
 
-	function isFilamentEntry(value: unknown): value is { color: string; material_type: string } {
-		return (
-			typeof value === 'object' &&
-			value !== null &&
-			typeof (value as { color?: unknown }).color === 'string' &&
-			typeof (value as { material_type?: unknown }).material_type === 'string'
-		);
+	function groupFilaments(
+		filaments: AvailableMaker['filaments']
+	): Maker['filaments'] {
+		const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
+		for (const filament of filaments) {
+			if (!filamentObj[filament.material_type]) {
+				filamentObj[filament.material_type] = [];
+			}
+			filamentObj[filament.material_type].push(filament);
+		}
+		return filamentObj;
 	}
 
-	function isMakerRow(row: unknown): row is Maker {
-		if (!row || typeof row !== 'object') return false;
-		const candidate = row as Record<string, unknown>;
+	function isMakerRow(row: Maker): boolean {
 		return (
-			typeof candidate.maker_id === 'string' &&
-			typeof candidate.crafter_name === 'string' &&
-			typeof candidate.tier === 'string' &&
-			typeof candidate.price_rank === 'number' &&
-			typeof candidate.delivery_rank === 'number' &&
-			Array.isArray(candidate.filaments) &&
-			candidate.filaments.length > 0 &&
-			candidate.filaments.every(isFilamentEntry) &&
-			Array.isArray(candidate.reviews)
+			typeof row.maker_id === 'string' &&
+			typeof row.crafter_name === 'string' &&
+			typeof row.tier === 'string' &&
+			typeof row.price_rank === 'number' &&
+			typeof row.delivery_rank === 'number' &&
+			Object.keys(row.filaments).length > 0 &&
+			Array.isArray(row.reviews)
 		);
 	}
 </script>
@@ -372,7 +348,7 @@
 														class={cn(
 															'relative size-8 rounded-md border-2 transition-all',
 															color === filament.color && material === mat
-																? 'scale-110 border-black ring-2 ring-black/10'
+																? 'scale-110 border-primary ring-2 ring-primary/10'
 																: 'border-border hover:scale-105 hover:border-foreground/40'
 														)}
 														onclick={() => {

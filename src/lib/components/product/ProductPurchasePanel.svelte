@@ -6,6 +6,7 @@
 	import { TagBadge, MetaChip, ScButton, TrustSignals, Skeleton } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { buildProductTags } from '$lib/utils/productTypeTag';
+	import { formatTagDisplayLabel } from '$lib/utils/formatUsername';
 	import { getPurchasableLimit, isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
@@ -145,7 +146,7 @@
 
 			<div class="flex flex-wrap items-center gap-2">
 				{#each displayTags as tag (tag.label)}
-					<TagBadge label={tag.label} emphasized={tag.emphasized} />
+					<TagBadge label={formatTagDisplayLabel(tag.label)} emphasized={tag.emphasized} />
 				{/each}
 			</div>
 

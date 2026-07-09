@@ -125,8 +125,8 @@
 							<dd class="ml-1 inline text-foreground">{data.stats.listings}</dd>
 						</div>
 						<div>
-							<dt class="inline text-muted-foreground">cities:</dt>
-							<dd class="ml-1 inline text-foreground">{data.stats.cities}</dd>
+							<dt class="inline text-muted-foreground">users:</dt>
+							<dd class="ml-1 inline text-foreground">{data.stats.users}</dd>
 						</div>
 					{/if}
 				</dl>
@@ -178,7 +178,7 @@
 					<ProductCardList>
 						{#each section.items as product (product.id)}
 							<ProductCardListItem>
-								<ProductCard {product} href={productHref(product)} />
+								<ProductCard {product} href={productHref(product)} singleLineTitle />
 							</ProductCardListItem>
 						{/each}
 					</ProductCardList>

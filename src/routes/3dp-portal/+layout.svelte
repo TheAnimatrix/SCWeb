@@ -38,7 +38,7 @@
 				class={cn(
 					'flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors',
 					activeRoute === href
-						? 'border-black bg-black text-white shadow-sm'
+						? 'border-primary bg-primary text-primary-foreground shadow-sm'
 						: 'border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground'
 				)}>
 				<Icon {icon} class="size-4" />

@@ -14,6 +14,7 @@ export interface PrintRequestEventExtra {
 	payment_id_a?: string;
 	payment_id_b?: string;
 	amount?: number | string;
+	amount_paise?: number | string;
 	[key: string]: unknown;
 }
 

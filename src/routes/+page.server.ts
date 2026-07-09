@@ -1,7 +1,7 @@
 import { getHomeCatalog } from '$lib/client/catalogApi';
 import type { PageServerLoad } from './$types';
 
-const STATS_FALLBACK = { makers: 48, listings: 128, cities: 12 };
+const STATS_FALLBACK = { makers: 0, listings: 0, users: 0 };
 
 export const load: PageServerLoad = async ({ fetch }) => {
 	const result = await getHomeCatalog(fetch);

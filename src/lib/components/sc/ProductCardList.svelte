@@ -9,17 +9,20 @@
 	};
 
 	let { class: className, children, ...rest }: Props = $props();
+
+	const columnClasses =
+		'grid-cols-2 @min-[520px]:grid-cols-2 @min-[700px]:grid-cols-3 @min-[880px]:grid-cols-4 @min-[1060px]:grid-cols-5';
 </script>
 
-<ul
-	class={cn(
-		'm-0 grid w-full list-none',
-		'grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))]',
-		'md:grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]',
-		'lg:grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))]',
-		'gap-3 p-0 lg:gap-4',
-		className
-	)}
-	{...rest}>
-	{@render children()}
-</ul>
+<div class="@container w-full">
+	<ul
+		class={cn(
+			'm-0 grid w-full list-none',
+			columnClasses,
+			'gap-3 p-0 lg:gap-4',
+			className
+		)}
+		{...rest}>
+		{@render children()}
+	</ul>
+</div>

@@ -7,17 +7,20 @@
 	import { FormSectionSkeleton, ScButton, ScInput, TierBadge } from '$lib/components/sc';
 	import { Button } from '$lib/components/ui/button';
 			
+	import { checkUsernameAvailable } from '$lib/client/authApi';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
 	const supabase = requireBrowserSupabase(data.supabase);
 
-	let username = $state('');
+	let usernameOverride = $state<string | null>(null);
+	const username = $derived(usernameOverride ?? data.username ?? '');
 	let email = $derived(data.email ?? '');
 	let tier = $derived(data.tier ?? '');
 
 	$effect(() => {
-		username = data.username ?? '';
+		void data.username;
+		usernameOverride = null;
 	});
 
 	let newPass = $state('');
@@ -104,10 +107,12 @@
 		}
 
 		try {
-			const { data: taken } = await supabase.rpc('check_username', {
-				desired_username: newUsername
-			});
-			if (taken) {
+			const usernameCheck = await checkUsernameAvailable(fetch, newUsername);
+			if (!usernameCheck.ok) {
+				username_error = usernameCheck.error.message;
+				return;
+			}
+			if (!usernameCheck.data.available) {
 				username_error = 'Username not available';
 				return;
 			}
@@ -118,7 +123,7 @@
 			if (error) {
 				username_error = error.message || 'Failed to update.';
 			} else {
-				username = newUsername;
+				usernameOverride = newUsername;
 				isEditingUsername = false;
 				username_error = undefined;
 			}

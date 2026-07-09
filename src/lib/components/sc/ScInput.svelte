@@ -40,7 +40,11 @@
 	);
 </script>
 
-{#snippet field()}
+<div class={label ? 'space-y-1.5' : undefined}>
+	{#if label}
+		<label for={id} class={labelClass}>{label}</label>
+	{/if}
+
 	<div class={cn('relative isolate', wrapperClass)}>
 		{#if icon}
 			<Icon
@@ -54,7 +58,7 @@
 			</span>
 		{/if}
 
-		<input {id} {type} bind:value class={inputClasses} {...rest} />
+		<input {id} {type} {...rest} bind:value class={inputClasses} />
 
 		{#if glow}
 			<div
@@ -71,13 +75,4 @@
 			</div>
 		{/if}
 	</div>
-{/snippet}
-
-{#if label}
-	<div class="space-y-1.5">
-		<label for={id} class={labelClass}>{label}</label>
-		{@render field()}
-	</div>
-{:else}
-	{@render field()}
-{/if}
+</div>

@@ -25,6 +25,7 @@
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { loadRazorpay, openRazorpayCheckout } from '$lib/client/razorpay';
 	import { asPrintRequest } from '$lib/types/printRequest';
+	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
 	import type { CreatorReview } from '$lib/types/database';
 	let { data } = $props();
 
@@ -730,9 +731,9 @@
 											payment_id: {event.extra.payment_id_b}
 										</p>
 									{/if}
-									{#if event.extra.amount}
+									{#if formatPrintEventAmountInr(event.extra)}
 										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											amount: {(Number(event.extra.amount) / 100).toFixed(2)}₹
+											amount: {formatPrintEventAmountInr(event.extra)}₹
 										</p>
 									{/if}
 								{/if}

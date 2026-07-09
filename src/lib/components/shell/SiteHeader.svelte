@@ -72,13 +72,6 @@
 		}`;
 	}
 
-	function mobileIconLinkClass(href: string): string {
-		const active = isActive(href) && !(href === userRoute && hideSignInLink);
-		return active
-			? 'inline-flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90'
-			: 'inline-flex size-9 items-center justify-center text-foreground transition-colors hover:text-foreground/80';
-	}
-
 	function mobileCartLinkClass(): string {
 		return 'inline-flex size-9 items-center justify-center text-foreground transition-colors hover:text-foreground/80';
 	}
@@ -199,7 +192,7 @@
 			{#if !hideSignInLink}
 				<a
 					href={userRoute}
-					class={mobileIconLinkClass(userRoute)}
+					class={mobileCartLinkClass()}
 					aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}>
 					{#if isSignedIn && userProfile}
 						<span

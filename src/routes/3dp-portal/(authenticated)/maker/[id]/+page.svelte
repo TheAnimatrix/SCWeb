@@ -13,6 +13,7 @@
 	import { onMount } from 'svelte';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { asPrintRequest } from '$lib/types/printRequest';
+	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
 	let { data } = $props();
 
 	function supabase() {
@@ -542,9 +543,9 @@
 										Payment ID : {event.extra.payment_id_b}
 									</div>
 								{/if}
-								{#if event.extra.amount}
+								{#if formatPrintEventAmountInr(event.extra)}
 									<div class="text-gray-400 mt-1 font-semibold">
-										Amount : {(Number(event.extra.amount) / 100).toFixed(2)}₹
+										Amount : {formatPrintEventAmountInr(event.extra)}₹
 									</div>
 								{/if}
 							{/if}

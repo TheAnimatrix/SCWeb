@@ -3,6 +3,7 @@
 	import { cn } from '$lib/utils';
 	import { PlaceholderImage, TagBadge } from '$lib/components/sc';
 	import { getTabFadeIn, getTabFadeOut } from '$lib/utils/tabTransition';
+	import ProductImageZoomModal from './ProductImageZoomModal.svelte';
 	import { isOpenHardware } from './productSpecs';
 	import type { Product } from '$lib/types/product';
 
@@ -24,6 +25,11 @@
 	const indicatorMax = $derived(Math.max(images.length, 1));
 	const currentImage = $derived(images[indicatorCur]?.url ?? images[0]?.url ?? null);
 	const showOpenHardware = $derived(isOpenHardware(product));
+	let zoomOpen = $state(false);
+
+	function openZoom() {
+		if (currentImage) zoomOpen = true;
+	}
 
 	function selectImage(index: number) {
 		indicatorCur = index;
@@ -35,9 +41,19 @@
 	<div class="overflow-hidden rounded-lg border border-border bg-card">
 		<div class="relative aspect-[4/3] overflow-hidden">
 			{#key indicatorCur}
-				<div class="absolute inset-0" in:fade={getTabFadeIn()} out:fade={getTabFadeOut()}>
+				<button
+					type="button"
+					class={cn(
+						'absolute inset-0',
+						currentImage ? 'cursor-zoom-in' : 'cursor-default'
+					)}
+					aria-label={currentImage ? `View larger image of ${product.name}` : undefined}
+					disabled={!currentImage}
+					onclick={openZoom}
+					in:fade={getTabFadeIn()}
+					out:fade={getTabFadeOut()}>
 					<PlaceholderImage src={currentImage} alt={product.name} loading="eager" />
-				</div>
+				</button>
 			{/key}
 
 			{#if showOpenHardware}
@@ -69,3 +85,5 @@
 		</div>
 	{/if}
 </div>
+
+<ProductImageZoomModal bind:open={zoomOpen} src={currentImage} alt={product.name} />

@@ -10,6 +10,7 @@
 		TagOption
 	} from '$lib/types/browse';
 	import { cn } from '$lib/utils';
+	import { formatTagDisplayLabel } from '$lib/utils/formatUsername';
 	import { ScInput } from '$lib/components/sc';
 
 	interface Props {
@@ -177,7 +178,7 @@
 									class="size-3.5 rounded border-border accent-black"
 									checked={filters.tag === group.key}
 									onchange={() => toggleTag(group.key)} />
-								<span class="flex-1 truncate">{group.label}</span>
+								<span class="flex-1 truncate">{formatTagDisplayLabel(group.label)}</span>
 								<span class="text-muted-foreground">{group.count}</span>
 							</label>
 						</div>
@@ -193,7 +194,7 @@
 												class="size-3.5 rounded border-border accent-black"
 												checked={filters.tag === child.key}
 												onchange={() => toggleTag(child.key)} />
-											<span class="flex-1 truncate">{child.label}</span>
+											<span class="flex-1 truncate">{formatTagDisplayLabel(child.label)}</span>
 											<span class="text-muted-foreground">{child.count}</span>
 										</label>
 									</li>
@@ -212,7 +213,7 @@
 								class="size-3.5 rounded border-border accent-black"
 								checked={filters.tag === tag.key}
 								onchange={() => toggleTag(tag.key)} />
-							<span class="flex-1 truncate">{tag.label}</span>
+							<span class="flex-1 truncate">{formatTagDisplayLabel(tag.label)}</span>
 							<span class="text-muted-foreground">{tag.count}</span>
 						</label>
 					</li>

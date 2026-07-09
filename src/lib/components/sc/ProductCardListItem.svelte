@@ -10,6 +10,6 @@
 	let { class: className, children }: Props = $props();
 </script>
 
-<li class={cn('flex min-w-0 max-h-[20rem]', className)}>
+<li class={cn('flex h-full min-h-0 w-full min-w-0', className)}>
 	{@render children()}
 </li>

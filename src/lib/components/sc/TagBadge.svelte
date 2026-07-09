@@ -5,20 +5,22 @@
 	interface Props {
 		label: string;
 		emphasized?: boolean;
+		subtle?: boolean;
 		class?: string;
 	}
 
-	let { label, emphasized = false, class: className }: Props = $props();
+	let { label, emphasized = false, subtle = false, class: className }: Props = $props();
 
-	const tintClass = $derived(emphasized ? '' : tagTintClass(label));
+	const tintClass = $derived(emphasized || subtle ? '' : tagTintClass(label));
+	const subtleClass = 'border-border bg-muted/40 text-muted-foreground';
 </script>
 
 <span
 	class={cn(
-		'inline-flex max-w-full items-center rounded-md border text-xs font-medium',
+ 	'inline-flex max-w-full items-center rounded-md border text-xs font-medium',
 		emphasized
 			? 'relative overflow-hidden border-foreground/25 bg-muted px-2.5 py-1 font-semibold text-foreground'
-			: cn('px-2 py-0.5', tintClass),
+			: cn('px-2 py-0.5', subtle ? subtleClass : tintClass),
 		className
 	)}
 	data-emphasized={emphasized || undefined}>

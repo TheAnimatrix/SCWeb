@@ -586,7 +586,7 @@
 										class={cn(
 											'rounded border px-2 py-0.5 transition-colors',
 											Math.abs(scale - preset) < 0.01
-												? 'border-black bg-black text-white'
+												? 'border-primary bg-primary text-primary-foreground'
 												: 'border-border text-muted-foreground hover:border-foreground/30'
 										)}
 										onclick={() => (scale = preset)}>
@@ -637,18 +637,16 @@
 		<div class="mt-10 space-y-6">
 			<ReadinessChecklist items={readinessItems} />
 
-			{#if data.supabase}
-				<AvailableMakers
-					supabase={data.supabase}
-					model={modelFile}
-					bind:color={selectedColor}
-					bind:material={selectedMaterial}
-					quality={selectedQuality}
-					{scale}
-					{infill}
-					{walls}
-					{requestQuoteCompleter} />
-			{/if}
+			<AvailableMakers
+				currentUserId={data.session?.user?.id ?? ''}
+				model={modelFile}
+				bind:color={selectedColor}
+				bind:material={selectedMaterial}
+				quality={selectedQuality}
+				{scale}
+				{infill}
+				{walls}
+				{requestQuoteCompleter} />
 
 			<PortalCard>
 				<div class="mb-4 flex items-center gap-2">

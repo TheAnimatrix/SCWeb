@@ -32,4 +32,5 @@ export { default as CheckoutLineSkeleton } from './CheckoutLineSkeleton.svelte';
 export { default as CheckoutSummarySkeleton } from './CheckoutSummarySkeleton.svelte';
 export { default as ChipGridSkeleton } from './ChipGridSkeleton.svelte';
 export { default as TierBadge } from './TierBadge.svelte';
+export { default as MakerAttribution } from './MakerAttribution.svelte';
 export { default as FeaturedCarousel } from './FeaturedCarousel.svelte';

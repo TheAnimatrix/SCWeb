@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
 	import { ProseSkeleton } from '$lib/components/sc';
+	import MobileExpandable from '$lib/components/sc/MobileExpandable.svelte';
 	import { renderCostingMarkdown } from '$lib/utils/markdown';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
@@ -96,6 +97,7 @@
 			<div class="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 				<div
 					class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6 [&_.html-table-scroll]:-mx-5 [&_.html-table-scroll]:w-[calc(100%+2.5rem)] md:[&_.html-table-scroll]:mx-0 md:[&_.html-table-scroll]:w-full">
+					<MobileExpandable resetKey={`${activeTab}-${activeDocSection}`}>
 					{#if activeTab === 'description'}
 						<div class="prose prose-sm max-w-none break-words text-foreground prose-a:break-all">
 							{#if product.documentation?.at(0)?.isMDUrl && product.documentation?.at(0)?.data}
@@ -210,6 +212,7 @@
 							</TabPanelTransition>
 						</div>
 					{/if}
+					</MobileExpandable>
 				</div>
 
 				<div class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6">
