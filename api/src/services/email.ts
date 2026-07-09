@@ -44,10 +44,12 @@ export function createEmailService(env: Env): EmailService {
 
 		async send(message) {
 			if (!configured || !transporter) {
-				storeLog('info', 'email.skipped', {
+				storeLog(env.NODE_ENV === 'production' ? 'error' : 'info', 'email.skipped', {
 					reason: 'smtp_not_configured',
 					to: message.to,
-					subject: message.subject
+					subject: message.subject,
+					hasHost: Boolean(env.SMTP_HOST),
+					hasPass: Boolean(env.SMTP_PASS)
 				});
 				return;
 			}

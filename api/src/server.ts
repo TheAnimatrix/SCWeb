@@ -25,16 +25,31 @@ const env = loadEnv();
 const { db, close } = createDb(env);
 const app = createApp({ env, db });
 
+const smtpConfigured = isSmtpConfigured(env);
 console.log(
 	JSON.stringify({
-		level: 'info',
+		level: smtpConfigured ? 'info' : 'error',
 		message: 'api.mail',
 		timestamp: new Date().toISOString(),
-		smtpConfigured: isSmtpConfigured(env),
+		smtpConfigured,
 		ordersInbox: env.ORDERS_INBOX_EMAIL,
-		emailFrom: env.EMAIL_FROM
+		emailFrom: env.EMAIL_FROM,
+		hasSmtpHost: Boolean(env.SMTP_HOST),
+		hasSmtpPass: Boolean(env.SMTP_PASS),
+		siteUrl: env.SITE_URL ?? env.PUBLIC_SITE_URL ?? null
 	})
 );
+
+if (!smtpConfigured && env.NODE_ENV === 'production') {
+	console.error(
+		JSON.stringify({
+			level: 'error',
+			message: 'api.mail.misconfigured',
+			timestamp: new Date().toISOString(),
+			hint: 'Set SMTP_HOST, SMTP_USER, SMTP_PASS, EMAIL_FROM in Dokploy runtime env or transactional emails will be skipped'
+		})
+	);
+}
 
 const server = serve(
 	{

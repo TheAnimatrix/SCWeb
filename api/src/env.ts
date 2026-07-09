@@ -58,5 +58,5 @@ export function getSiteUrl(env: Env): string {
 }
 
 export function isSmtpConfigured(env: Env): boolean {
-	return Boolean(env.SMTP_HOST);
+	return Boolean(env.SMTP_HOST && env.SMTP_PASS);
 }

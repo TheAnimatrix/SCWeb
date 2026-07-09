@@ -5,10 +5,17 @@ import type { AppVariables } from '../types/context.js';
 export const healthRoutes = new Hono<{ Variables: AppVariables }>();
 
 healthRoutes.get('/health', (c) => {
+	const env = c.get('env');
+	const mail = c.get('mailService');
+
 	return c.json({
 		ok: true,
 		service: '@scweb/api',
-		requestId: c.get('requestId')
+		requestId: c.get('requestId'),
+		mail: {
+			smtpConfigured: Boolean(mail?.isConfigured ?? env.SMTP_HOST),
+			ordersInboxConfigured: Boolean(env.ORDERS_INBOX_EMAIL)
+		}
 	});
 });
 

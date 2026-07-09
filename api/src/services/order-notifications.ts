@@ -10,6 +10,7 @@ import {
 	renderOrderStatusUpdateEmail
 } from './email-templates/index.js';
 import type { MailService, RenderedEmail } from './mail.js';
+import { storeLog } from '../middleware/logging.js';
 
 type PrintParties = {
 	userId: string;
@@ -187,6 +188,13 @@ export function notifyPrintQuoteRequested(
 	parties: PrintParties
 ): void {
 	mail.dispatch('print.quote_requested', async () => {
+		storeLog('info', 'mail.notify.start', {
+			event: 'print.quote_requested',
+			printRequestId,
+			smtpConfigured: mail.isConfigured,
+			ordersInbox: mail.ordersInbox
+		});
+
 		const partyEmails = await resolvePrintPartyEmails(mail, parties);
 		const meta = { printRequestId };
 
