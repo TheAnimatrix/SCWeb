@@ -36,7 +36,7 @@ describe('phase 2 cart/checkout schema', () => {
 		expect(columns).not.toContain('price');
 	});
 
-	it('exports orders with pricing, address, and razorpay columns', () => {
+	it('exports orders with pricing, address, and payment attempt columns', () => {
 		expect(getTableName(orders)).toBe('orders');
 
 		const columns = Object.keys(getTableColumns(orders));
@@ -48,11 +48,10 @@ describe('phase 2 cart/checkout schema', () => {
 				'clientId',
 				'status',
 				'address',
-				'subtotal',
-				'deliveryFee',
-				'total',
-				'razorpayOrderId',
-				'razorpayPaymentId',
+				'subtotalPaise',
+				'deliveryFeePaise',
+				'totalPaise',
+				'activePaymentAttemptId',
 				'createdAt',
 				'updatedAt'
 			])
@@ -64,7 +63,7 @@ describe('phase 2 cart/checkout schema', () => {
 
 		const columns = Object.keys(getTableColumns(orderItems));
 		expect(columns).toEqual(
-			expect.arrayContaining(['orderId', 'productId', 'productName', 'unitPrice', 'qty'])
+			expect.arrayContaining(['orderId', 'productId', 'productName', 'unitPricePaise', 'qty'])
 		);
 	});
 
@@ -80,7 +79,7 @@ describe('phase 2 cart/checkout schema', () => {
 		]);
 	});
 
-	it('converts rupees to paise at the Razorpay boundary', () => {
+	it('stores money as integer paise in order tables', () => {
 		expect(rupeesToPaise(499)).toBe(49900);
 		expect(() => rupeesToPaise(9.99)).toThrow('rupees must be a whole-number integer');
 	});
@@ -135,9 +134,6 @@ describe('phase 2 cart/checkout schema', () => {
 		expect(migrationSql).toContain('CONSTRAINT "order_items_qty_check" CHECK (qty > 0)');
 		expect(migrationSql).toContain(
 			`CONSTRAINT "orders_status_check" CHECK (status IN ('payment_pending', 'paid', 'failed', 'fulfilled', 'cancelled', 'refunded'))`
-		);
-		expect(migrationSql).toContain(
-			'CONSTRAINT "orders_razorpay_payment_id_unique" UNIQUE("razorpay_payment_id")'
 		);
 	});
 });

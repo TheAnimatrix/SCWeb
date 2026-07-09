@@ -3,7 +3,7 @@ import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-c
 export const users = pgTable('users', {
 	id: uuid('id').primaryKey(),
 	username: text('username'),
-	tier: integer('tier'),
+	tier: text('tier'),
 	email: text('email'),
 	addresses: jsonb('addresses'),
 	crafts: jsonb('crafts'),
