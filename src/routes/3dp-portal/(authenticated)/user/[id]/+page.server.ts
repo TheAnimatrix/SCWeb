@@ -1,6 +1,7 @@
 import { asAddressList } from '$lib/types/product';
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
+
 export const load: PageServerLoad = async ({
 	params,
 	depends,
@@ -8,31 +9,34 @@ export const load: PageServerLoad = async ({
 }) => {
 	depends('3dp-portal:printrequest');
 	const { id } = params;
-	// Get current user
 	const {
 		data: { user },
 		error: userError
 	} = await supabase.auth.getUser();
 	if (userError || !user) {
-		return { printRequest: null, error: 'Not authenticated' };
+		throw error(401, {
+			message: 'Sign in with the customer account linked to this order to view its details.'
+		});
 	}
 
-	// Fetch the print request (ensure user owns it)
 	const { data: printRequest, error: prError } = await supabaseAdmin
 		.from('printrequests')
 		.select('*')
 		.eq('id', id)
-		.eq('user_id', user.id)
-		.single();
+		.maybeSingle();
 
 	if (prError || !printRequest) {
-		//throw error
 		throw error(404, {
-			message: prError?.message ?? 'Not found'
+			message: 'This print request could not be found.'
 		});
 	}
 
-	// Fetch maker info if assigned
+	if (printRequest.user_id !== user.id) {
+		throw error(403, {
+			message: "This order isn't for your eyes — it belongs to another customer."
+		});
+	}
+
 	let maker = null;
 	if (printRequest.creator_id) {
 		const { data: makerData } = await supabaseAdmin
@@ -43,7 +47,6 @@ export const load: PageServerLoad = async ({
 		maker = makerData;
 	}
 
-	//fetch addresses
 	const { data: addresses } = await supabaseAdmin.from('addresses').select('*').eq('uid', user.id);
 
 	return {

@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { createLogger } from '$lib/server/logger';
+import { isPrintRequestDetailPath } from '$lib/portal/printRequestPaths';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({
@@ -16,8 +17,15 @@ export const load: LayoutServerLoad = async ({
 
 	const session = await supabase.auth.getUser();
 	if (session.error || !session.data.user) {
-		// Construct the redirect URL with the current path as postLogin query parameter
-		return redirect(303, `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`); // Redirect if not logged in
+		if (isPrintRequestDetailPath(url.pathname)) {
+			return {
+				makerStatus: 'not_maker' as const,
+				makerData: null,
+				session
+			};
+		}
+
+		return redirect(303, `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`);
 	}
 	let makerData = null;
 

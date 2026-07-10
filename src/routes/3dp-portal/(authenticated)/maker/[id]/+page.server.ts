@@ -13,7 +13,9 @@ export const load: PageServerLoad = async ({
 		error: userError
 	} = await supabase.auth.getUser();
 	if (userError || !user) {
-		return { printRequest: null, error: 'Not authenticated' };
+		throw error(401, {
+			message: 'Sign in with the maker account assigned to this order to view its details.'
+		});
 	}
 
 	const { data: printRequest, error: prError } = await supabaseAdmin

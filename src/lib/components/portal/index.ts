@@ -6,3 +6,4 @@ export { default as ConfigSummaryBar } from './ConfigSummaryBar.svelte';
 export { default as PortalModelPreview } from './PortalModelPreview.svelte';
 export { default as ParameterChip } from './ParameterChip.svelte';
 export { default as ReadinessChecklist } from './ReadinessChecklist.svelte';
+export { default as PrintRequestAccessError } from './PrintRequestAccessError.svelte';
