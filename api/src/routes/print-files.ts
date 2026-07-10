@@ -21,7 +21,7 @@ import type { AppVariables } from '../types/context.js';
 const MAX_BODY_BYTES = MAX_STL_SIZE_BYTES + BODY_READ_SLACK_BYTES;
 const MAX_PREVIEW_BYTES = 512 * 1024;
 
-function parseModelStats(value: FormDataEntryValue | string | undefined) {
+function parseModelStats(value: FormDataEntryValue | string | null | undefined) {
 	if (typeof value !== 'string' || value.trim().length === 0) {
 		return undefined;
 	}
