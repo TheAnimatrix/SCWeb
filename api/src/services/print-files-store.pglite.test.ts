@@ -127,7 +127,8 @@ describe('print-files store (pglite)', () => {
 		);
 		expect(result.printRequest.model_metadata).toEqual({
 			fileName: expect.stringMatching(/^aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\/.+\.stl$/),
-			originalFilename: 'cube.stl'
+			originalFilename: 'cube.stl',
+			fileSizeBytes: expect.any(Number)
 		});
 		expect(result.printRequest.model_data).toEqual({
 			color: 'red',

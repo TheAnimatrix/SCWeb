@@ -24,7 +24,7 @@
 	import { cn } from '$lib/utils';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { loadRazorpay, openRazorpayCheckout } from '$lib/client/razorpay';
-	import { asPrintRequest } from '$lib/types/printRequest';
+	import { asPrintRequest, getPrintRequestDisplayName } from '$lib/types/printRequest';
 	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
 	import type { CreatorReview } from '$lib/types/database';
 	let { data } = $props();
@@ -67,12 +67,9 @@
 		validAddress = newAddress();
 	}
 
-	const displayModelName = $derived.by(() => {
-		const parts = req?.model?.split('/').pop()?.split('.') ?? [];
-		if (parts.length < 2) return 'Model';
-		const nameParts = parts[parts.length - 2]?.split('_') ?? [];
-		return `${nameParts[nameParts.length - 1] ?? 'model'}.${parts[parts.length - 1]}`;
-	});
+	const displayModelName = $derived.by(() =>
+		getPrintRequestDisplayName(req?.model, req?.model_metadata)
+	);
 
 	const latestQuote = $derived(
 		req?.events

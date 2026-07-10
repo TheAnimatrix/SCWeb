@@ -4,6 +4,7 @@ import {
 	buildStorageKey,
 	canAccessPrintRequest,
 	DEFAULT_DAILY_QUOTA,
+	getPrintRequestDisplayName,
 	isAsciiStl,
 	isBinaryStl,
 	isQuotaExceeded,
@@ -107,6 +108,15 @@ describe('print-files pure logic', () => {
 			expect(isWithinSizeLimit(MAX_STL_SIZE_BYTES)).toBe(true);
 			expect(isWithinSizeLimit(MAX_STL_SIZE_BYTES + 1)).toBe(false);
 			expect(isWithinSizeLimit(0)).toBe(false);
+		});
+
+		it('prefers original filename for display names', () => {
+			expect(
+				getPrintRequestDisplayName('models/user/uuid.stl', {
+					fileName: 'user/uuid.stl',
+					originalFilename: 'bracket.stl'
+				})
+			).toBe('bracket.stl');
 		});
 	});
 });

@@ -76,3 +76,28 @@ export function asPrintRequest(value: unknown): PrintRequest | null {
 		events: Array.isArray(record.events) ? (record.events as PrintRequestEvent[]) : []
 	} as PrintRequest;
 }
+
+export function getPrintRequestDisplayName(
+	model: string | null | undefined,
+	modelMetadata: Json | null | undefined
+): string {
+	if (modelMetadata && typeof modelMetadata === 'object' && !Array.isArray(modelMetadata)) {
+		const originalFilename = (modelMetadata as Record<string, unknown>).originalFilename;
+		if (typeof originalFilename === 'string' && originalFilename.trim().length > 0) {
+			return originalFilename.trim();
+		}
+	}
+
+	if (!model) {
+		return 'Model';
+	}
+
+	const path = model.split('/').pop() ?? model;
+	const segments = path.split('.');
+	if (segments.length < 2) {
+		return path || 'Model';
+	}
+
+	const prefix = segments[segments.length - 2]?.split('_') ?? [];
+	return `${prefix[prefix.length - 1] ?? 'model'}.${segments[segments.length - 1]}`;
+}

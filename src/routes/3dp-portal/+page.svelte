@@ -154,6 +154,13 @@
 
 	// Add ModelViewer reference
 	let modelViewer = $state<ModelViewer | undefined>(undefined);
+	let modelInfo = $state({
+		dimensions: { x: 0, y: 0, z: 0 },
+		fileSize: '0 KB',
+		vertexCount: 0,
+		triangleCount: 0,
+		isCalculating: false
+	});
 
 	const portalSteps = $derived([
 		{ id: 'upload', label: 'Upload', done: modelLoaded },
@@ -412,6 +419,28 @@
 		formData.append('infill', String(infill));
 		formData.append('model_file', model);
 
+		const previewDataUrl = modelViewer?.capturePreview?.();
+		if (previewDataUrl) {
+			try {
+				const previewBlob = await (await fetch(previewDataUrl)).blob();
+				formData.append('preview_image', previewBlob, 'preview.png');
+			} catch {
+				// Preview is optional; continue without it.
+			}
+		}
+
+		formData.append(
+			'model_stats',
+			JSON.stringify({
+				dimensions: {
+					x: modelInfo.dimensions.x * scale,
+					y: modelInfo.dimensions.y * scale,
+					z: modelInfo.dimensions.z * scale
+				},
+				triangleCount: modelInfo.triangleCount
+			})
+		);
+
 		try {
 			// Use XMLHttpRequest for upload progress
 			const xhr = new XMLHttpRequest();
@@ -504,6 +533,7 @@
 					{dragActive}
 					bind:cubeContainer
 					bind:modelViewer
+					bind:modelInfo
 					onCubeMouseEnter={handleCubeMouseEnter}
 					onCubeMouseLeave={handleCubeMouseLeave}
 					onBrowse={browseFiles}

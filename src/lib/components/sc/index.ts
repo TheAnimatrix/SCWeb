@@ -6,7 +6,6 @@ export { default as DotGrid } from './DotGrid.svelte';
 export { default as ProductCard } from './ProductCard.svelte';
 export { default as ProductCardList } from './ProductCardList.svelte';
 export { default as ProductCardListItem } from './ProductCardListItem.svelte';
-export { default as SpecSheet } from './SpecSheet.svelte';
 export { default as StockBar } from './StockBar.svelte';
 export { default as FeatureModule } from './FeatureModule.svelte';
 export { default as ReviewCard } from './ReviewCard.svelte';
@@ -27,7 +26,6 @@ export { default as FeaturedCarouselSkeleton } from './FeaturedCarouselSkeleton.
 export { default as FormSectionSkeleton } from './FormSectionSkeleton.svelte';
 export { default as MakerRowSkeleton } from './MakerRowSkeleton.svelte';
 export { default as ReviewCardSkeleton } from './ReviewCardSkeleton.svelte';
-export { default as AddressCardSkeleton } from './AddressCardSkeleton.svelte';
 export { default as CheckoutLineSkeleton } from './CheckoutLineSkeleton.svelte';
 export { default as CheckoutSummarySkeleton } from './CheckoutSummarySkeleton.svelte';
 export { default as ChipGridSkeleton } from './ChipGridSkeleton.svelte';

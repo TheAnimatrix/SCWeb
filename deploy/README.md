@@ -54,6 +54,20 @@ Set all variables on the Dokploy application at **runtime** (Environment tab). D
 
 \*SMTP vars are required for order / 3DP quote / status / chat emails. Without `SMTP_HOST` + `SMTP_PASS`, the API starts but every send is skipped (`email.skipped`). Check `GET /health` → `mail.smtpConfigured` after deploy.
 
+## GitHub deploy status
+
+The **Deploy** workflow (`.github/workflows/deploy.yml`) shows Dokploy build/deploy results in GitHub Actions on every push to `master` / `main`. It does **not** trigger a second deploy — keep **Auto Deploy** enabled in Dokploy; the workflow only polls the deployment the Dokploy webhook starts.
+
+Add these repository secrets (**Settings → Secrets and variables → Actions**):
+
+| Secret | Where to find it |
+| ------ | ---------------- |
+| `DOKPLOY_URL` | Your Dokploy instance URL, e.g. `https://dokploy.yourdomain.com` (no trailing slash) |
+| `DOKPLOY_API_KEY` | Dokploy → **Profile** → API / CLI keys |
+| `DOKPLOY_APPLICATION_ID` | Open the app in Dokploy — the ID is in the URL or application settings |
+
+After the next push, the Actions tab shows **Deploy** with ✅ or ❌ matching the Dokploy deployment outcome.
+
 ## How traffic flows
 
 - **Browsers → main domain** — hit the web app on port 3000. Authenticated `/api` calls go through the SvelteKit proxy (`API_ORIGIN` → `127.0.0.1:3001`).

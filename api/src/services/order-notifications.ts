@@ -7,10 +7,19 @@ import { printrequests } from '../db/schema/printrequests.js';
 import { products } from '../db/schema/products.js';
 import {
 	renderOrderReceivedEmail,
-	renderOrderStatusUpdateEmail
+	renderOrderStatusUpdateEmail,
+	renderPrintQuoteRequestedEmail
 } from './email-templates/index.js';
 import type { MailService, RenderedEmail } from './mail.js';
 import { storeLog } from '../middleware/logging.js';
+import {
+	formatBytes,
+	formatDimensions,
+	buildPrintMetadataDetails,
+	buildPrintOptionDetails,
+	parsePrintModelData
+} from './print-request-email.js';
+import { getPrintRequestDisplayName, parsePrintModelMetadata } from './print-files.js';
 
 type PrintParties = {
 	userId: string;
@@ -186,7 +195,10 @@ export function notifyPrintQuoteRequested(
 	db: Database,
 	mail: MailService,
 	printRequestId: string,
-	parties: PrintParties
+	parties: PrintParties,
+	context?: {
+		previewImageDataUri?: string;
+	}
 ): void {
 	mail.dispatch('print.quote_requested', async () => {
 		storeLog('info', 'mail.notify.start', {
@@ -196,33 +208,68 @@ export function notifyPrintQuoteRequested(
 			ordersInbox: mail.ordersInbox
 		});
 
+		const [row] = await db
+			.select({
+				model: printrequests.model,
+				modelMetadata: printrequests.modelMetadata,
+				modelData: printrequests.modelData
+			})
+			.from(printrequests)
+			.where(eq(printrequests.id, printRequestId))
+			.limit(1);
+
+		const filename = getPrintRequestDisplayName(row?.model, row?.modelMetadata);
+		const metadata = parsePrintModelMetadata(row?.modelMetadata);
+		const modelData = parsePrintModelData(row?.modelData);
+		const metadataDetails = buildPrintMetadataDetails(filename, metadata);
+		const printOptions = buildPrintOptionDetails(modelData);
+		const meta = { printRequestId, filename };
+
 		const partyEmails = await resolvePrintPartyEmails(mail, parties);
-		const meta = { printRequestId };
+
+		const shared = {
+			siteUrl: mail.siteUrl,
+			printRequestId,
+			filename,
+			statusLabel: 'Requested',
+			metadata: metadataDetails,
+			printOptions,
+			previewImageDataUri: context?.previewImageDataUri
+		};
 
 		sendPrintStatusEmails(
 			mail,
 			partyEmails,
 			{
-				inbox: buildPrintStatusTemplate(mail, printRequestId, {
-					title: 'Print quote requested',
-					preheader: 'A new 3D print quote request was submitted.',
+				inbox: renderPrintQuoteRequestedEmail({
+					...shared,
+					audience: 'inbox',
+					preheader: `A new 3D print quote request was submitted for ${filename}.`,
 					intro: 'A customer submitted a new 3D print quote request.',
-					statusLabel: 'Requested',
-					ctaHref: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+					cta: {
+						label: 'View request',
+						href: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+					}
 				}),
-				user: buildPrintStatusTemplate(mail, printRequestId, {
-					title: 'Quote request submitted',
-					preheader: 'Your 3D print quote request is with the maker.',
+				user: renderPrintQuoteRequestedEmail({
+					...shared,
+					audience: 'user',
+					preheader: `Your quote request for ${filename} is with the maker.`,
 					intro: 'We received your 3D print quote request and shared it with the maker.',
-					statusLabel: 'Requested',
-					ctaHref: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
+					cta: {
+						label: 'View request',
+						href: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
+					}
 				}),
-				maker: buildPrintStatusTemplate(mail, printRequestId, {
-					title: 'New print quote request',
-					preheader: 'A customer requested a quote from you.',
+				maker: renderPrintQuoteRequestedEmail({
+					...shared,
+					audience: 'maker',
+					preheader: `A customer requested a quote for ${filename}.`,
 					intro: 'A customer submitted a 3D print quote request for you to review.',
-					statusLabel: 'Requested',
-					ctaHref: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+					cta: {
+						label: 'Review request',
+						href: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+					}
 				})
 			},
 			meta

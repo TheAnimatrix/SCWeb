@@ -107,6 +107,16 @@ export function renderParagraph(text: string): string {
 	return `<p style="margin:0 0 12px;color:${BRAND.text};">${escapeHtml(text)}</p>`;
 }
 
+export function renderPreviewImage(dataUri: string, alt: string): string {
+	if (!dataUri.startsWith('data:image/')) {
+		return '';
+	}
+
+	return `<div style="margin:0 0 16px;text-align:center;">
+		<img src="${dataUri}" alt="${escapeHtml(alt)}" width="280" style="display:block;margin:0 auto;max-width:100%;height:auto;border-radius:8px;border:1px solid ${BRAND.border};background:${BRAND.bg};" />
+	</div>`;
+}
+
 function escapeHtml(value: string): string {
 	return value
 		.replaceAll('&', '&amp;')

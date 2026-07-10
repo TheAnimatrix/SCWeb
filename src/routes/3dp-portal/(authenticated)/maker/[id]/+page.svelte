@@ -11,7 +11,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { goto, invalidate } from '$app/navigation';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
-	import { asPrintRequest } from '$lib/types/printRequest';
+	import { asPrintRequest, getPrintRequestDisplayName } from '$lib/types/printRequest';
 	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
 	let { data } = $props();
 
@@ -38,14 +38,9 @@
 	let downloadProgress = $state(0);
 	let unreadCount = $state(0);
 
-	const displayModelName = $derived.by(() => {
-		const path = req?.model;
-		if (!path) return '';
-		const segments = path.split('/').pop()?.split('.') ?? [];
-		if (segments.length < 2) return segments.join('.');
-		const prefix = segments[segments.length - 2]?.split('_') ?? [];
-		return `${prefix[prefix.length - 1] ?? ''}.${segments[segments.length - 1] ?? ''}`;
-	});
+	const displayModelName = $derived.by(() =>
+		getPrintRequestDisplayName(req?.model, req?.model_metadata)
+	);
 
 	// Add a mapping for stage colors
 	const STAGE_COLORS: { [key: string]: string } = {

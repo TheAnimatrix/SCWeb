@@ -120,12 +120,39 @@ describe('order-notifications', () => {
 
 	it('notifies inbox, user, and maker on print quote requested', async () => {
 		const { mail, sent } = createMockMail();
-		const db = { select: vi.fn() } as never;
+		const printSelect = createSelectChain([
+			{
+				model: 'models/user/file.stl',
+				modelMetadata: {
+					fileName: 'user/file.stl',
+					originalFilename: 'bracket.stl',
+					fileSizeBytes: 2048,
+					dimensions: { x: 10, y: 20, z: 30 },
+					triangleCount: 1200
+				},
+				modelData: {
+					color: '#ff0000',
+					material: 'PLA',
+					quality: 'Standard (0.20mm)',
+					scale: '1',
+					infill: '20'
+				}
+			}
+		]);
+		const db = { select: vi.fn(() => printSelect) } as never;
 
-		notifyPrintQuoteRequested(db, mail, 'print-1', {
-			userId: 'user-1',
-			creatorId: 'maker-1'
-		});
+		notifyPrintQuoteRequested(
+			db,
+			mail,
+			'print-1',
+			{
+				userId: 'user-1',
+				creatorId: 'maker-1'
+			},
+			{
+				previewImageDataUri: 'data:image/png;base64,abc'
+			}
+		);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(sent.map((entry) => entry.to).sort()).toEqual([
@@ -133,6 +160,7 @@ describe('order-notifications', () => {
 			'orders@selfcrafted.in',
 			'user@example.com'
 		]);
+		expect(sent.find((entry) => entry.to === 'maker@example.com')?.subject).toContain('bracket.stl');
 	});
 
 	it('notifies inbox, user, and maker on print status update', async () => {

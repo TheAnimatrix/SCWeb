@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	renderAccountWelcomeEmail,
 	renderOrderReceivedEmail,
-	renderPasswordResetEmail
+	renderPasswordResetEmail,
+	renderPrintQuoteRequestedEmail
 } from './index.js';
 
 describe('email templates', () => {
@@ -47,5 +48,35 @@ describe('email templates', () => {
 		expect(result.html).toContain('order-1234-5678');
 		expect(result.html).toContain('Widget');
 		expect(result.html).toContain('₹1,047');
+	});
+
+	it('renders print quote requested with filename title and preview', () => {
+		const result = renderPrintQuoteRequestedEmail({
+			siteUrl: 'http://localhost:5173',
+			audience: 'maker',
+			printRequestId: 'print-1234-5678',
+			filename: 'bracket.stl',
+			preheader: 'A customer requested a quote for bracket.stl.',
+			intro: 'A customer submitted a 3D print quote request for you to review.',
+			statusLabel: 'Requested',
+			metadata: [
+				{ label: 'File', value: 'bracket.stl' },
+				{ label: 'File size', value: '2.0 KB' }
+			],
+			printOptions: [
+				{ label: 'Material', value: 'PLA' },
+				{ label: 'Color', value: '#ff0000' }
+			],
+			previewImageDataUri: 'data:image/png;base64,abc',
+			cta: {
+				label: 'Review request',
+				href: 'http://localhost:5173/3dp-portal/maker/print-1234-5678'
+			}
+		});
+
+		expect(result.subject).toContain('bracket.stl');
+		expect(result.html).toContain('bracket.stl');
+		expect(result.html).toContain('data:image/png;base64,abc');
+		expect(result.html).toContain('PLA');
 	});
 });

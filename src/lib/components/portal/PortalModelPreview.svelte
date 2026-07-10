@@ -30,6 +30,13 @@
 		ondragleave?: () => void;
 		ondrop?: (e: DragEvent) => void;
 		modelViewer?: ModelViewer;
+		modelInfo?: {
+			dimensions: { x: number; y: number; z: number };
+			fileSize: string;
+			vertexCount: number;
+			triangleCount: number;
+			isCalculating: boolean;
+		};
 		class?: string;
 	}
 
@@ -54,16 +61,15 @@
 		ondragleave,
 		ondrop,
 		modelViewer = $bindable(),
+		modelInfo = $bindable({
+			dimensions: { x: 0, y: 0, z: 0 },
+			fileSize: '0 KB',
+			vertexCount: 0,
+			triangleCount: 0,
+			isCalculating: false
+		}),
 		class: className
 	}: Props = $props();
-
-	let modelInfo = $state({
-		dimensions: { x: 0, y: 0, z: 0 },
-		fileSize: '0 KB',
-		vertexCount: 0,
-		triangleCount: 0,
-		isCalculating: false
-	});
 
 	const fileSize = $derived(modelFile ? `${(modelFile.size / (1024 * 1024)).toFixed(2)} MB` : null);
 </script>

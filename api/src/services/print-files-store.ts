@@ -8,6 +8,8 @@ import type { MailService } from './mail.js';
 import { notifyPrintQuoteRequested } from './order-notifications.js';
 import {
 	buildModelPath,
+	buildPreviewPath,
+	buildPreviewStorageKey,
 	buildStorageKey,
 	canAccessPrintRequest,
 	DEFAULT_DAILY_QUOTA,
@@ -36,12 +38,19 @@ export type PrintRequestRow = {
 	created_at: string;
 };
 
+export type PrintModelStatsInput = {
+	dimensions?: { x: number; y: number; z: number };
+	triangleCount?: number;
+};
+
 export type UploadPrintFileInput = {
 	userId: string;
 	makerId: string;
 	originalFilename: string;
 	fileBytes: Uint8Array;
 	modelData: PrintModelDataInput;
+	previewBytes?: Uint8Array;
+	modelStats?: PrintModelStatsInput;
 };
 
 export type UploadPrintFileResult =
@@ -227,6 +236,7 @@ export function createPrintFilesStore(
 			const fileId = randomUUID();
 			const storageKey = buildStorageKey(input.userId, fileId);
 			const modelPath = buildModelPath(storageKey);
+			const previewStorageKey = buildPreviewStorageKey(input.userId, fileId);
 
 			const uploadResult = await storage.upload(storageKey, input.fileBytes, 'application/sla');
 
@@ -241,6 +251,21 @@ export function createPrintFilesStore(
 				return { ok: false, status: 500, body: { error: 'upload_failed' } };
 			}
 
+			let previewPath: string | undefined;
+			let previewImageDataUri: string | undefined;
+
+			if (input.previewBytes && input.previewBytes.byteLength > 0) {
+				const previewUpload = await storage.upload(
+					previewStorageKey,
+					input.previewBytes,
+					'image/png'
+				);
+				if (previewUpload.ok) {
+					previewPath = buildPreviewPath(previewStorageKey);
+					previewImageDataUri = `data:image/png;base64,${Buffer.from(input.previewBytes).toString('base64')}`;
+				}
+			}
+
 			try {
 				const [inserted] = await db
 					.insert(printrequests)
@@ -251,7 +276,15 @@ export function createPrintFilesStore(
 						modelData: input.modelData,
 						modelMetadata: {
 							fileName: storageKey,
-							originalFilename: input.originalFilename
+							originalFilename: input.originalFilename,
+							fileSizeBytes: input.fileBytes.byteLength,
+							...(previewPath ? { previewPath } : {}),
+							...(input.modelStats?.dimensions
+								? { dimensions: input.modelStats.dimensions }
+								: {}),
+							...(input.modelStats?.triangleCount != null
+								? { triangleCount: input.modelStats.triangleCount }
+								: {})
 						},
 						requestStage: 'requested'
 					})
@@ -261,12 +294,17 @@ export function createPrintFilesStore(
 					notifyPrintQuoteRequested(db, options.mail, inserted.id, {
 						userId: inserted.userId,
 						creatorId: inserted.creatorId
+					}, {
+						previewImageDataUri
 					});
 				}
 
 				return { ok: true, printRequest: mapPrintRequestRow(inserted) };
 			} catch (error) {
 				const cleanup = await storage.remove(storageKey);
+				if (previewPath) {
+					await storage.remove(previewStorageKey);
+				}
 				await releaseUploadQuota(db, input.userId);
 				logUploadFailure('print-files.upload.insert_failed', {
 					userId: input.userId,

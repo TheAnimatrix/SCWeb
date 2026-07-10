@@ -748,6 +748,20 @@
 		currentModel.rotation.x -= 0.1;
 	}
 
+	export function capturePreview(): string | null {
+		if (!renderer || !scene || !camera) {
+			return null;
+		}
+
+		try {
+			renderer.render(scene, camera);
+			return renderer.domElement.toDataURL('image/png');
+		} catch (error) {
+			console.error('Error capturing model preview:', error);
+			return null;
+		}
+	}
+
 	// Export reset function
 	export function resetView() {
 		if (!currentModel || !camera || !controls) return;

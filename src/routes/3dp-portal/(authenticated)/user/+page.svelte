@@ -7,7 +7,7 @@
 	import { MakerRowSkeleton, MetaChip, TagBadge } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
-	import { parsePrintModelData } from '$lib/types/printRequest';
+	import { parsePrintModelData, getPrintRequestDisplayName } from '$lib/types/printRequest';
 	let { data } = $props();
 
 	function supabase() {
@@ -32,12 +32,8 @@
 
 	let unreadCounts: Record<string, number> = $state({});
 
-	function modelDisplayName(modelPath: string | null) {
-		if (!modelPath) return 'Model';
-		const parts = modelPath.split('/').pop()?.split('.') ?? [];
-		if (parts.length < 2) return 'Model';
-		const nameParts = parts[parts.length - 2]?.split('_') ?? [];
-		return `${nameParts[nameParts.length - 1] ?? 'model'}.${parts[parts.length - 1]}`;
+	function modelDisplayName(modelPath: string | null, modelMetadata: unknown) {
+		return getPrintRequestDisplayName(modelPath, modelMetadata as never);
 	}
 
 	function stageStyle(stage: string | null) {
@@ -127,7 +123,7 @@
 							<div class="mb-3 flex items-start justify-between gap-4">
 								<div class="min-w-0">
 									<div class="truncate font-medium text-foreground group-hover:text-foreground">
-										{modelDisplayName(req.model)}
+										{modelDisplayName(req.model, req.model_metadata)}
 									</div>
 									<p class="mt-1 font-mono text-xs text-muted-foreground">
 										{new Date(req.created_at).toLocaleString()}
