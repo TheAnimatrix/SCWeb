@@ -4,7 +4,6 @@ import type { EmailService } from './email.js';
 import { createMailService, type MailService } from './mail.js';
 import {
 	notifyOrderReceived,
-	notifyPrintMessageReceived,
 	notifyPrintQuoteRequested,
 	notifyPrintStatusUpdate
 } from './order-notifications.js';
@@ -217,36 +216,5 @@ describe('order-notifications', () => {
 			'user@example.com'
 		]);
 		expect(sent.find((entry) => entry.to === 'user@example.com')?.subject).toContain('declined');
-	});
-
-	it('notifies only the customer user for print chat messages', async () => {
-		const { mail, sent } = createMockMail();
-		const printSelect = createSelectChain([{ userId: 'user-1' }]);
-		const db = {
-			select: vi.fn().mockImplementationOnce(() => printSelect)
-		} as never;
-
-		notifyPrintMessageReceived(db, mail, 'print-1', 'user-1', 'Can you use blue filament?');
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(sent).toEqual([
-			{
-				to: 'jane@example.com',
-				subject: expect.stringContaining('New message')
-			}
-		]);
-	});
-
-	it('skips print chat email when recipient is the maker', async () => {
-		const { mail, sent } = createMockMail();
-		const printSelect = createSelectChain([{ userId: 'user-1' }]);
-		const db = {
-			select: vi.fn(() => printSelect)
-		} as never;
-
-		notifyPrintMessageReceived(db, mail, 'print-1', 'maker-1', 'On my way');
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(sent).toEqual([]);
 	});
 });

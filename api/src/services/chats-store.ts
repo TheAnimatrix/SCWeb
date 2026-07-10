@@ -5,7 +5,7 @@ import { chat } from '../db/schema/chat.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import type { Actor } from '../types/context.js';
 import type { MailService } from './mail.js';
-import { notifyPrintMessageReceived } from './order-notifications.js';
+import { schedulePrintChatMessageEmail } from './chat-message-notifications.js';
 
 export type SendChatMessageResult =
 	| { ok: true; response: SendChatMessageResponse }
@@ -81,13 +81,11 @@ export function createChatsStore(db: Database, options?: ChatsStoreOptions): Cha
 			}
 
 			if (options?.mail) {
-				notifyPrintMessageReceived(
-					db,
-					options.mail,
-					body.relationship_id,
-					body.recipient_id,
-					message
-				);
+				schedulePrintChatMessageEmail(db, options.mail, {
+					printRequestId: body.relationship_id,
+					recipientUserId: body.recipient_id,
+					senderUserId: actorId
+				});
 			}
 
 			return {

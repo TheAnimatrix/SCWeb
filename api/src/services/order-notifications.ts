@@ -464,44 +464,6 @@ function getPrintStatusCopies(
 	}
 }
 
-export function notifyPrintMessageReceived(
-	db: Database,
-	mail: MailService,
-	printRequestId: string,
-	recipientUserId: string,
-	message: string
-): void {
-	mail.dispatch('print.message_received', async () => {
-		const [row] = await db
-			.select({ userId: printrequests.userId })
-			.from(printrequests)
-			.where(eq(printrequests.id, printRequestId))
-			.limit(1);
-
-		if (!row?.userId || row.userId !== recipientUserId) {
-			return;
-		}
-
-		const to = await mail.resolveUserEmail(recipientUserId);
-		const preview =
-			message.length > 240 ? `${message.slice(0, 237).trimEnd()}...` : message;
-		const template = renderOrderStatusUpdateEmail({
-			siteUrl: mail.siteUrl,
-			title: 'New message on your print request',
-			preheader: 'You received a new message about your 3D print quote.',
-			intro: `You received a new message: "${preview}"`,
-			orderId: printRequestId,
-			statusLabel: 'Message',
-			cta: {
-				label: 'View conversation',
-				href: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
-			}
-		});
-
-		mail.send(to, template, { printRequestId, recipientUserId });
-	});
-}
-
 export async function getPrintRequestRecipient(
 	db: Database,
 	printRequestId: string
