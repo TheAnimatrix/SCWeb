@@ -66,7 +66,11 @@ Add these repository secrets (**Settings → Secrets and variables → Actions**
 | `DOKPLOY_API_KEY` | Dokploy → **Profile** → API / CLI keys |
 | `DOKPLOY_APPLICATION_ID` | Open the app in Dokploy — the ID is in the URL or application settings |
 
-After the next push, the Actions tab shows **Deploy** with ✅ or ❌ matching the Dokploy deployment outcome.
+After the next push, the Actions tab shows **Deploy** with ✅ or ❌ matching the Dokploy deployment outcome. The same run appears under **Deployments → production** (linked to https://selfcrafted.in).
+
+A README badge is available at:
+
+`https://github.com/TheAnimatrix/SCWeb/actions/workflows/deploy.yml/badge.svg?branch=master`
 
 ## How traffic flows
 

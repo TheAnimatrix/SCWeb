@@ -1,5 +1,8 @@
 # Selfcrafted Web Application
 
+[![Deploy](https://github.com/TheAnimatrix/SCWeb/actions/workflows/deploy.yml/badge.svg?branch=master)](https://github.com/TheAnimatrix/SCWeb/actions/workflows/deploy.yml)
+[![site](https://img.shields.io/website?url=https%3A%2F%2Fselfcrafted.in&label=selfcrafted.in)](https://selfcrafted.in)
+
 ![Selfcrafted Logo](static/favicon.png)
 
 ## Overview

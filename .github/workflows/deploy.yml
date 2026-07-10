@@ -19,11 +19,18 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   dokploy:
     name: Dokploy
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment:
+      name: production
+      url: https://selfcrafted.in
     steps:
       - name: Monitor Dokploy deployment
         env:
