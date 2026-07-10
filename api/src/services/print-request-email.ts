@@ -53,14 +53,18 @@ export function formatDimensions(dimensions: { x: number; y: number; z: number }
 	return `${format(dimensions.x)} × ${format(dimensions.y)} × ${format(dimensions.z)}`;
 }
 
-export function buildPrintOptionDetails(modelData: PrintModelDataRecord) {
-	const details: Array<{ label: string; value: string }> = [];
+export type PrintDetail =
+	| { kind?: 'text'; label: string; value: string }
+	| { kind: 'color'; label: string; value: string };
+
+export function buildPrintOptionDetails(modelData: PrintModelDataRecord): PrintDetail[] {
+	const details: PrintDetail[] = [];
 
 	if (modelData.material) {
 		details.push({ label: 'Material', value: modelData.material });
 	}
 	if (modelData.color) {
-		details.push({ label: 'Color', value: modelData.color });
+		details.push({ kind: 'color', label: 'Color', value: modelData.color });
 	}
 	if (modelData.quality) {
 		details.push({ label: 'Quality', value: modelData.quality });
@@ -78,8 +82,8 @@ export function buildPrintOptionDetails(modelData: PrintModelDataRecord) {
 export function buildPrintMetadataDetails(
 	filename: string,
 	metadata: ReturnType<typeof parsePrintModelMetadata>
-) {
-	const details: Array<{ label: string; value: string }> = [{ label: 'File', value: filename }];
+): PrintDetail[] {
+	const details: PrintDetail[] = [{ label: 'File', value: filename }];
 
 	const fileSize = formatBytes(metadata?.fileSizeBytes);
 	if (fileSize) {

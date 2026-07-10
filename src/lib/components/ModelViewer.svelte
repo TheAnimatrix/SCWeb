@@ -677,7 +677,8 @@
 
 		renderer = new THREE.WebGLRenderer({
 			antialias: true,
-			alpha: false
+			alpha: false,
+			preserveDrawingBuffer: true
 		});
 		renderer.setSize(width, height);
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -754,8 +755,10 @@
 		}
 
 		try {
+			controls?.update();
 			renderer.render(scene, camera);
-			return renderer.domElement.toDataURL('image/png');
+			const dataUrl = renderer.domElement.toDataURL('image/png');
+			return dataUrl.length > 100 ? dataUrl : null;
 		} catch (error) {
 			console.error('Error capturing model preview:', error);
 			return null;

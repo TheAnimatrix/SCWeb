@@ -96,6 +96,8 @@ export function renderEmailLayout(options: EmailLayoutOptions): { html: string; 
 	return { html, text };
 }
 
+export const PRINT_PREVIEW_CID = 'print-model-preview';
+
 export function renderLabelValue(label: string, value: string): string {
 	return `<p style="margin:0 0 12px;">
 		<span style="display:block;font-family:ui-monospace,monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${BRAND.muted};margin-bottom:4px;">${escapeHtml(label)}</span>
@@ -103,17 +105,38 @@ export function renderLabelValue(label: string, value: string): string {
 	</p>`;
 }
 
+export function normalizeCssColor(color: string): string | null {
+	const trimmed = color.trim();
+	if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) {
+		return trimmed;
+	}
+
+	if (/^([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) {
+		return `#${trimmed}`;
+	}
+
+	return null;
+}
+
+export function renderColorLabelValue(label: string, color: string): string {
+	const cssColor = normalizeCssColor(color) ?? BRAND.muted;
+
+	return `<p style="margin:0 0 12px;">
+		<span style="display:block;font-family:ui-monospace,monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:${BRAND.muted};margin-bottom:4px;">${escapeHtml(label)}</span>
+		<span style="display:inline-block;color:${BRAND.text};vertical-align:middle;">
+			<span style="display:inline-block;width:16px;height:16px;border-radius:3px;border:1px solid ${BRAND.border};background:${cssColor};vertical-align:middle;margin-right:8px;"></span>
+			<span style="vertical-align:middle;">${escapeHtml(color)}</span>
+		</span>
+	</p>`;
+}
+
 export function renderParagraph(text: string): string {
 	return `<p style="margin:0 0 12px;color:${BRAND.text};">${escapeHtml(text)}</p>`;
 }
 
-export function renderPreviewImage(dataUri: string, alt: string): string {
-	if (!dataUri.startsWith('data:image/')) {
-		return '';
-	}
-
+export function renderPreviewImage(cid: string, alt: string): string {
 	return `<div style="margin:0 0 16px;text-align:center;">
-		<img src="${dataUri}" alt="${escapeHtml(alt)}" width="280" style="display:block;margin:0 auto;max-width:100%;height:auto;border-radius:8px;border:1px solid ${BRAND.border};background:${BRAND.bg};" />
+		<img src="cid:${cid}" alt="${escapeHtml(alt)} preview" width="280" style="display:block;margin:0 auto;max-width:100%;height:auto;border-radius:8px;border:1px solid ${BRAND.border};background:${BRAND.bg};" />
 	</div>`;
 }
 

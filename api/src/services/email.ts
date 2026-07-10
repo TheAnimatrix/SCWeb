@@ -8,11 +8,19 @@ import {
 	isSmtpRateLimitError
 } from './email-send-queue.js';
 
+export type EmailInlineAttachment = {
+	cid: string;
+	content: Uint8Array;
+	contentType: string;
+	filename?: string;
+};
+
 export type EmailMessage = {
 	to: string;
 	subject: string;
 	html: string;
 	text: string;
+	attachments?: EmailInlineAttachment[];
 };
 
 export type EmailService = {
@@ -76,7 +84,13 @@ export function createEmailService(
 				to: message.to,
 				subject: message.subject,
 				html: message.html,
-				text: message.text
+				text: message.text,
+				attachments: message.attachments?.map((attachment) => ({
+					filename: attachment.filename ?? 'attachment',
+					content: Buffer.from(attachment.content),
+					cid: attachment.cid,
+					contentType: attachment.contentType
+				}))
 			});
 
 			storeLog('info', 'email.sent', {

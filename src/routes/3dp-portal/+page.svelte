@@ -377,6 +377,20 @@
 		loadingRequests = false;
 	}
 
+	function dataUrlToBlob(dataUrl: string): Blob | null {
+		const [header, base64] = dataUrl.split(',');
+		if (!base64) return null;
+
+		const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';
+		const binary = atob(base64);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+
+		return new Blob([bytes], { type: mime });
+	}
+
 	async function requestQuoteCompleter(
 		maker_id: string,
 		model: File | null,
@@ -421,11 +435,9 @@
 
 		const previewDataUrl = modelViewer?.capturePreview?.();
 		if (previewDataUrl) {
-			try {
-				const previewBlob = await (await fetch(previewDataUrl)).blob();
+			const previewBlob = dataUrlToBlob(previewDataUrl);
+			if (previewBlob) {
 				formData.append('preview_image', previewBlob, 'preview.png');
-			} catch {
-				// Preview is optional; continue without it.
 			}
 		}
 

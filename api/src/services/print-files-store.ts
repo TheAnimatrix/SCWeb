@@ -252,7 +252,6 @@ export function createPrintFilesStore(
 			}
 
 			let previewPath: string | undefined;
-			let previewImageDataUri: string | undefined;
 
 			if (input.previewBytes && input.previewBytes.byteLength > 0) {
 				const previewUpload = await storage.upload(
@@ -262,7 +261,6 @@ export function createPrintFilesStore(
 				);
 				if (previewUpload.ok) {
 					previewPath = buildPreviewPath(previewStorageKey);
-					previewImageDataUri = `data:image/png;base64,${Buffer.from(input.previewBytes).toString('base64')}`;
 				}
 			}
 
@@ -295,7 +293,7 @@ export function createPrintFilesStore(
 						userId: inserted.userId,
 						creatorId: inserted.creatorId
 					}, {
-						previewImageDataUri
+						previewImageBytes: input.previewBytes
 					});
 				}
 

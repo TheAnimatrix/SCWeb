@@ -150,7 +150,7 @@ describe('order-notifications', () => {
 				creatorId: 'maker-1'
 			},
 			{
-				previewImageDataUri: 'data:image/png;base64,abc'
+				previewImageBytes: new Uint8Array([137, 80, 78, 71])
 			}
 		);
 		await new Promise((resolve) => setTimeout(resolve, 0));
@@ -160,7 +160,9 @@ describe('order-notifications', () => {
 			'orders@selfcrafted.in',
 			'user@example.com'
 		]);
-		expect(sent.find((entry) => entry.to === 'maker@example.com')?.subject).toContain('bracket.stl');
+		expect(sent.find((entry) => entry.to === 'maker@example.com')?.subject).toContain(
+			'New print quote request'
+		);
 	});
 
 	it('notifies inbox, user, and maker on print status update', async () => {

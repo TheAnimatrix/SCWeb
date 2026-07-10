@@ -6,9 +6,15 @@ import type { Database } from '../db/index.js';
 import { users } from '../db/schema/users.js';
 import { getSiteUrl, type Env } from '../env.js';
 import { storeLog } from '../middleware/logging.js';
-import { createEmailService, type EmailMessage, type EmailService } from './email.js';
+import {
+	createEmailService,
+	type EmailInlineAttachment,
+	type EmailMessage,
+	type EmailService
+} from './email.js';
 
-export type RenderedEmail = Pick<EmailMessage, 'subject' | 'html' | 'text'>;
+export type RenderedEmail = Pick<EmailMessage, 'subject' | 'html' | 'text' | 'attachments'>;
+export type { EmailInlineAttachment };
 
 export type MailService = {
 	readonly isConfigured: boolean;
@@ -115,7 +121,8 @@ export function createMailService(
 				to,
 				subject: email.subject,
 				html: email.html,
-				text: email.text
+				text: email.text,
+				attachments: email.attachments
 			});
 		},
 

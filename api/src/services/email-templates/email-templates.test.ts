@@ -50,33 +50,38 @@ describe('email templates', () => {
 		expect(result.html).toContain('₹1,047');
 	});
 
-	it('renders print quote requested with filename title and preview', () => {
-		const result = renderPrintQuoteRequestedEmail({
-			siteUrl: 'http://localhost:5173',
-			audience: 'maker',
-			printRequestId: 'print-1234-5678',
-			filename: 'bracket.stl',
-			preheader: 'A customer requested a quote for bracket.stl.',
-			intro: 'A customer submitted a 3D print quote request for you to review.',
-			statusLabel: 'Requested',
-			metadata: [
-				{ label: 'File', value: 'bracket.stl' },
-				{ label: 'File size', value: '2.0 KB' }
-			],
-			printOptions: [
-				{ label: 'Material', value: 'PLA' },
-				{ label: 'Color', value: '#ff0000' }
-			],
-			previewImageDataUri: 'data:image/png;base64,abc',
-			cta: {
-				label: 'Review request',
-				href: 'http://localhost:5173/3dp-portal/maker/print-1234-5678'
-			}
-		});
+	it('renders print quote requested with preview attachment and color swatch', () => {
+		const previewBytes = new Uint8Array([137, 80, 78, 71]);
+		const result = renderPrintQuoteRequestedEmail(
+			{
+				siteUrl: 'http://localhost:5173',
+				audience: 'maker',
+				printRequestId: 'print-1234-5678',
+				filename: 'bracket.stl',
+				preheader: 'A customer requested a quote for bracket.stl.',
+				intro: 'A customer submitted a 3D print quote request for you to review.',
+				statusLabel: 'Requested',
+				metadata: [
+					{ label: 'File', value: 'bracket.stl' },
+					{ label: 'File size', value: '2.0 KB' }
+				],
+				printOptions: [
+					{ label: 'Material', value: 'PLA' },
+					{ kind: 'color', label: 'Color', value: '#ff0000' }
+				],
+				hasPreview: true,
+				cta: {
+					label: 'Review request',
+					href: 'http://localhost:5173/3dp-portal/maker/print-1234-5678'
+				}
+			},
+			{ previewBytes }
+		);
 
-		expect(result.subject).toContain('bracket.stl');
-		expect(result.html).toContain('bracket.stl');
-		expect(result.html).toContain('data:image/png;base64,abc');
-		expect(result.html).toContain('PLA');
+		expect(result.subject).toContain('New print quote request');
+		expect(result.html).toContain('cid:print-model-preview');
+		expect(result.html).toContain('background:#ff0000');
+		expect(result.html).toContain('#ff0000');
+		expect(result.attachments).toHaveLength(1);
 	});
 });

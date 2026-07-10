@@ -197,7 +197,7 @@ export function notifyPrintQuoteRequested(
 	printRequestId: string,
 	parties: PrintParties,
 	context?: {
-		previewImageDataUri?: string;
+		previewImageBytes?: Uint8Array;
 	}
 ): void {
 	mail.dispatch('print.quote_requested', async () => {
@@ -223,6 +223,7 @@ export function notifyPrintQuoteRequested(
 		const modelData = parsePrintModelData(row?.modelData);
 		const metadataDetails = buildPrintMetadataDetails(filename, metadata);
 		const printOptions = buildPrintOptionDetails(modelData);
+		const hasPreview = Boolean(context?.previewImageBytes && context.previewImageBytes.byteLength > 0);
 		const meta = { printRequestId, filename };
 
 		const partyEmails = await resolvePrintPartyEmails(mail, parties);
@@ -234,43 +235,54 @@ export function notifyPrintQuoteRequested(
 			statusLabel: 'Requested',
 			metadata: metadataDetails,
 			printOptions,
-			previewImageDataUri: context?.previewImageDataUri
+			hasPreview
 		};
+
+		const previewOptions = { previewBytes: context?.previewImageBytes };
 
 		sendPrintStatusEmails(
 			mail,
 			partyEmails,
 			{
-				inbox: renderPrintQuoteRequestedEmail({
-					...shared,
-					audience: 'inbox',
-					preheader: `A new 3D print quote request was submitted for ${filename}.`,
-					intro: 'A customer submitted a new 3D print quote request.',
-					cta: {
-						label: 'View request',
-						href: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
-					}
-				}),
-				user: renderPrintQuoteRequestedEmail({
-					...shared,
-					audience: 'user',
-					preheader: `Your quote request for ${filename} is with the maker.`,
-					intro: 'We received your 3D print quote request and shared it with the maker.',
-					cta: {
-						label: 'View request',
-						href: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
-					}
-				}),
-				maker: renderPrintQuoteRequestedEmail({
-					...shared,
-					audience: 'maker',
-					preheader: `A customer requested a quote for ${filename}.`,
-					intro: 'A customer submitted a 3D print quote request for you to review.',
-					cta: {
-						label: 'Review request',
-						href: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
-					}
-				})
+				inbox: renderPrintQuoteRequestedEmail(
+					{
+						...shared,
+						audience: 'inbox',
+						preheader: `A new 3D print quote request was submitted for ${filename}.`,
+						intro: 'A customer submitted a new 3D print quote request.',
+						cta: {
+							label: 'View request',
+							href: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+						}
+					},
+					previewOptions
+				),
+				user: renderPrintQuoteRequestedEmail(
+					{
+						...shared,
+						audience: 'user',
+						preheader: `Your quote request for ${filename} is with the maker.`,
+						intro: 'We received your 3D print quote request and shared it with the maker.',
+						cta: {
+							label: 'View request',
+							href: `${mail.siteUrl}/3dp-portal/user/${printRequestId}`
+						}
+					},
+					previewOptions
+				),
+				maker: renderPrintQuoteRequestedEmail(
+					{
+						...shared,
+						audience: 'maker',
+						preheader: `A customer requested a quote for ${filename}.`,
+						intro: 'A customer submitted a 3D print quote request for you to review.',
+						cta: {
+							label: 'Review request',
+							href: `${mail.siteUrl}/3dp-portal/maker/${printRequestId}`
+						}
+					},
+					previewOptions
+				)
 			},
 			meta
 		);
