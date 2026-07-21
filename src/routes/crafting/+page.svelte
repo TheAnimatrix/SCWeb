@@ -119,7 +119,8 @@
 				</p>
 			</div>
 
-			<div class="mt-8">
+			<div class="mt-8 flex flex-wrap gap-3">
+				<ScButton href="/maker/apply?source=crafting">Apply as maker</ScButton>
 				<ScButton
 					href="https://discord.gg/UQ74TQfMqM"
 					target="_blank"

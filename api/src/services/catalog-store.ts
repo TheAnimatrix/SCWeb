@@ -78,7 +78,7 @@ function buildBrowseConditions(
 	tagOptions: TagOption[],
 	options?: { includeType?: boolean }
 ): SQL[] {
-	const conditions: SQL[] = [];
+	const conditions: SQL[] = [eq(products.listingState, 'live')];
 
 	if (options?.includeType !== false) {
 		const productType = filterToProductType(filters.filter);
@@ -140,6 +140,9 @@ export interface CatalogStore {
 
 export function createCatalogStore(db: Database): CatalogStore {
 	async function selectProductsWithUsers(where?: SQL, orderBy = desc(products.createdAt), limit?: number) {
+		const live = eq(products.listingState, 'live');
+		const combined = where ? and(live, where) : live;
+
 		let query = db
 			.select({
 				product: products,
@@ -150,11 +153,8 @@ export function createCatalogStore(db: Database): CatalogStore {
 			})
 			.from(products)
 			.leftJoin(users, eq(products.uid, users.id))
+			.where(combined)
 			.orderBy(orderBy);
-
-		if (where) {
-			query = query.where(where) as typeof query;
-		}
 
 		if (limit != null) {
 			query = query.limit(limit) as typeof query;
@@ -190,10 +190,19 @@ export function createCatalogStore(db: Database): CatalogStore {
 		if (cached) return cached;
 
 		const [allResult, productsResult, sparesResult, fleaResult] = await Promise.all([
-			db.select({ value: count() }).from(products),
-			db.select({ value: count() }).from(products).where(eq(products.type, 'product')),
-			db.select({ value: count() }).from(products).where(eq(products.type, 'spare')),
-			db.select({ value: count() }).from(products).where(eq(products.type, 'flea-market'))
+			db.select({ value: count() }).from(products).where(eq(products.listingState, 'live')),
+			db
+				.select({ value: count() })
+				.from(products)
+				.where(and(eq(products.listingState, 'live'), eq(products.type, 'product'))),
+			db
+				.select({ value: count() })
+				.from(products)
+				.where(and(eq(products.listingState, 'live'), eq(products.type, 'spare'))),
+			db
+				.select({ value: count() })
+				.from(products)
+				.where(and(eq(products.listingState, 'live'), eq(products.type, 'flea-market')))
 		]);
 
 		const value = {

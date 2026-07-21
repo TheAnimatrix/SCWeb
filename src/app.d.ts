@@ -27,17 +27,15 @@ declare global {
 			safeGetSession(): Promise<{ session: Session | null; user: User | null }>;
 			getLayoutSession(): Promise<{ session: Session | null; user: User | null }>;
 			_safeGetSessionCache?: Promise<{ session: Session | null; user: User | null }>;
+			maker: import('$lib/server/maker').ResolvedMakerLocals | null;
+			getMaker(): Promise<import('$lib/server/maker').ResolvedMakerLocals | null>;
+			_makerResolved?: boolean;
 			clientId: string;
 			requestId: string;
 		}
 		interface PageData {
 			session: Session | null;
 		}
-		// interface Error {}
-		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
 	}
 }
 

@@ -17,6 +17,7 @@
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
 	import { getPurchasableLimit } from '$lib/utils/stock';
+	import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
 	import { SeoHead, JsonLd } from '$lib/components/seo';
 	import { productBreadcrumbJsonLd, productJsonLd, productSeo } from '$lib/seo/meta';
 
@@ -144,7 +145,11 @@
 				})
 			: ''
 	);
-	const shopHref = $derived(`/crafts?q=${encodeURIComponent(makerName)}`);
+	const shopHref = $derived(
+		productUser?.username
+			? makerStorefrontPath(productUser.username)
+			: `/crafts?q=${encodeURIComponent(makerName)}`
+	);
 
 	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 

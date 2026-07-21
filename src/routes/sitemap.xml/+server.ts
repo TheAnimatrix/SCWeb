@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { productPath } from '$lib/seo/product';
 import { getSiteUrl } from '$lib/seo/site';
+import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
 
 interface BrowseProduct {
 	id: string;
@@ -11,6 +12,10 @@ interface BrowseProduct {
 interface BrowseResponse {
 	products: BrowseProduct[];
 	totalPages: number;
+}
+
+interface StorefrontListResponse {
+	storefronts?: Array<{ handle: string; published_at: string | null }>;
 }
 
 const STATIC_ROUTES: { path: string; changefreq: string; priority: string }[] = [
@@ -80,6 +85,28 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
 		}
 	} catch (error) {
 		console.error('[sitemap] failed to fetch products:', error);
+	}
+
+	try {
+		const response = await fetch('/api/makers/storefronts');
+		if (response.ok) {
+			const data = (await response.json()) as StorefrontListResponse;
+			for (const storefront of data.storefronts ?? []) {
+				const lastmod = storefront.published_at
+					? new Date(storefront.published_at).toISOString().slice(0, 10)
+					: undefined;
+				entries.push(
+					urlEntry(
+						`${siteUrl}${makerStorefrontPath(storefront.handle)}`,
+						lastmod,
+						'weekly',
+						'0.8'
+					)
+				);
+			}
+		}
+	} catch (error) {
+		console.error('[sitemap] failed to fetch storefronts:', error);
 	}
 
 	const body = `<?xml version="1.0" encoding="UTF-8"?>

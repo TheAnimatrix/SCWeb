@@ -12,13 +12,15 @@ import type { EmailService } from '../services/email.js';
 import type { MailService } from '../services/mail.js';
 import type { AuthStore } from '../services/auth-store.js';
 import type { OrdersStore } from '../services/orders-store.js';
-import type { MakersStore } from '../services/makers-store.js';
+import type { MakersStore, ResolvedMaker } from '../services/makers-store.js';
 import type { RazorpayWebhookService } from '../services/razorpay-webhooks.js';
 
 export type Actor = {
 	userId: string | null;
 	clientId: string | null;
 };
+
+export type { ResolvedMaker };
 
 export type AppVariables = {
 	env: Env;
@@ -39,4 +41,5 @@ export type AppVariables = {
 	requestId: string;
 	actor: Actor;
 	user: User | null;
+	maker: ResolvedMaker | null;
 };

@@ -130,16 +130,23 @@ export {
 	listAvailableMakersResponseSchema,
 	makerApplicationSchema,
 	makerApprovalStateSchema,
+	makerCapabilityKeySchema,
 	makerFilamentSchema,
 	makerProfileSchema,
 	makerReviewSchema,
+	listingStateSchema,
+	storefrontStateSchema,
+	updateStorefrontBodySchema,
+	upsertListingBodySchema,
 	type AvailableMaker,
 	type ListAvailableMakersResponse,
 	type MakerApplication,
 	type MakerApprovalState,
 	type MakerFilament,
 	type MakerProfile,
-	type MakerReview
+	type MakerReview,
+	type UpdateStorefrontBody,
+	type UpsertListingBody
 } from './makers.js';
 export {
 	listUserOrdersResponseSchema,

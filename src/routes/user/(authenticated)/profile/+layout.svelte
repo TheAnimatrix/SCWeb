@@ -3,8 +3,9 @@
 	import { Breadcrumbs } from '$lib/components/shell';
 	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
 	import { cn } from '$lib/utils';
+	import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
 
-	let { children } = $props();
+	let { data, children } = $props();
 
 	const navItems = [
 		{ href: '/user/profile/account', label: 'account' },
@@ -19,6 +20,9 @@
 		navItems.find((item) => activePath === item.href || activePath.startsWith(item.href + '/'))
 			?.label ?? 'profile'
 	);
+
+	const maker = $derived(data.maker);
+	const makerStatus = $derived(maker?.approved_state ?? null);
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
@@ -30,8 +34,33 @@
 				{ label: activeLabel }
 			]} />
 
-		<div class="mt-4 flex items-baseline justify-between gap-4">
+		<div class="mt-4 flex flex-wrap items-baseline justify-between gap-4">
 			<h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
+		</div>
+
+		<div class="mt-4 rounded-md border border-border bg-muted/20 p-4">
+			<p class="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">Maker status</p>
+			{#if makerStatus === 'approved'}
+				<p class="mt-1 text-sm">You’re an approved maker.</p>
+				<div class="mt-3 flex flex-wrap gap-3 text-sm">
+					<a href="/portal" class="underline">Open portal</a>
+					{#if maker?.username}
+						<a href={makerStorefrontPath(maker.username)} class="underline">View storefront</a>
+					{/if}
+				</div>
+			{:else if makerStatus === 'pending'}
+				<p class="mt-1 text-sm">Your maker application is pending review.</p>
+			{:else if makerStatus === 'rejected'}
+				<p class="mt-1 text-sm">Your previous application was rejected.</p>
+				<a href="/maker/apply?source=profile" class="mt-3 inline-block text-sm underline"
+					>Apply again</a
+				>
+			{:else}
+				<p class="mt-1 text-sm">Sell products or offer printing on Selfcrafted.</p>
+				<a href="/maker/apply?source=profile" class="mt-3 inline-block text-sm underline"
+					>Apply to become a maker</a
+				>
+			{/if}
 		</div>
 
 		<nav

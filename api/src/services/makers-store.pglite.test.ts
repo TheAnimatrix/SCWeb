@@ -15,8 +15,29 @@ CREATE TABLE IF NOT EXISTS "makers" (
 	"approved_state" text NOT NULL DEFAULT 'pending',
 	"application" jsonb,
 	"approved_at" timestamp with time zone,
+	"tagline" text,
+	"bio" text,
+	"avatar_url" text,
+	"banner_url" text,
+	"location" text,
+	"socials" jsonb,
+	"storefront_state" text NOT NULL DEFAULT 'draft',
+	"published_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL DEFAULT now(),
 	"updated_at" timestamp with time zone NOT NULL DEFAULT now()
+);
+`;
+
+const MAKER_CAPABILITIES_STUB_SQL = `
+CREATE TABLE IF NOT EXISTS "maker_capabilities" (
+	"maker_id" uuid NOT NULL,
+	"capability_key" text NOT NULL,
+	"state" text NOT NULL DEFAULT 'requested',
+	"config" jsonb,
+	"granted_at" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL DEFAULT now(),
+	"updated_at" timestamp with time zone NOT NULL DEFAULT now(),
+	PRIMARY KEY ("maker_id", "capability_key")
 );
 `;
 
@@ -100,6 +121,7 @@ async function createTestDb(): Promise<TestDb> {
 	const client = new PGlite();
 	await client.exec(`
 		${MAKERS_STUB_SQL}
+		${MAKER_CAPABILITIES_STUB_SQL}
 		${PRINTING_CRAFTERS_STUB_SQL}
 		${USER_FILAMENT_STUB_SQL}
 		${USERS_STUB_SQL}
@@ -180,6 +202,21 @@ describe('makers store', () => {
 				makerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
 				approvedState: 'pending',
 				name: 'Pending Maker'
+			}
+		]);
+
+		await db.insert(schema.makerCapabilities).values([
+			{
+				makerId: MAKER_WITH_FILAMENT,
+				capabilityKey: 'printing_3d',
+				state: 'approved',
+				grantedAt: new Date()
+			},
+			{
+				makerId: MAKER_WITHOUT_FILAMENT,
+				capabilityKey: 'printing_3d',
+				state: 'approved',
+				grantedAt: new Date()
 			}
 		]);
 

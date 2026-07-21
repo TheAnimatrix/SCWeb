@@ -36,7 +36,7 @@ describe('makers routes', () => {
 					tier: 'Bee'
 				}
 			])
-		} satisfies MakersStore;
+		} as unknown as MakersStore;
 
 		const app = createTestApp(makersStore);
 		const response = await app.request('http://localhost/makers/available');

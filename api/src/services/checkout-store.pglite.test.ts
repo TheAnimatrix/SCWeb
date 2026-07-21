@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS "products" (
 	"documentation" jsonb,
 	"faq" jsonb,
 	"uid" uuid,
+	"maker_id" uuid,
+	"listing_state" text NOT NULL DEFAULT 'live',
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 `;
