@@ -113,11 +113,14 @@ export function resolveSeo(meta: SeoMeta = {}, origin?: string): Required<
 
 export function productSeo(product: Product, origin?: string): SeoMeta {
 	const siteUrl = origin ?? getSiteUrl();
+	const directImage = productImageUrl(product, siteUrl);
+	const brandedImage = productOgImageUrl(product, siteUrl);
+
 	return {
 		title: product.name,
 		description: productDescription(product),
 		canonical: productUrl(product, siteUrl),
-		image: productOgImageUrl(product, siteUrl),
+		image: directImage ?? brandedImage,
 		imageAlt: product.name,
 		imageWidth: 1200,
 		imageHeight: 630,

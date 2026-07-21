@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -9,9 +10,22 @@ const LOGO_PADDING = 28;
 
 let logoBuffer: Buffer | null = null;
 
+function resolveLogoPath(): string {
+	const candidates = [
+		join(process.cwd(), 'build/client/pwa/pwa-512.png'),
+		join(process.cwd(), 'static/pwa/pwa-512.png')
+	];
+
+	for (const candidate of candidates) {
+		if (existsSync(candidate)) return candidate;
+	}
+
+	throw new Error('OG logo asset not found');
+}
+
 async function getLogoBuffer(): Promise<Buffer> {
 	if (logoBuffer) return logoBuffer;
-	logoBuffer = await readFile(join(process.cwd(), 'static/pwa/pwa-512.png'));
+	logoBuffer = await readFile(resolveLogoPath());
 	return logoBuffer;
 }
 
