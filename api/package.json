@@ -37,7 +37,7 @@
 		"@sentry/node": "^10.64.0",
 		"@supabase/supabase-js": "^2.49.1",
 		"dotenv": "^16.4.7",
-		"drizzle-orm": "^0.43.1",
+		"drizzle-orm": "^0.45.2",
 		"hono": "^4.7.6",
 		"nodemailer": "^9.0.3",
 		"postgres": "^3.4.5",
