@@ -45,6 +45,14 @@ export function productImageUrl(product: Product, origin?: string): string | und
 	return absoluteUrl(url, origin);
 }
 
+export function productOgImagePath(productId: string): string {
+	return `/og/product/${productId}`;
+}
+
+export function productOgImageUrl(product: Pick<Product, 'id'>, origin?: string): string {
+	return absoluteUrl(productOgImagePath(product.id), origin);
+}
+
 export function productAvailability(product: Product): 'InStock' | 'OutOfStock' {
 	const count = product.stock?.count ?? 0;
 	const status = product.stock?.status?.toLowerCase() ?? '';

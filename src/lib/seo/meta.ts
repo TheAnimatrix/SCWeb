@@ -12,6 +12,7 @@ import {
 	productAvailability,
 	productDescription,
 	productImageUrl,
+	productOgImageUrl,
 	productPath,
 	productUrl
 } from './product';
@@ -22,9 +23,13 @@ export interface SeoMeta {
 	canonical?: string;
 	image?: string;
 	imageAlt?: string;
+	imageWidth?: number;
+	imageHeight?: number;
 	type?: 'website' | 'product' | 'article';
 	noindex?: boolean;
 	keywords?: string[];
+	price?: number;
+	priceCurrency?: string;
 }
 
 export const homeSeo: SeoMeta = {
@@ -78,7 +83,11 @@ export function resolveSeo(meta: SeoMeta = {}, origin?: string): Required<
 	canonical: string;
 	image: string;
 	imageAlt: string;
+	imageWidth: number;
+	imageHeight: number;
 	keywords?: string[];
+	price?: number;
+	priceCurrency?: string;
 } {
 	const siteUrl = origin ?? getSiteUrl();
 	const title = formatTitle(meta.title === SITE_NAME ? undefined : meta.title);
@@ -92,9 +101,13 @@ export function resolveSeo(meta: SeoMeta = {}, origin?: string): Required<
 		canonical,
 		image,
 		imageAlt: meta.imageAlt ?? SITE_TAGLINE,
+		imageWidth: meta.imageWidth ?? 1200,
+		imageHeight: meta.imageHeight ?? 630,
 		type: meta.type ?? 'website',
 		noindex: meta.noindex ?? false,
-		keywords: meta.keywords
+		keywords: meta.keywords,
+		price: meta.price,
+		priceCurrency: meta.priceCurrency
 	};
 }
 
@@ -104,9 +117,13 @@ export function productSeo(product: Product, origin?: string): SeoMeta {
 		title: product.name,
 		description: productDescription(product),
 		canonical: productUrl(product, siteUrl),
-		image: productImageUrl(product, siteUrl),
+		image: productOgImageUrl(product, siteUrl),
 		imageAlt: product.name,
+		imageWidth: 1200,
+		imageHeight: 630,
 		type: 'product',
+		price: product.price.new,
+		priceCurrency: 'INR',
 		keywords: product.tags?.map((tag) => tag.tag).filter(Boolean)
 	};
 }

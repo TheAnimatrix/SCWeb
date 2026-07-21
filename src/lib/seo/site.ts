@@ -29,6 +29,10 @@ export function getSiteUrl(fallbackOrigin?: string): string {
 }
 
 export function absoluteUrl(path: string, origin?: string): string {
+	if (path.startsWith('http://') || path.startsWith('https://')) {
+		return path;
+	}
+
 	const base = origin ?? getSiteUrl();
 	const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 	return `${base}${normalizedPath}`;
