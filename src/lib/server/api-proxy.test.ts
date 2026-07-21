@@ -39,7 +39,9 @@ describe('isAllowedProxyMethod', () => {
 describe('getProxyTimeoutMs', () => {
 	it('uses a longer timeout for print-files uploads', () => {
 		expect(isUploadProxyPath('print-files/upload')).toBe(true);
+		expect(isUploadProxyPath('makers/me/assets/upload')).toBe(true);
 		expect(getProxyTimeoutMs('print-files/upload')).toBe(60_000);
+		expect(getProxyTimeoutMs('makers/me/assets/upload')).toBe(60_000);
 		expect(getProxyTimeoutMs('print-files/abc/download-url')).toBe(10_000);
 		expect(getProxyTimeoutMs('cart')).toBe(10_000);
 	});

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { updateMyStorefront } from '$lib/client/makersApi';
+	import { updateMyStorefront, uploadMakerAsset } from '$lib/client/makersApi';
 	import { ScButton, ScInput } from '$lib/components/sc';
 	import { SeoHead } from '$lib/components/seo';
 
@@ -14,6 +14,7 @@
 	let avatarUrl = $state((data.maker as { avatar_url?: string | null }).avatar_url ?? '');
 	let storefrontState = $state(data.maker.storefront_state ?? 'draft');
 	let busy = $state(false);
+	let uploadBusy = $state<'banner' | 'avatar' | null>(null);
 	let message = $state('');
 
 	async function save(e: Event) {
@@ -27,9 +28,10 @@
 			location: location || null,
 			banner_url: bannerUrl || null,
 			avatar_url: avatarUrl || null,
-			storefront_state: storefrontState === 'live' || storefrontState === 'paused' || storefrontState === 'draft'
-				? storefrontState
-				: 'draft'
+			storefront_state:
+				storefrontState === 'live' || storefrontState === 'paused' || storefrontState === 'draft'
+					? storefrontState
+					: 'draft'
 		});
 		busy = false;
 		if (!result.ok) {
@@ -38,6 +40,31 @@
 		}
 		message = 'Storefront saved.';
 		await invalidateAll();
+	}
+
+	async function upload(purpose: 'banner' | 'avatar', e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		uploadBusy = purpose;
+		message = '';
+		const result = await uploadMakerAsset(fetch, file, purpose);
+		uploadBusy = null;
+		if (!result.ok) {
+			message = result.error.message;
+			return;
+		}
+		if (purpose === 'banner') bannerUrl = result.data.url;
+		else avatarUrl = result.data.url;
+	}
+
+	function clearBanner() {
+		bannerUrl = '';
+	}
+
+	function clearAvatar() {
+		avatarUrl = '';
 	}
 </script>
 
@@ -72,14 +99,58 @@
 			<span class="font-mono text-[10px] uppercase text-muted-foreground">Location</span>
 			<ScInput bind:value={location} />
 		</label>
-		<label class="block space-y-1">
-			<span class="font-mono text-[10px] uppercase text-muted-foreground">Banner URL</span>
-			<ScInput bind:value={bannerUrl} type="url" placeholder="https://" />
-		</label>
-		<label class="block space-y-1">
-			<span class="font-mono text-[10px] uppercase text-muted-foreground">Avatar URL</span>
-			<ScInput bind:value={avatarUrl} type="url" placeholder="https://" />
-		</label>
+
+		<div class="space-y-2">
+			<span class="font-mono text-[10px] uppercase text-muted-foreground">Banner</span>
+			{#if bannerUrl}
+				<img src={bannerUrl} alt="" class="h-28 w-full rounded-md border border-border object-cover" />
+				<div class="flex gap-2">
+					<ScButton type="button" variant="ghost" onclick={clearBanner}>Remove</ScButton>
+				</div>
+			{/if}
+			<label class="inline-flex cursor-pointer items-center text-sm">
+				<span
+					class="rounded-md border border-border px-3 py-1.5 {uploadBusy === 'banner'
+						? 'opacity-60'
+						: 'hover:bg-muted'}">
+					{uploadBusy === 'banner' ? 'Uploading…' : 'Upload banner'}
+				</span>
+				<input
+					type="file"
+					accept="image/jpeg,image/png,image/webp,image/gif"
+					class="hidden"
+					disabled={uploadBusy !== null}
+					onchange={(e) => upload('banner', e)} />
+			</label>
+		</div>
+
+		<div class="space-y-2">
+			<span class="font-mono text-[10px] uppercase text-muted-foreground">Avatar</span>
+			{#if avatarUrl}
+				<img
+					src={avatarUrl}
+					alt=""
+					class="size-20 rounded-full border border-border object-cover" />
+				<div class="flex gap-2">
+					<ScButton type="button" variant="ghost" onclick={clearAvatar}>Remove</ScButton>
+				</div>
+			{/if}
+			<label class="inline-flex cursor-pointer items-center text-sm">
+				<span
+					class="rounded-md border border-border px-3 py-1.5 {uploadBusy === 'avatar'
+						? 'opacity-60'
+						: 'hover:bg-muted'}">
+					{uploadBusy === 'avatar' ? 'Uploading…' : 'Upload avatar'}
+				</span>
+				<input
+					type="file"
+					accept="image/jpeg,image/png,image/webp,image/gif"
+					class="hidden"
+					disabled={uploadBusy !== null}
+					onchange={(e) => upload('avatar', e)} />
+			</label>
+		</div>
+
 		<label class="block space-y-1">
 			<span class="font-mono text-[10px] uppercase text-muted-foreground">Visibility</span>
 			<select

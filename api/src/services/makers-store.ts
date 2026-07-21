@@ -46,6 +46,52 @@ function hasMaterialListingChange(
 	return false;
 }
 
+type DocEntry = { data: string; isMDUrl: boolean };
+
+/** Product page docs layout: [0]=description, [1]=docs, [2]=costing, [3]=shipping */
+function mergeDocumentation(
+	existing: DocEntry[] | null | undefined,
+	patch: {
+		documentation?: DocEntry[];
+		description?: string;
+		docs?: string;
+		costing?: string;
+		shipping?: string;
+	}
+): DocEntry[] | undefined {
+	if (patch.documentation) return patch.documentation;
+
+	const hasNamed =
+		patch.description !== undefined ||
+		patch.docs !== undefined ||
+		patch.costing !== undefined ||
+		patch.shipping !== undefined;
+	if (!hasNamed) return undefined;
+
+	const base = existing ?? [];
+	const slot = (i: number, value: string | undefined): DocEntry => ({
+		data: value !== undefined ? value : (base[i]?.data ?? ''),
+		isMDUrl: false
+	});
+
+	return [slot(0, patch.description), slot(1, patch.docs), slot(2, patch.costing), slot(3, patch.shipping)];
+}
+
+function normalizeTags(tags: string[] | undefined): { tag: string }[] | undefined {
+	if (tags === undefined) return undefined;
+	return tags.map((tag) => ({ tag }));
+}
+
+function listingDocFields(documentation: DocEntry[] | null | undefined) {
+	const docs = documentation ?? [];
+	return {
+		description: docs[0]?.data ?? '',
+		docs: docs[1]?.data ?? '',
+		costing: docs[2]?.data ?? '',
+		shipping: docs[3]?.data ?? ''
+	};
+}
+
 export type ResolvedMaker = {
 	id: string;
 	display_name: string | null;
@@ -559,19 +605,24 @@ export function createMakersStore(db: Database) {
 				.where(or(eq(products.makerId, makerId), eq(products.uid, makerId)))
 				.orderBy(desc(products.createdAt));
 
-			return rows.map((row) => ({
-				id: row.id,
-				name: row.name,
-				price: row.price,
-				stock: row.stock,
-				images: row.images,
-				type: row.type,
-				guarantee: row.guarantee,
-				documentation: row.documentation,
-				faq: row.faq,
-				listing_state: row.listingState,
-				created_at: row.createdAt
-			}));
+			return rows.map((row) => {
+				const docFields = listingDocFields(row.documentation);
+				return {
+					id: row.id,
+					name: row.name,
+					price: row.price,
+					stock: row.stock,
+					images: row.images,
+					type: row.type,
+					tags: (row.tags ?? []).map((t) => t.tag),
+					guarantee: row.guarantee,
+					documentation: row.documentation,
+					...docFields,
+					faq: row.faq,
+					listing_state: row.listingState,
+					created_at: row.createdAt
+				};
+			});
 		},
 
 		async upsertListing(input: {
@@ -585,7 +636,12 @@ export function createMakersStore(db: Database) {
 			stockStatus?: string;
 			type?: string;
 			images?: { url: string }[];
+			tags?: string[];
 			guarantee?: string | null;
+			description?: string;
+			docs?: string;
+			costing?: string;
+			shipping?: string;
 			documentation?: { data: string; isMDUrl: boolean }[];
 			faq?: { question: string; answer: string }[];
 			submitForReview?: boolean;
@@ -594,7 +650,11 @@ export function createMakersStore(db: Database) {
 				count: input.stockCount,
 				status: input.stockStatus ?? (input.stockCount > 0 ? 'in-stock' : 'out-of-stock')
 			};
-			const price = { new: input.priceNew, old: input.priceOld ?? input.priceNew };
+			const price = {
+				new: input.priceNew,
+				old: input.priceOld !== undefined ? input.priceOld : input.priceNew
+			};
+			const nextTags = normalizeTags(input.tags);
 
 			if (input.productId) {
 				return db.transaction(async (tx) => {
@@ -610,6 +670,7 @@ export function createMakersStore(db: Database) {
 
 					const nextType = input.type ?? existing.type ?? 'product';
 					const nextImages = input.images ?? existing.images;
+					const nextDocumentation = mergeDocumentation(existing.documentation, input);
 					const materialChanged = hasMaterialListingChange(existing, {
 						name: input.name,
 						price,
@@ -633,7 +694,7 @@ export function createMakersStore(db: Database) {
 						nextState = 'pending_review';
 						queuedReview = true;
 					}
-					// Soft fields (stock, guarantee, documentation, faq) never force re-review.
+					// Soft fields (stock, tags, guarantee, documentation, faq) never force re-review.
 
 					const [updated] = await tx
 						.update(products)
@@ -643,11 +704,12 @@ export function createMakersStore(db: Database) {
 							stock,
 							type: nextType,
 							images: nextImages,
+							tags: nextTags !== undefined ? nextTags : existing.tags,
 							guarantee:
 								input.guarantee !== undefined ? input.guarantee : existing.guarantee,
 							documentation:
-								input.documentation !== undefined
-									? input.documentation
+								nextDocumentation !== undefined
+									? nextDocumentation
 									: existing.documentation,
 							faq: input.faq !== undefined ? input.faq : existing.faq,
 							makerId: input.makerId,
@@ -679,6 +741,13 @@ export function createMakersStore(db: Database) {
 
 			return db.transaction(async (tx) => {
 				const listingState = input.submitForReview ? 'pending_review' : 'draft';
+				const documentation =
+					mergeDocumentation([], input) ?? [
+						{ data: '', isMDUrl: false },
+						{ data: '', isMDUrl: false },
+						{ data: '', isMDUrl: false },
+						{ data: '', isMDUrl: false }
+					];
 				const [created] = await tx
 					.insert(products)
 					.values({
@@ -687,8 +756,9 @@ export function createMakersStore(db: Database) {
 						stock,
 						type: input.type ?? 'product',
 						images: input.images ?? [],
+						tags: nextTags ?? [],
 						guarantee: input.guarantee ?? null,
-						documentation: input.documentation ?? [],
+						documentation,
 						faq: input.faq ?? [],
 						makerId: input.makerId,
 						uid: input.makerId,
@@ -738,6 +808,11 @@ export function createMakersStore(db: Database) {
 			productId: string,
 			patch: {
 				guarantee?: string | null;
+				tags?: string[];
+				description?: string;
+				docs?: string;
+				costing?: string;
+				shipping?: string;
 				documentation?: { data: string; isMDUrl: boolean }[];
 				faq?: { question: string; answer: string }[];
 			}
@@ -756,7 +831,9 @@ export function createMakersStore(db: Database) {
 
 			const updates: Partial<typeof products.$inferInsert> = {};
 			if (patch.guarantee !== undefined) updates.guarantee = patch.guarantee;
-			if (patch.documentation !== undefined) updates.documentation = patch.documentation;
+			if (patch.tags !== undefined) updates.tags = normalizeTags(patch.tags);
+			const documentation = mergeDocumentation(existing.documentation, patch);
+			if (documentation !== undefined) updates.documentation = documentation;
 			if (patch.faq !== undefined) updates.faq = patch.faq;
 
 			const [updated] = await db

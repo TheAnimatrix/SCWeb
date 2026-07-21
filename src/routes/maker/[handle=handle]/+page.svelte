@@ -52,15 +52,18 @@
 	}} />
 
 <div class="min-h-screen bg-background text-foreground">
-	<div
-		class="relative h-40 w-full overflow-hidden border-b border-border bg-gradient-to-br from-muted via-background to-muted md:h-52">
-		{#if storefront.banner_url}
+	{#if storefront.banner_url}
+		<div class="relative h-40 w-full overflow-hidden border-b border-border md:h-52">
 			<img src={storefront.banner_url} alt="" class="h-full w-full object-cover" />
-		{/if}
-	</div>
+		</div>
+	{/if}
 
 	<div class="mx-auto max-w-6xl px-4">
-		<div class="-mt-10 flex flex-col gap-4 md:flex-row md:items-end md:gap-6">
+		<div
+			class={cn(
+				'flex flex-col gap-4 md:flex-row md:items-end md:gap-6',
+				storefront.banner_url ? '-mt-10' : 'pt-8'
+			)}>
 			{#if storefront.avatar_url}
 				<img
 					src={storefront.avatar_url}
@@ -138,7 +141,14 @@
 								<div class="p-3">
 									<h2 class="truncate text-sm font-medium">{product.name}</h2>
 									{#if product.price}
-										<p class="mt-1 font-mono text-sm">₹{product.price.new}</p>
+										<p class="mt-1 font-mono text-sm">
+											{#if product.price.old > 0 && product.price.old > product.price.new}
+												<span class="mr-2 text-muted-foreground line-through"
+													>₹{product.price.old}</span
+												>
+											{/if}
+											₹{product.price.new}
+										</p>
 									{/if}
 								</div>
 							</a>

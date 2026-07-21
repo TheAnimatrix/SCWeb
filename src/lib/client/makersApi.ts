@@ -104,11 +104,7 @@ export async function updateListingStock(
 export async function updateListingDetails(
 	fetchFn: typeof fetch,
 	productId: string,
-	body: {
-		guarantee?: string | null;
-		documentation?: { data: string; isMDUrl: boolean }[];
-		faq?: { question: string; answer: string }[];
-	}
+	body: Record<string, unknown>
 ) {
 	return apiRequest<{ listing: Record<string, unknown> }>(
 		fetchFn,
@@ -119,6 +115,36 @@ export async function updateListingDetails(
 			body: JSON.stringify(body)
 		}
 	);
+}
+
+export async function uploadMakerAsset(
+	fetchFn: typeof fetch,
+	file: File,
+	purpose: 'banner' | 'avatar' | 'listing' = 'listing'
+) {
+	const form = new FormData();
+	form.set('file', file);
+	form.set('purpose', purpose);
+
+	let response: Response;
+	try {
+		response = await fetchFn('/api/makers/me/assets/upload', {
+			method: 'POST',
+			body: form
+		});
+	} catch {
+		return {
+			ok: false as const,
+			error: { kind: 'network' as const, message: 'Network error. Please try again.' }
+		};
+	}
+
+	const body = await readJson(response);
+	if (!response.ok) {
+		return { ok: false as const, error: mapApiError(response.status, body) };
+	}
+
+	return { ok: true as const, data: body as { url: string; path: string; purpose: string } };
 }
 
 export async function setMyListingState(

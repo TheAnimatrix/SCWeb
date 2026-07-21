@@ -1,5 +1,7 @@
 import { zValidator } from '@hono/zod-validator';
+import { createClient } from '@supabase/supabase-js';
 import { Hono } from 'hono';
+import { randomUUID } from 'node:crypto';
 import {
 	makerApplicationSchema,
 	makerListingStateBodySchema,
@@ -14,6 +16,23 @@ import { requireAuth } from '../middleware/require-auth.js';
 import { requireCapability, requireMaker, requireStaff } from '../middleware/require-maker.js';
 import type { MakersStore } from '../services/makers-store.js';
 import type { AppVariables } from '../types/context.js';
+
+const IMAGES_BUCKET = 'images';
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+function extensionForMime(mime: string): string {
+	switch (mime) {
+		case 'image/png':
+			return 'png';
+		case 'image/webp':
+			return 'webp';
+		case 'image/gif':
+			return 'gif';
+		default:
+			return 'jpg';
+	}
+}
 
 export function createMakersRoutes(
 	getMakersStore: (c: { get: (key: 'makersStore') => MakersStore }) => MakersStore
@@ -82,6 +101,66 @@ export function createMakersRoutes(
 		}
 	);
 
+	routes.post('/makers/me/assets/upload', requireAuth(), requireMaker(), async (c) => {
+		const env = c.get('env');
+		if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+			return c.json({ error: 'upload_unconfigured', message: 'Storage is not configured' }, 503);
+		}
+
+		const userId = c.get('actor').userId!;
+		const contentType = c.req.header('content-type') ?? '';
+		if (!contentType.includes('multipart/form-data')) {
+			return c.json({ error: 'invalid_content_type', message: 'Expected multipart form upload' }, 400);
+		}
+
+		let form: FormData;
+		try {
+			form = await c.req.formData();
+		} catch {
+			return c.json({ error: 'invalid_body', message: 'Could not read upload body' }, 400);
+		}
+
+		const file = form.get('file');
+		if (!(file instanceof File)) {
+			return c.json({ error: 'missing_file', message: 'file field is required' }, 400);
+		}
+
+		const purposeRaw = String(form.get('purpose') ?? 'listing');
+		const purpose =
+			purposeRaw === 'banner' || purposeRaw === 'avatar' || purposeRaw === 'listing'
+				? purposeRaw
+				: 'listing';
+
+		if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+			return c.json(
+				{ error: 'invalid_type', message: 'Only JPEG, PNG, WebP, and GIF images are allowed' },
+				400
+			);
+		}
+		if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
+			return c.json(
+				{ error: 'invalid_size', message: `Image must be between 1 byte and ${MAX_IMAGE_BYTES} bytes` },
+				413
+			);
+		}
+
+		const bytes = new Uint8Array(await file.arrayBuffer());
+		const ext = extensionForMime(file.type);
+		const objectKey = `makers/${userId}/${purpose}/${randomUUID()}.${ext}`;
+
+		const client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+		const { error } = await client.storage.from(IMAGES_BUCKET).upload(objectKey, bytes, {
+			contentType: file.type,
+			upsert: false
+		});
+		if (error) {
+			return c.json({ error: 'upload_failed', message: error.message }, 500);
+		}
+
+		const { data } = client.storage.from(IMAGES_BUCKET).getPublicUrl(objectKey);
+		return c.json({ url: data.publicUrl, path: objectKey, purpose }, 201);
+	});
+
 	routes.get(
 		'/makers/me/listings',
 		requireAuth(),
@@ -116,7 +195,12 @@ export function createMakersRoutes(
 					stockStatus: body.stock_status,
 					type: body.type,
 					images: body.images,
+					tags: body.tags,
 					guarantee: body.guarantee,
+					description: body.description,
+					docs: body.docs,
+					costing: body.costing,
+					shipping: body.shipping,
 					documentation: body.documentation,
 					faq: body.faq,
 					submitForReview: body.submit_for_review
