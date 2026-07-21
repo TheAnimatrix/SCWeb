@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { updateListingStock, upsertMyListing } from '$lib/client/makersApi';
+	import { setMyListingState, updateListingStock, upsertMyListing } from '$lib/client/makersApi';
 	import { ScButton, ScInput } from '$lib/components/sc';
 	import { SeoHead } from '$lib/components/seo';
 
@@ -11,6 +11,7 @@
 	let stock = $state('1');
 	let submitReview = $state(true);
 	let busy = $state(false);
+	let stateBusyId = $state('');
 	let message = $state('');
 
 	async function createListing(e: Event) {
@@ -41,6 +42,24 @@
 		await updateListingStock(fetch, productId, count);
 		await invalidateAll();
 	}
+
+	async function setState(productId: string, state: 'paused' | 'live' | 'archived') {
+		stateBusyId = productId;
+		message = '';
+		const result = await setMyListingState(fetch, productId, state);
+		stateBusyId = '';
+		if (!result.ok) {
+			message = result.error.message;
+			return;
+		}
+		message =
+			state === 'paused'
+				? 'Listing paused.'
+				: state === 'live'
+					? 'Listing resumed.'
+					: 'Listing archived.';
+		await invalidateAll();
+	}
 </script>
 
 <SeoHead meta={{ title: 'Listings · Portal', noindex: true }} />
@@ -51,10 +70,18 @@
 		<p class="mt-1 text-sm text-muted-foreground">
 			Create drafts, submit for review, and adjust stock. Only approved listings go live.
 		</p>
+		<p class="mt-2 text-sm text-muted-foreground">
+			Stock and other details can be updated without re-review. Changing name, price, or images
+			requires review again.
+		</p>
 	</div>
 
 	{#if data.error}
 		<p class="text-sm text-destructive">{data.error}</p>
+	{/if}
+
+	{#if message}
+		<p class="text-sm text-muted-foreground">{message}</p>
 	{/if}
 
 	<form class="space-y-3 rounded-md border border-border p-4" onsubmit={createListing}>
@@ -77,9 +104,6 @@
 			<input type="checkbox" bind:checked={submitReview} />
 			Submit for review immediately
 		</label>
-		{#if message}
-			<p class="text-sm text-muted-foreground">{message}</p>
-		{/if}
 		<ScButton type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save listing'}</ScButton>
 	</form>
 
@@ -91,6 +115,9 @@
 				'count' in (listing.stock as object)
 					? String((listing.stock as { count: number }).count)
 					: '0'}
+			{@const state = String(listing.listing_state ?? '')}
+			{@const canManage = state === 'live' || state === 'paused'}
+			{@const rowBusy = stateBusyId === String(listing.id)}
 			<div class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
 				<div>
 					<p class="text-sm font-medium">{listing.name}</p>
@@ -98,16 +125,41 @@
 						{listing.listing_state}
 					</p>
 				</div>
-				<label class="flex items-center gap-2 text-sm">
-					<span class="text-muted-foreground">Stock</span>
-					<input
-						class="w-20 rounded border border-border bg-background px-2 py-1"
-						type="number"
-						min="0"
-						value={stockCount}
-						onchange={(e) =>
-							saveStock(String(listing.id), (e.currentTarget as HTMLInputElement).value)} />
-				</label>
+				<div class="flex flex-wrap items-center gap-2">
+					<label class="flex items-center gap-2 text-sm">
+						<span class="text-muted-foreground">Stock</span>
+						<input
+							class="w-20 rounded border border-border bg-background px-2 py-1"
+							type="number"
+							min="0"
+							value={stockCount}
+							onchange={(e) =>
+								saveStock(String(listing.id), (e.currentTarget as HTMLInputElement).value)} />
+					</label>
+					{#if canManage}
+						{#if state === 'live'}
+							<ScButton
+								variant="secondary"
+								disabled={rowBusy}
+								onclick={() => setState(String(listing.id), 'paused')}>
+								{rowBusy ? '…' : 'Pause'}
+							</ScButton>
+						{:else}
+							<ScButton
+								variant="secondary"
+								disabled={rowBusy}
+								onclick={() => setState(String(listing.id), 'live')}>
+								{rowBusy ? '…' : 'Resume'}
+							</ScButton>
+						{/if}
+						<ScButton
+							variant="ghost"
+							disabled={rowBusy}
+							onclick={() => setState(String(listing.id), 'archived')}>
+							Archive
+						</ScButton>
+					{/if}
+				</div>
 			</div>
 		{:else}
 			<p class="text-sm text-muted-foreground">No listings yet.</p>

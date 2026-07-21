@@ -101,6 +101,42 @@ export async function updateListingStock(
 	);
 }
 
+export async function updateListingDetails(
+	fetchFn: typeof fetch,
+	productId: string,
+	body: {
+		guarantee?: string | null;
+		documentation?: { data: string; isMDUrl: boolean }[];
+		faq?: { question: string; answer: string }[];
+	}
+) {
+	return apiRequest<{ listing: Record<string, unknown> }>(
+		fetchFn,
+		`/makers/me/listings/${productId}/details`,
+		{
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		}
+	);
+}
+
+export async function setMyListingState(
+	fetchFn: typeof fetch,
+	productId: string,
+	state: 'paused' | 'live' | 'archived'
+) {
+	return apiRequest<{ listing: Record<string, unknown> }>(
+		fetchFn,
+		`/makers/me/listings/${productId}/state`,
+		{
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ state })
+		}
+	);
+}
+
 export async function listPendingApplications(fetchFn: typeof fetch) {
 	return apiRequest<{ applications: Record<string, unknown>[] }>(
 		fetchFn,
@@ -128,7 +164,7 @@ export async function listPendingListings(fetchFn: typeof fetch) {
 export async function reviewListing(
 	fetchFn: typeof fetch,
 	productId: string,
-	decision: 'live' | 'rejected',
+	decision: 'live' | 'rejected' | 'paused' | 'archived',
 	notes?: string
 ) {
 	return apiRequest<{ listing: Record<string, unknown> }>(

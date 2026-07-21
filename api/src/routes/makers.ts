@@ -2,8 +2,10 @@ import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import {
 	makerApplicationSchema,
+	makerListingStateBodySchema,
 	reviewApplicationBodySchema,
 	reviewListingBodySchema,
+	updateListingDetailsBodySchema,
 	updateStockBodySchema,
 	updateStorefrontBodySchema,
 	upsertListingBodySchema
@@ -114,6 +116,9 @@ export function createMakersRoutes(
 					stockStatus: body.stock_status,
 					type: body.type,
 					images: body.images,
+					guarantee: body.guarantee,
+					documentation: body.documentation,
+					faq: body.faq,
 					submitForReview: body.submit_for_review
 				});
 				return c.json({ listing }, body.product_id ? 200 : 201);
@@ -146,6 +151,52 @@ export function createMakersRoutes(
 				const status = (error as { status?: number }).status ?? 500;
 				const message = error instanceof Error ? error.message : 'Stock update failed';
 				return c.json({ error: 'stock_failed', message }, status as 400);
+			}
+		}
+	);
+
+	routes.patch(
+		'/makers/me/listings/:productId/details',
+		requireAuth(),
+		requireMaker(),
+		requireCapability('physical_goods'),
+		zValidator('json', updateListingDetailsBodySchema),
+		async (c) => {
+			const userId = c.get('actor').userId!;
+			const productId = c.req.param('productId');
+			const body = c.req.valid('json');
+			try {
+				const listing = await getMakersStore(c).setListingDetails(userId, productId, body);
+				return c.json({ listing });
+			} catch (error) {
+				const status = (error as { status?: number }).status ?? 500;
+				const message = error instanceof Error ? error.message : 'Details update failed';
+				return c.json({ error: 'details_failed', message }, status as 400);
+			}
+		}
+	);
+
+	routes.patch(
+		'/makers/me/listings/:productId/state',
+		requireAuth(),
+		requireMaker(),
+		requireCapability('physical_goods'),
+		zValidator('json', makerListingStateBodySchema),
+		async (c) => {
+			const userId = c.get('actor').userId!;
+			const productId = c.req.param('productId');
+			const body = c.req.valid('json');
+			try {
+				const listing = await getMakersStore(c).transitionMakerListingState(
+					userId,
+					productId,
+					body.state
+				);
+				return c.json({ listing });
+			} catch (error) {
+				const status = (error as { status?: number }).status ?? 500;
+				const message = error instanceof Error ? error.message : 'State update failed';
+				return c.json({ error: 'state_failed', message }, status as 400);
 			}
 		}
 	);

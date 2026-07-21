@@ -20,6 +20,32 @@ import { normalizeUsername, parseHandleParam } from '../lib/reserved-usernames.j
 
 export type MakersStore = ReturnType<typeof createMakersStore>;
 
+function jsonEqual(a: unknown, b: unknown): boolean {
+	return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+/** Name, price, images, and type are the rare catalog fields that need staff re-review when live. */
+function hasMaterialListingChange(
+	existing: {
+		name: string | null;
+		price: { new: number; old: number } | null;
+		type: string | null;
+		images: { url: string }[] | null;
+	},
+	next: {
+		name: string;
+		price: { new: number; old: number };
+		type: string;
+		images: { url: string }[] | null | undefined;
+	}
+): boolean {
+	if (existing.name !== next.name) return true;
+	if (!jsonEqual(existing.price, next.price)) return true;
+	if ((existing.type ?? 'product') !== next.type) return true;
+	if (next.images !== undefined && !jsonEqual(existing.images ?? [], next.images)) return true;
+	return false;
+}
+
 export type ResolvedMaker = {
 	id: string;
 	display_name: string | null;
@@ -540,6 +566,9 @@ export function createMakersStore(db: Database) {
 				stock: row.stock,
 				images: row.images,
 				type: row.type,
+				guarantee: row.guarantee,
+				documentation: row.documentation,
+				faq: row.faq,
 				listing_state: row.listingState,
 				created_at: row.createdAt
 			}));
@@ -556,6 +585,9 @@ export function createMakersStore(db: Database) {
 			stockStatus?: string;
 			type?: string;
 			images?: { url: string }[];
+			guarantee?: string | null;
+			documentation?: { data: string; isMDUrl: boolean }[];
+			faq?: { question: string; answer: string }[];
 			submitForReview?: boolean;
 		}) {
 			const stock = {
@@ -576,13 +608,32 @@ export function createMakersStore(db: Database) {
 						throw Object.assign(new Error('Listing not found'), { status: 404 });
 					}
 
+					const nextType = input.type ?? existing.type ?? 'product';
+					const nextImages = input.images ?? existing.images;
+					const materialChanged = hasMaterialListingChange(existing, {
+						name: input.name,
+						price,
+						type: nextType,
+						images: nextImages
+					});
+
 					let nextState = existing.listingState;
+					let queuedReview = false;
+
 					if (input.submitForReview) {
 						nextState = 'pending_review';
+						queuedReview = existing.listingState !== 'pending_review';
 					} else if (['draft', 'rejected'].includes(existing.listingState)) {
 						nextState = 'draft';
+					} else if (
+						['live', 'paused'].includes(existing.listingState) &&
+						materialChanged
+					) {
+						// Rare cases: name / price / images / type need staff re-approval.
+						nextState = 'pending_review';
+						queuedReview = true;
 					}
-					// live / paused / pending_review / archived: preserve on non-submit edits
+					// Soft fields (stock, guarantee, documentation, faq) never force re-review.
 
 					const [updated] = await tx
 						.update(products)
@@ -590,8 +641,15 @@ export function createMakersStore(db: Database) {
 							name: input.name,
 							price,
 							stock,
-							type: input.type ?? existing.type ?? 'product',
-							images: input.images ?? existing.images,
+							type: nextType,
+							images: nextImages,
+							guarantee:
+								input.guarantee !== undefined ? input.guarantee : existing.guarantee,
+							documentation:
+								input.documentation !== undefined
+									? input.documentation
+									: existing.documentation,
+							faq: input.faq !== undefined ? input.faq : existing.faq,
 							makerId: input.makerId,
 							uid: input.makerId,
 							author: input.username ?? existing.author,
@@ -600,13 +658,18 @@ export function createMakersStore(db: Database) {
 						.where(eq(products.id, input.productId!))
 						.returning();
 
-					if (input.submitForReview && existing.listingState !== 'pending_review') {
+					if (queuedReview) {
 						await tx.insert(listingReviews).values({
 							productId: updated.id,
 							makerId: input.makerId,
 							fromState: existing.listingState,
 							toState: 'pending_review',
-							snapshot: { name: input.name, price, stock }
+							snapshot: {
+								name: input.name,
+								price,
+								stock,
+								material_changed: materialChanged
+							}
 						});
 					}
 
@@ -624,6 +687,9 @@ export function createMakersStore(db: Database) {
 						stock,
 						type: input.type ?? 'product',
 						images: input.images ?? [],
+						guarantee: input.guarantee ?? null,
+						documentation: input.documentation ?? [],
+						faq: input.faq ?? [],
 						makerId: input.makerId,
 						uid: input.makerId,
 						author: input.username,
@@ -667,15 +733,105 @@ export function createMakersStore(db: Database) {
 			return updated;
 		},
 
+		async setListingDetails(
+			makerId: string,
+			productId: string,
+			patch: {
+				guarantee?: string | null;
+				documentation?: { data: string; isMDUrl: boolean }[];
+				faq?: { question: string; answer: string }[];
+			}
+		) {
+			const [existing] = await db
+				.select()
+				.from(products)
+				.where(eq(products.id, productId))
+				.limit(1);
+			if (!existing || (existing.makerId !== makerId && existing.uid !== makerId)) {
+				throw Object.assign(new Error('Listing not found'), { status: 404 });
+			}
+			if (existing.listingState === 'archived') {
+				throw Object.assign(new Error('Archived listings cannot be edited'), { status: 409 });
+			}
+
+			const updates: Partial<typeof products.$inferInsert> = {};
+			if (patch.guarantee !== undefined) updates.guarantee = patch.guarantee;
+			if (patch.documentation !== undefined) updates.documentation = patch.documentation;
+			if (patch.faq !== undefined) updates.faq = patch.faq;
+
+			const [updated] = await db
+				.update(products)
+				.set(updates)
+				.where(eq(products.id, productId))
+				.returning();
+			return updated;
+		},
+
+		/**
+		 * Maker-driven visibility transitions (no staff review).
+		 * live ↔ paused, live/paused → archived. Resume paused → live without re-review.
+		 */
+		async transitionMakerListingState(makerId: string, productId: string, toState: string) {
+			const allowed: Record<string, string[]> = {
+				live: ['paused', 'archived'],
+				paused: ['live', 'archived']
+			};
+
+			return db.transaction(async (tx) => {
+				const [existing] = await tx
+					.select()
+					.from(products)
+					.where(eq(products.id, productId))
+					.for('update')
+					.limit(1);
+				if (!existing || (existing.makerId !== makerId && existing.uid !== makerId)) {
+					throw Object.assign(new Error('Listing not found'), { status: 404 });
+				}
+
+				const from = existing.listingState;
+				if (!allowed[from]?.includes(toState)) {
+					throw Object.assign(
+						new Error(`Cannot move listing from ${from} to ${toState}`),
+						{ status: 409 }
+					);
+				}
+
+				const [updated] = await tx
+					.update(products)
+					.set({ listingState: toState })
+					.where(eq(products.id, productId))
+					.returning();
+
+				await tx.insert(listingReviews).values({
+					productId,
+					makerId,
+					fromState: from,
+					toState,
+					reviewerId: makerId,
+					notes: 'maker_visibility',
+					snapshot: { name: existing.name, price: existing.price, stock: existing.stock }
+				});
+
+				return updated;
+			});
+		},
+
+		/**
+		 * Staff listing decisions:
+		 * - pending_review → live | rejected
+		 * - live | paused → paused | archived | rejected | live (takedown / restore)
+		 */
 		async setListingState(
 			productId: string,
 			toState: string,
 			reviewerId: string | null,
 			notes?: string
 		) {
-			if (toState !== 'live' && toState !== 'rejected') {
-				throw Object.assign(new Error('Invalid listing decision'), { status: 400 });
-			}
+			const staffAllowed: Record<string, string[]> = {
+				pending_review: ['live', 'rejected'],
+				live: ['paused', 'archived', 'rejected'],
+				paused: ['live', 'archived', 'rejected']
+			};
 
 			return db.transaction(async (tx) => {
 				const [existing] = await tx
@@ -687,8 +843,13 @@ export function createMakersStore(db: Database) {
 				if (!existing) {
 					throw Object.assign(new Error('Listing not found'), { status: 404 });
 				}
-				if (existing.listingState !== 'pending_review') {
-					throw Object.assign(new Error('Listing is not pending review'), { status: 409 });
+
+				const from = existing.listingState;
+				if (!staffAllowed[from]?.includes(toState)) {
+					throw Object.assign(
+						new Error(`Staff cannot move listing from ${from} to ${toState}`),
+						{ status: 409 }
+					);
 				}
 
 				const makerId = existing.makerId ?? existing.uid;
@@ -705,7 +866,7 @@ export function createMakersStore(db: Database) {
 				await tx.insert(listingReviews).values({
 					productId,
 					makerId,
-					fromState: existing.listingState,
+					fromState: from,
 					toState,
 					reviewerId,
 					notes: notes ?? null,

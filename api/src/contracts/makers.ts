@@ -63,11 +63,29 @@ export const upsertListingBodySchema = z.object({
 	stock_status: z.string().trim().max(50).optional(),
 	type: z.string().trim().max(50).optional(),
 	images: z.array(z.object({ url: z.string().url() })).optional(),
+	/** Soft fields — editable while live without re-review */
+	guarantee: z.string().trim().max(500).nullable().optional(),
+	documentation: z
+		.array(z.object({ data: z.string(), isMDUrl: z.boolean() }))
+		.optional(),
+	faq: z.array(z.object({ question: z.string(), answer: z.string() })).optional(),
 	submit_for_review: z.boolean().optional()
 });
 
 export const updateStockBodySchema = z.object({
 	stock_count: z.number().int().nonnegative()
+});
+
+export const updateListingDetailsBodySchema = z.object({
+	guarantee: z.string().trim().max(500).nullable().optional(),
+	documentation: z
+		.array(z.object({ data: z.string(), isMDUrl: z.boolean() }))
+		.optional(),
+	faq: z.array(z.object({ question: z.string(), answer: z.string() })).optional()
+});
+
+export const makerListingStateBodySchema = z.object({
+	state: z.enum(['paused', 'live', 'archived'])
 });
 
 export const reviewApplicationBodySchema = z.object({
@@ -76,7 +94,7 @@ export const reviewApplicationBodySchema = z.object({
 });
 
 export const reviewListingBodySchema = z.object({
-	decision: z.enum(['live', 'rejected']),
+	decision: z.enum(['live', 'rejected', 'paused', 'archived']),
 	notes: z.string().trim().max(2000).optional()
 });
 

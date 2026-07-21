@@ -57,6 +57,11 @@ export type CreateOrderResult =
 			status: 409;
 			body: { error: 'insufficient_stock'; productId: string; limit: number };
 	  }
+	| {
+			ok: false;
+			status: 409;
+			body: { error: 'listing_not_available'; productId: string };
+	  }
 	| { ok: false; status: 500; body: { error: 'razorpay_order_failed' } };
 
 export type ConfirmOrderResult =

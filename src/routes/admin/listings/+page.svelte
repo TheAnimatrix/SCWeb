@@ -19,7 +19,10 @@
 
 <div class="mx-auto max-w-4xl px-4 py-8">
 	<h1 class="text-2xl font-semibold">Listing review queue</h1>
-	<p class="mt-1 text-sm text-muted-foreground">Approve listings to go live on the marketplace.</p>
+	<p class="mt-1 text-sm text-muted-foreground">
+		Approve catalog identity (name, price, images, type). Soft fields like stock and description do
+		not need review.
+	</p>
 
 	{#if data.error}
 		<p class="mt-4 text-sm text-destructive">{data.error}</p>
@@ -32,7 +35,7 @@
 				<p class="font-mono text-xs text-muted-foreground">
 					{listing.username || listing.display_name || listing.maker_id}
 				</p>
-				<div class="mt-3 flex gap-2">
+				<div class="mt-3 flex flex-wrap gap-2">
 					<ScButton
 						disabled={busyId === listing.id}
 						onclick={() => review(String(listing.id), 'live')}>Publish</ScButton>
