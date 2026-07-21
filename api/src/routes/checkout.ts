@@ -47,7 +47,9 @@ export function createCheckoutRoutes(
 				logCheckoutTransition(c, 'warn', 'checkout.order.rejected', {
 					reason: result.body.error,
 					productId: result.body.productId,
-					limit: result.body.limit
+					...(result.body.error === 'insufficient_stock'
+						? { limit: result.body.limit }
+						: {})
 				});
 			}
 
