@@ -288,61 +288,69 @@ export function createMakersStore(db: Database) {
 				city: input.city ?? null
 			};
 
-			return db.transaction(async (tx) => {
-				await tx
-					.insert(makers)
-					.values({
-						id: input.userId,
-						displayName: input.displayName,
-						approvedState: 'pending',
-						application: answers,
-						bio: input.bio ?? null,
-						location: input.city ?? null,
-						storefrontState: 'draft',
-						updatedAt: new Date()
-					})
-					.onConflictDoUpdate({
-						target: makers.id,
-						set: {
+			try {
+				return await db.transaction(async (tx) => {
+					await tx
+						.insert(makers)
+						.values({
+							id: input.userId,
 							displayName: input.displayName,
-							application: answers,
+							approvedState: 'pending',
+							application: null,
 							bio: input.bio ?? null,
 							location: input.city ?? null,
-							approvedState: 'pending',
-							updatedAt: new Date()
-						}
-					});
-
-				for (const key of input.capabilities) {
-					await tx
-						.insert(makerCapabilities)
-						.values({
-							makerId: input.userId,
-							capabilityKey: key,
-							state: 'requested',
+							storefrontState: 'draft',
 							updatedAt: new Date()
 						})
 						.onConflictDoUpdate({
-							target: [makerCapabilities.makerId, makerCapabilities.capabilityKey],
+							target: makers.id,
 							set: {
-								state: 'requested',
+								displayName: input.displayName,
+								application: null,
+								bio: input.bio ?? null,
+								location: input.city ?? null,
+								approvedState: 'pending',
 								updatedAt: new Date()
 							}
 						});
+
+					for (const key of input.capabilities) {
+						await tx
+							.insert(makerCapabilities)
+							.values({
+								makerId: input.userId,
+								capabilityKey: key,
+								state: 'requested',
+								updatedAt: new Date()
+							})
+							.onConflictDoUpdate({
+								target: [makerCapabilities.makerId, makerCapabilities.capabilityKey],
+								set: {
+									state: 'requested',
+									updatedAt: new Date()
+								}
+							});
+					}
+
+					const [application] = await tx
+						.insert(makerApplications)
+						.values({
+							userId: input.userId,
+							answers,
+							requestedCapabilities: input.capabilities,
+							status: 'pending'
+						})
+						.returning();
+
+					return application;
+				});
+			} catch (error) {
+				const code = (error as { code?: string }).code;
+				if (code === '23505') {
+					throw Object.assign(new Error('Application already pending'), { status: 409 });
 				}
-
-				const [application] = await tx
-					.insert(makerApplications)
-					.values({
-						userId: input.userId,
-						answers,
-						requestedCapabilities: input.capabilities,
-						status: 'pending'
-					})
-					.returning();
-
-				return application;
-			});
+				throw error;
+			}
 		},
 
 		async listPendingApplications() {
@@ -400,14 +408,41 @@ export function createMakersStore(db: Database) {
 					})
 					.where(eq(makerApplications.id, input.applicationId));
 
-				await tx
-					.update(makers)
-					.set({
-						approvedState: input.decision,
-						approvedAt: input.decision === 'approved' ? new Date() : null,
-						updatedAt: new Date()
-					})
-					.where(eq(makers.id, application.userId));
+				const [makerRow] = await tx
+					.select({ approvedState: makers.approvedState })
+					.from(makers)
+					.where(eq(makers.id, application.userId))
+					.limit(1);
+
+				if (input.decision === 'approved') {
+					await tx
+						.update(makers)
+						.set({
+							approvedState: 'approved',
+							approvedAt: new Date(),
+							application: null,
+							updatedAt: new Date()
+						})
+						.where(eq(makers.id, application.userId));
+				} else if (makerRow?.approvedState === 'pending') {
+					// Never demote an already-approved maker when rejecting a duplicate/stale app.
+					await tx
+						.update(makers)
+						.set({
+							approvedState: 'rejected',
+							application: null,
+							updatedAt: new Date()
+						})
+						.where(eq(makers.id, application.userId));
+				} else {
+					await tx
+						.update(makers)
+						.set({
+							application: null,
+							updatedAt: new Date()
+						})
+						.where(eq(makers.id, application.userId));
+				}
 
 				if (input.decision === 'approved') {
 					const caps = (application.requestedCapabilities ?? []) as string[];
@@ -523,7 +558,6 @@ export function createMakersStore(db: Database) {
 			images?: { url: string }[];
 			submitForReview?: boolean;
 		}) {
-			const listingState = input.submitForReview ? 'pending_review' : 'draft';
 			const stock = {
 				count: input.stockCount,
 				status: input.stockStatus ?? (input.stockCount > 0 ? 'in-stock' : 'out-of-stock')
@@ -531,76 +565,84 @@ export function createMakersStore(db: Database) {
 			const price = { new: input.priceNew, old: input.priceOld ?? input.priceNew };
 
 			if (input.productId) {
-				const [existing] = await db
-					.select()
-					.from(products)
-					.where(eq(products.id, input.productId))
-					.limit(1);
-				if (!existing || (existing.makerId !== input.makerId && existing.uid !== input.makerId)) {
-					throw Object.assign(new Error('Listing not found'), { status: 404 });
-				}
-				if (['live', 'pending_review'].includes(existing.listingState) && !input.submitForReview) {
-					// allow edits that reset to draft only when not forcing review
-				}
+				return db.transaction(async (tx) => {
+					const [existing] = await tx
+						.select()
+						.from(products)
+						.where(eq(products.id, input.productId!))
+						.for('update')
+						.limit(1);
+					if (!existing || (existing.makerId !== input.makerId && existing.uid !== input.makerId)) {
+						throw Object.assign(new Error('Listing not found'), { status: 404 });
+					}
 
-				const [updated] = await db
-					.update(products)
-					.set({
+					let nextState = existing.listingState;
+					if (input.submitForReview) {
+						nextState = 'pending_review';
+					} else if (['draft', 'rejected'].includes(existing.listingState)) {
+						nextState = 'draft';
+					}
+					// live / paused / pending_review / archived: preserve on non-submit edits
+
+					const [updated] = await tx
+						.update(products)
+						.set({
+							name: input.name,
+							price,
+							stock,
+							type: input.type ?? existing.type ?? 'product',
+							images: input.images ?? existing.images,
+							makerId: input.makerId,
+							uid: input.makerId,
+							author: input.username ?? existing.author,
+							listingState: nextState
+						})
+						.where(eq(products.id, input.productId!))
+						.returning();
+
+					if (input.submitForReview && existing.listingState !== 'pending_review') {
+						await tx.insert(listingReviews).values({
+							productId: updated.id,
+							makerId: input.makerId,
+							fromState: existing.listingState,
+							toState: 'pending_review',
+							snapshot: { name: input.name, price, stock }
+						});
+					}
+
+					return updated;
+				});
+			}
+
+			return db.transaction(async (tx) => {
+				const listingState = input.submitForReview ? 'pending_review' : 'draft';
+				const [created] = await tx
+					.insert(products)
+					.values({
 						name: input.name,
 						price,
 						stock,
-						type: input.type ?? existing.type ?? 'product',
-						images: input.images ?? existing.images,
+						type: input.type ?? 'product',
+						images: input.images ?? [],
 						makerId: input.makerId,
 						uid: input.makerId,
-						author: input.username ?? existing.author,
-						listingState:
-							input.submitForReview && existing.listingState === 'live'
-								? 'pending_review'
-								: listingState
+						author: input.username,
+						listingState
 					})
-					.where(eq(products.id, input.productId))
 					.returning();
 
 				if (input.submitForReview) {
-					await db.insert(listingReviews).values({
-						productId: updated.id,
+					await tx.insert(listingReviews).values({
+						productId: created.id,
 						makerId: input.makerId,
-						fromState: existing.listingState,
+						fromState: null,
 						toState: 'pending_review',
 						snapshot: { name: input.name, price, stock }
 					});
 				}
 
-				return updated;
-			}
-
-			const [created] = await db
-				.insert(products)
-				.values({
-					name: input.name,
-					price,
-					stock,
-					type: input.type ?? 'product',
-					images: input.images ?? [],
-					makerId: input.makerId,
-					uid: input.makerId,
-					author: input.username,
-					listingState
-				})
-				.returning();
-
-			if (input.submitForReview) {
-				await db.insert(listingReviews).values({
-					productId: created.id,
-					makerId: input.makerId,
-					fromState: null,
-					toState: 'pending_review',
-					snapshot: { name: input.name, price, stock }
-				});
-			}
-
-			return created;
+				return created;
+			});
 		},
 
 		async setListingStock(makerId: string, productId: string, stockCount: number) {
@@ -631,41 +673,51 @@ export function createMakersStore(db: Database) {
 			reviewerId: string | null,
 			notes?: string
 		) {
-			const [existing] = await db
-				.select()
-				.from(products)
-				.where(eq(products.id, productId))
-				.limit(1);
-			if (!existing) {
-				throw Object.assign(new Error('Listing not found'), { status: 404 });
+			if (toState !== 'live' && toState !== 'rejected') {
+				throw Object.assign(new Error('Invalid listing decision'), { status: 400 });
 			}
 
-			const makerId = existing.makerId ?? existing.uid;
-			if (!makerId) {
-				throw Object.assign(new Error('Listing has no maker'), { status: 400 });
-			}
-
-			const [updated] = await db
-				.update(products)
-				.set({ listingState: toState })
-				.where(eq(products.id, productId))
-				.returning();
-
-			await db.insert(listingReviews).values({
-				productId,
-				makerId,
-				fromState: existing.listingState,
-				toState,
-				reviewerId,
-				notes: notes ?? null,
-				snapshot: {
-					name: existing.name,
-					price: existing.price,
-					stock: existing.stock
+			return db.transaction(async (tx) => {
+				const [existing] = await tx
+					.select()
+					.from(products)
+					.where(eq(products.id, productId))
+					.for('update')
+					.limit(1);
+				if (!existing) {
+					throw Object.assign(new Error('Listing not found'), { status: 404 });
 				}
-			});
+				if (existing.listingState !== 'pending_review') {
+					throw Object.assign(new Error('Listing is not pending review'), { status: 409 });
+				}
 
-			return updated;
+				const makerId = existing.makerId ?? existing.uid;
+				if (!makerId) {
+					throw Object.assign(new Error('Listing has no maker'), { status: 400 });
+				}
+
+				const [updated] = await tx
+					.update(products)
+					.set({ listingState: toState })
+					.where(eq(products.id, productId))
+					.returning();
+
+				await tx.insert(listingReviews).values({
+					productId,
+					makerId,
+					fromState: existing.listingState,
+					toState,
+					reviewerId,
+					notes: notes ?? null,
+					snapshot: {
+						name: existing.name,
+						price: existing.price,
+						stock: existing.stock
+					}
+				});
+
+				return updated;
+			});
 		},
 
 		async listPendingListings() {

@@ -77,7 +77,18 @@ ON CONFLICT (maker_id, capability_key) DO NOTHING;
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.products
 	ADD COLUMN IF NOT EXISTS maker_id uuid,
-	ADD COLUMN IF NOT EXISTS listing_state text NOT NULL DEFAULT 'live';
+	ADD COLUMN IF NOT EXISTS listing_state text;
+
+-- Grandfather existing rows as live; new inserts default to draft (approval required).
+UPDATE public.products
+SET listing_state = 'live'
+WHERE listing_state IS NULL;
+
+ALTER TABLE public.products
+	ALTER COLUMN listing_state SET DEFAULT 'draft';
+
+ALTER TABLE public.products
+	ALTER COLUMN listing_state SET NOT NULL;
 
 DO $$ BEGIN
 	ALTER TABLE public.products
@@ -86,9 +97,17 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-UPDATE public.products
-SET maker_id = uid
-WHERE maker_id IS NULL AND uid IS NOT NULL;
+-- Only backfill maker_id when a makers row exists (orphaned uids stay null).
+UPDATE public.products p
+SET maker_id = p.uid
+WHERE p.maker_id IS NULL
+	AND p.uid IS NOT NULL
+	AND EXISTS (SELECT 1 FROM public.makers m WHERE m.id = p.uid);
+
+UPDATE public.products p
+SET maker_id = NULL
+WHERE p.maker_id IS NOT NULL
+	AND NOT EXISTS (SELECT 1 FROM public.makers m WHERE m.id = p.maker_id);
 
 DO $$ BEGIN
 	ALTER TABLE public.products

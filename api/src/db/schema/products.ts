@@ -31,6 +31,6 @@ export const products = pgTable('products', {
 	faq: jsonb('faq').$type<{ question: string; answer: string }[]>(),
 	uid: uuid('uid'),
 	makerId: uuid('maker_id'),
-	listingState: text('listing_state').notNull().default('live'),
+	listingState: text('listing_state').notNull().default('draft'),
 	createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
 });

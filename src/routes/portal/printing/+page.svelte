@@ -1,8 +1,13 @@
 <script lang="ts">
 	import ApprovedMakerPortal from '$lib/components/maker/ApprovedMakerPortal.svelte';
 	import { SeoHead } from '$lib/components/seo';
+	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
+
+	function supabase() {
+		return requireBrowserSupabase(data.supabase);
+	}
 </script>
 
 <SeoHead meta={{ title: 'Printing · Portal', noindex: true }} />
@@ -16,9 +21,9 @@
 		</p>
 	</div>
 
-	{#if data.printingApproved && data.supabase && data.session}
+	{#if data.printingApproved && data.session}
 		<ApprovedMakerPortal
-			supabase={data.supabase}
+			supabase={supabase()}
 			session={data.session}
 			makerName={data.makerName ?? undefined} />
 	{:else}

@@ -3,6 +3,7 @@
 	import { SeoHead } from '$lib/components/seo';
 	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
 	import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
+	import { productPath } from '$lib/seo/product';
 	import { absoluteUrl } from '$lib/seo/site';
 	import { cn } from '$lib/utils';
 
@@ -37,7 +38,7 @@
 	const canonical = $derived(absoluteUrl(makerStorefrontPath(storefront.handle), page.url.origin));
 
 	function productHref(name: string, id: string) {
-		return `/${name.replaceAll(' ', '_')}/craft/item=${id}`;
+		return productPath({ id, name });
 	}
 </script>
 

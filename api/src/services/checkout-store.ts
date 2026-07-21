@@ -279,6 +279,18 @@ export function createCheckoutStore(
 					.for('update');
 
 				const productById = new Map(lockedProducts.map((product) => [product.id, product]));
+				const unavailable = lockedProducts.find((product) => product.listingState !== 'live');
+				if (unavailable || lockedProducts.length !== productIds.length) {
+					const missingId =
+						unavailable?.id ??
+						productIds.find((id) => !productById.has(id)) ??
+						productIds[0];
+					return {
+						kind: 'listing_not_available' as const,
+						productId: missingId
+					};
+				}
+
 				const lockedLines = lines.map((line) => ({
 					...line,
 					product: (productById.get(line.productId) ?? line.product) as ProductSnapshot
@@ -413,6 +425,17 @@ export function createCheckoutStore(
 						error: 'insufficient_stock',
 						productId: prepared.failure.productId,
 						limit: prepared.failure.limit
+					}
+				};
+			}
+
+			if (prepared.kind === 'listing_not_available') {
+				return {
+					ok: false,
+					status: 409,
+					body: {
+						error: 'listing_not_available',
+						productId: prepared.productId
 					}
 				};
 			}

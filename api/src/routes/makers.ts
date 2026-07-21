@@ -9,7 +9,7 @@ import {
 	upsertListingBodySchema
 } from '../contracts/makers.js';
 import { requireAuth } from '../middleware/require-auth.js';
-import { requireMaker, requireStaff } from '../middleware/require-maker.js';
+import { requireCapability, requireMaker, requireStaff } from '../middleware/require-maker.js';
 import type { MakersStore } from '../services/makers-store.js';
 import type { AppVariables } from '../types/context.js';
 
@@ -80,16 +80,23 @@ export function createMakersRoutes(
 		}
 	);
 
-	routes.get('/makers/me/listings', requireAuth(), requireMaker(), async (c) => {
-		const userId = c.get('actor').userId!;
-		const listings = await getMakersStore(c).listMakerListings(userId);
-		return c.json({ listings });
-	});
+	routes.get(
+		'/makers/me/listings',
+		requireAuth(),
+		requireMaker(),
+		requireCapability('physical_goods'),
+		async (c) => {
+			const userId = c.get('actor').userId!;
+			const listings = await getMakersStore(c).listMakerListings(userId);
+			return c.json({ listings });
+		}
+	);
 
 	routes.post(
 		'/makers/me/listings',
 		requireAuth(),
 		requireMaker(),
+		requireCapability('physical_goods'),
 		zValidator('json', upsertListingBodySchema),
 		async (c) => {
 			const userId = c.get('actor').userId!;
@@ -122,6 +129,7 @@ export function createMakersRoutes(
 		'/makers/me/listings/:productId/stock',
 		requireAuth(),
 		requireMaker(),
+		requireCapability('physical_goods'),
 		zValidator('json', updateStockBodySchema),
 		async (c) => {
 			const userId = c.get('actor').userId!;

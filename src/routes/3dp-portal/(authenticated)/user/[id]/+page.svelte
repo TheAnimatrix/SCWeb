@@ -761,7 +761,7 @@
 			class="mx-auto flex h-[100vh] max-w-3xl flex-col border-border bg-background sm:h-[80vh]">
 			<MessageBoard
 				orderId={req.id}
-				supabase={data.supabase}
+				supabase={supabase()}
 				session={data.session}
 				receiverId={req.creator_id ?? ''}
 				disabled={req.request_stage === 'cancelled' || req.request_stage === 'completed'}

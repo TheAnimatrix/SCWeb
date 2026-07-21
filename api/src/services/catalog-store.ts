@@ -168,7 +168,10 @@ export function createCatalogStore(db: Database): CatalogStore {
 		const cached = tagCatalogCache.get('all');
 		if (cached) return cached;
 
-		const rows = await db.select({ tags: products.tags, type: products.type }).from(products);
+		const rows = await db
+			.select({ tags: products.tags, type: products.type })
+			.from(products)
+			.where(eq(products.listingState, 'live'));
 		const built = buildTagGroups(
 			rows.map((row) => ({
 				tags: parseProductTags(row.tags),

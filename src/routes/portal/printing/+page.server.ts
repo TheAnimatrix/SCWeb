@@ -14,10 +14,10 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		.eq('maker_id', maker.id)
 		.maybeSingle();
 
+	// Browser supabase comes from root +layout.ts — do not return locals.supabase (server client).
 	return {
 		printingApproved: crafter?.approved_state === 'approved',
 		makerName: crafter?.name ?? maker.display_name,
-		session: session ? { data: { user: session.user } } : null,
-		supabase: locals.supabase
+		session: session ? { data: { user: session.user } } : null
 	};
 };

@@ -2,7 +2,11 @@ import type { Product } from '$lib/types/product';
 import { absoluteUrl } from './site';
 
 export function productSlug(name: string): string {
-	return name.replaceAll(' ', '_');
+	return name
+		.trim()
+		.replace(/\s+/g, '_')
+		.replace(/[/?#\\%]/g, '-')
+		.replace(/_+/g, '_');
 }
 
 export function productPath(product: Pick<Product, 'id' | 'name'>): string {

@@ -8,7 +8,9 @@
 	const nav = $derived([
 		{ href: '/portal', label: 'Dashboard', exact: true },
 		{ href: '/portal/storefront', label: 'Storefront' },
-		{ href: '/portal/listings', label: 'Listings' },
+		...(data.maker.capabilities?.includes('physical_goods')
+			? [{ href: '/portal/listings', label: 'Listings' }]
+			: []),
 		...(data.maker.capabilities?.includes('printing_3d')
 			? [{ href: '/portal/printing', label: 'Printing' }]
 			: []),
