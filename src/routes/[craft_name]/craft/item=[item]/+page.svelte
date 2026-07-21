@@ -135,6 +135,7 @@
 	const productUser = $derived(productUserRef(productItem?.users ?? null));
 	const makerName = $derived(productItem?.author ?? productUser?.username ?? 'unknown');
 	const makerLocation = $derived(productUser?.city ?? '—');
+	const craftCount = $derived(data.makerCraftCount ?? 0);
 	const memberSince = $derived(
 		productItem
 			? new Date(productItem.created_at).toLocaleDateString('en-US', {
@@ -225,7 +226,7 @@
 				<MakerCard
 					name={makerName}
 					location={makerLocation}
-					craftCount={1}
+					{craftCount}
 					{memberSince}
 					{shopHref} />
 			</div>

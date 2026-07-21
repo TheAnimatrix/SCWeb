@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 
 	return {
 		product: productResult.data.product,
+		makerCraftCount: productResult.data.makerCraftCount,
 		reviews: reviewsResult.ok ? reviewsResult.data.reviews : [],
 		reviewsError: reviewsResult.ok ? null : reviewsResult.error
 	};

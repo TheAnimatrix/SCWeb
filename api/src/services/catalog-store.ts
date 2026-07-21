@@ -335,7 +335,17 @@ export function createCatalogStore(db: Database): CatalogStore {
 			const rows = await selectProductsWithUsers(eq(products.id, productId));
 			const product = rows[0];
 			if (!product) return null;
-			return { product };
+
+			let makerCraftCount = 0;
+			if (product.uid) {
+				const [countResult] = await db
+					.select({ value: count() })
+					.from(products)
+					.where(eq(products.uid, product.uid));
+				makerCraftCount = Number(countResult?.value ?? 0);
+			}
+
+			return { product, makerCraftCount };
 		},
 
 		async getProductReviews(productId) {

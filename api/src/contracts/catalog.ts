@@ -119,7 +119,8 @@ export const productIdParamSchema = z.object({
 });
 
 export const productDetailResponseSchema = z.object({
-	product: productViewSchema
+	product: productViewSchema,
+	makerCraftCount: z.number().int().nonnegative()
 });
 
 export const productReviewsResponseSchema = z.object({
