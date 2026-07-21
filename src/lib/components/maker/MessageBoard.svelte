@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { F } from '$lib/icons/fluent';
+
 	import Icon from '@iconify/svelte';
-	import Send from '@lucide/svelte/icons/send';
-	import type { RealtimeChannel } from '@supabase/supabase-js';
-	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+		import type { RealtimeChannel } from '@supabase/supabase-js';
 	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { ChatMessage } from '$lib/types/chat';
 	import { onMount, tick } from 'svelte';
@@ -22,16 +22,12 @@
 		paynow
 	}: {
 		orderId: string;
-		supabase: TypedSupabaseClient | null;
+		supabase: TypedSupabaseClient;
 		session: { data: { user: { id: string } } } | null;
 		receiverId: string;
 		disabled: boolean;
 		paynow?: () => void;
 	} = $props();
-
-	function client() {
-		return requireBrowserSupabase(supabase);
-	}
 
 	let messages = $state<ChatMessage[]>([]);
 	let newMessage = $state('');
@@ -86,7 +82,7 @@
 			previousScrollTop = scrollContainer.scrollTop;
 		}
 
-		const { data, error: fetchError } = await client()
+		const { data, error: fetchError } = await supabase
 			.from('Chat')
 			.select('*', { count: 'exact' })
 			.eq('relationship_id', orderId)
@@ -173,7 +169,7 @@
 				clearTimeout(debounceChatReadTimer);
 			}
 			debounceChatReadTimer = setTimeout(() => {
-				client()
+				supabase
 					.from('Chat')
 					.update({ status: 'read' })
 					.eq('relationship_id', orderId)
@@ -186,8 +182,8 @@
 	});
 
 	function subscribeToMessages() {
-		subscription = client()
-			.channel('realtime-chat-channel')
+		subscription = supabase
+			.channel(`message-board-chat:${orderId}`)
 			.on(
 				'postgres_changes',
 				{ event: '*', schema: 'public', table: 'Chat', filter: `relationship_id=eq.${orderId}` },
@@ -212,7 +208,7 @@
 		fetchMessages(true);
 		subscribeToMessages();
 		if (session?.data?.user?.id) {
-			client()
+			supabase
 				.from('Chat')
 				.update({ status: 'read' })
 				.eq('relationship_id', orderId)
@@ -221,7 +217,7 @@
 				.then(() => {});
 		}
 		return () => {
-			if (subscription) client().removeChannel(subscription);
+			if (subscription) supabase.removeChannel(subscription);
 		};
 	});
 
@@ -248,7 +244,7 @@
 				(msg) => msg.recipient_id === session.data.user.id && msg.status === 'sent'
 			);
 			if (unread.length > 0) {
-				client()
+				supabase
 					.from('Chat')
 					.update({ status: 'read' })
 					.eq('relationship_id', orderId)
@@ -292,7 +288,7 @@
 			onscroll={handleScroll}>
 			<div
 				class="mb-3 flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2">
-				<Icon icon="ph:info-duotone" class="mt-0.5 shrink-0 text-muted-foreground" />
+				<Icon icon={F.info} class="mt-0.5 shrink-0 text-muted-foreground" />
 				<span class="text-xs leading-relaxed text-muted-foreground">
 					File sharing is not available due to hosting costs. We apologize for any inconvenience.
 				</span>
@@ -333,7 +329,7 @@
 											isOwn ? 'self-end' : 'self-start'
 										)}>
 										<div class="flex items-center gap-2 font-medium">
-											<Icon icon="ph:truck-bold" class="text-base text-warning" />
+											<Icon icon={F.truck} class="text-base text-warning" />
 											<span>Shipped via {shippedObj.courier}</span>
 										</div>
 										{#if shippedObj.tracking_id}
@@ -349,9 +345,9 @@
 												target="_blank"
 												rel="noopener noreferrer"
 												class="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-border bg-card px-3 py-2 text-xs transition-colors hover:bg-muted">
-												<Icon icon="ph:package-bold" class="text-base" />
+												<Icon icon={F.box} class="text-base" />
 												Track package
-												<Icon icon="ph:arrow-up-right-bold" class="text-xs" />
+												<Icon icon={F.chevronUp} class="text-xs" />
 											</a>
 										{/if}
 										{#if shippedObj.reason}
@@ -367,7 +363,7 @@
 											isOwn ? 'self-end' : 'self-start'
 										)}>
 										<div class="flex w-full items-start gap-1 font-medium">
-											<Icon icon="ph:warning-circle-bold" class="text-base" />
+											<Icon icon={F.warning} class="text-base" />
 											{actionObj?.action
 												? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
 												: 'Action'}
@@ -388,7 +384,7 @@
 										isOwn ? 'self-end' : 'self-start'
 									)}>
 									<div class="flex items-center gap-1 font-mono text-xs text-muted-foreground">
-										<Icon icon="ph:currency-inr-bold" class="text-base" />
+										<Icon icon={F.money} class="text-base" />
 										{isOwn ? 'quote_sent' : 'quote_received'}
 									</div>
 									{#if quoteObj.reason}
@@ -427,7 +423,7 @@
 								{#if isOwn}
 									<span class={msg.status === 'read' ? 'text-foreground' : 'text-muted-foreground'}>
 										<Icon
-											icon={msg.status === 'read' ? 'mdi:check-all' : 'mdi:check'}
+											icon={msg.status === 'read' ? F.checkAll : F.check}
 											class="size-3" />
 									</span>
 								{/if}
@@ -460,7 +456,7 @@
 				class="text-foreground transition-colors hover:text-foreground/70 disabled:cursor-not-allowed disabled:opacity-50"
 				{disabled}
 				aria-label="Send message">
-				<Send class="size-4" strokeWidth={1.5} />
+				<Icon icon={F.send} class="size-4" />
 			</button>
 		</form>
 	</div>

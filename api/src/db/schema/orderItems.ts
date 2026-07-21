@@ -10,8 +10,7 @@ export const orderItems = pgTable(
 			.references(() => orders.id, { onDelete: 'cascade' }),
 		productId: uuid('product_id').notNull(),
 		productName: text('product_name').notNull(),
-		/** Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary. */
-		unitPrice: integer('unit_price').notNull(),
+		unitPricePaise: integer('unit_price_paise').notNull(),
 		qty: integer('qty').notNull()
 	},
 	(table) => [

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import FileBox from '@lucide/svelte/icons/file-box';
-	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
-	import Upload from '@lucide/svelte/icons/upload';
-	import ModelViewer from '$lib/components/ModelViewer.svelte';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+				import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import { cn } from '$lib/utils';
 
 	function formatDimension(value: number): string {
@@ -30,6 +30,13 @@
 		ondragleave?: () => void;
 		ondrop?: (e: DragEvent) => void;
 		modelViewer?: ModelViewer;
+		modelInfo?: {
+			dimensions: { x: number; y: number; z: number };
+			fileSize: string;
+			vertexCount: number;
+			triangleCount: number;
+			isCalculating: boolean;
+		};
 		class?: string;
 	}
 
@@ -54,16 +61,15 @@
 		ondragleave,
 		ondrop,
 		modelViewer = $bindable(),
+		modelInfo = $bindable({
+			dimensions: { x: 0, y: 0, z: 0 },
+			fileSize: '0 KB',
+			vertexCount: 0,
+			triangleCount: 0,
+			isCalculating: false
+		}),
 		class: className
 	}: Props = $props();
-
-	let modelInfo = $state({
-		dimensions: { x: 0, y: 0, z: 0 },
-		fileSize: '0 KB',
-		vertexCount: 0,
-		triangleCount: 0,
-		isCalculating: false
-	});
 
 	const fileSize = $derived(modelFile ? `${(modelFile.size / (1024 * 1024)).toFixed(2)} MB` : null);
 </script>
@@ -86,7 +92,7 @@
 		<span class="font-medium text-muted-foreground">Model preview</span>
 		{#if modelLoaded && modelFile}
 			<div class="flex items-center gap-2 text-foreground">
-				<FileBox class="size-3.5" strokeWidth={1.5} />
+				<Icon icon={F.box} class="size-3.5" />
 				<span class="max-w-[12rem] truncate">{modelFile.name}</span>
 				<span class="text-muted-foreground">({fileSize})</span>
 			</div>
@@ -133,7 +139,7 @@
 						type="button"
 						class="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 sm:self-auto"
 						onclick={onReplace}>
-						<RefreshCw class="size-3.5" strokeWidth={1.5} />
+						<Icon icon={F.refresh} class="size-3.5" />
 						Replace
 					</button>
 				{/if}
@@ -153,7 +159,7 @@
 				<div class="text-center">
 					<div
 						class="mb-1 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
-						<Upload class="size-4" strokeWidth={1.5} />
+						<Icon icon={F.upload} class="size-4" />
 						Upload model
 					</div>
 					<p class="text-xs text-muted-foreground">Drop an STL here, or click to browse files</p>

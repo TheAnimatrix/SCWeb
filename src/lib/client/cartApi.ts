@@ -165,7 +165,8 @@ export function stripCheckoutAddress(address: Address): CheckoutAddress {
 		city: address.city!,
 		pincode: address.pincode!,
 		state: address.state!,
-		phone: address.phone!
+		phone: address.phone!,
+		...(address.email ? { email: address.email } : {})
 	};
 }
 
@@ -197,11 +198,29 @@ export async function mergeGuestCart(
 
 export async function createCheckoutOrder(
 	fetchFn: typeof fetch,
-	address: Address
+	shippingAddress: Address,
+	billingAddress?: Address,
+	options?: { refreshPayment?: boolean }
 ): Promise<CartApiResult<CreateCheckoutOrderResponse>> {
+	const body: {
+		address: ReturnType<typeof stripCheckoutAddress>;
+		billingAddress?: ReturnType<typeof stripCheckoutAddress>;
+		refreshPayment?: boolean;
+	} = {
+		address: stripCheckoutAddress(shippingAddress)
+	};
+
+	if (billingAddress) {
+		body.billingAddress = stripCheckoutAddress(billingAddress);
+	}
+
+	if (options?.refreshPayment) {
+		body.refreshPayment = true;
+	}
+
 	return apiRequest<CreateCheckoutOrderResponse>(fetchFn, '/checkout/order', {
 		method: 'POST',
-		body: JSON.stringify({ address: stripCheckoutAddress(address) })
+		body: JSON.stringify(body)
 	});
 }
 

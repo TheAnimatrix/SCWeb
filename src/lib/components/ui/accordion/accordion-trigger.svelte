@@ -1,7 +1,9 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { Accordion as AccordionPrimitive, type WithoutChild } from 'bits-ui';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import { cn } from '$lib/utils.js';
+		import { cn } from '$lib/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -23,6 +25,6 @@
 		)}
 		{...restProps}>
 		{@render children?.()}
-		<ChevronDown class="size-4 shrink-0 transition-transform duration-200" />
+		<Icon icon={F.chevronDown} class="size-4 shrink-0 transition-transform duration-200" />
 	</AccordionPrimitive.Trigger>
 </AccordionPrimitive.Header>

@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS "printrequests" (
 	"model_data" jsonb,
 	"request_stage" text,
 	"request_metadata" jsonb,
+	"active_payment_attempt_id" uuid,
 	"order_id" text,
 	"payment_id" text,
 	"address" jsonb
@@ -126,7 +127,8 @@ describe('print-files store (pglite)', () => {
 		);
 		expect(result.printRequest.model_metadata).toEqual({
 			fileName: expect.stringMatching(/^aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\/.+\.stl$/),
-			originalFilename: 'cube.stl'
+			originalFilename: 'cube.stl',
+			fileSizeBytes: expect.any(Number)
 		});
 		expect(result.printRequest.model_data).toEqual({
 			color: 'red',

@@ -32,7 +32,7 @@
 					class={cn(
 						'flex h-8 w-8 items-center justify-center border font-mono text-xs transition-colors',
 						page === currentPage
-							? 'border-black bg-black text-white'
+							? 'border-primary bg-primary text-primary-foreground'
 							: 'border-border bg-card text-foreground hover:border-foreground/30'
 					)}>
 					{page}
@@ -46,7 +46,7 @@
 					class={cn(
 						'flex h-8 w-8 items-center justify-center border font-mono text-xs transition-colors',
 						page === currentPage
-							? 'border-black bg-black text-white'
+							? 'border-primary bg-primary text-primary-foreground'
 							: 'border-border bg-card text-foreground hover:border-foreground/30'
 					)}>
 					{page}

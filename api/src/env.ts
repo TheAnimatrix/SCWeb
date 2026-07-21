@@ -13,8 +13,23 @@ const envSchema = z.object({
 	PUBLIC_RAZORPAY_ID: z.string().min(1).optional(),
 	// Razorpay KEY SECRET (name kept for parity with the web app's .env).
 	RAZORPAY_KEY: z.string().min(1).optional(),
+	RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
 	RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
-	RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120)
+	RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(120),
+	SMTP_HOST: z.string().min(1).optional(),
+	SMTP_PORT: z.coerce.number().int().positive().default(587),
+	SMTP_USER: z.string().optional(),
+	SMTP_PASS: z.string().optional(),
+	SMTP_SECURE: z
+		.preprocess(
+			(value) => value === 'true' || value === '1' || value === true,
+			z.boolean()
+		)
+		.default(false),
+	EMAIL_FROM: z.string().default('Selfcrafted <noreply@selfcrafted.in>'),
+	ORDERS_INBOX_EMAIL: z.string().email().default('orders@selfcrafted.in'),
+	SITE_URL: z.string().url().optional(),
+	PUBLIC_SITE_URL: z.string().url().optional()
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -36,4 +51,33 @@ export function getCorsOrigins(env: Env): string[] {
 	return env.API_CORS_ORIGINS.split(',')
 		.map((origin) => origin.trim())
 		.filter(Boolean);
+}
+
+export function getSiteUrl(env: Env): string {
+	return (env.SITE_URL ?? env.PUBLIC_SITE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+}
+
+export function isSmtpConfigured(env: Env): boolean {
+	return Boolean(env.SMTP_HOST && env.SMTP_PASS);
+}
+
+/** Resend and most providers: 465 = implicit TLS; 587 = plain + STARTTLS. */
+export function resolveSmtpSecure(env: Pick<Env, 'SMTP_PORT' | 'SMTP_SECURE'>): boolean {
+	if (env.SMTP_PORT === 465) {
+		return true;
+	}
+
+	if (env.SMTP_PORT === 587 || env.SMTP_PORT === 25) {
+		return false;
+	}
+
+	return env.SMTP_SECURE;
+}
+
+export function getSmtpTransportSummary(env: Pick<Env, 'SMTP_HOST' | 'SMTP_PORT' | 'SMTP_SECURE'>) {
+	return {
+		host: env.SMTP_HOST ?? null,
+		port: env.SMTP_PORT,
+		secure: resolveSmtpSecure(env)
+	};
 }

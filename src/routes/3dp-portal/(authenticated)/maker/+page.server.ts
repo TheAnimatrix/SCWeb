@@ -131,6 +131,32 @@ export const actions: Actions = {
 		};
 
 		try {
+			const { error: makerError } = await supabaseAdmin.from('makers').upsert(
+				{
+					id: user.id,
+					display_name: name.trim(),
+					approved_state: 'pending'
+				},
+				{ onConflict: 'id', ignoreDuplicates: true }
+			);
+
+			if (makerError) {
+				log.error('maker.application.makers_db_failed', {
+					userId: user.id,
+					code: makerError.code
+				});
+				return fail(500, {
+					message: 'Failed to submit application due to a database error.',
+					errors: { general: 'Failed to submit application due to a database error.' },
+					name,
+					contactNumber,
+					email,
+					maxPrinterSize,
+					numPrinters,
+					selectedFilaments
+				});
+			}
+
 			const { error: dbError } = await supabaseAdmin.from('PrintingCrafters').insert(makerData);
 
 			if (dbError) {

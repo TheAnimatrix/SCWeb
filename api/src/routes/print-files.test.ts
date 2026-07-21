@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
+import { emailEnvDefaults } from '../test/env-defaults.js';
 import { createPrintFilesRoutes } from './print-files.js';
 import type { PrintFilesStore, PrintRequestRow } from '../services/print-files-store.js';
 import { BODY_READ_SLACK_BYTES, MAX_STL_SIZE_BYTES } from '../services/print-files.js';
@@ -21,7 +22,8 @@ const testEnv = {
 	API_CORS_ORIGINS: 'http://localhost:5173',
 	CLIENT_ID_COOKIE_NAME: 'clientId',
 	RATE_LIMIT_WINDOW_MS: 60_000,
-	RATE_LIMIT_MAX_REQUESTS: 120
+	RATE_LIMIT_MAX_REQUESTS: 120,
+	...emailEnvDefaults
 } satisfies Env;
 
 function createBinaryStl(triangleCount: number): Uint8Array {
@@ -56,6 +58,7 @@ function fakeStore(overrides: Partial<PrintFilesStore> = {}): PrintFilesStore {
 	return {
 		uploadPrintFile: vi.fn(),
 		getDownloadUrl: vi.fn(),
+		getUploadQuotaStatus: vi.fn(),
 		...overrides
 	};
 }
@@ -301,5 +304,22 @@ describe('print-files routes', () => {
 			url: 'https://example.supabase.co/signed',
 			expiresAt: '2026-07-08T12:00:00.000Z'
 		});
+	});
+
+	it('returns upload quota status for authenticated users', async () => {
+		const getUploadQuotaStatus = vi.fn(async () => ({
+			limit: 3,
+			used: 0,
+			remaining: 3
+		}));
+		const app = createTestApp(
+			{ userId: USER_ID, clientId: null },
+			fakeStore({ getUploadQuotaStatus })
+		);
+		const response = await app.request('/print-files/quota');
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ limit: 3, used: 0, remaining: 3 });
+		expect(getUploadQuotaStatus).toHaveBeenCalledWith(USER_ID);
 	});
 });

@@ -1,4 +1,4 @@
-import type { DownloadUrlResponse } from '@scweb/api/contracts';
+import type { DownloadUrlResponse, PrintFilesQuotaResponse } from '@scweb/api/contracts';
 
 export type PrintFilesApiError =
 	| { kind: 'file_too_large'; message: string }
@@ -61,6 +61,11 @@ export function mapPrintFilesError(status: number, body: unknown): PrintFilesApi
 			return { kind: 'not_found', message: 'Print request not found.' };
 		case 'rate_limited':
 			return { kind: 'rate_limited', message: 'Too many requests. Please wait and try again.' };
+		case 'api_unreachable':
+			return {
+				kind: 'network',
+				message: 'Could not reach the upload service. Please try again in a moment.'
+			};
 		default:
 			if (status === 413) {
 				return { kind: 'file_too_large', message: 'Model file must be less than 50MB.' };
@@ -115,6 +120,12 @@ async function apiRequest<T>(
 	}
 
 	return { ok: true, data: body as T };
+}
+
+export async function getPrintFilesQuota(
+	fetchFn: typeof fetch
+): Promise<PrintFilesApiResult<PrintFilesQuotaResponse>> {
+	return apiRequest<PrintFilesQuotaResponse>(fetchFn, '/print-files/quota');
 }
 
 export async function getModelDownloadUrl(

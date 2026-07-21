@@ -1,10 +1,11 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import CircleHelp from '@lucide/svelte/icons/circle-help';
-	import Wrench from '@lucide/svelte/icons/wrench';
-	import { toastStore } from '$lib/client/toastStore';
-	import { mapPrintFilesError } from '$lib/client/printFilesApi';
+			import { toastStore } from '$lib/client/toastStore';
+	import { mapPrintFilesError, getPrintFilesQuota } from '$lib/client/printFilesApi';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import { ScButton, TagBadge, Skeleton } from '$lib/components/sc';
 	import {
@@ -21,6 +22,10 @@
 	import * as THREE from 'three';
 	import AvailableMakers from './AvailableMakers.svelte';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+	import { SeoHead } from '$lib/components/seo';
+	import { portalSeo } from '$lib/seo/meta';
+	import { absoluteUrl } from '$lib/seo/site';
+	import { page } from '$app/state';
 
 	let { data } = $props();
 
@@ -149,6 +154,13 @@
 
 	// Add ModelViewer reference
 	let modelViewer = $state<ModelViewer | undefined>(undefined);
+	let modelInfo = $state({
+		dimensions: { x: 0, y: 0, z: 0 },
+		fileSize: '0 KB',
+		vertexCount: 0,
+		triangleCount: 0,
+		isCalculating: false
+	});
 
 	const portalSteps = $derived([
 		{ id: 'upload', label: 'Upload', done: modelLoaded },
@@ -345,31 +357,38 @@
 
 	async function fetchQuoteRequestStats() {
 		loadingRequests = true;
-		const { data: userRes, error: userErr } = await supabase().auth.getUser();
-		if (userErr || !userRes?.user) {
+		if (!data.session) {
 			requestsLeft = null;
 			quoteDailyLimit = null;
 			loadingRequests = false;
 			return;
 		}
-		const user_id = userRes.user.id;
-		// Get user's daily limit
-		const { data: userRow } = await supabase()
-			.from('users')
-			.select('quote_daily_limit')
-			.eq('id', user_id)
-			.single();
-		quoteDailyLimit = userRow?.quote_daily_limit ?? 3;
-		// Get today's printrequests count
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const { count } = await supabase()
-			.from('printrequests')
-			.select('id', { count: 'exact', head: true })
-			.eq('user_id', user_id)
-			.gte('created_at', today.toISOString());
-		requestsLeft = (quoteDailyLimit ?? 0) - (count ?? 0);
+
+		const result = await getPrintFilesQuota(fetch);
+		if (!result.ok) {
+			requestsLeft = null;
+			quoteDailyLimit = null;
+			loadingRequests = false;
+			return;
+		}
+
+		quoteDailyLimit = result.data.limit;
+		requestsLeft = result.data.remaining;
 		loadingRequests = false;
+	}
+
+	function dataUrlToBlob(dataUrl: string): Blob | null {
+		const [header, base64] = dataUrl.split(',');
+		if (!base64) return null;
+
+		const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';
+		const binary = atob(base64);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+
+		return new Blob([bytes], { type: mime });
 	}
 
 	async function requestQuoteCompleter(
@@ -414,6 +433,26 @@
 		formData.append('infill', String(infill));
 		formData.append('model_file', model);
 
+		const previewDataUrl = modelViewer?.capturePreview?.();
+		if (previewDataUrl) {
+			const previewBlob = dataUrlToBlob(previewDataUrl);
+			if (previewBlob) {
+				formData.append('preview_image', previewBlob, 'preview.png');
+			}
+		}
+
+		formData.append(
+			'model_stats',
+			JSON.stringify({
+				dimensions: {
+					x: modelInfo.dimensions.x * scale,
+					y: modelInfo.dimensions.y * scale,
+					z: modelInfo.dimensions.z * scale
+				},
+				triangleCount: modelInfo.triangleCount
+			})
+		);
+
 		try {
 			// Use XMLHttpRequest for upload progress
 			const xhr = new XMLHttpRequest();
@@ -455,6 +494,8 @@
 		}
 	}
 </script>
+
+<SeoHead meta={{ ...portalSeo, canonical: absoluteUrl('/3dp-portal', page.url.origin) }} />
 
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-7xl px-4 pb-16">
@@ -504,6 +545,7 @@
 					{dragActive}
 					bind:cubeContainer
 					bind:modelViewer
+					bind:modelInfo
 					onCubeMouseEnter={handleCubeMouseEnter}
 					onCubeMouseLeave={handleCubeMouseLeave}
 					onBrowse={browseFiles}
@@ -526,7 +568,7 @@
 				<PortalCard class="flex h-full flex-col">
 					<div class="mb-4 flex items-center justify-between gap-3">
 						<div class="flex items-center gap-2">
-							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
+							<Icon icon={F.wrench} class="size-4 text-muted-foreground" />
 							<span class="text-sm font-medium text-foreground">Print parameters</span>
 						</div>
 					</div>
@@ -579,7 +621,7 @@
 										class={cn(
 											'rounded border px-2 py-0.5 transition-colors',
 											Math.abs(scale - preset) < 0.01
-												? 'border-black bg-black text-white'
+												? 'border-primary bg-primary text-primary-foreground'
 												: 'border-border text-muted-foreground hover:border-foreground/30'
 										)}
 										onclick={() => (scale = preset)}>
@@ -630,22 +672,20 @@
 		<div class="mt-10 space-y-6">
 			<ReadinessChecklist items={readinessItems} />
 
-			{#if data.supabase}
-				<AvailableMakers
-					supabase={data.supabase}
-					model={modelFile}
-					bind:color={selectedColor}
-					bind:material={selectedMaterial}
-					quality={selectedQuality}
-					{scale}
-					{infill}
-					{walls}
-					{requestQuoteCompleter} />
-			{/if}
+			<AvailableMakers
+				currentUserId={data.session?.user?.id ?? ''}
+				model={modelFile}
+				bind:color={selectedColor}
+				bind:material={selectedMaterial}
+				quality={selectedQuality}
+				{scale}
+				{infill}
+				{walls}
+				{requestQuoteCompleter} />
 
 			<PortalCard>
 				<div class="mb-4 flex items-center gap-2">
-					<CircleHelp class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.questionCircle} class="size-4 text-muted-foreground" />
 					<span class="text-sm font-medium text-foreground">FAQ</span>
 				</div>
 
@@ -699,7 +739,7 @@
 				{#if !isMaker}
 					<PortalCard>
 						<div class="mb-4 flex items-center gap-2">
-							<Wrench class="size-4 text-muted-foreground" strokeWidth={1.5} />
+							<Icon icon={F.wrench} class="size-4 text-muted-foreground" />
 							<span class="text-sm font-medium text-foreground">Join Fabbly</span>
 						</div>
 

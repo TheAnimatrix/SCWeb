@@ -28,6 +28,16 @@ export const rateLimitMiddleware = (): MiddlewareHandler<{ Variables: AppVariabl
 		const env = c.get('env');
 		const key = getClientKey(c);
 		const now = Date.now();
+		const path = c.req.path;
+		const isAuthRoute = path.startsWith('/auth');
+		const isReadHeavy =
+			c.req.method === 'GET' &&
+			(/^\/(catalog|constants|products)/.test(path) || path.startsWith('/catalog'));
+		const maxRequests = isAuthRoute
+			? Math.max(5, Math.floor(env.RATE_LIMIT_MAX_REQUESTS / 4))
+			: isReadHeavy
+				? env.RATE_LIMIT_MAX_REQUESTS * 3
+				: env.RATE_LIMIT_MAX_REQUESTS;
 		const existing = buckets.get(key);
 
 		if (!existing || existing.resetAt <= now) {
@@ -39,7 +49,7 @@ export const rateLimitMiddleware = (): MiddlewareHandler<{ Variables: AppVariabl
 			return;
 		}
 
-		if (existing.count >= env.RATE_LIMIT_MAX_REQUESTS) {
+		if (existing.count >= maxRequests) {
 			const retryAfterSeconds = Math.ceil((existing.resetAt - now) / 1000);
 			c.header('retry-after', String(retryAfterSeconds));
 			return c.json({ error: 'rate_limited', message: 'Too many requests' }, 429);

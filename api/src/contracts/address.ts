@@ -80,7 +80,8 @@ export const checkoutAddressSchema = z
 		city: z.string().min(2),
 		pincode: z.string().regex(/^\d{6}$/),
 		state: z.string().refine(isValidIndianState, 'State should be a valid Indian state.'),
-		phone: z.string().regex(/^(\+91)?[6789]\d{9}$/)
+		phone: z.string().regex(/^(\+91)?[6789]\d{9}$/),
+		email: z.string().email().optional()
 	})
 	.strict();
 

@@ -1,0 +1,163 @@
+# Reports Dokploy deployment status on GitHub (replaces CI).
+#
+# Dokploy should keep Auto Deploy enabled — this workflow only monitors the
+# deployment that the Dokploy GitHub webhook starts on push.
+#
+# Required secrets (Settings → Secrets and variables → Actions):
+#   DOKPLOY_URL              — e.g. https://dokploy.yourdomain.com (no trailing slash)
+#   DOKPLOY_API_KEY          — Profile → API/CLI keys in Dokploy
+#   DOKPLOY_APPLICATION_ID   — applicationId (NOT appName) — see deploy/README.md
+
+name: Deploy
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  dokploy:
+    name: Dokploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://selfcrafted.in
+    steps:
+      - name: Monitor Dokploy deployment
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_APPLICATION_ID: ${{ secrets.DOKPLOY_APPLICATION_ID }}
+          GITHUB_SHA: ${{ github.sha }}
+          POLL_INTERVAL: 10
+          TIMEOUT_SECONDS: 900
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DOKPLOY_URL:-}" ] || [ -z "${DOKPLOY_API_KEY:-}" ] || [ -z "${DOKPLOY_APPLICATION_ID:-}" ]; then
+            echo "::error::Missing Dokploy secrets. Add DOKPLOY_URL, DOKPLOY_API_KEY, and DOKPLOY_APPLICATION_ID in repository secrets."
+            exit 1
+          fi
+
+          DOKPLOY_URL="${DOKPLOY_URL%/}"
+          commit_short="${GITHUB_SHA:0:7}"
+          started_at=$(date +%s)
+          end_time=$((started_at + TIMEOUT_SECONDS))
+          poll=0
+
+          echo "Monitoring Dokploy deployment for commit ${commit_short} (application ${DOKPLOY_APPLICATION_ID})…"
+
+          fetch_deployments() {
+            curl -sf \
+              -H "Accept: application/json" \
+              -H "x-api-key: ${DOKPLOY_API_KEY}" \
+              "${DOKPLOY_URL}/api/deployment.all?applicationId=${DOKPLOY_APPLICATION_ID}"
+          }
+
+          # Fail fast if the application ID is wrong (common mistake: using appName instead of applicationId).
+          app_check="$(curl -sf \
+            -H "Accept: application/json" \
+            -H "x-api-key: ${DOKPLOY_API_KEY}" \
+            "${DOKPLOY_URL}/api/application.one?applicationId=${DOKPLOY_APPLICATION_ID}" || true)"
+
+          if [ -z "$app_check" ]; then
+            echo "::error::Could not reach Dokploy or application lookup failed. Check DOKPLOY_URL and DOKPLOY_API_KEY."
+            exit 1
+          fi
+
+          if ! echo "$app_check" | jq -e '.applicationId' >/dev/null 2>&1; then
+            echo "::error::Dokploy application not found for DOKPLOY_APPLICATION_ID=${DOKPLOY_APPLICATION_ID}."
+            echo "::error::Use applicationId (e.g. qrE3yP6vYUmg3LjghZka_), not appName (e.g. selfcrafted-main-ujxnfp)."
+            exit 1
+          fi
+
+          app_name="$(echo "$app_check" | jq -r '.appName // .name // "unknown"')"
+          echo "Application OK: ${app_name}"
+
+          find_deployment_for_commit() {
+            local deployments="$1"
+            echo "$deployments" | jq -c --arg sha "$GITHUB_SHA" --arg short "$commit_short" '
+              if type != "array" then empty else
+                .[] | select(
+                  (.description // "" | test($sha)) or
+                  (.description // "" | test("Commit: " + $short)) or
+                  (.title // "" | test($sha))
+                ) | {status, createdAt, title, description}
+              end' | head -n 1
+          }
+
+          find_recent_deployment() {
+            local deployments="$1"
+            local cutoff="$2"
+            echo "$deployments" | jq -c --argjson cutoff "$cutoff" '
+              if type != "array" or length == 0 then empty else
+                .[] | select((.createdAt | fromdateiso8601?) // 0 >= $cutoff) |
+                {status, createdAt, title, description}
+              end' | head -n 1
+          }
+
+          latest_status="unknown"
+
+          while [ "$(date +%s)" -lt "$end_time" ]; do
+            poll=$((poll + 1))
+            response="$(fetch_deployments || true)"
+
+            if [ -z "$response" ]; then
+              echo "[${poll}] Dokploy API unreachable; retrying in ${POLL_INTERVAL}s…"
+              sleep "$POLL_INTERVAL"
+              continue
+            fi
+
+            if ! echo "$response" | jq -e 'type == "array"' >/dev/null 2>&1; then
+              echo "::error::Unexpected Dokploy API response: $(echo "$response" | jq -c '.message // .')"
+              exit 1
+            fi
+
+            count="$(echo "$response" | jq 'length')"
+            match="$(find_deployment_for_commit "$response")"
+
+            if [ -z "$match" ]; then
+              match="$(find_recent_deployment "$response" "$((started_at - 60))")"
+            fi
+
+            if [ -z "$match" ]; then
+              echo "[${poll}] No deployment for ${commit_short} yet (${count} total in history); waiting for Dokploy webhook…"
+              sleep "$POLL_INTERVAL"
+              continue
+            fi
+
+            latest_status="$(echo "$match" | jq -r '.status')"
+            latest_title="$(echo "$match" | jq -r '.title // "deployment"')"
+            latest_created="$(echo "$match" | jq -r '.createdAt // ""')"
+
+            case "$latest_status" in
+              done)
+                echo "✅ Dokploy deployment succeeded (${latest_title} @ ${latest_created})."
+                exit 0
+                ;;
+              error)
+                echo "::error::Dokploy deployment failed (${latest_title} @ ${latest_created}). Check Dokploy logs."
+                exit 1
+                ;;
+              pending|running|idle)
+                echo "[${poll}] Status: ${latest_status} — ${latest_title} (${latest_created})"
+                ;;
+              *)
+                echo "[${poll}] Status: ${latest_status} — waiting…"
+                ;;
+            esac
+
+            sleep "$POLL_INTERVAL"
+          done
+
+          echo "::error::Timed out after ${TIMEOUT_SECONDS}s waiting for commit ${commit_short} (last status: ${latest_status})."
+          exit 1

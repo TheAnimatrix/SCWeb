@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { F } from '$lib/icons/fluent';
+
 	import Icon from '@iconify/svelte';
 	import { fade } from 'svelte/transition';
 
@@ -54,7 +56,7 @@
 			<div class="p-6">
 				<div class="flex items-start gap-4">
 					<div class="bg-red-900/30 rounded-full p-2 flex items-center justify-center shrink-0">
-						<Icon icon="ph:warning-bold" class="text-xl text-red-400" />
+						<Icon icon={F.warning} class="text-xl text-red-400" />
 					</div>
 					<div class="flex-grow">
 						<div id="dialog-title" class="text-lg font-semibold text-gray-100">{title}</div>
@@ -64,7 +66,7 @@
 						onclick={handleCancel}
 						class="p-1 text-gray-400 hover:text-gray-200 hover:bg-card/10 rounded-full"
 						aria-label="Close dialog">
-						<Icon icon="ph:x-bold" class="text-lg" />
+						<Icon icon={F.dismiss} class="text-lg" />
 					</button>
 				</div>
 			</div>

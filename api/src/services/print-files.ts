@@ -25,8 +25,89 @@ export function buildStorageKey(userId: string, fileId: string): string {
 	return `${userId}/${fileId}.stl`;
 }
 
+export function buildPreviewStorageKey(userId: string, fileId: string): string {
+	return `${userId}/${fileId}.png`;
+}
+
 export function buildModelPath(storageKey: string): string {
 	return `models/${storageKey}`;
+}
+
+export function buildPreviewPath(storageKey: string): string {
+	return `models/${storageKey}`;
+}
+
+export type PrintModelMetadata = {
+	fileName: string;
+	originalFilename: string;
+	previewPath?: string;
+	fileSizeBytes?: number;
+	dimensions?: { x: number; y: number; z: number };
+	triangleCount?: number;
+};
+
+export function parsePrintModelMetadata(value: unknown): PrintModelMetadata | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		return null;
+	}
+
+	const record = value as Record<string, unknown>;
+	const originalFilename =
+		typeof record.originalFilename === 'string' ? record.originalFilename.trim() : '';
+	const fileName = typeof record.fileName === 'string' ? record.fileName.trim() : '';
+
+	if (!originalFilename && !fileName) {
+		return null;
+	}
+
+	const dimensions =
+		record.dimensions &&
+		typeof record.dimensions === 'object' &&
+		!Array.isArray(record.dimensions)
+			? {
+					x: Number((record.dimensions as Record<string, unknown>).x ?? 0),
+					y: Number((record.dimensions as Record<string, unknown>).y ?? 0),
+					z: Number((record.dimensions as Record<string, unknown>).z ?? 0)
+				}
+			: undefined;
+
+	return {
+		fileName: fileName || originalFilename,
+		originalFilename: originalFilename || fileName,
+		previewPath: typeof record.previewPath === 'string' ? record.previewPath : undefined,
+		fileSizeBytes:
+			typeof record.fileSizeBytes === 'number' && Number.isFinite(record.fileSizeBytes)
+				? record.fileSizeBytes
+				: undefined,
+		dimensions,
+		triangleCount:
+			typeof record.triangleCount === 'number' && Number.isFinite(record.triangleCount)
+				? record.triangleCount
+				: undefined
+	};
+}
+
+export function getPrintRequestDisplayName(
+	model: string | null | undefined,
+	modelMetadata: unknown
+): string {
+	const metadata = parsePrintModelMetadata(modelMetadata);
+	if (metadata?.originalFilename) {
+		return metadata.originalFilename;
+	}
+
+	if (!model) {
+		return 'Model';
+	}
+
+	const path = model.split('/').pop() ?? model;
+	const segments = path.split('.');
+	if (segments.length < 2) {
+		return path || 'Model';
+	}
+
+	const prefix = segments[segments.length - 2]?.split('_') ?? [];
+	return `${prefix[prefix.length - 1] ?? 'model'}.${segments[segments.length - 1]}`;
 }
 
 export function storagePathToBucketKey(modelPath: string): string {

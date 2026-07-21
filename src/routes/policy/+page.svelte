@@ -3,6 +3,10 @@
 	import snarkdown from 'snarkdown';
 	import { ABOUT_STRINGS } from '$lib/constants/strings';
 	import { Breadcrumbs } from '$lib/components/shell';
+	import { SeoHead } from '$lib/components/seo';
+	import { policySeo } from '$lib/seo/meta';
+	import { absoluteUrl } from '$lib/seo/site';
+	import { page } from '$app/state';
 
 	const sections = [
 		{ id: 'privacy', label: 'privacy', title: 'Privacy Policy', content: ABOUT_STRINGS.privacy },
@@ -83,6 +87,8 @@
 		return () => observer.disconnect();
 	});
 </script>
+
+<SeoHead meta={{ ...policySeo, canonical: absoluteUrl('/policy', page.url.origin) }} />
 
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-3xl px-4 py-6 md:py-8">

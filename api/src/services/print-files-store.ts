@@ -4,8 +4,12 @@ import { randomUUID } from 'node:crypto';
 import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
 import { printrequests } from '../db/schema/printrequests.js';
+import type { MailService } from './mail.js';
+import { notifyPrintQuoteRequested } from './order-notifications.js';
 import {
 	buildModelPath,
+	buildPreviewPath,
+	buildPreviewStorageKey,
 	buildStorageKey,
 	canAccessPrintRequest,
 	DEFAULT_DAILY_QUOTA,
@@ -34,12 +38,19 @@ export type PrintRequestRow = {
 	created_at: string;
 };
 
+export type PrintModelStatsInput = {
+	dimensions?: { x: number; y: number; z: number };
+	triangleCount?: number;
+};
+
 export type UploadPrintFileInput = {
 	userId: string;
 	makerId: string;
 	originalFilename: string;
 	fileBytes: Uint8Array;
 	modelData: PrintModelDataInput;
+	previewBytes?: Uint8Array;
+	modelStats?: PrintModelStatsInput;
 };
 
 export type UploadPrintFileResult =
@@ -69,7 +80,12 @@ export interface PrintFilesStorage {
 export interface PrintFilesStore {
 	uploadPrintFile(input: UploadPrintFileInput): Promise<UploadPrintFileResult>;
 	getDownloadUrl(actorUserId: string, printRequestId: string): Promise<DownloadUrlResult>;
+	getUploadQuotaStatus(userId: string): Promise<{ limit: number; used: number; remaining: number }>;
 }
+
+export type PrintFilesStoreOptions = {
+	mail?: MailService;
+};
 
 export function isFilesConfigured(env: Env): boolean {
 	return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
@@ -203,7 +219,11 @@ function mapPrintRequestRow(row: typeof printrequests.$inferSelect): PrintReques
 	};
 }
 
-export function createPrintFilesStore(db: Database, storage: PrintFilesStorage): PrintFilesStore {
+export function createPrintFilesStore(
+	db: Database,
+	storage: PrintFilesStorage,
+	options?: PrintFilesStoreOptions
+): PrintFilesStore {
 	return {
 		async uploadPrintFile(input) {
 			const limit = await getDailyQuotaLimit(db, input.userId);
@@ -216,6 +236,7 @@ export function createPrintFilesStore(db: Database, storage: PrintFilesStorage):
 			const fileId = randomUUID();
 			const storageKey = buildStorageKey(input.userId, fileId);
 			const modelPath = buildModelPath(storageKey);
+			const previewStorageKey = buildPreviewStorageKey(input.userId, fileId);
 
 			const uploadResult = await storage.upload(storageKey, input.fileBytes, 'application/sla');
 
@@ -230,6 +251,19 @@ export function createPrintFilesStore(db: Database, storage: PrintFilesStorage):
 				return { ok: false, status: 500, body: { error: 'upload_failed' } };
 			}
 
+			let previewPath: string | undefined;
+
+			if (input.previewBytes && input.previewBytes.byteLength > 0) {
+				const previewUpload = await storage.upload(
+					previewStorageKey,
+					input.previewBytes,
+					'image/png'
+				);
+				if (previewUpload.ok) {
+					previewPath = buildPreviewPath(previewStorageKey);
+				}
+			}
+
 			try {
 				const [inserted] = await db
 					.insert(printrequests)
@@ -240,15 +274,35 @@ export function createPrintFilesStore(db: Database, storage: PrintFilesStorage):
 						modelData: input.modelData,
 						modelMetadata: {
 							fileName: storageKey,
-							originalFilename: input.originalFilename
+							originalFilename: input.originalFilename,
+							fileSizeBytes: input.fileBytes.byteLength,
+							...(previewPath ? { previewPath } : {}),
+							...(input.modelStats?.dimensions
+								? { dimensions: input.modelStats.dimensions }
+								: {}),
+							...(input.modelStats?.triangleCount != null
+								? { triangleCount: input.modelStats.triangleCount }
+								: {})
 						},
 						requestStage: 'requested'
 					})
 					.returning();
 
+				if (options?.mail && inserted.userId && inserted.creatorId) {
+					notifyPrintQuoteRequested(db, options.mail, inserted.id, {
+						userId: inserted.userId,
+						creatorId: inserted.creatorId
+					}, {
+						previewImageBytes: input.previewBytes
+					});
+				}
+
 				return { ok: true, printRequest: mapPrintRequestRow(inserted) };
 			} catch (error) {
 				const cleanup = await storage.remove(storageKey);
+				if (previewPath) {
+					await storage.remove(previewStorageKey);
+				}
 				await releaseUploadQuota(db, input.userId);
 				logUploadFailure('print-files.upload.insert_failed', {
 					userId: input.userId,
@@ -298,6 +352,26 @@ export function createPrintFilesStore(db: Database, storage: PrintFilesStorage):
 				ok: true,
 				url: signed.signedUrl,
 				expiresAt: signedUrlExpiresAt(SIGNED_URL_EXPIRY_SECONDS)
+			};
+		},
+
+		async getUploadQuotaStatus(userId) {
+			const limit = await getDailyQuotaLimit(db, userId);
+			const result = await executeRows<{ count: number }>(
+				db,
+				sql`
+					SELECT count
+					FROM upload_quota
+					WHERE user_id = ${userId} AND quota_date = CURRENT_DATE
+					LIMIT 1
+				`
+			);
+			const used = result[0]?.count ?? 0;
+
+			return {
+				limit,
+				used,
+				remaining: Math.max(limit - used, 0)
 			};
 		}
 	};

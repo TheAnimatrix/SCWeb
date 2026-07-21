@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS "printrequests" (
 	"model_data" jsonb,
 	"request_stage" text,
 	"request_metadata" jsonb,
+	"active_payment_attempt_id" uuid,
 	"order_id" text,
 	"payment_id" text,
 	"address" jsonb

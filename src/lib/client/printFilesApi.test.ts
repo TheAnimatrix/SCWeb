@@ -30,6 +30,13 @@ describe('mapPrintFilesError', () => {
 		});
 	});
 
+	it('maps api_unreachable', () => {
+		expect(mapPrintFilesError(502, { error: 'api_unreachable' })).toEqual({
+			kind: 'network',
+			message: 'Could not reach the upload service. Please try again in a moment.'
+		});
+	});
+
 	it('maps files_unconfigured', () => {
 		expect(mapPrintFilesError(503, { error: 'files_unconfigured' })).toEqual({
 			kind: 'files_unconfigured',

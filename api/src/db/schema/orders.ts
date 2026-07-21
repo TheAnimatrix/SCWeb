@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { CART_ORDER_STATUS } from '../../contracts/cart.js';
 import { carts } from './carts.js';
+import { paymentAttempts } from './paymentAttempts.js';
 
 export const ORDER_STATUS_VALUES = [
 	CART_ORDER_STATUS.PAYMENT_PENDING,
@@ -34,14 +35,10 @@ export const orders = pgTable(
 		clientId: text('client_id'),
 		status: text('status').notNull().$type<OrderStatus>(),
 		address: jsonb('address').notNull(),
-		/** Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary. */
-		subtotal: integer('subtotal').notNull(),
-		/** Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary. */
-		deliveryFee: integer('delivery_fee').notNull(),
-		/** Whole INR rupees (integer). Convert to paise only at the Razorpay API boundary. */
-		total: integer('total').notNull(),
-		razorpayOrderId: text('razorpay_order_id').unique(),
-		razorpayPaymentId: text('razorpay_payment_id').unique(),
+		subtotalPaise: integer('subtotal_paise').notNull(),
+		deliveryFeePaise: integer('delivery_fee_paise').notNull(),
+		totalPaise: integer('total_paise').notNull(),
+		activePaymentAttemptId: uuid('active_payment_attempt_id').references(() => paymentAttempts.id),
 		createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
 			.notNull()
 			.defaultNow(),

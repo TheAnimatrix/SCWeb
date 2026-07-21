@@ -37,11 +37,40 @@ Set all variables on the Dokploy application at **runtime** (Environment tab). D
 | `PUBLIC_SITE_URL`                            | No       | Canonical site URL (OAuth redirects)                                                            |
 | `PUBLIC_VERCEL_URL`                          | No       | Optional hosting URL fallback                                                                   |
 | `API_CORS_ORIGINS`                           | Yes      | Comma-separated browser origins, e.g. `https://selfcrafted.in,https://www.selfcrafted.in`       |
+| `SMTP_HOST`                                  | Yes\*    | SMTP host for transactional mail (e.g. `smtp.resend.com`)                                       |
+| `SMTP_PORT`                                  | No       | Defaults to `587` (STARTTLS). Use `465` for implicit TLS (Resend recommended)                     |
+| `SMTP_USER`                                  | Yes\*    | SMTP username (e.g. `resend`)                                                                   |
+| `SMTP_PASS` / `SMTP_PASSWORD`                | Yes\*    | SMTP password / API key                                                                         |
+| `SMTP_SECURE`                                | No       | Ignored on ports `465`/`587` — port selects TLS mode automatically                              |
+| `EMAIL_FROM`                                 | No       | Defaults to `Selfcrafted <noreply@selfcrafted.in>`                                              |
+| `ORDERS_INBOX_EMAIL`                         | No       | Defaults to `orders@selfcrafted.in` — receives order/quote ops copies                           |
 | `SENTRY_DSN`                                 | No       | Server error monitoring (web + API processes)                                                   |
 | `PUBLIC_SENTRY_DSN`                          | No       | Browser error monitoring                                                                        |
 | `CLIENT_ID_SIGNING_SECRET`                   | No       | Guest cart client-id signing                                                                    |
 
-`API_ORIGIN` defaults to `http://127.0.0.1:3001` inside the container so the web app proxies `/api` to the co-located API process. You normally **do not** override this.
+`API_ORIGIN` is forced to `http://127.0.0.1:3001` inside the container so the web app proxies `/api` to the co-located API process. **Do not** set it to `https://api.yourdomain` — that breaks file uploads (`api_unreachable` / 502).
+
+`BODY_SIZE_LIMIT` defaults to `55M` so quote-request STL uploads (up to 50MB) pass through the SvelteKit server. The adapter-node default is only `512K`.
+
+\*SMTP vars are required for order / 3DP quote / status / chat emails. Without `SMTP_HOST` + `SMTP_PASS`, the API starts but every send is skipped (`email.skipped`). Check `GET /health` → `mail.smtpConfigured` after deploy.
+
+## GitHub deploy status
+
+The **Deploy** workflow (`.github/workflows/deploy.yml`) shows Dokploy build/deploy results in GitHub Actions on every push to `master` / `main`. It does **not** trigger a second deploy — keep **Auto Deploy** enabled in Dokploy; the workflow only polls the deployment the Dokploy webhook starts.
+
+Add these repository secrets (**Settings → Secrets and variables → Actions**):
+
+| Secret | Where to find it |
+| ------ | ---------------- |
+| `DOKPLOY_URL` | Your Dokploy instance URL, e.g. `https://dokploy.yourdomain.com` (no trailing slash) |
+| `DOKPLOY_API_KEY` | Dokploy → **Profile** → API / CLI keys |
+| `DOKPLOY_APPLICATION_ID` | Open the app in Dokploy — the ID is in the URL or application settings |
+
+After the next push, the Actions tab shows **Deploy** with ✅ or ❌ matching the Dokploy deployment outcome. The same run appears under **Deployments → production** (linked to https://selfcrafted.in).
+
+A README badge is available at:
+
+`https://github.com/TheAnimatrix/SCWeb/actions/workflows/deploy.yml/badge.svg?branch=master`
 
 ## How traffic flows
 

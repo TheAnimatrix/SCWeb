@@ -420,18 +420,15 @@ just "a Postgres host + (for now) an auth provider" — swappable.
 ### 7b. Realtime chat → API (medium)
 
 - [ ] Replace Supabase Realtime subscription in `MessageBoard` with API-served
-      SSE (or websocket) fed by the chats store; move read-receipts to a small
+      WebSocket or SSE fed by the chats store; move read-receipts to a small
       authenticated endpoint at the same time (removes the last browser write
       + the Chat column-grant RLS dependency).
 
-### 7c. Auth abstraction (largest — separate decision)
+### 7c. Auth — **decided: keep Supabase Auth** (2026-07-09)
 
-- [ ] The API already reduces auth to "verified JWT → user id"; the web app is
-      the coupled part (supabase-js auth client, OAuth flows, cookies,
-      `users` table keyed by auth.uid()). Decide target (self-hosted:
-      Keycloak/Zitadel/Ory; or keep Supabase Auth as an accepted dependency)
-      before any code. Not scheduled; revisit after 7a/7b land and the shop is
-      stable in production.
+Supabase Auth stays as the auth provider. No Keycloak/Zitadel migration.
+The API already treats auth as "verified JWT → user id"; the browser keeps
+supabase-js for sign-in, OAuth, and session cookies. **7c is cancelled.**
 
 ---
 

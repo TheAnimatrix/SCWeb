@@ -1,9 +1,10 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import Download from '@lucide/svelte/icons/download';
-	import Share from '@lucide/svelte/icons/share';
-	import {
+			import {
 		dismissInstallPrompt,
 		initPwaInstallState,
 		installEvent,
@@ -60,7 +61,7 @@
 			disabled={$installing}
 			aria-expanded={showIosInstructions}
 			aria-haspopup={isIosDevice() && !$installEvent ? 'dialog' : undefined}>
-			<Download class="size-3" aria-hidden="true" />
+			<Icon icon={F.download} class="size-3" aria-hidden="true" />
 			<span>{$installing ? 'installing…' : 'install_app'}</span>
 		</button>
 
@@ -72,11 +73,11 @@
 				<p class="mb-2 text-xs text-muted-foreground">Add to your home screen:</p>
 				<ol class="space-y-1.5 text-xs text-muted-foreground">
 					<li class="flex items-center gap-2">
-						<Share class="size-3.5 shrink-0" aria-hidden="true" />
+						<Icon icon={F.share} class="size-3.5 shrink-0" aria-hidden="true" />
 						<span>Tap Share in Safari</span>
 					</li>
 					<li class="flex items-center gap-2">
-						<Download class="size-3.5 shrink-0" aria-hidden="true" />
+						<Icon icon={F.download} class="size-3.5 shrink-0" aria-hidden="true" />
 						<span>Select Add to Home Screen</span>
 					</li>
 				</ol>

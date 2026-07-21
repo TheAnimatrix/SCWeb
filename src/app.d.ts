@@ -25,6 +25,8 @@ declare global {
 			supabase: SupabaseClient<Database>;
 			supabaseAdmin: SupabaseClient<Database>;
 			safeGetSession(): Promise<{ session: Session | null; user: User | null }>;
+			getLayoutSession(): Promise<{ session: Session | null; user: User | null }>;
+			_safeGetSessionCache?: Promise<{ session: Session | null; user: User | null }>;
 			clientId: string;
 			requestId: string;
 		}

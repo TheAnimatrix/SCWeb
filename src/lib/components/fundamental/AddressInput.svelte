@@ -1,14 +1,12 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { type Address, compareAddress, getValidState } from '$lib/types/product';
 	import { Button } from '$lib/components/ui/button';
 	import { ScInput } from '$lib/components/sc';
-	import Pencil from '@lucide/svelte/icons/pencil';
-	import Check from '@lucide/svelte/icons/check';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import X from '@lucide/svelte/icons/x';
-	import MapPin from '@lucide/svelte/icons/map-pin';
-	import Phone from '@lucide/svelte/icons/phone';
-
+	import AddressLocationFields from '$lib/components/fundamental/AddressLocationFields.svelte';
+						
 	interface Props {
 		address: Address;
 		isEditing?: boolean;
@@ -106,7 +104,7 @@
 			<div class="min-w-0 flex-1 space-y-1.5">
 				<div class="text-sm font-medium">{address.name || 'Unnamed'}</div>
 				<div class="flex items-start gap-2 text-sm text-muted-foreground">
-					<MapPin class="mt-0.5 size-3.5 shrink-0" />
+					<Icon icon={F.location} class="mt-0.5 size-3.5 shrink-0" />
 					<div>
 						<div>{address.line1}</div>
 						{#if address.line2}<div>{address.line2}</div>{/if}
@@ -115,7 +113,7 @@
 				</div>
 				{#if address.phone}
 					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<Phone class="size-3.5 shrink-0" />
+						<Icon icon={F.phone} class="size-3.5 shrink-0" />
 						<span>+91 {getWithoutCountryCode(address.phone)}</span>
 					</div>
 				{/if}
@@ -157,37 +155,13 @@
 						bind:value={editableAddress.line2} />
 				</div>
 
-				<div class="grid grid-cols-3 gap-2">
-					<div>
-						<label for="{uniqueId}-city" class={labelClass}>city</label>
-						<ScInput
-							id="{uniqueId}-city"
-							type="text"
-							size="sm"
-							wrapperClass="mt-1"
-							bind:value={editableAddress.city} />
-					</div>
-					<div>
-						<label for="{uniqueId}-pincode" class={labelClass}>pincode</label>
-						<ScInput
-							id="{uniqueId}-pincode"
-							type="text"
-							size="sm"
-							wrapperClass="mt-1"
-							bind:value={editableAddress.pincode}
-							maxlength={6}
-							inputmode="numeric" />
-					</div>
-					<div>
-						<label for="{uniqueId}-state" class={labelClass}>state</label>
-						<ScInput
-							id="{uniqueId}-state"
-							type="text"
-							size="sm"
-							wrapperClass="mt-1"
-							bind:value={editableAddress.state} />
-					</div>
-				</div>
+				<AddressLocationFields
+					idPrefix={uniqueId}
+					{labelClass}
+					size="sm"
+					bind:pincode={editableAddress.pincode}
+					bind:city={editableAddress.city}
+					bind:state={editableAddress.state} />
 
 				<div>
 					<label for="{uniqueId}-phone" class={labelClass}>phone</label>
@@ -213,7 +187,7 @@
 					class="size-8"
 					onclick={handleEditRequest}
 					aria-label="Edit">
-					<Pencil class="size-3.5" />
+					<Icon icon={F.edit} class="size-3.5" />
 				</Button>
 			{:else}
 				<Button
@@ -222,7 +196,7 @@
 					class="size-8"
 					onclick={handleSaveRequest}
 					aria-label="Save">
-					<Check class="size-3.5" />
+					<Icon icon={F.check} class="size-3.5" />
 				</Button>
 			{/if}
 			<Button
@@ -232,9 +206,9 @@
 				onclick={isEditing ? () => onCancel() : () => onDelete()}
 				aria-label={isEditing ? 'Cancel' : 'Delete'}>
 				{#if isEditing}
-					<X class="size-3.5" />
+					<Icon icon={F.dismiss} class="size-3.5" />
 				{:else}
-					<Trash2 class="size-3.5" />
+					<Icon icon={F.delete} class="size-3.5" />
 				{/if}
 			</Button>
 		</div>

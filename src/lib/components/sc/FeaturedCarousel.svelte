@@ -1,10 +1,12 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
-	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Package from '@lucide/svelte/icons/package';
-	import Star from '@lucide/svelte/icons/star';
+	import { getTierIcon, getTierStyle, getTierTextClass } from '$lib/types/tiers';
+	import { cn } from '$lib/utils';
+	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
 	import PlaceholderImage from './PlaceholderImage.svelte';
 
 	interface Props {
@@ -25,6 +27,19 @@
 
 	function makerName(product: Product) {
 		return product.author ?? productUserRef(product.users)?.username ?? 'unknown';
+	}
+
+	function makerDisplayName(product: Product) {
+		return formatUsernameDisplay(makerName(product));
+	}
+
+	function makerTier(product: Product) {
+		return productUserRef(product.users)?.tier ?? 'Bee';
+	}
+
+	function showRating(product: Product) {
+		const rating = product.rating;
+		return rating != null && rating.rating > 0 && rating.count > 0;
 	}
 
 	function formatPrice(product: Product) {
@@ -102,7 +117,7 @@
 			aria-hidden="true">
 		</div>
 		<div
-			class="overflow-hidden rounded-lg border border-border bg-card"
+			class="@container overflow-hidden rounded-lg border border-border bg-card"
 			role="region"
 			aria-roledescription="carousel"
 			aria-label="Featured crafts">
@@ -116,6 +131,10 @@
 					class="flex transition-transform duration-300 ease-out"
 					style:transform="translateX(-{activeIndex * 100}%)">
 					{#each products as product (product.id)}
+						{@const tier = makerTier(product)}
+						{@const tierIcon = getTierIcon(tier)}
+						{@const tierStyle = getTierStyle(tier)}
+						{@const tierTextClass = getTierTextClass(tier)}
 						<a
 							href={productHref(product)}
 							class="group block w-full shrink-0 transition-colors hover:border-foreground/30"
@@ -130,39 +149,60 @@
 								}
 							}}
 							onkeydown={handleKeydown}>
-							<div class="grid grid-cols-[minmax(0,42%)_1fr] sm:grid-cols-[minmax(0,240px)_1fr]">
-								<div class="aspect-[4/5] overflow-hidden sm:min-h-full">
+							<div
+								class="grid grid-cols-[minmax(0,36%)_1fr] @min-[400px]:grid-cols-[minmax(0,42%)_1fr] @min-[520px]:grid-cols-[minmax(0,200px)_1fr] @min-[640px]:grid-cols-[minmax(0,240px)_1fr]">
+								<div class="aspect-[4/5] overflow-hidden @min-[520px]:min-h-full">
 									<PlaceholderImage
 										src={product.images?.[0]?.url ?? null}
 										alt={product.name}
 										class="transition-transform duration-500 group-hover:scale-105" />
 								</div>
 
-								<div class="flex min-w-0 flex-col justify-between gap-3 p-4 sm:gap-4 sm:p-6">
-									<div class="space-y-2 sm:space-y-3">
-										<h2 class="text-base font-medium leading-snug text-foreground sm:text-xl">
-											{product.name}
-										</h2>
+								<div class="flex min-w-0 flex-col justify-between gap-3 p-4 @min-[520px]:gap-4 @min-[520px]:p-6">
+										<div class="space-y-2 @min-[520px]:space-y-3">
+											<h2
+												class="text-base font-medium leading-tight text-foreground @min-[520px]:text-xl">
+												{product.name}
+											</h2>
 
-										<div class="space-y-1 text-sm text-muted-foreground">
-											<p class="truncate text-foreground">@{makerName(product)}</p>
-											<p class="inline-flex items-center gap-1">
-												<Package class="size-3.5 shrink-0" aria-hidden="true" />
-												{product.stock.count} units
-											</p>
-											{#if product.rating}
-												<p class="inline-flex items-center gap-1">
-													<Star
-														class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
-														aria-hidden="true" />
-													{product.rating.rating}
-													<span class="text-muted-foreground">
-														({product.rating.count} review{product.rating.count === 1 ? '' : 's'})
+											<div class="space-y-2 text-sm">
+												<div class="flex min-w-0 items-center gap-1.5">
+													{#if tierIcon}
+														<span
+															class="inline-flex size-4 shrink-0"
+															style:filter={tierStyle.iconFilter ?? undefined}
+															aria-hidden="true">
+															<Icon icon={tierIcon} class="size-full" />
+														</span>
+													{/if}
+													<span class={cn('truncate font-medium', tierTextClass)}>
+														{makerDisplayName(product)}
 													</span>
+												</div>
+
+												<p
+													class="flex items-center gap-1.5 text-muted-foreground"
+													aria-label="{product.stock.count} in stock">
+													<Icon icon={F.box} class="size-3.5 shrink-0" aria-hidden="true" />
+													{product.stock.count}
 												</p>
-											{/if}
+
+												{#if showRating(product)}
+													<p class="flex items-center gap-1.5 text-muted-foreground">
+														<Icon
+															icon={F.star}
+															class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+															aria-hidden="true" />
+														<span>{product.rating?.rating}</span>
+														<span class="text-muted-foreground/80">
+															({product.rating?.count} review{product.rating?.count === 1
+																? ''
+																: 's'})
+														</span>
+													</p>
+												{/if}
+											</div>
 										</div>
-									</div>
 
 									<div class="text-right">
 										{#if formatOldPrice(product)}
@@ -170,7 +210,8 @@
 												₹{formatOldPrice(product)}
 											</p>
 										{/if}
-										<p class="text-xl font-bold tracking-tight text-foreground sm:text-3xl">
+										<p
+											class="text-xl font-bold tracking-tight text-foreground @min-[520px]:text-3xl">
 											₹{formatPrice(product)}
 										</p>
 									</div>
@@ -193,7 +234,7 @@
 						onblur={() => (paused = false)}
 						onkeydown={handleKeydown}
 						onclick={goPrev}>
-						<ChevronLeft class="size-4" />
+						<Icon icon={F.chevronLeft} class="size-4" />
 					</button>
 
 					<div class="flex items-center gap-1.5">
@@ -224,7 +265,7 @@
 						onblur={() => (paused = false)}
 						onkeydown={handleKeydown}
 						onclick={goNext}>
-						<ChevronRight class="size-4" />
+						<Icon icon={F.chevronRight} class="size-4" />
 					</button>
 				</div>
 			{/if}

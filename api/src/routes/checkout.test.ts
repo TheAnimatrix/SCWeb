@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CreateCheckoutOrderResponse } from '../contracts/checkout.js';
 import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
+import { emailEnvDefaults } from '../test/env-defaults.js';
 import { createCheckoutRoutes } from './checkout.js';
 import type { CheckoutStore } from '../services/checkout-store.js';
 import type { Actor, AppVariables } from '../types/context.js';
@@ -19,7 +20,8 @@ const testEnv = {
 	PUBLIC_RAZORPAY_ID: 'rzp_test',
 	RAZORPAY_KEY: 'test_razorpay_secret',
 	RATE_LIMIT_WINDOW_MS: 60_000,
-	RATE_LIMIT_MAX_REQUESTS: 120
+	RATE_LIMIT_MAX_REQUESTS: 120,
+	...emailEnvDefaults
 } satisfies Env;
 
 const validAddress = {
@@ -128,6 +130,7 @@ describe('checkout routes', () => {
 			orderId: '00000000-0000-0000-0000-000000000001',
 			razorpayOrderId: 'order_existing',
 			amountPaise: 50000,
+			totalRupees: 500,
 			currency: 'INR'
 		};
 		const createOrder = vi.fn(async () => ({ ok: true as const, response: responseBody }));

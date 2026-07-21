@@ -30,6 +30,12 @@ export type DownloadUrlResponse = {
 	expiresAt: string;
 };
 
+export type PrintFilesQuotaResponse = {
+	limit: number;
+	used: number;
+	remaining: number;
+};
+
 export type UploadPrintFileResponse = {
 	printRequest: {
 		id: string;

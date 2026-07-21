@@ -50,12 +50,12 @@ describe('validateCheckoutLines', () => {
 describe('computeOrderTotals', () => {
 	it('adds the flat delivery fee to the subtotal', () => {
 		const items = buildOrderItemSnapshots([line('p1', 2, 5), line('p2', 1, 5, 'in stock')]);
-		items[1] = { ...items[1]!, unitPrice: 50 };
+		items[1] = { ...items[1]!, unitPricePaise: 5000 };
 
 		expect(computeOrderTotals(items)).toEqual({
-			subtotal: 250,
-			deliveryFee: 99,
-			total: 349
+			subtotalPaise: 25000,
+			deliveryFeePaise: 9900,
+			totalPaise: 34900
 		});
 	});
 });

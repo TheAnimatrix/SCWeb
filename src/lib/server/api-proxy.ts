@@ -1,11 +1,13 @@
-export const ALLOWED_PROXY_PATH =
-	/^(cart|checkout|print-files|print-payments|print-requests|chats)(\/|$)/;
-
 const UPLOAD_TIMEOUT_MS = 60_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
+export const UPLOAD_PROXY_PATH = 'print-files/upload';
+
+export function isUploadProxyPath(path: string | undefined): boolean {
+	return path === UPLOAD_PROXY_PATH;
+}
 
 export function getProxyTimeoutMs(path: string | undefined): number {
-	if (path === 'print-files/upload') {
+	if (isUploadProxyPath(path)) {
 		return UPLOAD_TIMEOUT_MS;
 	}
 
@@ -28,16 +30,13 @@ function containsDotDotSegment(path: string): boolean {
 	}
 }
 
+/** Reject empty or traversal paths. Everything else is forwarded to Hono. */
 export function isAllowedProxyPath(path: string | undefined): boolean {
 	if (!path) {
 		return false;
 	}
 
-	if (containsDotDotSegment(path)) {
-		return false;
-	}
-
-	return ALLOWED_PROXY_PATH.test(path);
+	return !containsDotDotSegment(path);
 }
 
 export function buildProxyTargetUrl(apiOrigin: string, path: string, search: string): URL {

@@ -7,6 +7,13 @@ import type { PrintFilesStore } from '../services/print-files-store.js';
 import type { ChatsStore } from '../services/chats-store.js';
 import type { PrintPaymentsStore } from '../services/print-payments-store.js';
 import type { PrintRequestsStore } from '../services/print-requests-store.js';
+import type { CatalogStore } from '../services/catalog-store.js';
+import type { EmailService } from '../services/email.js';
+import type { MailService } from '../services/mail.js';
+import type { AuthStore } from '../services/auth-store.js';
+import type { OrdersStore } from '../services/orders-store.js';
+import type { MakersStore } from '../services/makers-store.js';
+import type { RazorpayWebhookService } from '../services/razorpay-webhooks.js';
 
 export type Actor = {
 	userId: string | null;
@@ -22,6 +29,13 @@ export type AppVariables = {
 	printPaymentsStore: PrintPaymentsStore;
 	printRequestsStore: PrintRequestsStore;
 	chatsStore: ChatsStore;
+	catalogStore: CatalogStore;
+	emailService: EmailService;
+	mailService: MailService;
+	authStore: AuthStore;
+	ordersStore: OrdersStore;
+	makersStore: MakersStore;
+	razorpayWebhookService: RazorpayWebhookService;
 	requestId: string;
 	actor: Actor;
 	user: User | null;

@@ -1,9 +1,8 @@
-import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { defineConfig } from 'drizzle-kit';
+import { loadEnvFiles } from './src/loadEnvFiles.js';
 
-config({ path: resolve(process.cwd(), '../.env') });
-config({ path: resolve(process.cwd(), '.env') });
+loadEnvFiles();
 
 process.env.DATABASE_URL ??= process.env.POSTGRES_URL;
 

@@ -1,5 +1,8 @@
 # Selfcrafted Web Application
 
+[![Deploy](https://github.com/TheAnimatrix/SCWeb/actions/workflows/deploy.yml/badge.svg?branch=master)](https://github.com/TheAnimatrix/SCWeb/actions/workflows/deploy.yml)
+[![site](https://img.shields.io/website?url=https%3A%2F%2Fselfcrafted.in&label=selfcrafted.in)](https://selfcrafted.in)
+
 ![Selfcrafted Logo](static/favicon.png)
 
 ## Overview
@@ -58,6 +61,13 @@ Contributions are welcome! Please follow these guidelines:
 
 ## License
 
-This project is licensed under the [GNU General Public License v3.0](LICENSE) (GPL-3.0). See the [LICENSE](LICENSE) file for details.
+This project uses a **dual-license** model:
+
+- **Default:** [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0) — free to use, with copyleft obligations including the network/SaaS clause for modified hosted deployments.
+- **Commercial:** Required for closed-source/non-copyleft use or commercial use expecting gross revenue over USD $10,000.
+
+See [LICENSING.md](LICENSING.md) for the full explanation. Contributors accept [CLA.md](CLA.md) so contributions may be distributed under both licenses.
+
+Commercial licensing: **creo@selfcrafted.in**
 
 ---

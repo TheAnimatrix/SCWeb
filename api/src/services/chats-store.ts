@@ -4,6 +4,8 @@ import type { Database } from '../db/index.js';
 import { chat } from '../db/schema/chat.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import type { Actor } from '../types/context.js';
+import type { MailService } from './mail.js';
+import { schedulePrintChatMessageEmail } from './chat-message-notifications.js';
 
 export type SendChatMessageResult =
 	| { ok: true; response: SendChatMessageResponse }
@@ -15,11 +17,15 @@ export interface ChatsStore {
 	sendMessage(actor: Actor, body: SendChatMessageBody): Promise<SendChatMessageResult>;
 }
 
+export type ChatsStoreOptions = {
+	mail?: MailService;
+};
+
 function trimMessage(message: string): string {
 	return message.trim();
 }
 
-export function createChatsStore(db: Database): ChatsStore {
+export function createChatsStore(db: Database, options?: ChatsStoreOptions): ChatsStore {
 	return {
 		async sendMessage(actor, body) {
 			const actorId = actor.userId;
@@ -72,6 +78,14 @@ export function createChatsStore(db: Database): ChatsStore {
 
 			if (!inserted) {
 				return { ok: false, status: 403, body: { error: 'forbidden' } };
+			}
+
+			if (options?.mail) {
+				schedulePrintChatMessageEmail(db, options.mail, {
+					printRequestId: body.relationship_id,
+					recipientUserId: body.recipient_id,
+					senderUserId: actorId
+				});
 			}
 
 			return {

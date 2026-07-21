@@ -1,14 +1,23 @@
 import { Hono } from 'hono';
 import { sql } from 'drizzle-orm';
+import { isAuthMailConfigured } from '../services/auth-store.js';
 import type { AppVariables } from '../types/context.js';
 
 export const healthRoutes = new Hono<{ Variables: AppVariables }>();
 
 healthRoutes.get('/health', (c) => {
+	const env = c.get('env');
+	const mail = c.get('mailService');
+
 	return c.json({
 		ok: true,
 		service: '@scweb/api',
-		requestId: c.get('requestId')
+		requestId: c.get('requestId'),
+		mail: {
+			smtpConfigured: Boolean(mail?.isConfigured),
+			authMailConfigured: isAuthMailConfigured(env),
+			ordersInboxConfigured: Boolean(env.ORDERS_INBOX_EMAIL)
+		}
 	});
 });
 

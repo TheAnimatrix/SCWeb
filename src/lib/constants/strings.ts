@@ -145,7 +145,6 @@ const contact: string = `
 * ### **Selfcrafted**
 * Ph : +91-86374-52606 (sms, whatsapp)
 * E-Mail : support@selfcrafted.in
-* Address : 13, 1st floor, jayalakshmipuram 1st street, nungambakkam, chennai - 600034
 `;
 
 interface ABOUTSTR {

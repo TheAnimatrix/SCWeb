@@ -1,13 +1,16 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { goto } from '$app/navigation';
 	import { navigating, page } from '$app/state';
-	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
-	import X from '@lucide/svelte/icons/x';
-	import { Breadcrumbs } from '$lib/components/shell';
+			import { Breadcrumbs } from '$lib/components/shell';
 	import {
 		FilterSidebar,
 		Pagination,
 		ProductCard,
+		ProductCardList,
+		ProductCardListItem,
 		ProductCardSkeleton,
 		SearchBar,
 		Skeleton
@@ -15,6 +18,9 @@
 	import type { BrowseFilters, BrowseSort } from '$lib/types/browse';
 	import type { Product } from '$lib/types/product';
 	import { formatActiveTagLabel } from '$lib/utils/browseTags';
+	import { SeoHead } from '$lib/components/seo';
+	import { craftsSeo } from '$lib/seo/meta';
+	import { absoluteUrl } from '$lib/seo/site';
 
 	interface ActiveFilterChip {
 		id: string;
@@ -133,6 +139,12 @@
 	}
 </script>
 
+<SeoHead
+	meta={{
+		...craftsSeo,
+		canonical: absoluteUrl(`${page.url.pathname}${page.url.search}`, page.url.origin)
+	}} />
+
 <div class="min-h-screen w-full bg-background text-foreground">
 	<div class="mx-auto w-full max-w-7xl px-4 py-8 md:py-12">
 		<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'crafts' }]} />
@@ -179,7 +191,7 @@
 							onclick={() => navigate(chip.patch)}
 							class="inline-flex items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1 font-mono text-xs text-background transition-colors hover:bg-foreground/90">
 							{chip.label}
-							<X class="size-3 shrink-0" aria-hidden="true" />
+							<Icon icon={F.dismiss} class="size-3 shrink-0" aria-hidden="true" />
 							<span class="sr-only">Remove {chip.label} filter</span>
 						</button>
 					{/each}
@@ -197,7 +209,7 @@
 					type="button"
 					onclick={() => (mobileFiltersOpen = true)}
 					class="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 font-mono text-xs text-foreground transition-colors hover:border-foreground/30">
-					<SlidersHorizontal class="size-3.5" aria-hidden="true" />
+					<Icon icon={F.options} class="size-3.5" aria-hidden="true" />
 					filters
 				</button>
 				{#if hasActiveFilters}
@@ -221,20 +233,21 @@
 
 				<div class="min-w-0">
 					{#if isRefreshing}
-						<div
-							class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4"
-							aria-busy="true"
-							aria-label="Loading crafts">
+						<ProductCardList aria-busy="true" aria-label="Loading crafts">
 							{#each [...Array(6).keys()] as i (i)}
-								<ProductCardSkeleton />
+								<ProductCardListItem>
+									<ProductCardSkeleton />
+								</ProductCardListItem>
 							{/each}
-						</div>
+						</ProductCardList>
 					{:else if data.products.length > 0}
-						<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4">
+						<ProductCardList>
 							{#each data.products as product (product.id)}
-								<ProductCard {product} href={productHref(product)} dimOutOfStock />
+								<ProductCardListItem>
+									<ProductCard {product} href={productHref(product)} dimOutOfStock />
+								</ProductCardListItem>
 							{/each}
-						</div>
+						</ProductCardList>
 
 						<Pagination
 							currentPage={data.currentPage}
@@ -284,7 +297,7 @@
 					class="inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
 					aria-label="Close filters"
 					onclick={() => (mobileFiltersOpen = false)}>
-					<X class="size-4" />
+					<Icon icon={F.dismiss} class="size-4" />
 				</button>
 			</div>
 

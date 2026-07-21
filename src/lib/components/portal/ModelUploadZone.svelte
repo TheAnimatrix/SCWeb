@@ -1,6 +1,8 @@
 <script lang="ts">
-	import Upload from '@lucide/svelte/icons/upload';
-	import { cn } from '$lib/utils';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+		import { cn } from '$lib/utils';
 
 	interface Props {
 		dragActive?: boolean;
@@ -49,7 +51,7 @@
 				? 'border-foreground bg-foreground text-background'
 				: 'border-border bg-muted/50 text-muted-foreground group-hover:border-foreground/30'
 		)}>
-		<Upload class="size-5" strokeWidth={1.5} />
+		<Icon icon={F.upload} class="size-5" />
 	</div>
 
 	<div class="space-y-1">

@@ -1,25 +1,22 @@
 import { redirect } from '@sveltejs/kit';
+import { getConstant } from '$lib/client/catalogApi';
+import { isPrintRequestDetailPath } from '$lib/portal/printRequestPaths';
 import type { LayoutServerLoad } from './$types';
 
+const DEFAULT_FILTYPES = ['PLA', 'ABS', 'ASA', 'PETG', 'TPU', 'NYLON'];
+
 export const load: LayoutServerLoad = async (event) => {
-	//check if user is logged in, if not redirect to fabbly
-	const { session } = await event.locals.safeGetSession();
-	if (!session && event.url.pathname !== '/3dp-portal') {
+	const { session } = await event.locals.getLayoutSession();
+	if (!session && event.url.pathname !== '/3dp-portal' && !isPrintRequestDetailPath(event.url.pathname)) {
 		return redirect(303, '/3dp-portal');
 	}
 
-	const resp = await event.locals.supabase
-		.from('constants')
-		.select('*')
-		.eq('key', 'FILTYPES')
-		.single();
-	if (!resp || resp.error) {
-		return {
-			filtypes: ['PLA', 'ABS', 'ASA', 'PETG', 'TPU', 'NYLON']
-		};
-	} else {
-		return {
-			filtypes: resp.data.value
-		};
-	}
+	const result = await getConstant(event.fetch, 'FILTYPES');
+	const rawTypes = result.ok ? result.data.value : null;
+
+	return {
+		filtypes: Array.isArray(rawTypes)
+			? rawTypes.filter((value): value is string => typeof value === 'string')
+			: DEFAULT_FILTYPES
+	};
 };

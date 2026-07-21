@@ -4,8 +4,10 @@ import {
 	buildProxyTargetUrl,
 	getProxyTimeoutMs,
 	isAllowedProxyMethod,
-	isAllowedProxyPath
+	isAllowedProxyPath,
+	isUploadProxyPath
 } from '$lib/server/api-proxy';
+import { createLogger } from '$lib/server/logger';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 
 const API_ORIGIN = env.API_ORIGIN ?? 'http://localhost:3001';
@@ -58,15 +60,31 @@ async function proxyRequest(event: RequestEvent) {
 	}
 
 	const method = request.method;
-	const body = method !== 'GET' && request.body ? request.body : undefined;
 	const timeoutMs = getProxyTimeoutMs(params.path);
+	const log = createLogger({ requestId: locals.requestId, route: event.route.id ?? undefined });
+
+	let body: BodyInit | undefined;
+	let useDuplex = false;
+
+	if (method !== 'GET' && request.body) {
+		if (isUploadProxyPath(params.path)) {
+			// Buffer uploads so the proxy works reliably to the co-located API (avoids
+			// Node fetch streaming issues, especially when API_ORIGIN is misconfigured).
+			const buffered = await request.arrayBuffer();
+			body = buffered;
+			headers.set('content-length', String(buffered.byteLength));
+		} else {
+			body = request.body;
+			useDuplex = true;
+		}
+	}
 
 	try {
 		const response = await fetch(targetUrl, {
 			method,
 			headers,
 			body,
-			...(body ? { duplex: 'half' as const } : {}),
+			...(useDuplex ? { duplex: 'half' as const } : {}),
 			signal: AbortSignal.timeout(timeoutMs)
 		});
 
@@ -80,7 +98,12 @@ async function proxyRequest(event: RequestEvent) {
 			status: response.status,
 			headers: responseHeaders
 		});
-	} catch {
+	} catch (error) {
+		log.error('api.proxy.failed', {
+			path: params.path,
+			target: targetUrl.href,
+			error: error instanceof Error ? error.message : String(error)
+		});
 		return new Response(JSON.stringify({ error: 'api_unreachable' }), {
 			status: 502,
 			headers: { 'content-type': 'application/json' }

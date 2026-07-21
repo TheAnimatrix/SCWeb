@@ -1,12 +1,13 @@
 <script lang="ts">
-	import MessageSquare from '@lucide/svelte/icons/message-square';
-	import Package from '@lucide/svelte/icons/package';
-	import { navigating, page } from '$app/state';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+			import { navigating, page } from '$app/state';
 	import { PortalCard } from '$lib/components/portal';
 	import { MakerRowSkeleton, MetaChip, TagBadge } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
-	import { parsePrintModelData } from '$lib/types/printRequest';
+	import { parsePrintModelData, getPrintRequestDisplayName } from '$lib/types/printRequest';
 	let { data } = $props();
 
 	function supabase() {
@@ -31,12 +32,8 @@
 
 	let unreadCounts: Record<string, number> = $state({});
 
-	function modelDisplayName(modelPath: string | null) {
-		if (!modelPath) return 'Model';
-		const parts = modelPath.split('/').pop()?.split('.') ?? [];
-		if (parts.length < 2) return 'Model';
-		const nameParts = parts[parts.length - 2]?.split('_') ?? [];
-		return `${nameParts[nameParts.length - 1] ?? 'model'}.${parts[parts.length - 1]}`;
+	function modelDisplayName(modelPath: string | null, modelMetadata: unknown) {
+		return getPrintRequestDisplayName(modelPath, modelMetadata as never);
 	}
 
 	function stageStyle(stage: string | null) {
@@ -66,7 +63,7 @@
 	$effect(() => {
 		if (!data.session?.data?.user?.id) return;
 		const chatSubscription = supabase()
-			.channel('realtime-chat-global')
+			.channel(`user-portal-chat:${data.session.data.user.id}`)
 			.on(
 				'postgres_changes',
 				{
@@ -100,7 +97,7 @@
 		<MakerRowSkeleton count={4} />
 	{:else if printRequests.length === 0}
 		<PortalCard class="py-16 text-center">
-			<Package class="mx-auto mb-3 size-8 text-muted-foreground" strokeWidth={1.5} />
+			<Icon icon={F.box} class="mx-auto mb-3 size-8 text-muted-foreground" />
 			<p class="font-mono text-sm text-foreground">no_requests_yet</p>
 			<p class="mt-2 text-sm text-muted-foreground">
 				Upload a model on the Fabbly portal to request your first quote.
@@ -110,7 +107,7 @@
 		<div class="space-y-3">
 			<div class="flex items-center justify-between gap-4 border-b border-border pb-4">
 				<div class="flex items-center gap-2">
-					<Package class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.box} class="size-4 text-muted-foreground" />
 					<span class="font-mono text-sm text-foreground">print_requests</span>
 					<span class="font-mono text-xs text-muted-foreground">({printRequests.length})</span>
 				</div>
@@ -126,7 +123,7 @@
 							<div class="mb-3 flex items-start justify-between gap-4">
 								<div class="min-w-0">
 									<div class="truncate font-medium text-foreground group-hover:text-foreground">
-										{modelDisplayName(req.model)}
+										{modelDisplayName(req.model, req.model_metadata)}
 									</div>
 									<p class="mt-1 font-mono text-xs text-muted-foreground">
 										{new Date(req.created_at).toLocaleString()}
@@ -136,7 +133,7 @@
 									{#if unreadCounts[req.id] > 0}
 										<span
 											class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-2 py-0.5 font-mono text-xs text-destructive-foreground">
-											<MessageSquare class="size-3" strokeWidth={2} />
+											<Icon icon={F.chat} class="size-3" />
 											{unreadCounts[req.id]}
 										</span>
 									{/if}

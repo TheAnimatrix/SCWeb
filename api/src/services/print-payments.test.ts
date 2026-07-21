@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getLatestQuote, getLatestQuoteRejection } from './print-payments.js';
+import {
+	getLatestQuote,
+	getLatestQuoteRejection,
+	shouldReusePrintPaymentOrder
+} from './print-payments.js';
+import { PAYMENT_ATTEMPT_STATUS } from '../contracts/payment-attempts.js';
 
 describe('getLatestQuote', () => {
 	it('returns the latest maker quote', () => {
@@ -80,5 +85,46 @@ describe('getLatestQuote', () => {
 
 		expect(getLatestQuote(events)).toBeNull();
 		expect(getLatestQuoteRejection(events)).toBe('invalid_quote');
+	});
+});
+
+describe('shouldReusePrintPaymentOrder', () => {
+	it('reuses when pending attempt amount matches quote', () => {
+		expect(
+			shouldReusePrintPaymentOrder(
+				{
+					amountPaise: 250000,
+					status: PAYMENT_ATTEMPT_STATUS.PENDING,
+					providerOrderId: 'order_1'
+				},
+				2500
+			)
+		).toBe(true);
+	});
+
+	it('does not reuse failed attempts', () => {
+		expect(
+			shouldReusePrintPaymentOrder(
+				{
+					amountPaise: 250000,
+					status: PAYMENT_ATTEMPT_STATUS.FAILED,
+					providerOrderId: 'order_1'
+				},
+				2500
+			)
+		).toBe(false);
+	});
+
+	it('does not reuse when quote amount changed', () => {
+		expect(
+			shouldReusePrintPaymentOrder(
+				{
+					amountPaise: 250000,
+					status: PAYMENT_ATTEMPT_STATUS.PENDING,
+					providerOrderId: 'order_1'
+				},
+				3000
+			)
+		).toBe(false);
 	});
 });

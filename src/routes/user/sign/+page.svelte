@@ -1,7 +1,12 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { syncAuthAfterSignIn } from '$lib/client/authSync';
+	import { signup, checkUsernameAvailable } from '$lib/client/authApi';
 	import { page } from '$app/stores';
 	import { toastStore } from '$lib/client/toastStore';
 	import { Button } from '$lib/components/ui/button';
@@ -11,13 +16,8 @@
 	import { sanitizePostLoginUrl } from '$lib/postLoginUrl';
 	import { DotGrid } from '$lib/components/sc';
 	import DriftParticles from '$lib/components/effects/DriftParticles.svelte';
-	import { Breadcrumbs, ScLogo } from '$lib/components/shell';
-	import { theme } from '$lib/client/theme';
 	import { ScButton, ScInput } from '$lib/components/sc';
-	import Mail from '@lucide/svelte/icons/mail';
-	import Lock from '@lucide/svelte/icons/lock';
-	import User from '@lucide/svelte/icons/user';
-
+			
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	const PUBLIC_SITE_URL = env.PUBLIC_SITE_URL == undefined ? null : env.PUBLIC_SITE_URL;
@@ -80,7 +80,8 @@
 			errorShow = 1;
 			errorText = error.message;
 		} else {
-			goto(postLoginPath ?? '/', { replaceState: true });
+			await syncAuthAfterSignIn();
+			await goto(postLoginPath ?? '/user/profile/account', { replaceState: true });
 			removePostLoginURL();
 		}
 	}
@@ -96,35 +97,35 @@
 		}
 		isAuthLoading = true;
 
-		const { data: usernameCheck } = await supabase().rpc('check_username', {
-			desired_username: usernameRegister
-		});
-		if (usernameCheck) {
+		const usernameCheck = await checkUsernameAvailable(fetch, usernameRegister);
+		if (!usernameCheck.ok) {
+			errorShow = 2;
+			errorText = usernameCheck.error.message;
+			isAuthLoading = false;
+			return;
+		}
+		if (!usernameCheck.data.available) {
 			errorShow = 2;
 			errorText = 'Username not available';
 			isAuthLoading = false;
 			return;
 		}
 
-		const { data: signUpData, error } = await supabase().auth.signUp({
+		const signUpResult = await signup(fetch, {
 			email: emailRegister,
 			password: passwordRegister,
-			options: {
-				emailRedirectTo: `http://localhost:5173/user/profile`
-			}
+			username: usernameRegister
 		});
-		await supabase()
-			.from('users')
-			.update({ username: usernameRegister })
-			.eq('id', signUpData.user?.id)
-			.select();
 		isAuthLoading = false;
-		if (error) {
+		if (!signUpResult.ok) {
 			errorShow = 2;
-			errorText = error.message;
-		} else if (signUpData && !signUpData.session) {
-			goto(postLoginPath ?? '/', { replaceState: true });
-			removePostLoginURL();
+			errorText = signUpResult.error.message;
+			return;
+		}
+
+		if (signUpResult.data.needsConfirmation) {
+			signupPendingEmail = emailRegister;
+			toastStore.show('Check your email to confirm your account.', 'success', 8000);
 		}
 	}
 
@@ -135,41 +136,23 @@
 	let passwordLogin = $state('');
 	let errorText = $state('');
 	let errorShow = $state(0);
+	let signupPendingEmail = $state<string | null>(null);
 
 	onMount(() => {
-		if (postLoginPath) {
-			const decodedPath = decodeURIComponent(postLoginPath);
-			if (decodedPath === '/3dp-portal/maker') {
-				toastStore.show('Ready to join our 3D Printer Network? Log in to apply!', 'info', 20000);
-			} else {
-				toastStore.show(`Please log in to access: ${decodedPath}`, 'info');
-			}
+		if (!postLoginPath || postLoginPath.startsWith('/user/profile')) return;
+
+		const decodedPath = decodeURIComponent(postLoginPath);
+		if (decodedPath === '/3dp-portal/maker') {
+			toastStore.show('Ready to join our 3D Printer Network? Log in to apply!', 'info', 20000);
+		} else {
+			toastStore.show(`Please log in to access: ${decodedPath}`, 'info');
 		}
 	});
 </script>
 
-<div class="min-h-screen bg-background text-foreground">
-	<DotGrid class="relative overflow-hidden border-b border-border">
-		<DriftParticles />
-		<div
-			class="relative z-10 mx-auto flex max-w-lg flex-col items-center gap-6 px-4 py-12 text-center">
-			<a href="/" class="inline-flex">
-				<ScLogo variant={$theme === 'light' ? 'light' : 'dark'} />
-			</a>
-
-			<div class="space-y-2">
-				<p class="font-mono text-xs uppercase tracking-wider text-muted-foreground">account</p>
-				<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Sign in to SelfCrafted</h1>
-				<p class="text-sm leading-relaxed text-muted-foreground">
-					Join our community of makers and creators.
-				</p>
-			</div>
-
-			<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'sign_in' }]} />
-		</div>
-	</DotGrid>
-
-	<div class="mx-auto max-w-md px-4 py-10">
+<DotGrid class="relative min-h-screen overflow-hidden">
+	<DriftParticles />
+	<div class="relative z-10 mx-auto flex max-w-md flex-col px-4 py-10">
 		<Tabs.Root value="Login" class="w-full">
 			<Tabs.List class="mb-6 grid h-auto w-full grid-cols-2 gap-1 p-1">
 				<Tabs.Trigger value="Login" class="font-mono text-xs uppercase tracking-wide">
@@ -196,7 +179,7 @@
 							placeholder="you@example.com"
 							autocomplete="email"
 							required
-							icon={Mail} />
+							icon={F.mail} />
 
 						<ScInput
 							id="login-password"
@@ -206,7 +189,13 @@
 							placeholder="••••••••"
 							autocomplete="current-password"
 							required
-							icon={Lock} />
+							icon={F.lock} />
+
+						<p class="text-right text-sm">
+							<a href="/user/forgot-password" class="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+								Forgot password?
+							</a>
+						</p>
 
 						{#if errorShow === 1}
 							<p
@@ -265,6 +254,20 @@
 
 			<Tabs.Content value="Register">
 				<div class="rounded-md border border-border bg-card p-6">
+					{#if signupPendingEmail}
+						<h2 class="text-lg font-semibold text-foreground">Check your email</h2>
+						<p class="mt-3 text-sm text-muted-foreground">
+							We sent a confirmation link to <span class="text-foreground">{signupPendingEmail}</span>.
+							Open it to activate your account, then sign in.
+						</p>
+						<ScButton
+							class="mt-6 w-full justify-center"
+							onclick={() => {
+								signupPendingEmail = null;
+							}}>
+							Back to sign in
+						</ScButton>
+					{:else}
 					<form
 						onsubmit={(e) => {
 							e.preventDefault();
@@ -279,7 +282,7 @@
 							placeholder="you@example.com"
 							autocomplete="email"
 							required
-							icon={Mail} />
+							icon={F.mail} />
 
 						<ScInput
 							id="register-username"
@@ -289,7 +292,7 @@
 							placeholder="your_handle"
 							autocomplete="username"
 							required
-							icon={User} />
+							icon={F.person} />
 
 						<ScInput
 							id="register-password"
@@ -299,7 +302,7 @@
 							placeholder="••••••••"
 							autocomplete="new-password"
 							required
-							icon={Lock} />
+							icon={F.lock} />
 
 						{#if errorShow === 2}
 							<p
@@ -353,8 +356,9 @@
 							Google
 						</Button>
 					</form>
+					{/if}
 				</div>
 			</Tabs.Content>
 		</Tabs.Root>
 	</div>
-</div>
+</DotGrid>

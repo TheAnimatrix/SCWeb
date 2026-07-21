@@ -15,6 +15,8 @@ import { printFilesRoutes } from './routes/print-files.js';
 import { createChatsRoutes } from './routes/chats.js';
 import { createPrintRequestsRoutes } from './routes/print-requests.js';
 import { printPaymentsRoutes } from './routes/print-payments.js';
+import { catalogRoutes } from './routes/catalog.js';
+import { authRoutes } from './routes/auth.js';
 import { createChatsStore, type ChatsStore } from './services/chats-store.js';
 import {
 	createPrintRequestsStore,
@@ -32,7 +34,20 @@ import {
 	createPrintPaymentsStore,
 	type PrintPaymentsStore
 } from './services/print-payments-store.js';
+import { createCatalogStore, type CatalogStore } from './services/catalog-store.js';
 import { createRazorpayClient, type RazorpayClient } from './services/razorpay-client.js';
+import { createEmailService, type EmailService } from './services/email.js';
+import { createMailService, type MailService } from './services/mail.js';
+import { createAuthStore, type AuthStore } from './services/auth-store.js';
+import { createOrdersStore, type OrdersStore } from './services/orders-store.js';
+import { createOrdersRoutes } from './routes/orders.js';
+import { createMakersStore, type MakersStore } from './services/makers-store.js';
+import { makersRoutes } from './routes/makers.js';
+import {
+	createRazorpayWebhookService,
+	type RazorpayWebhookService
+} from './services/razorpay-webhooks.js';
+import { razorpayWebhookRoutes } from './routes/razorpay-webhooks.js';
 import type { AppVariables } from './types/context.js';
 
 type CreateAppOptions = {
@@ -44,7 +59,14 @@ type CreateAppOptions = {
 	printPaymentsStore?: PrintPaymentsStore;
 	printRequestsStore?: PrintRequestsStore;
 	chatsStore?: ChatsStore;
+	catalogStore?: CatalogStore;
 	razorpayClient?: RazorpayClient;
+	emailService?: EmailService;
+	mailService?: MailService;
+	authStore?: AuthStore;
+	ordersStore?: OrdersStore;
+	makersStore?: MakersStore;
+	razorpayWebhookService?: RazorpayWebhookService;
 };
 
 export function createApp({
@@ -56,26 +78,42 @@ export function createApp({
 	printPaymentsStore,
 	printRequestsStore,
 	chatsStore,
-	razorpayClient
+	catalogStore,
+	razorpayClient,
+	emailService,
+	mailService,
+	authStore,
+	ordersStore,
+	makersStore,
+	razorpayWebhookService
 }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
 	const resolvedCartStore = cartStore ?? createCartStore(db);
+	const resolvedEmailService = emailService ?? createEmailService(env);
+	const resolvedMailService = mailService ?? createMailService(env, db, resolvedEmailService);
 	const resolvedRazorpayClient =
 		razorpayClient ??
 		(env.PUBLIC_RAZORPAY_ID && env.RAZORPAY_KEY ? createRazorpayClient(env) : null);
 	const resolvedCheckoutStore =
 		checkoutStore ??
 		(resolvedRazorpayClient
-			? createCheckoutStore(db, resolvedRazorpayClient)
+			? createCheckoutStore(db, resolvedRazorpayClient, {
+					mail: resolvedMailService
+				})
 			: createCheckoutStore(db, {
 					async createOrder() {
 						throw new Error('Razorpay client is not configured');
+					},
+					async fetchOrder() {
+						return null;
 					}
 				}));
 	const resolvedPrintFilesStore =
 		printFilesStore === undefined
 			? isFilesConfigured(env)
-				? createPrintFilesStore(db, createSupabaseStorage(env))
+				? createPrintFilesStore(db, createSupabaseStorage(env), {
+						mail: resolvedMailService
+					})
 				: null
 			: printFilesStore;
 	const resolvedPrintPaymentsStore =
@@ -85,11 +123,34 @@ export function createApp({
 			resolvedRazorpayClient ?? {
 				async createOrder() {
 					throw new Error('Razorpay client is not configured');
+				},
+				async fetchOrder() {
+					return null;
 				}
+			},
+			{
+				mail: resolvedMailService
 			}
 		);
-	const resolvedPrintRequestsStore = printRequestsStore ?? createPrintRequestsStore(db);
-	const resolvedChatsStore = chatsStore ?? createChatsStore(db);
+	const resolvedPrintRequestsStore =
+		printRequestsStore ??
+		createPrintRequestsStore(db, {
+			mail: resolvedMailService
+		});
+	const resolvedChatsStore =
+		chatsStore ??
+		createChatsStore(db, {
+			mail: resolvedMailService
+		});
+	const resolvedCatalogStore = catalogStore ?? createCatalogStore(db);
+	const resolvedAuthStore = authStore ?? createAuthStore(db, env, resolvedMailService);
+	const resolvedOrdersStore = ordersStore ?? createOrdersStore(db);
+	const resolvedMakersStore = makersStore ?? createMakersStore(db);
+	const resolvedRazorpayWebhookService =
+		razorpayWebhookService ??
+		createRazorpayWebhookService(db, {
+			mail: resolvedMailService
+		});
 
 	app.use('*', async (c, next) => {
 		c.set('env', env);
@@ -100,6 +161,13 @@ export function createApp({
 		c.set('printPaymentsStore', resolvedPrintPaymentsStore);
 		c.set('printRequestsStore', resolvedPrintRequestsStore);
 		c.set('chatsStore', resolvedChatsStore);
+		c.set('catalogStore', resolvedCatalogStore);
+		c.set('emailService', resolvedEmailService);
+		c.set('mailService', resolvedMailService);
+		c.set('authStore', resolvedAuthStore);
+		c.set('ordersStore', resolvedOrdersStore);
+		c.set('makersStore', resolvedMakersStore);
+		c.set('razorpayWebhookService', resolvedRazorpayWebhookService);
 		await next();
 	});
 
@@ -120,8 +188,13 @@ export function createApp({
 	app.use('*', csrfMiddleware());
 
 	app.route('/', healthRoutes);
+	app.route('/', authRoutes);
+	app.route('/', catalogRoutes);
+	app.route('/', makersRoutes);
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
+	app.route('/', razorpayWebhookRoutes);
+	app.route('/', createOrdersRoutes((c) => c.get('ordersStore')));
 	app.route('/', printFilesRoutes);
 	app.route('/', printPaymentsRoutes);
 	app.route(

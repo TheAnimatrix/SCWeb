@@ -1,26 +1,28 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { CheckoutAddress } from '../contracts/address.js';
+import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import type {
 	ConfirmCheckoutResponse,
 	CreateCheckoutOrderResponse,
 	FailCheckoutResponse
 } from '../contracts/checkout.js';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
-import { rupeesToPaise } from '../contracts/money.js';
+import { rupeesToPaise, paiseToRupees } from '../contracts/money.js';
 import type { Database, DbExecutor } from '../db/index.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { orderItems } from '../db/schema/orderItems.js';
 import { orders } from '../db/schema/orders.js';
+import { paymentAttempts } from '../db/schema/paymentAttempts.js';
 import { products } from '../db/schema/products.js';
 import type { Actor } from '../types/context.js';
 import type { ProductSnapshot } from './cart.js';
 import {
 	buildOrderItemSnapshots,
 	computeOrderTotals,
-	checkoutAddressesEqual,
+	checkoutOrderAddressesEqual,
 	isOrderOwnedBy,
-	normalizeCheckoutAddress,
+	normalizeCheckoutOrderAddresses,
 	resolveFailOrderStatus,
 	shouldDecrementStock,
 	shouldReuseRazorpayOrder,
@@ -28,8 +30,24 @@ import {
 	type CheckoutLine
 } from './checkout.js';
 import type { RazorpayClient } from './razorpay-client.js';
+import {
+	createPaymentAttempt,
+	findPaymentAttemptById,
+	findPaymentAttemptByProviderOrderId,
+	markPaymentAttemptFailed,
+	markPaymentAttemptPaid,
+	PAYMENT_ATTEMPT_KIND,
+	PAYMENT_ATTEMPT_STATUS,
+	resolveProviderOrderId
+} from './payment-attempts.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
+import type { MailService } from './mail.js';
+import { notifyOrderReceived } from './order-notifications.js';
+
+export type CheckoutStoreOptions = {
+	mail?: MailService;
+};
 
 export type CreateOrderResult =
 	| { ok: true; response: CreateCheckoutOrderResponse }
@@ -53,7 +71,11 @@ export type FailOrderResult =
 	| { ok: false; status: 403; body: { error: 'forbidden' } };
 
 export interface CheckoutStore {
-	createOrder(actor: Actor, address: CheckoutAddress): Promise<CreateOrderResult>;
+	createOrder(
+		actor: Actor,
+		addresses: CheckoutOrderAddresses,
+		options?: { refreshPayment?: boolean }
+	): Promise<CreateOrderResult>;
 	confirmOrder(
 		actor: Actor,
 		razorpayOrderId: string,
@@ -69,16 +91,6 @@ function isUniqueViolation(error: unknown): boolean {
 		'code' in error &&
 		(error as { code: string }).code === '23505'
 	);
-}
-
-const STOCK_CONFLICT = Symbol('checkout.stock_conflict');
-
-function stockConflictError(): Error {
-	return Object.assign(new Error('stock_conflict'), { [STOCK_CONFLICT]: true });
-}
-
-function isStockConflict(error: unknown): boolean {
-	return typeof error === 'object' && error !== null && STOCK_CONFLICT in error;
 }
 
 function checkoutCartCondition(actor: Actor) {
@@ -99,11 +111,20 @@ function checkoutCartCondition(actor: Actor) {
 	return null;
 }
 
-async function findActiveCartRow(db: DbExecutor, actor: Actor) {
+async function findCheckoutCartRow(db: DbExecutor, actor: Actor) {
 	const condition = checkoutCartCondition(actor);
 	if (!condition) return null;
 
-	const [row] = await db.select().from(carts).where(condition).limit(1);
+	const [row] = await db
+		.select()
+		.from(carts)
+		.where(condition)
+		.orderBy(
+			sql`CASE WHEN ${carts.status} = ${CART_ORDER_STATUS.ACTIVE} THEN 0 ELSE 1 END`,
+			carts.updatedAt
+		)
+		.limit(1);
+
 	return row ?? null;
 }
 
@@ -148,7 +169,7 @@ async function replaceOrderItems(
 			orderId,
 			productId: item.productId,
 			productName: item.productName,
-			unitPrice: item.unitPrice,
+			unitPricePaise: item.unitPricePaise,
 			qty: item.qty
 		}))
 	);
@@ -170,13 +191,77 @@ async function decrementProductStock(
 	return updated.length > 0;
 }
 
-export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient): CheckoutStore {
+async function resolveStoredRazorpayOrderId(
+	tx: DbExecutor,
+	order: { activePaymentAttemptId: string | null }
+): Promise<string | null> {
+	if (!order.activePaymentAttemptId) {
+		return null;
+	}
+
+	const attempt = await findPaymentAttemptById(tx, order.activePaymentAttemptId);
+	const providerOrderId = resolveProviderOrderId(attempt);
+	if (providerOrderId && attempt?.status !== PAYMENT_ATTEMPT_STATUS.FAILED) {
+		return providerOrderId;
+	}
+
+	return null;
+}
+
+async function findCheckoutOrderByProviderOrderId(tx: DbExecutor, razorpayOrderId: string) {
+	const attempt = await findPaymentAttemptByProviderOrderId(tx, razorpayOrderId);
+	if (attempt?.kind !== PAYMENT_ATTEMPT_KIND.CART_ORDER) {
+		return null;
+	}
+
+	const [order] = await tx
+		.select()
+		.from(orders)
+		.where(eq(orders.id, attempt.entityId))
+		.limit(1);
+
+	return order ?? null;
+}
+
+async function persistCheckoutPaymentAttempt(
+	tx: DbExecutor,
+	orderId: string,
+	providerOrderId: string,
+	amountPaise: number
+) {
+	const attempt = await createPaymentAttempt(tx, {
+		kind: PAYMENT_ATTEMPT_KIND.CART_ORDER,
+		entityId: orderId,
+		providerOrderId,
+		amountPaise
+	});
+
+	await tx
+		.update(orders)
+		.set({
+			activePaymentAttemptId: attempt.id,
+			updatedAt: sql`now()`
+		})
+		.where(eq(orders.id, orderId));
+
+	return attempt;
+}
+
+export function createCheckoutStore(
+	db: Database,
+	razorpayClient: RazorpayClient,
+	options?: CheckoutStoreOptions
+): CheckoutStore {
 	return {
-		async createOrder(actor, address) {
-			const normalizedAddress = normalizeCheckoutAddress(address);
+		async createOrder(actor, addresses, options) {
+			const refreshPayment = options?.refreshPayment === true;
+			const normalizedAddresses = normalizeCheckoutOrderAddresses(
+				addresses.shipping,
+				addresses.billing
+			);
 
 			const prepared = await db.transaction(async (tx) => {
-				const cart = await findActiveCartRow(tx, actor);
+				const cart = await findCheckoutCartRow(tx, actor);
 				if (!cart) {
 					return { kind: 'cart_empty' as const };
 				}
@@ -211,16 +296,19 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 				let orderId: string;
 
 				if (existingOrder) {
-					const previousTotal = existingOrder.total;
-					const addressChanged = !checkoutAddressesEqual(existingOrder.address, normalizedAddress);
+					const previousTotalPaise = existingOrder.totalPaise;
+					const addressChanged = !checkoutOrderAddressesEqual(
+						existingOrder.address,
+						normalizedAddresses
+					);
 
 					await tx
 						.update(orders)
 						.set({
-							address: normalizedAddress,
-							subtotal: totals.subtotal,
-							deliveryFee: totals.deliveryFee,
-							total: totals.total,
+							address: normalizedAddresses,
+							subtotalPaise: totals.subtotalPaise,
+							deliveryFeePaise: totals.deliveryFeePaise,
+							totalPaise: totals.totalPaise,
 							updatedAt: sql`now()`
 						})
 						.where(eq(orders.id, existingOrder.id));
@@ -229,9 +317,9 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 					orderId = existingOrder.id;
 
 					const auditMeta: Record<string, unknown> = { addressChanged };
-					if (totals.total !== previousTotal) {
-						auditMeta.previousTotal = previousTotal;
-						auditMeta.total = totals.total;
+					if (totals.totalPaise !== previousTotalPaise) {
+						auditMeta.previousTotalPaise = previousTotalPaise;
+						auditMeta.totalPaise = totals.totalPaise;
 					}
 
 					await writeAudit(tx, {
@@ -245,22 +333,25 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						meta: auditMeta
 					});
 
+					const storedRazorpayOrderId = await resolveStoredRazorpayOrderId(tx, existingOrder);
+
 					if (
-						shouldReuseRazorpayOrder(existingOrder.razorpayOrderId) &&
-						totals.total === previousTotal
+						!refreshPayment &&
+						shouldReuseRazorpayOrder(storedRazorpayOrderId) &&
+						totals.totalPaise === previousTotalPaise
 					) {
 						return {
 							kind: 'reuse' as const,
 							orderId,
-							razorpayOrderId: existingOrder.razorpayOrderId!,
-							total: totals.total
+							razorpayOrderId: storedRazorpayOrderId!,
+							totalPaise: totals.totalPaise
 						};
 					}
 
 					return {
 						kind: 'created' as const,
 						orderId,
-						total: totals.total,
+						totalPaise: totals.totalPaise,
 						razorpayOrderId: null
 					};
 				} else {
@@ -271,10 +362,10 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 							userId: cart.userId,
 							clientId: cart.clientId,
 							status: CART_ORDER_STATUS.PAYMENT_PENDING,
-							address: normalizedAddress,
-							subtotal: totals.subtotal,
-							deliveryFee: totals.deliveryFee,
-							total: totals.total
+							address: normalizedAddresses,
+							subtotalPaise: totals.subtotalPaise,
+							deliveryFeePaise: totals.deliveryFeePaise,
+							totalPaise: totals.totalPaise
 						})
 						.returning();
 
@@ -288,7 +379,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						action: 'created',
 						fromState: null,
 						toState: CART_ORDER_STATUS.PAYMENT_PENDING,
-						meta: { cartId: cart.id, total: totals.total }
+						meta: { cartId: cart.id, totalPaise: totals.totalPaise }
 					});
 
 					await tx
@@ -305,7 +396,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 				return {
 					kind: 'created' as const,
 					orderId,
-					total: totals.total,
+					totalPaise: totals.totalPaise,
 					razorpayOrderId: null
 				};
 			});
@@ -327,52 +418,95 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 			}
 
 			if (prepared.kind === 'reuse') {
-				return {
-					ok: true,
-					response: {
-						orderId: prepared.orderId,
-						razorpayOrderId: prepared.razorpayOrderId,
-						amountPaise: rupeesToPaise(prepared.total),
-						currency: 'INR'
-					}
-				};
+				const expectedAmountPaise = prepared.totalPaise;
+				const existingRazorpayOrder = await razorpayClient.fetchOrder(prepared.razorpayOrderId);
+				if (
+					existingRazorpayOrder &&
+					existingRazorpayOrder.amount === expectedAmountPaise
+				) {
+					return {
+						ok: true,
+						response: {
+							orderId: prepared.orderId,
+							razorpayOrderId: existingRazorpayOrder.id,
+							amountPaise: expectedAmountPaise,
+							totalRupees: paiseToRupees(prepared.totalPaise),
+							currency: 'INR'
+						}
+					};
+				}
+
+				storeLog('warn', 'checkout.order.stale_razorpay_order', {
+					orderId: prepared.orderId,
+					razorpayOrderId: prepared.razorpayOrderId,
+					expectedAmountPaise,
+					actualAmountPaise: existingRazorpayOrder?.amount ?? null
+				});
 			}
 
-			try {
-				const razorpayOrder = await razorpayClient.createOrder(
-					rupeesToPaise(prepared.total),
-					prepared.orderId
-				);
+			if (prepared.kind === 'reuse' || prepared.kind === 'created') {
+				try {
+					const razorpayOrder = await razorpayClient.createOrder(
+						prepared.totalPaise,
+						prepared.orderId
+					);
 
-				await db
-					.update(orders)
-					.set({
-						razorpayOrderId: razorpayOrder.id,
-						updatedAt: sql`now()`
-					})
-					.where(eq(orders.id, prepared.orderId));
+					await db.transaction(async (tx) => {
+						await persistCheckoutPaymentAttempt(
+							tx,
+							prepared.orderId,
+							razorpayOrder.id,
+							razorpayOrder.amount
+						);
+					});
 
-				return {
-					ok: true,
-					response: {
+					return {
+						ok: true,
+						response: {
+							orderId: prepared.orderId,
+							razorpayOrderId: razorpayOrder.id,
+							amountPaise: prepared.totalPaise,
+							totalRupees: paiseToRupees(prepared.totalPaise),
+							currency: 'INR'
+						}
+					};
+				} catch (error) {
+					const razorpayError =
+						typeof error === 'object' && error !== null && 'error' in error
+							? (error as { statusCode?: number; error?: { description?: string; code?: string } })
+							: null;
+
+					storeLog('error', 'checkout.order.razorpay_failed', {
 						orderId: prepared.orderId,
-						razorpayOrderId: razorpayOrder.id,
-						amountPaise: razorpayOrder.amount,
-						currency: 'INR'
-					}
-				};
-			} catch {
-				return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
+						statusCode: razorpayError?.statusCode ?? null,
+						code: razorpayError?.error?.code ?? null,
+						description: razorpayError?.error?.description ?? null,
+						message: error instanceof Error ? error.message : String(error)
+					});
+
+					return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
+				}
 			}
+
+			return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
 		},
 
 		async confirmOrder(actor, razorpayOrderId, razorpayPaymentId) {
 			try {
-				return await db.transaction(async (tx) => {
+				const result = await db.transaction(async (tx): Promise<ConfirmOrderResult> => {
+					const located = await findCheckoutOrderByProviderOrderId(tx, razorpayOrderId);
+					if (!located) {
+						return {
+							ok: false as const,
+							status: 404 as const,
+							body: { error: 'order_not_found' as const }
+						};
+					}
+
 					const [order] = await tx
 						.select()
 						.from(orders)
-						.where(eq(orders.razorpayOrderId, razorpayOrderId))
+						.where(eq(orders.id, located.id))
 						.for('update')
 						.limit(1);
 
@@ -406,7 +540,6 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 							.update(orders)
 							.set({
 								status: CART_ORDER_STATUS.PAID,
-								razorpayPaymentId,
 								updatedAt: sql`now()`
 							})
 							.where(
@@ -450,6 +583,8 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						};
 					}
 
+					await markPaymentAttemptPaid(tx, razorpayOrderId, razorpayPaymentId);
+
 					await writeAudit(tx, {
 						actorUserId: actor.userId,
 						actorClientId: actor.clientId,
@@ -474,6 +609,8 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 						.innerJoin(products, eq(orderItems.productId, products.id))
 						.where(eq(orderItems.orderId, order.id));
 
+					let stockConflict: { productId: string; qty: number } | null = null;
+
 					for (const line of lines) {
 						if (!shouldDecrementStock(line.stock)) {
 							continue;
@@ -481,14 +618,8 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 						const decremented = await decrementProductStock(tx, line.productId, line.qty);
 						if (!decremented) {
-							storeLog('error', 'checkout.confirm.stock_conflict', {
-								orderId: order.id,
-								razorpayOrderId,
-								razorpayPaymentId,
-								productId: line.productId,
-								qty: line.qty
-							});
-							throw stockConflictError();
+							stockConflict = { productId: line.productId, qty: line.qty };
+							break;
 						}
 					}
 
@@ -502,19 +633,66 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 					await tx.delete(cartItems).where(eq(cartItems.cartId, order.cartId));
 
+					if (stockConflict) {
+						storeLog('error', 'checkout.confirm.stock_conflict', {
+							orderId: order.id,
+							razorpayOrderId,
+							razorpayPaymentId,
+							productId: stockConflict.productId,
+							qty: stockConflict.qty,
+							requiresManualSupport: true
+						});
+
+						await writeAudit(tx, {
+							actorUserId: actor.userId,
+							actorClientId: actor.clientId,
+							entityType: 'order',
+							entityId: order.id,
+							action: 'paid_stock_conflict',
+							fromState: CART_ORDER_STATUS.PAID,
+							toState: CART_ORDER_STATUS.PAID,
+							providerIds: {
+								razorpayOrderId,
+								razorpayPaymentId
+							},
+							meta: {
+								productId: stockConflict.productId,
+								qty: stockConflict.qty,
+								requiresManualSupport: true
+							}
+						});
+
+						return {
+							ok: false,
+							status: 409,
+							body: { error: 'stock_conflict' }
+						};
+					}
+
 					return {
 						ok: true as const,
 						response: { status: 'paid' as const }
 					};
 				});
-			} catch (error) {
-				if (isStockConflict(error)) {
-					return {
-						ok: false,
-						status: 409,
-						body: { error: 'stock_conflict' }
-					};
+
+				if (result.ok && result.response.status === 'paid' && options?.mail) {
+					const [paidOrder] = await db
+						.select({ id: orders.id })
+						.from(orders)
+						.innerJoin(
+							paymentAttempts,
+							eq(paymentAttempts.id, orders.activePaymentAttemptId)
+						)
+						.where(eq(paymentAttempts.providerOrderId, razorpayOrderId))
+						.limit(1);
+
+					if (paidOrder) {
+						notifyOrderReceived(db, options.mail, paidOrder.id);
+					}
 				}
+
+				return result;
+			} catch (error) {
 				if (isUniqueViolation(error)) {
 					return {
 						ok: true,
@@ -527,11 +705,7 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 
 		async failOrder(actor, razorpayOrderId, reason) {
 			return db.transaction(async (tx) => {
-				const [order] = await tx
-					.select()
-					.from(orders)
-					.where(eq(orders.razorpayOrderId, razorpayOrderId))
-					.limit(1);
+				const order = await findCheckoutOrderByProviderOrderId(tx, razorpayOrderId);
 
 				if (!order) {
 					return {
@@ -570,6 +744,8 @@ export function createCheckoutStore(db: Database, razorpayClient: RazorpayClient
 							updatedAt: sql`now()`
 						})
 						.where(eq(carts.id, order.cartId));
+
+					await markPaymentAttemptFailed(tx, razorpayOrderId, reason);
 
 					await writeAudit(tx, {
 						actorUserId: actor.userId,

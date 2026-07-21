@@ -1,44 +1,25 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { getAvatarUrlFromMetadata } from '$lib/utils/userAvatar';
+import { getProduct, getProductReviews } from '$lib/client/catalogApi';
 
-export const load: PageServerLoad = async ({ locals, params, parent }) => {
-	if (!locals.supabaseAdmin) return { error: true, message: 'Internal server error' };
-
-	const data = await parent();
+export const load: PageServerLoad = async ({ fetch, params }) => {
 	const pid = params.item;
 
-	const productResult = await locals.supabaseAdmin
-		.from('products')
-		.select('*,users(tier,username)')
-		.eq('id', pid);
-	if (
-		productResult &&
-		!productResult.error &&
-		productResult.data &&
-		productResult.data.length > 0
-	) {
-		const product = productResult.data[0];
-		const reviews = await locals.supabaseAdmin
-			.from('reviews')
-			.select('*, users(username,tier)')
-			.eq('product_id', pid)
-			.order('created_at', { ascending: false });
+	// Do not await parent() — that serializes layout + page and adds ~200ms+.
+	// Layout data (session, supabase, etc.) is already merged into `data` by SvelteKit.
+	const [productResult, reviewsResult] = await Promise.all([
+		getProduct(fetch, pid),
+		getProductReviews(fetch, pid)
+	]);
 
-		let makerAvatarUrl: string | null = null;
-		if (product.uid) {
-			const { data: authUser } = await locals.supabaseAdmin.auth.admin.getUserById(product.uid);
-			makerAvatarUrl = getAvatarUrlFromMetadata(authUser?.user?.user_metadata);
-		}
-
-		return {
-			product,
-			reviews: reviews.data,
-			reviewsError: reviews.error,
-			makerAvatarUrl,
-			...data
-		};
-	} else {
+	if (!productResult.ok) {
 		return error(404, 'Product not found');
 	}
+
+	return {
+		product: productResult.data.product,
+		makerCraftCount: productResult.data.makerCraftCount,
+		reviews: reviewsResult.ok ? reviewsResult.data.reviews : [],
+		reviewsError: reviewsResult.ok ? null : reviewsResult.error
+	};
 };

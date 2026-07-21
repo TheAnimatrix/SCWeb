@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
 	import { ProseSkeleton } from '$lib/components/sc';
+	import MobileExpandable from '$lib/components/sc/MobileExpandable.svelte';
 	import { renderCostingMarkdown } from '$lib/utils/markdown';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
@@ -8,6 +10,15 @@
 	import ProductReviews from './ProductReviews.svelte';
 	import type { Product } from '$lib/types/product';
 	import type { SupabaseClient } from '@supabase/supabase-js';
+
+	function loadRemoteHtml(url: string): Promise<string> | null {
+		if (!browser) return null;
+
+		return fetch(url).then(async (response) => {
+			if (!response.ok) throw new Error(`Failed to fetch remote documentation: ${response.status}`);
+			return response.text();
+		});
+	}
 
 	type TabId = 'description' | 'docs' | 'reviews';
 	type DocSectionId = 'documentation' | 'faq' | 'costing' | 'shipping';
@@ -86,24 +97,25 @@
 			<div class="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 				<div
 					class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6 [&_.html-table-scroll]:-mx-5 [&_.html-table-scroll]:w-[calc(100%+2.5rem)] md:[&_.html-table-scroll]:mx-0 md:[&_.html-table-scroll]:w-full">
+					<MobileExpandable resetKey={`${activeTab}-${activeDocSection}`}>
 					{#if activeTab === 'description'}
 						<div class="prose prose-sm max-w-none break-words text-foreground prose-a:break-all">
 							{#if product.documentation?.at(0)?.isMDUrl && product.documentation?.at(0)?.data}
-								{#await fetch(product.documentation.at(0)?.data ?? '')}
-									<ProseSkeleton class="py-4" />
-								{:then response}
-									{#if response.ok}
-										{#await response.text()}
-											<ProseSkeleton class="py-4" />
-										{:then text}
-											<HTMLWrapper html={text} />
-										{/await}
-									{:else}
+								{@const descriptionUrl = product.documentation.at(0)!.data}
+								{@const remoteDescription = loadRemoteHtml(descriptionUrl)}
+								{#if remoteDescription}
+									{#await remoteDescription}
+										<ProseSkeleton class="py-4" />
+									{:then text}
+										<HTMLWrapper html={text} />
+									{:catch}
 										<p class="text-center text-sm text-muted-foreground">
 											Oops! There was an error retrieving the description.
 										</p>
-									{/if}
-								{/await}
+									{/await}
+								{:else}
+									<ProseSkeleton class="py-4" />
+								{/if}
 							{:else if product.documentation?.at(0)?.data}
 								<HTMLWrapper html={product.documentation.at(0)?.data ?? ''} />
 							{:else}
@@ -159,19 +171,19 @@
 									{/if}
 								{:else if activeDocSection === 'costing'}
 									{#if product.documentation?.at(2)?.data && product.documentation?.at(2)?.isMDUrl}
-										{#await fetch(product.documentation.at(2)?.data ?? '')}
-											<ProseSkeleton lines={4} />
-										{:then response}
-											{#if response.ok}
-												{#await response.text()}
-													<ProseSkeleton lines={4} />
-												{:then text}
-													<HTMLWrapper html={text} />
-												{/await}
-											{:else}
+										{@const costingUrl = product.documentation.at(2)!.data}
+										{@const remoteCosting = loadRemoteHtml(costingUrl)}
+										{#if remoteCosting}
+											{#await remoteCosting}
+												<ProseSkeleton lines={4} />
+											{:then text}
+												<HTMLWrapper html={text} />
+											{:catch}
 												<p class="text-muted-foreground">No costing details available.</p>
-											{/if}
-										{/await}
+											{/await}
+										{:else}
+											<ProseSkeleton lines={4} />
+										{/if}
 									{:else if product.documentation?.at(2)?.data}
 										<HTMLWrapper
 											html={renderCostingMarkdown(product.documentation.at(2)?.data ?? '')} />
@@ -179,19 +191,19 @@
 										<p class="text-muted-foreground">No costing details available.</p>
 									{/if}
 								{:else if product.documentation?.at(3)?.data && product.documentation?.at(3)?.isMDUrl}
-									{#await fetch(product.documentation.at(3)?.data ?? '')}
-										<ProseSkeleton lines={4} />
-									{:then response}
-										{#if response.ok}
-											{#await response.text()}
-												<ProseSkeleton lines={4} />
-											{:then text}
-												<HTMLWrapper html={text} />
-											{/await}
-										{:else}
+									{@const shippingUrl = product.documentation.at(3)!.data}
+									{@const remoteShipping = loadRemoteHtml(shippingUrl)}
+									{#if remoteShipping}
+										{#await remoteShipping}
+											<ProseSkeleton lines={4} />
+										{:then text}
+											<HTMLWrapper html={text} />
+										{:catch}
 											<p class="text-muted-foreground">No shipping details available.</p>
-										{/if}
-									{/await}
+										{/await}
+									{:else}
+										<ProseSkeleton lines={4} />
+									{/if}
 								{:else if product.documentation?.at(3)?.data}
 									<HTMLWrapper html={product.documentation.at(3)?.data ?? ''} />
 								{:else}
@@ -200,6 +212,7 @@
 							</TabPanelTransition>
 						</div>
 					{/if}
+					</MobileExpandable>
 				</div>
 
 				<div class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6">

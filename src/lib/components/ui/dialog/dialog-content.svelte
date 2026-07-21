@@ -1,7 +1,9 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { Dialog as DialogPrimitive, type WithoutChildrenOrChild } from 'bits-ui';
-	import X from '@lucide/svelte/icons/x';
-	import type { Snippet } from 'svelte';
+		import type { Snippet } from 'svelte';
 	import * as Dialog from './index.js';
 	import { cn } from '$lib/utils.js';
 
@@ -29,7 +31,7 @@
 		{@render children?.()}
 		<DialogPrimitive.Close
 			class="ring-offset-background focus:ring-ring absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none">
-			<X class="size-4" />
+			<Icon icon={F.dismiss} class="size-4" />
 			<span class="sr-only">Close</span>
 		</DialogPrimitive.Close>
 	</DialogPrimitive.Content>

@@ -1,23 +1,20 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { toastStore } from '$lib/client/toastStore';
+	import { listAvailableMakers } from '$lib/client/makersApi';
 	import { ScButton, MakerRowSkeleton, TierBadge } from '$lib/components/sc';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
 	import { getTierStyle } from '$lib/types/tiers';
 	import { cn } from '$lib/utils';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import ChevronUp from '@lucide/svelte/icons/chevron-up';
-	import Printer from '@lucide/svelte/icons/printer';
-	import Star from '@lucide/svelte/icons/star';
-	import Timer from '@lucide/svelte/icons/timer';
-	import Users from '@lucide/svelte/icons/users';
-	import AlertCircle from '@lucide/svelte/icons/circle-alert';
-	import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { AvailableMaker } from '@scweb/api/contracts';
 	import { onMount } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
 	let {
-		supabase,
+		currentUserId = '',
 		model,
 		color = $bindable('#525252'),
 		material = $bindable(null),
@@ -27,7 +24,7 @@
 		walls,
 		requestQuoteCompleter
 	}: {
-		supabase: TypedSupabaseClient;
+		currentUserId?: string;
 		model: File | null;
 		color: string;
 		material: string | null;
@@ -48,17 +45,7 @@
 		) => Promise<void>;
 	} = $props();
 
-	interface Maker {
-		maker_id: string;
-		crafter_name: string;
-		approved_state: string;
-		avg_quote_time: number | null;
-		avg_rating: number | null;
-		completed_orders: number | null;
-		contact_number: string;
-		price_rank: number;
-		delivery_rank: number;
-		email: string;
+	type Maker = Omit<AvailableMaker, 'filaments' | 'tier'> & {
 		filaments: Record<
 			string,
 			Array<{
@@ -66,15 +53,8 @@
 				material_type: string;
 			}>
 		>;
-		reviews: Array<{
-			rating: number;
-			comment: string;
-			created_at: string;
-		}>;
-		max_printer_size: string;
-		number_of_printers: number;
 		tier: string;
-	}
+	};
 
 	let makers: Maker[] = $state([]);
 	let loading = $state(true);
@@ -82,9 +62,26 @@
 	let expandedMaker = $state('');
 	let loadingQuote = $state<string>('');
 	let uploadProgress = $state<Record<string, number | null>>({});
-	let currentUserId = $state('');
 
 	const hasModel = $derived(Boolean(model));
+	const visibleMakers = $derived(
+		material ? makers.filter((maker) => material in maker.filaments) : makers
+	);
+
+	let previousMaterial = $state<string | null>(null);
+
+	$effect(() => {
+		if (expandedMaker && !visibleMakers.some((maker) => maker.maker_id === expandedMaker)) {
+			expandedMaker = '';
+		}
+
+		if (material !== previousMaterial) {
+			previousMaterial = material;
+			if (visibleMakers.length === 1) {
+				expandedMaker = visibleMakers[0].maker_id;
+			}
+		}
+	});
 
 	function formatResponseTime(avgQuoteTime: number | null | string) {
 		if (!avgQuoteTime) return null;
@@ -165,33 +162,29 @@
 	onMount(async () => {
 		loading = true;
 		try {
-			const { data: user } = await supabase.auth.getUser();
-			currentUserId = user.user?.id ?? '';
-			const response = await supabase.rpc('get_creator_full_profile');
+			const response = await listAvailableMakers(fetch);
 
-			if (response.error) {
-				error = 'Failed to load makers.';
+			if (!response.ok) {
+				error = response.error.message || 'Failed to load makers.';
 				loading = false;
 				return;
 			}
 
-			const profileRows = Array.isArray(response.data) ? response.data : [];
-			makers = (profileRows as unknown[]).filter(isMakerRow);
-			makers.forEach((maker: Maker) => {
-				const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
-				if (Array.isArray(maker.filaments)) {
-					maker.filaments.forEach((filament: { color: string; material_type: string }) => {
-						if (!filamentObj[filament.material_type]) {
-							filamentObj[filament.material_type] = [];
-						}
-						filamentObj[filament.material_type].push(filament);
-					});
-					maker.filaments = filamentObj;
-				}
-			});
+			const profileRows = response.data.makers;
+			makers = profileRows
+				.map((maker) => ({
+					...maker,
+					reviews: maker.reviews ?? [],
+					filaments: groupFilaments(maker.filaments),
+					tier: maker.tier ?? 'Bee'
+				}))
+				.filter(isMakerRow);
 
-			if (makers.length === 1) {
-				expandedMaker = makers[0].maker_id;
+			const visible = material
+				? makers.filter((maker) => material in maker.filaments)
+				: makers;
+			if (visible.length === 1) {
+				expandedMaker = visible[0].maker_id;
 			}
 		} catch (e) {
 			console.error(e);
@@ -210,28 +203,28 @@
 		return (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1);
 	}
 
-	function isFilamentEntry(value: unknown): value is { color: string; material_type: string } {
-		return (
-			typeof value === 'object' &&
-			value !== null &&
-			typeof (value as { color?: unknown }).color === 'string' &&
-			typeof (value as { material_type?: unknown }).material_type === 'string'
-		);
+	function groupFilaments(
+		filaments: AvailableMaker['filaments']
+	): Maker['filaments'] {
+		const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
+		for (const filament of filaments) {
+			if (!filamentObj[filament.material_type]) {
+				filamentObj[filament.material_type] = [];
+			}
+			filamentObj[filament.material_type].push(filament);
+		}
+		return filamentObj;
 	}
 
-	function isMakerRow(row: unknown): row is Maker {
-		if (!row || typeof row !== 'object') return false;
-		const candidate = row as Record<string, unknown>;
+	function isMakerRow(row: Maker): boolean {
 		return (
-			typeof candidate.maker_id === 'string' &&
-			typeof candidate.crafter_name === 'string' &&
-			typeof candidate.tier === 'string' &&
-			typeof candidate.price_rank === 'number' &&
-			typeof candidate.delivery_rank === 'number' &&
-			Array.isArray(candidate.filaments) &&
-			candidate.filaments.length > 0 &&
-			candidate.filaments.every(isFilamentEntry) &&
-			Array.isArray(candidate.reviews)
+			typeof row.maker_id === 'string' &&
+			typeof row.crafter_name === 'string' &&
+			typeof row.tier === 'string' &&
+			typeof row.price_rank === 'number' &&
+			typeof row.delivery_rank === 'number' &&
+			Object.keys(row.filaments).length > 0 &&
+			Array.isArray(row.reviews)
 		);
 	}
 </script>
@@ -241,14 +234,18 @@
 		<div class="mb-1 flex flex-wrap items-end justify-between gap-3">
 			<div>
 				<div class="mb-1 flex items-center gap-2">
-					<Users class="size-4 text-muted-foreground" strokeWidth={1.5} />
+					<Icon icon={F.people} class="size-4 text-muted-foreground" />
 					<span class="text-sm font-medium text-foreground">Available makers</span>
 					{#if !loading}
-						<span class="text-xs text-muted-foreground">({makers.length})</span>
+						<span class="text-xs text-muted-foreground">({visibleMakers.length})</span>
 					{/if}
 				</div>
 				<p class="text-sm text-muted-foreground">
-					Expand a maker, pick a filament color, then request your quote.
+					{#if material}
+						Makers stocked in {material}. Expand one, pick a color, then request your quote.
+					{:else}
+						Expand a maker, pick a filament color, then request your quote.
+					{/if}
 				</p>
 			</div>
 		</div>
@@ -256,7 +253,7 @@
 		{#if !hasModel}
 			<div
 				class="mt-4 flex items-start gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-3">
-				<AlertCircle class="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+				<Icon icon={F.errorCircle} class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
 				<p class="text-sm text-muted-foreground">
 					Upload a model above to unlock maker selection and quote requests.
 				</p>
@@ -264,7 +261,9 @@
 		{/if}
 
 		{#if loading}
-			<div class="mt-6" aria-hidden="true">
+			<div
+				class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+				aria-hidden="true">
 				<MakerRowSkeleton count={3} />
 			</div>
 		{:else if error}
@@ -273,29 +272,36 @@
 			<div class="mt-6 py-8 text-center text-sm text-muted-foreground">
 				No makers available right now. Check back soon.
 			</div>
+		{:else if visibleMakers.length === 0}
+			<div class="mt-6 py-8 text-center text-sm text-muted-foreground">
+				No makers stock {material} right now. Try a different material above.
+			</div>
 		{:else}
-			<div class="mt-6 space-y-3">
-				{#each makers as maker (maker.maker_id)}
+			<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+				{#each visibleMakers as maker (maker.maker_id)}
 					{@const isSelf = maker.maker_id === currentUserId}
 					{@const isExpanded = expandedMaker === maker.maker_id}
 					{@const rating = averageRating(maker.reviews)}
 					{@const tierStyle = getTierStyle(maker.tier)}
 					<div
 						class={cn(
-							'overflow-hidden rounded-lg border bg-card transition-colors',
-							isExpanded ? cn('shadow-sm', tierStyle.cardExpanded) : tierStyle.card,
+							'flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-colors',
+							isExpanded ? cn('shadow-sm sm:col-span-2 xl:col-span-3', tierStyle.cardExpanded) : tierStyle.card,
 							isSelf && 'opacity-60'
 						)}>
 						<button
 							type="button"
 							class={cn(
-								'flex w-full items-center justify-between gap-4 p-4 text-left transition-colors',
+								'flex w-full gap-3 p-4 text-left transition-colors',
+								isExpanded
+									? 'items-center justify-between'
+									: 'flex-col items-stretch',
 								tierStyle.buttonHover
 							)}
 							onclick={() => toggleMaker(maker.maker_id)}
 							aria-expanded={isExpanded}>
 							<div class="flex min-w-0 items-center gap-3">
-								<TierBadge tier={maker.tier} iconOnly class="size-10" />
+								<TierBadge tier={maker.tier} iconOnly class="size-10 shrink-0" />
 								<div class="min-w-0">
 									<div class="truncate font-medium text-foreground">{maker.crafter_name}</div>
 									<div
@@ -312,10 +318,14 @@
 								</div>
 							</div>
 
-							<div class="flex shrink-0 items-center gap-3">
+							<div
+								class={cn(
+									'flex items-center gap-3',
+									isExpanded ? 'shrink-0' : 'justify-between'
+								)}>
 								{#if rating}
 									<div class="flex items-center gap-1 text-sm text-foreground">
-										<Star class="size-3.5 fill-foreground text-foreground" strokeWidth={1.5} />
+										<Icon icon={F.star} class="size-3.5 fill-foreground text-foreground" />
 										<span>{rating}</span>
 										<span class="text-muted-foreground">({maker.reviews.length})</span>
 									</div>
@@ -323,9 +333,9 @@
 									<span class="text-xs text-muted-foreground">No ratings</span>
 								{/if}
 								{#if isExpanded}
-									<ChevronUp class="size-4 text-muted-foreground" strokeWidth={1.5} />
+									<Icon icon={F.chevronUp} class="size-4 text-muted-foreground" />
 								{:else}
-									<ChevronDown class="size-4 text-muted-foreground" strokeWidth={1.5} />
+									<Icon icon={F.chevronDown} class="size-4 text-muted-foreground" />
 								{/if}
 							</div>
 						</button>
@@ -354,7 +364,7 @@
 										{#if response}
 											<span
 												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
-												<Timer class="size-3" strokeWidth={1.5} />
+												<Icon icon={F.timer} class="size-3" />
 												Response {response}
 											</span>
 										{/if}
@@ -362,37 +372,64 @@
 								</div>
 
 								<PortalSectionLabel label="Filament color" />
-								<div class="mt-2 space-y-3">
-									{#each Object.keys(maker.filaments) as mat (mat)}
-										<div class="rounded-md border border-border bg-muted/20 p-3">
-											<div class="mb-2 flex items-center gap-2">
-												<Printer class="size-3.5 text-muted-foreground" strokeWidth={1.5} />
-												<span class="text-xs font-medium text-foreground">{mat}</span>
-											</div>
-											<div class="flex flex-wrap gap-2">
-												{#each maker.filaments[mat] as filament, index (`${mat}-${index}-${filament.color}`)}
-													<button
-														type="button"
-														class={cn(
-															'relative size-8 rounded-md border-2 transition-all',
-															color === filament.color && material === mat
-																? 'scale-110 border-black ring-2 ring-black/10'
-																: 'border-border hover:scale-105 hover:border-foreground/40'
-														)}
-														onclick={() => {
-															color = filament.color;
-															material = mat;
-														}}
-														aria-label="Select {mat} {filament.color}"
-														title="{mat} · {filament.color}">
-														<span
-															class="block size-full rounded-[4px]"
-															style="background-color: {filament.color};"></span>
-													</button>
-												{/each}
-											</div>
+								<div class="mt-2">
+									{#if material}
+										{@const materialFilaments = maker.filaments[material] ?? []}
+										<div class="flex flex-wrap gap-2">
+											{#each materialFilaments as filament, index (`${material}-${index}-${filament.color}`)}
+												<button
+													type="button"
+													class={cn(
+														'relative size-8 rounded-md border-2 transition-all',
+														color === filament.color
+															? 'scale-110 border-primary ring-2 ring-primary/10'
+															: 'border-border hover:scale-105 hover:border-foreground/40'
+													)}
+													onclick={() => {
+														color = filament.color;
+													}}
+													aria-label="Select {material} {filament.color}"
+													title="{material} · {filament.color}">
+													<span
+														class="block size-full rounded-[4px]"
+														style="background-color: {filament.color};"></span>
+												</button>
+											{/each}
 										</div>
-									{/each}
+									{:else}
+										<div class="space-y-3">
+											{#each Object.keys(maker.filaments) as mat (mat)}
+												<div class="rounded-md border border-border bg-muted/20 p-3">
+													<div class="mb-2 flex items-center gap-2">
+														<Icon icon={F.print} class="size-3.5 text-muted-foreground" />
+														<span class="text-xs font-medium text-foreground">{mat}</span>
+													</div>
+													<div class="flex flex-wrap gap-2">
+														{#each maker.filaments[mat] as filament, index (`${mat}-${index}-${filament.color}`)}
+															<button
+																type="button"
+																class={cn(
+																	'relative size-8 rounded-md border-2 transition-all',
+																	color === filament.color && material === mat
+																		? 'scale-110 border-primary ring-2 ring-primary/10'
+																		: 'border-border hover:scale-105 hover:border-foreground/40'
+																)}
+																onclick={() => {
+																	color = filament.color;
+																	material = mat;
+																}}
+																aria-label="Select {mat} {filament.color}"
+																title="{mat} · {filament.color}">
+																<span
+																	class="block size-full rounded-[4px]"
+																	style="background-color: {filament.color};"></span>
+															</button>
+														{/each}
+													</div>
+												</div>
+											{/each}
+										</div>
+									{/if}
 								</div>
 
 								<div class="mt-5">

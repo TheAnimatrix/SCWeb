@@ -1,13 +1,13 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { validateAddress, type Address } from '$lib/types/product.js';
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import { tick } from 'svelte';
 	import { ScButton } from '$lib/components/sc';
-	import Plus from '@lucide/svelte/icons/plus';
-	import AlertCircle from '@lucide/svelte/icons/circle-alert';
-	import X from '@lucide/svelte/icons/x';
-
+			
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
@@ -233,7 +233,7 @@
 			class="gap-1.5"
 			onclick={addNewAddressEntry}
 			disabled={isLoading || isEditingAny()}>
-			<Plus class="size-3.5" />
+			<Icon icon={F.add} class="size-3.5" />
 			Add address
 		</ScButton>
 	</div>
@@ -242,13 +242,13 @@
 		<div
 			role="alert"
 			class="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-			<AlertCircle class="mt-0.5 size-4 shrink-0" />
+			<Icon icon={F.errorCircle} class="mt-0.5 size-4 shrink-0" />
 			<span class="flex-1">{errorMsg}</span>
 			<button
 				onclick={() => (errorShow = false)}
 				class="shrink-0 text-destructive/70 hover:text-destructive"
 				aria-label="Dismiss error">
-				<X class="size-4" />
+				<Icon icon={F.dismiss} class="size-4" />
 			</button>
 		</div>
 	{/if}

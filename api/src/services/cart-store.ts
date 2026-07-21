@@ -10,6 +10,7 @@ import type { Database, DbExecutor } from '../db/index.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { products } from '../db/schema/products.js';
+import { users } from '../db/schema/users.js';
 import type { Actor } from '../types/context.js';
 import {
 	actorType,
@@ -24,6 +25,11 @@ import {
 	type ProductSnapshot
 } from './cart.js';
 import { writeAudit } from './audit.js';
+import {
+	cancelStrayPaymentPendingCarts,
+	findPaymentPendingCartRow,
+	reactivatePaymentPendingCart
+} from './abandoned-checkout.js';
 
 export type UpsertCartItemResult =
 	| { ok: true; response: GetCartResponse }
@@ -109,15 +115,20 @@ async function getCartLines(db: DbExecutor, cartId: string) {
 	const rows = await db
 		.select({
 			qty: cartItems.qty,
-			product: products
+			product: products,
+			authorTier: users.tier
 		})
 		.from(cartItems)
 		.innerJoin(products, eq(cartItems.productId, products.id))
+		.leftJoin(users, eq(products.uid, users.id))
 		.where(eq(cartItems.cartId, cartId));
 
 	return rows.map((row) => ({
 		qty: row.qty,
-		product: row.product as ProductSnapshot
+		product: {
+			...(row.product as ProductSnapshot),
+			authorTier: row.authorTier
+		}
 	}));
 }
 
@@ -131,7 +142,15 @@ async function buildResponseForCart(
 
 async function getOrCreateActiveCart(db: DbExecutor, actor: Actor) {
 	const existing = await findActiveCartRow(db, actor);
-	if (existing) return existing;
+	if (existing) {
+		await cancelStrayPaymentPendingCarts(db, actor, existing.id);
+		return existing;
+	}
+
+	const pending = await findPaymentPendingCartRow(db, actor);
+	if (pending) {
+		return reactivatePaymentPendingCart(db, actor, pending);
+	}
 
 	const active = CART_ORDER_STATUS.ACTIVE;
 	const values = actor.userId
@@ -305,6 +324,7 @@ export function createCartStore(db: Database): CartStore {
 				return buildGetCartResponse(null);
 			}
 
+			await cancelStrayPaymentPendingCarts(db, actor, cart.id);
 			return buildResponseForCart(db, cart);
 		},
 

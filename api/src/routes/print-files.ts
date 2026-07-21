@@ -19,6 +19,41 @@ import { isFilesConfigured, type PrintFilesStore } from '../services/print-files
 import type { AppVariables } from '../types/context.js';
 
 const MAX_BODY_BYTES = MAX_STL_SIZE_BYTES + BODY_READ_SLACK_BYTES;
+const MAX_PREVIEW_BYTES = 512 * 1024;
+
+function parseModelStats(value: FormDataEntryValue | string | null | undefined) {
+	if (typeof value !== 'string' || value.trim().length === 0) {
+		return undefined;
+	}
+
+	try {
+		const parsed = JSON.parse(value) as Record<string, unknown>;
+		const dimensions =
+			parsed.dimensions &&
+			typeof parsed.dimensions === 'object' &&
+			!Array.isArray(parsed.dimensions)
+				? {
+						x: Number((parsed.dimensions as Record<string, unknown>).x),
+						y: Number((parsed.dimensions as Record<string, unknown>).y),
+						z: Number((parsed.dimensions as Record<string, unknown>).z)
+					}
+				: undefined;
+
+		const triangleCount = Number(parsed.triangleCount);
+
+		return {
+			...(dimensions &&
+			Number.isFinite(dimensions.x) &&
+			Number.isFinite(dimensions.y) &&
+			Number.isFinite(dimensions.z)
+				? { dimensions }
+				: {}),
+			...(Number.isFinite(triangleCount) ? { triangleCount } : {})
+		};
+	} catch {
+		return undefined;
+	}
+}
 
 function isMultipartRequest(contentType: string | undefined): boolean {
 	return contentType?.includes('multipart/form-data') ?? false;
@@ -39,7 +74,7 @@ function isRawUploadRequest(contentType: string | undefined): boolean {
 async function readBoundedBody(
 	request: Request,
 	maxBytes: number
-): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; status: 413 | 400 }> {
+): Promise<{ ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false; status: 413 | 400 }> {
 	const contentLength = request.headers.get('content-length');
 	if (contentLength !== null) {
 		const length = Number(contentLength);
@@ -92,7 +127,7 @@ async function readBoundedBody(
 		offset += chunk.byteLength;
 	}
 
-	return { ok: true, bytes };
+	return { ok: true, bytes: bytes as Uint8Array<ArrayBuffer> };
 }
 
 function parseUploadMetadata(fields: Record<string, FormDataEntryValue | string | undefined>) {
@@ -133,6 +168,8 @@ export function createPrintFilesRoutes(
 		let fileBytes: Uint8Array;
 		let originalFilename: string;
 		let metadataResult: ReturnType<typeof parseUploadMetadata>;
+		let previewBytes: Uint8Array | undefined;
+		let modelStats: ReturnType<typeof parseModelStats>;
 
 		if (isMultipartRequest(contentType)) {
 			const bodyResult = await readBoundedBody(c.req.raw, MAX_BODY_BYTES);
@@ -174,6 +211,16 @@ export function createPrintFilesRoutes(
 
 			fileBytes = new Uint8Array(arrayBuffer);
 			originalFilename = sanitizeOriginalFilename(modelFile.name);
+
+			const previewFile = form.get('preview_image');
+			if (previewFile instanceof File && previewFile.size > 0) {
+				if (previewFile.size > MAX_PREVIEW_BYTES) {
+					return c.json({ error: 'preview_too_large' }, 413);
+				}
+				previewBytes = new Uint8Array(await previewFile.arrayBuffer());
+			}
+
+			modelStats = parseModelStats(form.get('model_stats'));
 		} else if (isRawUploadRequest(contentType)) {
 			const queryResult = rawUploadQuerySchema.safeParse(c.req.query());
 			if (!queryResult.success) {
@@ -218,7 +265,9 @@ export function createPrintFilesRoutes(
 			makerId: metadata.maker_id,
 			originalFilename,
 			fileBytes,
-			modelData: metadata
+			modelData: metadata,
+			previewBytes,
+			modelStats
 		});
 
 		if (!result.ok) {
@@ -236,6 +285,28 @@ export function createPrintFilesRoutes(
 		});
 
 		return c.json({ printRequest: result.printRequest });
+	});
+
+	printFilesRoutes.get('/print-files/quota', requireAuth(), async (c) => {
+		const env = c.get('env');
+		const actor = c.get('actor');
+
+		if (!isFilesConfigured(env)) {
+			return c.json({ error: 'files_unconfigured' }, 503);
+		}
+
+		const store = getPrintFilesStore(c);
+		if (!store) {
+			return c.json({ error: 'files_unconfigured' }, 503);
+		}
+
+		const userId = actor.userId;
+		if (!userId) {
+			return c.json({ error: 'forbidden' }, 403);
+		}
+
+		const quota = await store.getUploadQuotaStatus(userId);
+		return c.json(quota);
 	});
 
 	printFilesRoutes.get(

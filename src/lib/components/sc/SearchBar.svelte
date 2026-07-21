@@ -1,6 +1,8 @@
 <script lang="ts">
-	import Search from '@lucide/svelte/icons/search';
-	import { cn } from '$lib/utils';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+		import { cn } from '$lib/utils';
 	import ScInput from './ScInput.svelte';
 
 	interface Props {
@@ -30,5 +32,5 @@
 </script>
 
 <form onsubmit={handleSubmit} class={cn('w-full', className)}>
-	<ScInput type="search" bind:value={query} {placeholder} icon={Search} class="font-mono" />
+	<ScInput type="search" bind:value={query} {placeholder} icon={F.search} class="font-mono" />
 </form>

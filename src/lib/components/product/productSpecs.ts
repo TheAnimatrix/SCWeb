@@ -1,30 +1,7 @@
 import type { Product } from '$lib/types/product';
 
-export function buildSpecSheet(product: Product): Record<string, string> {
-	const specs: Record<string, string> = {};
-
-	if (product.author) {
-		specs.maker = product.author;
-	}
-
-	return specs;
-}
-
 export function isOpenHardware(product: Product): boolean {
 	return product.tags?.some((tag) => /open[\s-]?hardware/i.test(tag.tag)) ?? false;
-}
-
-export function imageFilename(url: string | undefined): string {
-	if (!url) return 'no_image.png';
-
-	try {
-		const pathname = new URL(url).pathname;
-		const filename = pathname.split('/').pop();
-		return filename || 'image.png';
-	} catch {
-		const parts = url.split('/');
-		return parts.pop() || 'image.png';
-	}
 }
 
 export function formatTimeAgo(dateString: string): string {

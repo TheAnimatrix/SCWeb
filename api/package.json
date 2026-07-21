@@ -28,7 +28,8 @@
 		"db:push": "drizzle-kit push",
 		"db:pull": "drizzle-kit pull",
 		"db:studio": "drizzle-kit studio",
-		"db:backfill-carts": "tsx src/scripts/backfill-carts.ts"
+		"db:backfill-carts": "tsx src/scripts/backfill-carts.ts",
+		"test:smtp": "tsx src/scripts/test-smtp.ts"
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.14.1",
@@ -38,6 +39,7 @@
 		"dotenv": "^16.4.7",
 		"drizzle-orm": "^0.43.1",
 		"hono": "^4.7.6",
+		"nodemailer": "^9.0.3",
 		"postgres": "^3.4.5",
 		"razorpay": "^2.9.6",
 		"zod": "^3.24.2"
@@ -45,6 +47,7 @@
 	"devDependencies": {
 		"@electric-sql/pglite": "^0.5.4",
 		"@types/node": "^22.13.11",
+		"@types/nodemailer": "^8.0.1",
 		"drizzle-kit": "^0.31.0",
 		"tsx": "^4.19.3",
 		"typescript": "^5.8.2",

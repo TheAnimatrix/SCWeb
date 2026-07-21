@@ -1,41 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { buildProxyTargetUrl, getProxyTimeoutMs, isAllowedProxyPath } from './api-proxy';
+import {
+	buildProxyTargetUrl,
+	getProxyTimeoutMs,
+	isAllowedProxyMethod,
+	isAllowedProxyPath,
+	isUploadProxyPath
+} from './api-proxy';
 
 const API_ORIGIN = 'http://localhost:3001';
 
 describe('isAllowedProxyPath', () => {
-	it('allows cart, checkout, print-files, print-payments, print-requests, and chats paths', () => {
-		expect(isAllowedProxyPath('cart')).toBe(true);
+	it('allows any non-empty path without traversal segments', () => {
+		expect(isAllowedProxyPath('makers/available')).toBe(true);
+		expect(isAllowedProxyPath('health')).toBe(true);
 		expect(isAllowedProxyPath('cart/items/abc')).toBe(true);
-		expect(isAllowedProxyPath('checkout/order')).toBe(true);
-		expect(isAllowedProxyPath('print-files/upload')).toBe(true);
-		expect(isAllowedProxyPath('print-files/abc/download-url')).toBe(true);
-		expect(isAllowedProxyPath('print-payments/abc/order')).toBe(true);
-		expect(isAllowedProxyPath('print-payments/abc/confirm')).toBe(true);
-		expect(isAllowedProxyPath('print-requests/abc/actions')).toBe(true);
-		expect(isAllowedProxyPath('chats/messages')).toBe(true);
+		expect(isAllowedProxyPath('@attacker.example')).toBe(true);
 	});
 
-	it('rejects paths outside the allowlist', () => {
-		expect(isAllowedProxyPath('health')).toBe(false);
-		expect(isAllowedProxyPath('@attacker.example')).toBe(false);
-		expect(isAllowedProxyPath('..%2f..')).toBe(false);
+	it('rejects empty paths and traversal', () => {
 		expect(isAllowedProxyPath(undefined)).toBe(false);
-	});
-
-	it('rejects dot-segment traversal even when the allowlist prefix matches', () => {
+		expect(isAllowedProxyPath('..%2f..')).toBe(false);
 		expect(isAllowedProxyPath('cart/../health')).toBe(false);
 		expect(isAllowedProxyPath('cart/%2e%2e/health')).toBe(false);
 		expect(isAllowedProxyPath('checkout/..')).toBe(false);
 	});
+});
 
-	it('allows normal paths without dot segments', () => {
-		expect(isAllowedProxyPath('cart/items/abc')).toBe(true);
+describe('isAllowedProxyMethod', () => {
+	it('allows standard API verbs', () => {
+		expect(isAllowedProxyMethod('GET')).toBe(true);
+		expect(isAllowedProxyMethod('POST')).toBe(true);
+		expect(isAllowedProxyMethod('PATCH')).toBe(false);
 	});
 });
 
 describe('getProxyTimeoutMs', () => {
 	it('uses a longer timeout for print-files uploads', () => {
+		expect(isUploadProxyPath('print-files/upload')).toBe(true);
 		expect(getProxyTimeoutMs('print-files/upload')).toBe(60_000);
 		expect(getProxyTimeoutMs('print-files/abc/download-url')).toBe(10_000);
 		expect(getProxyTimeoutMs('cart')).toBe(10_000);
@@ -43,20 +44,12 @@ describe('getProxyTimeoutMs', () => {
 });
 
 describe('buildProxyTargetUrl', () => {
-	it('keeps requests on API_ORIGIN for @-prefixed paths', () => {
+	it('keeps requests on API_ORIGIN', () => {
 		const target = buildProxyTargetUrl(API_ORIGIN, '@attacker.example', '');
 
 		expect(target.origin).toBe('http://localhost:3001');
 		expect(target.hostname).toBe('localhost');
 		expect(target.pathname).toBe('/@attacker.example');
-	});
-
-	it('does not treat encoded traversal as a host escape', () => {
-		const target = buildProxyTargetUrl(API_ORIGIN, '..%2f..', '');
-
-		expect(target.origin).toBe('http://localhost:3001');
-		expect(target.hostname).toBe('localhost');
-		expect(target.pathname).toBe('/..%2f..');
 	});
 
 	it('preserves search params', () => {

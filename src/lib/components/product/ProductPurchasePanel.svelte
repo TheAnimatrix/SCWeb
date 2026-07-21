@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { Minus, Plus, Heart, Star } from '@lucide/svelte';
-	import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+					import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
 	import { TagBadge, MetaChip, ScButton, TrustSignals, Skeleton } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
 	import { buildProductTags } from '$lib/utils/productTypeTag';
+	import { formatTagDisplayLabel } from '$lib/utils/formatUsername';
 	import { getPurchasableLimit, isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
@@ -143,14 +146,14 @@
 
 			<div class="flex flex-wrap items-center gap-2">
 				{#each displayTags as tag (tag.label)}
-					<TagBadge label={tag.label} emphasized={tag.emphasized} />
+					<TagBadge label={formatTagDisplayLabel(tag.label)} emphasized={tag.emphasized} />
 				{/each}
 			</div>
 
 			<div class="flex flex-wrap items-center gap-2">
 				{#if hasRating}
 					<MetaChip>
-						<Star class="size-3" aria-hidden="true" />
+						<Icon icon={F.star} class="size-3" aria-hidden="true" />
 						{product.rating!.rating}
 						<span class="text-muted-foreground">({product.rating!.count ?? 0})</span>
 					</MetaChip>
@@ -223,7 +226,7 @@
 					disabled={unavailable || cartQty <= 0}
 					onclick={onDecrement}
 					aria-label="Decrease quantity">
-					<Minus class="h-4 w-4" />
+					<Icon icon={F.subtract} class="h-4 w-4" />
 				</button>
 				<span class="min-w-10 border-x border-border px-3 text-center text-sm">
 					{cartQty}
@@ -234,7 +237,7 @@
 					disabled={unavailable || cartQty >= purchasableLimit}
 					onclick={onIncrement}
 					aria-label="Increase quantity">
-					<Plus class="h-4 w-4" />
+					<Icon icon={F.add} class="h-4 w-4" />
 				</button>
 			</div>
 
@@ -255,7 +258,7 @@
 					aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
 					aria-pressed={favorited}
 					onclick={() => (favorited = !favorited)}>
-					<Heart class={cn('h-4 w-4', favorited && 'fill-current')} />
+					<Icon icon={F.heart} class={cn('h-4 w-4', favorited && 'fill-current')} />
 				</button>
 			</div>
 		</div>

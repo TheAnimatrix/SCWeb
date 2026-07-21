@@ -1,15 +1,29 @@
-import { config } from 'dotenv';
 import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type { IndexColumn } from 'drizzle-orm/pg-core';
-import { resolve } from 'node:path';
+import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
 import { createDb } from '../db/index.js';
-import { cart } from '../db/schema/cart.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
+import { loadEnvFiles } from '../loadEnvFiles.js';
 
-config({ path: resolve(process.cwd(), '../.env') });
-config({ path: resolve(process.cwd(), '.env') });
+/** Legacy `cart` rows archived as `cart_archive` by migration 0008. */
+const cartArchive = pgTable('cart_archive', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+	uid: uuid('uid'),
+	list: jsonb('list'),
+	price: integer('price'),
+	status: text('status'),
+	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }),
+	clientId: text('client_id'),
+	address: text('address'),
+	paymentIdA: text('payment_id_a'),
+	paymentIdB: text('payment_id_b'),
+	paymentSignature: text('payment_signature')
+});
+
+loadEnvFiles();
 process.env.DATABASE_URL ??= process.env.POSTGRES_URL;
 
 type LegacyCartItem = {
@@ -57,11 +71,11 @@ async function main() {
 	try {
 		const legacyCarts = await db
 			.select()
-			.from(cart)
+			.from(cartArchive)
 			.where(
 				and(
-					eq(cart.status, CART_ORDER_STATUS.ACTIVE),
-					sql`${cart.list} IS NOT NULL AND jsonb_typeof(${cart.list}) = 'array' AND jsonb_array_length(${cart.list}) > 0`
+					eq(cartArchive.status, CART_ORDER_STATUS.ACTIVE),
+					sql`${cartArchive.list} IS NOT NULL AND jsonb_typeof(${cartArchive.list}) = 'array' AND jsonb_array_length(${cartArchive.list}) > 0`
 				)
 			);
 

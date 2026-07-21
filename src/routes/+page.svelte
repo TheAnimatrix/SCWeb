@@ -2,21 +2,30 @@
 	import type { Product } from '$lib/types/product';
 	import { navigating } from '$app/state';
 	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
 	import {
 		DotGrid,
 		ScButton,
 		FeatureModule,
 		ProductCard,
+		ProductCardList,
+		ProductCardListItem,
 		ProductCardSkeleton,
 		FeaturedCarousel,
 		FeaturedCarouselSkeleton,
 		Skeleton
 	} from '$lib/components/sc';
 	import Smoke from '$lib/components/effects/Smoke.svelte';
+	import { SeoHead, JsonLd } from '$lib/components/seo';
+	import { homeSeo, organizationJsonLd, websiteJsonLd } from '$lib/seo/meta';
+	import { absoluteUrl } from '$lib/seo/site';
+	import { page } from '$app/state';
 
 	let { data } = $props();
 
-	const isLoading = $derived(!!navigating.to && navigating.to.url.pathname === '/');
+	const isLoading = $derived(
+		data.pending || (!!navigating.to && navigating.to.url.pathname === '/')
+	);
 
 	const features = [
 		{
@@ -49,21 +58,21 @@
 		{
 			id: 'products',
 			title: 'Fresh listings',
-			icon: 'fluent:sparkle-24-regular',
+			icon: F.sparkle,
 			browseHref: '/crafts?filter=products',
 			emptyMessage: 'No listings yet — check back soon'
 		},
 		{
 			id: 'spares',
 			title: 'Spares',
-			icon: 'fluent:puzzle-cube-24-regular',
+			icon: F.puzzleCube,
 			browseHref: '/crafts?filter=spares',
 			emptyMessage: 'No spares listed yet — check back soon'
 		},
 		{
 			id: 'flea_market',
 			title: 'Flea market',
-			icon: 'fluent:building-shop-24-regular',
+			icon: F.buildingShop,
 			browseHref: '/crafts?filter=flea_market',
 			emptyMessage: 'No flea market listings yet — check back soon'
 		}
@@ -77,19 +86,22 @@
 	);
 </script>
 
+<SeoHead meta={{ ...homeSeo, canonical: absoluteUrl('/', page.url.origin) }} />
+<JsonLd data={[organizationJsonLd(page.url.origin), websiteJsonLd(page.url.origin)]} />
+
 <div class="min-h-screen bg-background text-foreground">
 	<DotGrid class="relative overflow-hidden border-b border-border">
 		<Smoke variant="fabric" opacity={1} particleCount={150} gridSize={8} />
 		<div
-			class="relative z-10 mx-auto grid max-w-7xl gap-12 px-4 py-16 md:grid-cols-2 md:items-center md:py-24">
-			<div class="flex flex-col gap-8">
+			class="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 pt-6 pb-12 md:grid-cols-2 md:items-center md:gap-12 md:py-24">
+			<div class="flex flex-col gap-6 md:gap-8">
 				<div class="space-y-4">
 					<h1 class="text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-6xl">
-						Parts, products & people.
+						Indie hardware, open to all.
 					</h1>
 					<p class="max-w-lg text-base leading-relaxed text-muted-foreground">
-						Marketplace infrastructure for indie hardware — source parts locally, ship finished
-						products, and connect with makers building in the open.
+						A maker-to-everyone marketplace for indie hardware. Makers build in the open; anyone
+						can source parts, buy finished products, and discover what's worth owning.
 					</p>
 				</div>
 
@@ -113,8 +125,8 @@
 							<dd class="ml-1 inline text-foreground">{data.stats.listings}</dd>
 						</div>
 						<div>
-							<dt class="inline text-muted-foreground">cities:</dt>
-							<dd class="ml-1 inline text-foreground">{data.stats.cities}</dd>
+							<dt class="inline text-muted-foreground">users:</dt>
+							<dd class="ml-1 inline text-foreground">{data.stats.users}</dd>
 						</div>
 					{/if}
 				</dl>
@@ -155,17 +167,21 @@
 				</div>
 
 				{#if isLoading}
-					<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4" aria-hidden="true">
+					<ProductCardList aria-busy="true" aria-label="Loading {section.title.toLowerCase()}">
 						{#each [...Array(4).keys()] as i (i)}
-							<ProductCardSkeleton />
+							<ProductCardListItem>
+								<ProductCardSkeleton />
+							</ProductCardListItem>
 						{/each}
-					</div>
+					</ProductCardList>
 				{:else if section.items.length > 0}
-					<div class="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-4">
+					<ProductCardList>
 						{#each section.items as product (product.id)}
-							<ProductCard {product} href={productHref(product)} />
+							<ProductCardListItem>
+								<ProductCard {product} href={productHref(product)} singleLineTitle />
+							</ProductCardListItem>
 						{/each}
-					</div>
+					</ProductCardList>
 				{:else}
 					<div
 						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center">

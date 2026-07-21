@@ -1,19 +1,13 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
 	import { getContext } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
 	import { type Writable } from 'svelte/store';
 	import type { CartView } from '@scweb/api/contracts';
-	import Minus from '@lucide/svelte/icons/minus';
-	import Plus from '@lucide/svelte/icons/plus';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import ShoppingCart from '@lucide/svelte/icons/shopping-cart';
-	import ShoppingBag from '@lucide/svelte/icons/shopping-bag';
-	import Receipt from '@lucide/svelte/icons/receipt';
-	import ShieldCheck from '@lucide/svelte/icons/shield-check';
-	import Lock from '@lucide/svelte/icons/lock';
-	import AlertCircle from '@lucide/svelte/icons/alert-circle';
-	import { Breadcrumbs } from '$lib/components/shell';
-	import { ScButton, StockBar, PlaceholderImage } from '$lib/components/sc';
+										import { Breadcrumbs } from '$lib/components/shell';
+	import { ScButton, StockBar, PlaceholderImage, MakerAttribution } from '$lib/components/sc';
 	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { cn } from '$lib/utils';
@@ -32,6 +26,7 @@
 
 	let cartDetails: CartView | null = $state(data.cart);
 	let isUpdatingCart = $state(false);
+	let isCheckingOut = $state(false);
 	let highlightedRow: number | null = $state(null);
 	let quantityList = $state(data.cart?.items.map((item) => item.qty.toString()) ?? []);
 
@@ -70,6 +65,11 @@
 	) {
 		if (isUpdatingCart) return;
 		if (!cartDetails?.items) return;
+
+		if (!isNaN(quantity) && quantity <= 0) {
+			await removeItem(index);
+			return;
+		}
 
 		const item = cartDetails.items[index];
 		const limit = getPurchasableLimit(stock);
@@ -169,6 +169,7 @@
 	}
 
 	async function checkOut() {
+		if (isCheckingOut) return;
 		if (!cartDetails?.items) return;
 
 		for (const item of cartDetails.items) {
@@ -180,7 +181,13 @@
 				return;
 			}
 		}
-		goto('/checkout');
+
+		isCheckingOut = true;
+		try {
+			await goto('/checkout');
+		} finally {
+			isCheckingOut = false;
+		}
 	}
 </script>
 
@@ -202,12 +209,12 @@
 		</div>
 
 		<div class="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
-			<div class="flex-1 space-y-4">
+			<div class="flex-1 divide-y divide-border sm:space-y-4 sm:divide-y-0">
 				{#if data.apiError}
 					<div
 						class="flex flex-col items-start gap-4 rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground sm:flex-row sm:items-center">
 						<div class="flex items-center gap-3">
-							<AlertCircle class="size-5 shrink-0 text-foreground" aria-hidden="true" />
+							<Icon icon={F.errorCircle} class="size-5 shrink-0 text-foreground" aria-hidden="true" />
 							<p>Could not load your cart. Try refreshing the page.</p>
 						</div>
 						<ScButton variant="secondary" onclick={() => invalidate('cart:change')}>Retry</ScButton>
@@ -216,7 +223,7 @@
 					<div
 						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-20 text-center">
 						<div class="mb-4 rounded-full bg-muted p-4">
-							<ShoppingCart class="size-8 text-muted-foreground" aria-hidden="true" />
+							<Icon icon={F.cart} class="size-8 text-muted-foreground" aria-hidden="true" />
 						</div>
 						<h2 class="text-lg font-medium text-foreground">Nothing here yet</h2>
 						<p class="mt-2 max-w-sm text-sm text-muted-foreground">
@@ -224,7 +231,7 @@
 						</p>
 						<div class="mt-6">
 							<ScButton href="/crafts" arrow>
-								<ShoppingBag class="mr-2 inline size-4" aria-hidden="true" />
+								<Icon icon={F.shoppingBag} class="mr-2 inline size-4" aria-hidden="true" />
 								Browse crafts
 							</ScButton>
 						</div>
@@ -236,62 +243,80 @@
 						{@const onDemand = isOnDemand(item.stock)}
 						<article
 							class={cn(
-								'overflow-hidden rounded-lg border border-border bg-card transition-colors',
+								'py-3 transition-colors sm:overflow-hidden sm:rounded-lg sm:border sm:border-border sm:bg-card sm:py-0',
 								highlightedRow === i && 'bg-muted/40',
 								!inStock && 'opacity-70'
 							)}>
-							<div class="flex flex-col sm:flex-row">
+							<div class="flex gap-3 sm:flex-row">
 								<a
 									href={productHref(item.name, item.productId)}
-									class="relative aspect-[4/3] overflow-hidden sm:w-40 sm:shrink-0 sm:aspect-auto sm:min-h-[140px]">
+									class="relative size-[4.5rem] shrink-0 overflow-hidden rounded-md sm:size-auto sm:w-40 sm:shrink-0 sm:rounded-none sm:aspect-auto sm:min-h-[140px]">
 									<PlaceholderImage
 										src={item.imageUrl ?? undefined}
 										alt={item.name}
-										class="transition-transform duration-300 hover:scale-105" />
+										class="size-full object-cover transition-transform duration-300 hover:scale-105" />
 								</a>
 
-								<div class="flex flex-1 flex-col gap-4 p-5">
-									<div class="flex items-start justify-between gap-4">
-										<div class="min-w-0 space-y-1">
+								<div class="flex min-w-0 flex-1 flex-col gap-2 sm:gap-4 sm:p-5">
+									<div class="flex items-start justify-between gap-2">
+										<div class="min-w-0">
 											<a
 												href={productHref(item.name, item.productId)}
-												class="text-lg font-medium leading-snug text-foreground transition-colors hover:text-foreground/80">
+												class="line-clamp-2 text-sm font-medium leading-snug text-foreground transition-colors hover:text-foreground/80 sm:text-lg">
 												{item.name}
 											</a>
 											{#if item.author}
-												<p class="font-mono text-xs text-muted-foreground">
-													by @{item.author}
-												</p>
+												<MakerAttribution
+													username={item.author}
+													tier={item.authorTier}
+													class="mt-0.5" />
 											{/if}
 										</div>
 
-										<p class="shrink-0 font-mono text-lg font-semibold text-foreground">
+										<p class="shrink-0 font-mono text-sm font-semibold text-foreground sm:text-lg">
 											₹{calculateTotalPrice(item.unitPrice, item.qty).toLocaleString('en-IN')}
 										</p>
 									</div>
 
-									{#if onDemand}
-										<p class="font-mono text-xs text-amber-700 dark:text-amber-300">
-											Made to order — ships after production
-										</p>
-									{:else}
-										<StockBar count={item.stock.count} />
-									{/if}
+									<div
+										class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground sm:hidden">
+										{#if onDemand}
+											<span class="font-mono text-amber-700 dark:text-amber-300">
+												Made to order
+											</span>
+										{:else}
+											<span class="font-mono">stock: {item.stock.count}</span>
+										{/if}
+										{#if item.guarantee}
+											<span aria-hidden="true">·</span>
+											<span class="truncate">{item.guarantee}</span>
+										{/if}
+									</div>
+
+									<div class="hidden sm:block">
+										{#if onDemand}
+											<p class="font-mono text-xs text-amber-700 dark:text-amber-300">
+												Made to order — ships after production
+											</p>
+										{:else}
+											<StockBar count={item.stock.count} />
+										{/if}
+									</div>
 
 									{#if item.guarantee}
-										<p class="text-xs text-muted-foreground">{item.guarantee}</p>
+										<p class="hidden text-xs text-muted-foreground sm:block">{item.guarantee}</p>
 									{/if}
 
 									<div
-										class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+										class="flex items-center justify-between gap-2 sm:flex-wrap sm:justify-between sm:gap-3 sm:border-t sm:border-border sm:pt-4">
 										<div class="flex items-center">
 											<button
 												type="button"
 												onclick={() => incrementDecrementQuantity(false, i, item.stock)}
-												class="inline-flex size-8 items-center justify-center rounded-l-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+												class="inline-flex size-7 items-center justify-center rounded-l-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:opacity-50 sm:size-8 sm:bg-card"
 												aria-label="Decrease quantity"
 												disabled={isUpdatingCart}>
-												<Minus class="size-4" />
+												<Icon icon={F.subtract} class="size-3.5 sm:size-4" />
 											</button>
 
 											<input
@@ -299,28 +324,28 @@
 												bind:value={quantityList[i]}
 												min="1"
 												max={purchasableLimit}
-												class="h-8 w-12 border-y border-border bg-card text-center font-mono text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
+												class="h-7 w-10 border-y border-border bg-background text-center font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 sm:h-8 sm:w-12 sm:bg-card sm:text-sm"
 												disabled={isUpdatingCart}
 												onchange={(e) => updateQuantity(e, i, item.stock)} />
 
 											<button
 												type="button"
 												onclick={() => incrementDecrementQuantity(true, i, item.stock)}
-												class="inline-flex size-8 items-center justify-center rounded-r-md border border-border bg-card text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+												class="inline-flex size-7 items-center justify-center rounded-r-md border border-border bg-background text-foreground transition-colors hover:bg-muted disabled:opacity-50 sm:size-8 sm:bg-card"
 												aria-label="Increase quantity"
 												disabled={isUpdatingCart}>
-												<Plus class="size-4" />
+												<Icon icon={F.add} class="size-3.5 sm:size-4" />
 											</button>
 										</div>
 
 										<button
 											type="button"
 											onclick={() => removeItem(i)}
-											class="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+											class="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50 sm:gap-1.5 sm:text-sm"
 											aria-label="Remove item"
 											disabled={isUpdatingCart}>
-											<Trash2 class="size-4" />
-											Remove
+											<Icon icon={F.delete} class="size-4" />
+											<span class="hidden sm:inline">Remove</span>
 										</button>
 									</div>
 								</div>
@@ -334,7 +359,7 @@
 				<aside class="w-full lg:w-80 lg:shrink-0">
 					<div class="sticky top-20 rounded-lg border border-border bg-card">
 						<div class="flex items-center gap-2 border-b border-border px-5 py-4">
-							<Receipt class="size-4 text-foreground" aria-hidden="true" />
+							<Icon icon={F.receipt} class="size-4 text-foreground" aria-hidden="true" />
 							<h2 class="text-sm font-medium text-foreground">Order summary</h2>
 						</div>
 
@@ -367,11 +392,15 @@
 
 							<button
 								type="button"
-								class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-50"
+								class="group inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all duration-200 hover:scale-[1.02] hover:bg-primary/90 hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
 								onclick={checkOut}
-								disabled={isUpdatingCart}>
-								Proceed to checkout
-								<span aria-hidden="true">→</span>
+								disabled={isUpdatingCart || isCheckingOut}>
+								{isCheckingOut ? 'Going to checkout…' : 'Proceed to checkout'}
+								{#if !isCheckingOut}
+									<span
+										class="transition-transform duration-200 group-hover:translate-x-0.5"
+										aria-hidden="true">→</span>
+								{/if}
 							</button>
 
 							<div class="text-center">
@@ -383,11 +412,11 @@
 							<div
 								class="flex items-center justify-center gap-4 border-t border-border pt-4 text-xs text-muted-foreground">
 								<span class="inline-flex items-center gap-1">
-									<ShieldCheck class="size-3.5" aria-hidden="true" />
+									<Icon icon={F.shieldCheck} class="size-3.5" aria-hidden="true" />
 									Secure
 								</span>
 								<span class="inline-flex items-center gap-1">
-									<Lock class="size-3.5" aria-hidden="true" />
+									<Icon icon={F.lock} class="size-3.5" aria-hidden="true" />
 									Encrypted
 								</span>
 							</div>

@@ -1,13 +1,12 @@
 <script lang="ts">
-	import type { RealtimeChannel } from '@supabase/supabase-js';
+	import { F } from '$lib/icons/fluent';
+
 	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { Json } from '../../../../supabase/types';
 	import type { PrintRequestEvent } from '$lib/types/printRequest';
 	import Icon from '@iconify/svelte';
-	import MessageSquare from '@lucide/svelte/icons/message-square';
-	import { toastStore } from '$lib/client/toastStore';
+		import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
 	import { TableBodySkeleton } from '$lib/components/sc';
@@ -49,7 +48,6 @@
 	let downloadProgress = $state(0);
 
 	let orderUnreadCounts = $state<Record<string, number>>({});
-	let chatSubscription: RealtimeChannel | null = null;
 
 	async function downloadModel(printRequestId: string, modelPath: string, index: number) {
 		const pathParts = modelPath.split('/').pop()?.split('.') ?? [];
@@ -190,40 +188,38 @@
 		orderUnreadCounts = counts;
 	}
 
-	function subscribeToChat() {
-		if (!session?.data?.user?.id) return;
-		chatSubscription = supabase
-			.channel('realtime-chat-global')
+	$effect(() => {
+		fetchOrderUnreadCounts();
+	});
+
+	$effect(() => {
+		const userId = session?.data?.user?.id;
+		if (!userId) return;
+
+		const channel = supabase
+			.channel(`order-management-chat:${userId}`)
 			.on(
 				'postgres_changes',
 				{
 					event: 'INSERT',
 					schema: 'public',
 					table: 'Chat',
-					filter: `recipient_id=eq.${session.data.user.id}`
+					filter: `recipient_id=eq.${userId}`
 				},
 				(payload) => {
 					if (payload.new.message_type === 'action') {
-						//update orders
 						fetchOrders(page);
 					}
-					if (payload.new?.sender_id !== session.data.user.id) {
+					if (payload.new?.sender_id !== userId) {
 						toastStore.show('New chat message received!', 'info');
 						fetchOrderUnreadCounts();
 					}
 				}
 			)
 			.subscribe();
-	}
 
-	$effect(() => {
-		fetchOrderUnreadCounts();
-	});
-
-	onMount(() => {
-		subscribeToChat();
 		return () => {
-			if (chatSubscription) supabase.removeChannel(chatSubscription);
+			supabase.removeChannel(channel);
 		};
 	});
 </script>
@@ -290,7 +286,7 @@
 											class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:bg-muted"
 											download
 											onclick={(e) => e.stopPropagation()}>
-											<Icon icon="ph:download-bold" class="text-base" />
+											<Icon icon={F.download} class="text-base" />
 											{order.id.slice(order.id.length - 10, order.id.length)}
 										</a>
 									{:else if order.model?.endsWith('.stl')}
@@ -307,7 +303,7 @@
 														e.stopPropagation();
 														downloadModel(order.id, order.model ?? '', index);
 													}}>
-													<Icon icon="ph:download-bold" class="text-base" />
+													<Icon icon={F.download} class="text-base" />
 													{downloading !== index
 														? order.id.slice(order.id.length - 10, order.id.length)
 														: `Downloading… ${downloadProgress}%`}
@@ -332,7 +328,7 @@
 									{#if orderUnreadCounts[order.id] > 0}
 										<span
 											class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-xs text-destructive-foreground">
-											<MessageSquare class="size-3" strokeWidth={2} />
+											<Icon icon={F.chat} class="size-3" />
 											{orderUnreadCounts[order.id]}
 										</span>
 									{/if}

@@ -13,21 +13,26 @@ export const load: PageServerLoad = async ({
 		error: userError
 	} = await supabase.auth.getUser();
 	if (userError || !user) {
-		return { printRequest: null, error: 'Not authenticated' };
+		throw error(401, {
+			message: 'Sign in with the maker account assigned to this order to view its details.'
+		});
 	}
 
-	// Fetch the print request (ensure user owns it)
 	const { data: printRequest, error: prError } = await supabaseAdmin
 		.from('printrequests')
 		.select('*')
 		.eq('id', id)
-		.eq('creator_id', user.id)
-		.single();
+		.maybeSingle();
 
 	if (prError || !printRequest) {
-		//throw error
 		throw error(404, {
-			message: prError?.message ?? 'Not found'
+			message: 'This print request could not be found.'
+		});
+	}
+
+	if (printRequest.creator_id !== user.id) {
+		throw error(403, {
+			message: "This order isn't for your eyes — it belongs to another maker."
 		});
 	}
 

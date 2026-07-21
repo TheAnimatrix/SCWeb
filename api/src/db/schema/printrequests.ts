@@ -8,6 +8,7 @@ import {
 	timestamp,
 	uuid
 } from 'drizzle-orm/pg-core';
+import { paymentAttempts } from './paymentAttempts.js';
 
 export const printrequests = pgTable('printrequests', {
 	id: uuid('id').primaryKey().defaultRandom(),
@@ -26,7 +27,6 @@ export const printrequests = pgTable('printrequests', {
 	modelData: jsonb('model_data'),
 	requestStage: text('request_stage'),
 	requestMetadata: jsonb('request_metadata'),
-	orderId: text('order_id'),
-	paymentId: text('payment_id'),
+	activePaymentAttemptId: uuid('active_payment_attempt_id').references(() => paymentAttempts.id),
 	address: jsonb('address')
 });

@@ -18,6 +18,12 @@ import {
 	normalizePrintRequestEvents,
 	type PrintRequestAction
 } from './print-requests.js';
+import type { MailService } from './mail.js';
+import { getPrintRequestRecipient, notifyPrintStatusUpdate } from './order-notifications.js';
+
+export type PrintRequestsStoreOptions = {
+	mail?: MailService;
+};
 
 export type PrintRequestActionResult =
 	| { ok: true; response: PrintRequestActionResponse }
@@ -86,7 +92,10 @@ async function insertChatMessage(
 	});
 }
 
-export function createPrintRequestsStore(db: Database): PrintRequestsStore {
+export function createPrintRequestsStore(
+	db: Database,
+	options?: PrintRequestsStoreOptions
+): PrintRequestsStore {
 	return {
 		async performAction(actor, printRequestId, body) {
 			const actorId = actor.userId;
@@ -281,7 +290,65 @@ export function createPrintRequestsStore(db: Database): PrintRequestsStore {
 				}
 			}
 
+			if (result.ok && options?.mail) {
+				const parties = await getPrintRequestRecipient(db, printRequestId);
+				if (parties) {
+					sendPrintStatusEmail(
+						db,
+						options.mail,
+						printRequestId,
+						parties,
+						action,
+						body
+					);
+				}
+			}
+
 			return result;
 		}
 	};
+}
+
+function sendPrintStatusEmail(
+	db: Database,
+	mail: MailService,
+	printRequestId: string,
+	parties: { userId: string; creatorId: string },
+	action: PrintRequestAction,
+	body: PrintRequestActionBody
+) {
+	switch (action) {
+		case 'quote':
+			if (body.action !== 'quote') return;
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
+				action: 'quote',
+				amountInr: body.payload.amount
+			});
+			return;
+		case 'shipped':
+			if (body.action !== 'shipped') return;
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
+				action: 'shipped',
+				courier: body.payload.courier,
+				trackingId: body.payload.tracking_id,
+				trackingLink: body.payload.tracking_link
+			});
+			return;
+		case 'complete':
+			if (body.action !== 'complete') return;
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
+				action: 'complete'
+			});
+			return;
+		case 'decline':
+		case 'cancel': {
+			if (body.action !== 'decline' && body.action !== 'cancel') return;
+			notifyPrintStatusUpdate(db, mail, printRequestId, parties, {
+				action: body.action === 'decline' ? 'decline' : 'cancel',
+				reason: body.payload.reason,
+				initiatedBy: body.action === 'decline' ? 'maker' : 'user'
+			});
+			return;
+		}
+	}
 }

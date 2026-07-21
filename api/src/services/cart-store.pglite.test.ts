@@ -42,6 +42,20 @@ CREATE TABLE IF NOT EXISTS "products" (
 );
 `;
 
+const USERS_STUB_SQL = `
+CREATE TABLE IF NOT EXISTS "users" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"username" text,
+	"tier" text,
+	"email" text,
+	"addresses" jsonb,
+	"crafts" jsonb,
+	"orders" jsonb,
+	"quote_daily_limit" integer,
+	"created_at" timestamp with time zone NOT NULL DEFAULT now()
+);
+`;
+
 const migrationSql = readFileSync(
 	resolve(import.meta.dirname, '../../drizzle/0001_cart_checkout_tables.sql'),
 	'utf8'
@@ -60,6 +74,7 @@ type TestDb = {
 async function createTestDb(): Promise<TestDb> {
 	const client = new PGlite();
 	await client.exec(PRODUCTS_STUB_SQL);
+	await client.exec(USERS_STUB_SQL);
 
 	const statements = migrationSql
 		.split('--> statement-breakpoint')

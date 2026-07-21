@@ -1,9 +1,22 @@
 import { z } from 'zod';
 import { checkoutAddressSchema } from './address.js';
 
+export const checkoutOrderAddressesSchema = z
+	.object({
+		shipping: checkoutAddressSchema,
+		billing: checkoutAddressSchema
+	})
+	.strict();
+
+export type CheckoutOrderAddresses = z.infer<typeof checkoutOrderAddressesSchema>;
+
 export const createCheckoutOrderBodySchema = z
 	.object({
-		address: checkoutAddressSchema
+		/** Shipping address (legacy field name kept for compatibility). */
+		address: checkoutAddressSchema,
+		billingAddress: checkoutAddressSchema.optional(),
+		/** Skip reusing a stored Razorpay order (e.g. after a stale order_id error). */
+		refreshPayment: z.boolean().optional()
 	})
 	.strict();
 
@@ -13,6 +26,8 @@ export const createCheckoutOrderResponseSchema = z.object({
 	orderId: z.string().uuid(),
 	razorpayOrderId: z.string(),
 	amountPaise: z.number().int().positive(),
+	/** Whole INR rupees — mirrors the cart total used for this payment. */
+	totalRupees: z.number().int().positive(),
 	currency: z.literal('INR')
 });
 

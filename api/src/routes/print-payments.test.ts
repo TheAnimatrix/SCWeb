@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CreatePrintPaymentOrderResponse } from '../contracts/print-payments.js';
 import type { Env } from '../env.js';
 import type { Database } from '../db/index.js';
+import { emailEnvDefaults } from '../test/env-defaults.js';
 import { createPrintPaymentsRoutes } from './print-payments.js';
 import type { PrintPaymentsStore } from '../services/print-payments-store.js';
 import type { Actor, AppVariables } from '../types/context.js';
@@ -21,7 +22,8 @@ const testEnv = {
 	PUBLIC_RAZORPAY_ID: 'rzp_test',
 	RAZORPAY_KEY: 'test_razorpay_secret',
 	RATE_LIMIT_WINDOW_MS: 60_000,
-	RATE_LIMIT_MAX_REQUESTS: 120
+	RATE_LIMIT_MAX_REQUESTS: 120,
+	...emailEnvDefaults
 } satisfies Env;
 
 const validAddress = {

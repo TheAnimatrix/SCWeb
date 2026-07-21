@@ -2,7 +2,8 @@ import { redirect } from '@sveltejs/kit';
 import type { Session } from '@supabase/supabase-js';
 import type { LayoutLoad } from '../$types';
 
-export const load: LayoutLoad = async ({ route, parent, url }) => {
+export const load: LayoutLoad = async ({ depends, route, parent, url }) => {
+	depends('supabase:auth');
 	const parentData = (await parent()) as { session: Session | null };
 	const { session } = parentData;
 	if (session?.user?.id) {
@@ -16,6 +17,9 @@ export const load: LayoutLoad = async ({ route, parent, url }) => {
 		// }
 	} else {
 		if (route.id?.includes('/(authenticated)/')) {
+			if (url.pathname.startsWith('/user/profile')) {
+				redirect(303, '/user/sign');
+			}
 			const postLoginRedirect = `/user/sign?postLogin=${encodeURIComponent(url.pathname)}`;
 			redirect(303, postLoginRedirect);
 		}

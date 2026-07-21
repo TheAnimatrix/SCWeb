@@ -1,6 +1,8 @@
 <script lang="ts">
-	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
 	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
 	import { performPrintRequestAction } from '$lib/client/portalApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
@@ -8,9 +10,13 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { goto, invalidate } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
-	import { asPrintRequest } from '$lib/types/printRequest';
+	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
+	import { MetaChip, ScButton, TagBadge } from '$lib/components/sc';
+	import { cn } from '$lib/utils';
+	import { asPrintRequest, getPrintRequestDisplayName } from '$lib/types/printRequest';
+	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
+
 	let { data } = $props();
 
 	function supabase() {
@@ -36,27 +42,31 @@
 	let downloadProgress = $state(0);
 	let unreadCount = $state(0);
 
-	const displayModelName = $derived.by(() => {
-		const path = req?.model;
-		if (!path) return '';
-		const segments = path.split('/').pop()?.split('.') ?? [];
-		if (segments.length < 2) return segments.join('.');
-		const prefix = segments[segments.length - 2]?.split('_') ?? [];
-		return `${prefix[prefix.length - 1] ?? ''}.${segments[segments.length - 1] ?? ''}`;
-	});
+	const displayModelName = $derived.by(() =>
+		getPrintRequestDisplayName(req?.model, req?.model_metadata)
+	);
 
-	// Add a mapping for stage colors
-	const STAGE_COLORS: { [key: string]: string } = {
-		cancelled: 'bg-red-500/10 text-red-400 border-red-400/20',
-		requested: 'bg-accent/10 text-accent border-accent/20',
-		quoted: 'bg-purple-500/10 text-purple-400 border-purple-400/20',
-		actionable: 'bg-orange-500/10 text-orange-400 border-orange-400/20',
-		paid: 'bg-green-500/10 text-green-400 border-green-400/20',
-		paid_externally: 'bg-green-500/10 text-green-400 border-green-400/20',
-		completed: 'bg-gray-500/10 text-gray-300 border-gray-400/20',
-		'in dispute': 'bg-yellow-500/10 text-yellow-400 border-yellow-400/20',
-		default: 'bg-accent/10 text-accent border-accent/10'
+	const STAGE_STYLES: Record<string, string> = {
+		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
+		requested: 'border-border bg-muted/40 text-foreground',
+		quoted: 'border-border bg-muted/40 text-foreground',
+		actionable: 'border-foreground/20 bg-foreground/5 text-foreground',
+		paid: 'border-border bg-muted text-foreground',
+		paid_externally: 'border-border bg-muted text-foreground',
+		shipped: 'border-border bg-muted/40 text-foreground',
+		completed: 'border-border bg-muted/30 text-muted-foreground',
+		'in dispute': 'border-warning/30 bg-warning/5 text-warning',
+		default: 'border-border bg-muted/40 text-muted-foreground'
 	};
+
+	function stageStyle(stage: string | null) {
+		return STAGE_STYLES[String(stage)] ?? STAGE_STYLES.default;
+	}
+
+	const stageInfo = $derived.by(() => {
+		if (!req?.request_stage) return { msg: 'No stage information.', turn: 'maker' };
+		return getStageExplanation(req.request_stage, data.username);
+	});
 
 	async function quoteOrder() {
 		quoteDialogOpen = true;
@@ -90,11 +100,11 @@
 		e.preventDefault();
 		shippedError = '';
 		if (!courierName.trim()) {
-			shippedError = 'Courier Name is required.';
+			shippedError = 'Courier name is required.';
 			return;
 		}
 		if (!trackingId.trim() && !trackingLink.trim()) {
-			shippedError = 'Please provide either Tracking ID or Tracking Link.';
+			shippedError = 'Please provide either a tracking ID or tracking link.';
 			return;
 		}
 
@@ -112,7 +122,7 @@
 			}
 		}
 		if (!req || !req.id || !data.session?.data?.user?.id) {
-			shippedError = 'Order/session missing.';
+			shippedError = 'Order or session missing.';
 			return;
 		}
 		shippedLoading = true;
@@ -136,14 +146,14 @@
 		trackingLink = '';
 		shippedError = '';
 		invalidate('3dp-portal:printrequest');
-		toastStore.show('Order marked as shipped!', 'success');
+		toastStore.show('Order marked as shipped', 'success');
 	}
 
 	async function downloadModel() {
 		if (!req?.model || !req?.id) return;
 		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
-			toastStore.show('You must be logged in to request a quote', 'error');
+			toastStore.show('You must be logged in to download the model', 'error');
 			return;
 		}
 		downloading = true;
@@ -177,6 +187,7 @@
 	let quoteDialogOpen = $state(false);
 	let quote = $state('');
 	let quoteBreakdown = $state('');
+
 	async function onSendQuote() {
 		if (!quote) {
 			toastStore.show('Please enter a quote', 'error');
@@ -224,13 +235,11 @@
 			payload: { reason: cancelReason.trim() }
 		});
 		if (!result.ok) {
-			console.error('Error cancelling order', result.error);
+			toastStore.show(result.error.message, 'error');
 			return;
 		}
-		// 3. Close dialog and clear reason
 		cancelDialogOpen = false;
 		cancelReason = '';
-		// 4. Refresh page
 		invalidate('3dp-portal:printrequest');
 	}
 
@@ -244,11 +253,11 @@
 				return { msg: 'This order was cancelled and requires no further action.', turn: 'closed' };
 			case 'requested':
 				return {
-					msg: `${username} has requested a print. Please review and provide a quote.`,
+					msg: `${username ?? 'The customer'} has requested a print. Please review and provide a quote.`,
 					turn: 'maker'
 				};
 			case 'quoted':
-				return { msg: 'Quote has been provided. Awaiting user action.', turn: 'user' };
+				return { msg: 'Quote has been provided. Awaiting customer action.', turn: 'user' };
 			case 'actionable':
 				return { msg: 'Order is actionable. Proceed with the next steps.', turn: 'user' };
 			case 'paid':
@@ -257,11 +266,11 @@
 				return { msg: 'Order was paid externally. Confirm and proceed.', turn: 'maker' };
 			case 'shipped':
 				return {
-					msg: 'Order is shipped. No further action needed. This order will be closed when user marks it delivered or in 21 days, whichever comes first.',
+					msg: 'Order is shipped. No further action needed. This order will close when the customer marks it delivered or in 21 days, whichever comes first.',
 					turn: 'user'
 				};
 			case 'in dispute':
-				return { msg: 'Order is in dispute. Await resolution.', turn: 'SC Team' };
+				return { msg: 'Order is in dispute. Await resolution from the SC team.', turn: 'SC Team' };
 			case 'completed':
 				return { msg: 'Order is completed.', turn: 'closed' };
 			default:
@@ -269,18 +278,18 @@
 		}
 	}
 
-	function getTurn(turn: string): { msg: string; color: string } {
+	function getTurn(turn: string): { msg: string; style: string } {
 		switch (turn) {
 			case 'maker':
-				return { msg: 'Your turn', color: 'text-green-500 bg-green-500/10' };
+				return { msg: 'your_turn', style: 'border-border bg-foreground/5 text-foreground' };
 			case 'user':
-				return { msg: "The customer's turn", color: 'text-blue-500 bg-blue-500/10' };
+				return { msg: 'customer_turn', style: 'border-border bg-muted text-muted-foreground' };
 			case 'SC Team':
-				return { msg: "SC Team's review pending", color: 'text-yellow-500 bg-yellow-500/10' };
+				return { msg: 'sc_review_pending', style: 'border-warning/30 bg-warning/5 text-warning' };
 			case 'closed':
-				return { msg: 'Closed', color: 'text-gray-500 bg-gray-500/10' };
+				return { msg: 'closed', style: 'border-border bg-muted/30 text-muted-foreground' };
 			default:
-				return { msg: 'Unknown turn', color: 'text-gray-500' };
+				return { msg: 'unknown', style: 'border-border bg-muted/30 text-muted-foreground' };
 		}
 	}
 
@@ -305,25 +314,25 @@
 		}
 	});
 
-	onMount(() => {
-		//track unread counts by subscribing to the chat channel
-		if (!data.session?.data?.user?.id) return;
+	$effect(() => {
+		const userId = data.session?.data?.user?.id;
+		const orderId = req?.id;
+		if (!userId || !orderId) return;
+
 		const chatSubscription = supabase()
-			.channel('realtime-chat-global')
+			.channel(`maker-order-chat:${userId}:${orderId}`)
 			.on(
 				'postgres_changes',
 				{
 					event: 'INSERT',
 					schema: 'public',
 					table: 'Chat',
-					filter: `recipient_id=eq.${data.session.data.user.id}`
+					filter: `recipient_id=eq.${userId}`
 				},
 				(payload) => {
 					if (payload.new.message_type == 'quote' || payload.new.message_type == 'action') {
-						//update quote & event history
 						invalidate('3dp-portal:printrequest');
 					}
-					//update unread count
 					unreadCount = (unreadCount || 0) + 1;
 				}
 			)
@@ -334,241 +343,237 @@
 	});
 </script>
 
-<div class="p-2 sm:p-4 max-w-3xl mx-auto h-full flex flex-col">
+<div class="mx-auto max-w-7xl px-4 pb-16">
 	<button
+		type="button"
 		onclick={() => goto('/3dp-portal/maker#orderManagement')}
-		class="mb-4 text-accent text-sm font-medium flex items-center gap-1"
-		><span>&larr;</span> Back</button>
-	{#if !req}
-		<div class="text-red-400 text-center py-12">Print request not found.</div>
-	{:else}
-		<div
-			class="bg-black/60 rounded-lg p-4 flex flex-col items-start shadow-glow-subtle border border-accent/10 cursor-pointer select-none">
-			<div class="flex flex-col items-start justify-between w-full">
-				<div class="font-semibold text-white text-lg truncate">
-					{displayModelName || 'Model'}
-				</div>
-				<div class="text-xs text-gray-400">{new Date(req.created_at).toLocaleString()}</div>
-			</div>
-		</div>
-		<!-- Model details header -->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Model Details</div>
-			<div class="flex flex-wrap gap-x-2 mt-2">
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Model color:</div>
-					<div class="w-5 h-5 rounded-sm" style={`background-color:${req.model_data.color}`}></div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Material:</div>
-					<div>{req.model_data.material}</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Quality:</div>
-					<div>{req.model_data.quality}</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Scale:</div>
-					<div>{req.model_data.scale}x</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Infill:</div>
-					<div>{req.model_data.infill}%</div>
-				</div>
-				<div
-					class="text-white/80 mb-2 bg-black/10 px-4 py-2 rounded-lg border border-accent/10 w-fit flex gap-2 items-center text-sm">
-					<div>Walls:</div>
-					<div>{req.model_data.walls}</div>
-				</div>
-			</div>
-		</div>
-		<!-- Stage details header-->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Stage Details</div>
-			<div class="flex flex-col mt-2">
-				<div
-					class={`mb-2 px-4 py-2 rounded-lg border w-fit flex gap-2 items-center text-sm font-semibold transition-all duration-200 ${STAGE_COLORS[String(req.request_stage)] || STAGE_COLORS.default}`}>
-					<span class="capitalize">{req.request_stage}</span>
-				</div>
-			</div>
-			<!-- show the stage description -->
-			<div class="text-sm text-gray-400 flex flex-wrap items-center gap-x-2 mt-1">
-				<!-- show the stage turn -->
-				{#if req.request_stage}
-					{@const turn = getStageExplanation(req.request_stage, '').turn}
-					<div class="flex flex-col gap-1">
-						<span class="text-xs w-fit {getTurn(turn).color} rounded-full px-2 py-1"
-							>{getTurn(turn).msg}</span>
-					</div>
-				{/if}
-				<span>{getStageExplanation(req.request_stage, '').msg}</span>
-			</div>
-		</div>
+		class="mb-6 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
+		<Icon icon={F.arrowLeft} class="size-3.5" />
+		back_to_orders
+	</button>
 
-		<!-- Actions header -->
-		<div class="flex flex-col h-full mt-4 w-full">
-			<div class="text-sm text-gray-400 font-semibold">Actions</div>
-			<!-- chat button that opens drawer with message board-->
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-				<button
-					class="relative bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex justify-center items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40"
-					onclick={() => (messageBoardOpen = true)}>
-					<Icon icon="mdi:message" class="w-5 h-5" />
-					<span class="font-medium text-sm">Message</span>
-					{#if unreadCount > 0}
-						<span
-							class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white animate-pulse">
-							{unreadCount}
+	{#if !req}
+		<PortalCard class="py-16 text-center">
+			<p class="text-sm text-destructive">Print request not found.</p>
+		</PortalCard>
+	{:else}
+		<header class="mb-8 border-b border-border pb-8">
+			<TagBadge label="print_request" class="mb-3" />
+			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">{displayModelName}</h1>
+			<p class="mt-2 font-mono text-xs text-muted-foreground">
+				{new Date(req.created_at).toLocaleString()}
+			</p>
+		</header>
+
+		<div class="grid gap-4">
+			<PortalCard>
+				<PortalSectionLabel label="customer" />
+				<div class="mt-2 space-y-1">
+					<p class="font-medium text-foreground">{data.username ?? 'Customer'}</p>
+				</div>
+			</PortalCard>
+
+			<PortalCard>
+				<PortalSectionLabel label="model_details" />
+				<div class="mt-2 flex flex-wrap gap-1.5">
+					<MetaChip>
+						<span class="inline-flex items-center gap-1.5">
+							color:
+							<span
+								class="inline-block size-3 rounded-sm border border-border"
+								style={`background-color:${req.model_data.color}`}></span>
 						</span>
-					{/if}
-				</button>
-				{#if req.request_stage !== 'cancelled'}
+					</MetaChip>
+					<MetaChip>material: {req.model_data.material}</MetaChip>
+					<MetaChip tone="muted">quality: {req.model_data.quality}</MetaChip>
+					<MetaChip tone="muted">scale: {req.model_data.scale}x</MetaChip>
+					<MetaChip tone="muted">infill: {req.model_data.infill}%</MetaChip>
+					<MetaChip tone="muted">walls: {req.model_data.walls}</MetaChip>
+				</div>
+			</PortalCard>
+
+			<PortalCard>
+				<PortalSectionLabel label="stage" />
+				<div class="mt-2 space-y-2">
+					<div class="flex flex-wrap items-center gap-2">
+						<span
+							class={cn(
+								'inline-flex items-center rounded-md border px-2.5 py-1 font-mono text-xs capitalize',
+								stageStyle(req.request_stage)
+							)}>
+							{req.request_stage?.replaceAll('_', ' ') ?? 'pending'}
+						</span>
+						{#if req.request_stage}
+							{@const turn = getTurn(stageInfo.turn)}
+							<span
+								class={cn(
+									'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[10px]',
+									turn.style
+								)}>
+								{turn.msg}
+							</span>
+						{/if}
+					</div>
+					<p class="text-sm leading-relaxed text-muted-foreground">{stageInfo.msg}</p>
+				</div>
+			</PortalCard>
+
+			<PortalCard>
+				<PortalSectionLabel label="actions" />
+				<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
 					<button
-						class="bg-accent/10 hover:bg-accent/20 text-accent px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-accent/20 hover:border-accent/40 flex-col"
-						onclick={(e) => {
-							e.stopPropagation();
-							downloadModel();
-						}}
-						disabled={downloading}>
-						<div class="flex">
-							<Icon icon="mdi:download" class="w-5 h-5" />
-							<span class="font-medium text-sm"
-								>{downloading
-									? downloadProgress > 0
-										? `Downloading... ${downloadProgress}%`
-										: 'Downloading...'
-									: 'Download Model'}</span>
-						</div>
-						{#if downloading && downloadProgress > 0}
-							<div class="w-full bg-gray-700 rounded h-2">
-								<div
-									class="bg-accent h-2 rounded transition-all duration-200"
-									style={`width: ${downloadProgress}%`}>
-								</div>
-							</div>
+						type="button"
+						class="relative inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+						onclick={() => (messageBoardOpen = true)}>
+						<Icon icon={F.chat} class="size-4" />
+						Message
+						{#if unreadCount > 0}
+							<span
+								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-[10px] text-destructive-foreground">
+								{unreadCount}
+							</span>
 						{/if}
 					</button>
-				{/if}
-				<!-- other actions -->
-				{#if req.request_stage === 'requested'}
-					<button
-						class="bg-blue-400/10 hover:bg-blue-500/20 text-blue-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-blue-400/20 hover:border-blue-400/40"
-						onclick={quoteOrder}>
-						<Icon icon="mdi:currency-inr" class="w-5 h-5" />
-						<span class="font-medium text-sm">Quote</span>
-					</button>
-				{:else if req.request_stage === 'quoted'}
-					<button
-						class="bg-blue-400/10 hover:bg-blue-500/20 text-blue-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-blue-400/20 hover:border-blue-400/40"
-						onclick={quoteOrder}>
-						<Icon icon="mdi:currency-inr" class="w-5 h-5" />
-						<span class="font-medium text-sm">Re-Quote</span>
-					</button>
-				{:else if req.request_stage === 'paid'}
-					<button
-						class="bg-green-400/10 hover:bg-green-500/20 text-green-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-green-400/20 hover:border-green-400/40"
-						onclick={onOpenShippedDialog}>
-						<Icon icon="mdi:truck-delivery" class="w-5 h-5" />
-						<span class="font-medium text-sm">Mark as Shipped</span>
-					</button>
-				{/if}
-				<!-- help button that redirects to discord#help channel-->
-				<a
-					href="https://discord.gg/k6CC6GTR4g"
-					class=" bg-yellow-400/10 hover:bg-yellow-500/20 text-yellow-300 justify-center px-2 py-2 rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-yellow-400/20 hover:border-yellow-400/40"
-					target="_blank"
-					rel="noopener noreferrer">
-					<Icon icon="ph:discord-logo-duotone" class="w-5 h-5" />
-					<span class="font-medium text-sm">Help</span>
-				</a>
-				<!-- if the current stage is requested, show a button to cancel the request-->
-				{#if req.request_stage === 'requested' || req.request_stage === 'quoted'}
-					<button
-						class="bg-red-400/10 hover:bg-red-500/20 text-red-300 px-2 py-2 justify-center rounded-lg transition-all duration-200 disabled:opacity-60 flex items-center gap-2 shadow-glow-subtle hover:shadow-glow border border-red-400/20 hover:border-red-400/40"
-						onclick={() => (cancelDialogOpen = true)}>
-						<Icon icon="mdi:cancel" class="w-5 h-5" />
-						<span class="font-medium text-sm">Cancel</span>
-					</button>
-				{/if}
-			</div>
-		</div>
 
-		<!-- Event history header-->
-		{#if sortedEvents && sortedEvents.length > 0}
-			<div class="flex flex-col h-full mt-4 w-full">
-				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
-				<div class="flex flex-col gap-2">
-					{#each sortedEvents as event (event.timestamp + event.type)}
-						<div
-							class="bg-black/10 px-4 py-2 rounded-lg border border-accent/10 text-sm {event.type ===
-							'cancelled'
-								? 'bg-red-500/10 text-red-400 border-red-400/20'
-								: ''} {event.type == 'paid'
-								? 'bg-green-500/10 text-green-400 border-green-400/20'
-								: ''}">
-							<div class="flex items-center justify-between text-white/80">
-								<span class="font-medium"
-									>Event : <span class="capitalize">{event.type}</span></span>
-								<span class="text-gray-400 text-xs"
-									>{new Date(event.timestamp).toLocaleString(undefined, {
-										hour: '2-digit',
-										minute: '2-digit',
-										year: 'numeric',
-										month: 'short',
-										day: 'numeric'
-									})}</span>
-							</div>
-							{#if event.reason}
-								<div class="text-gray-400 mt-1 text-xs">Message : {event.reason}</div>
+					{#if req.request_stage !== 'cancelled'}
+						<button
+							type="button"
+							class="inline-flex flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+							onclick={(e) => {
+								e.stopPropagation();
+								downloadModel();
+							}}
+							disabled={downloading}>
+							<span class="inline-flex items-center gap-2">
+								<Icon icon={F.download} class="size-4" />
+								{downloading
+									? downloadProgress > 0
+										? `Downloading… ${downloadProgress}%`
+										: 'Downloading…'
+									: 'Download model'}
+							</span>
+							{#if downloading && downloadProgress > 0}
+								<div class="h-1 w-full overflow-hidden rounded-full bg-border">
+									<div
+										class="h-full rounded-full bg-foreground transition-all duration-200"
+										style={`width: ${downloadProgress}%`}>
+									</div>
+								</div>
 							{/if}
-							{#if event.extra}
-								{#if event.extra.quote}
-									<div class="text-gray-400 mt-1 font-semibold">Quote : {event.extra.quote}₹</div>
+						</button>
+					{/if}
+
+					{#if req.request_stage === 'requested'}
+						<ScButton class="justify-center" onclick={quoteOrder}>
+							<Icon icon={F.money} class="mr-1.5 size-4" />
+							Send quote
+						</ScButton>
+					{:else if req.request_stage === 'quoted'}
+						<ScButton variant="secondary" class="justify-center" onclick={quoteOrder}>
+							<Icon icon={F.money} class="mr-1.5 size-4" />
+							Re-quote
+						</ScButton>
+					{:else if req.request_stage === 'paid'}
+						<ScButton class="justify-center" onclick={onOpenShippedDialog}>
+							<Icon icon={F.truck} class="mr-1.5 size-4" />
+							Mark as shipped
+						</ScButton>
+					{/if}
+
+					<ScButton
+						variant="discord"
+						href="https://discord.gg/k6CC6GTR4g"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="justify-center">
+						Help on Discord
+					</ScButton>
+
+					{#if req.request_stage === 'requested' || req.request_stage === 'quoted'}
+						<ScButton
+							variant="secondary"
+							class="justify-center border-destructive/30 text-destructive hover:bg-destructive/5"
+							onclick={() => (cancelDialogOpen = true)}>
+							Decline request
+						</ScButton>
+					{/if}
+				</div>
+			</PortalCard>
+
+			<PortalCard>
+				<PortalSectionLabel label="event_history" />
+				{#if sortedEvents && sortedEvents.length > 0}
+					<div class="mt-3 flex flex-col gap-2">
+						{#each sortedEvents as event (event.timestamp + event.type)}
+							<div
+								class={cn(
+									'rounded-md border px-4 py-3 text-sm',
+									event.type === 'cancelled'
+										? 'border-destructive/30 bg-destructive/5'
+										: event.type === 'paid'
+											? 'border-border bg-muted/30'
+											: 'border-border bg-card'
+								)}>
+								<div class="flex items-center justify-between gap-3">
+									<span class="font-mono text-xs text-foreground capitalize">
+										{event.type.replaceAll('_', ' ')}
+									</span>
+									<span class="font-mono text-[10px] text-muted-foreground">
+										{new Date(event.timestamp).toLocaleString(undefined, {
+											hour: '2-digit',
+											minute: '2-digit',
+											year: 'numeric',
+											month: 'short',
+											day: 'numeric'
+										})}
+									</span>
+								</div>
+								{#if event.reason}
+									<p class="mt-1 text-xs text-muted-foreground">{event.reason}</p>
 								{/if}
-								{#if event.extra.payment_id_a}
-									<div class="text-gray-400 mt-1 font-semibold">
-										Order ID : {event.extra.payment_id_a}
-									</div>
+								{#if event.extra}
+									{#if event.extra.quote}
+										<p class="mt-1 font-mono text-xs text-foreground">
+											quote: {event.extra.quote}₹
+										</p>
+									{/if}
+									{#if event.extra.payment_id_a}
+										<p class="mt-1 font-mono text-xs text-muted-foreground">
+											order_id: {event.extra.payment_id_a}
+										</p>
+									{/if}
+									{#if event.extra.payment_id_b}
+										<p class="mt-1 font-mono text-xs text-muted-foreground">
+											payment_id: {event.extra.payment_id_b}
+										</p>
+									{/if}
+									{#if formatPrintEventAmountInr(event.extra)}
+										<p class="mt-1 font-mono text-xs text-muted-foreground">
+											amount: {formatPrintEventAmountInr(event.extra)}₹
+										</p>
+									{/if}
 								{/if}
-								{#if event.extra.payment_id_b}
-									<div class="text-gray-400 mt-1 font-semibold">
-										Payment ID : {event.extra.payment_id_b}
-									</div>
-								{/if}
-								{#if event.extra.amount}
-									<div class="text-gray-400 mt-1 font-semibold">
-										Amount : {(Number(event.extra.amount) / 100).toFixed(2)}₹
-									</div>
-								{/if}
-							{/if}
-							<div class="text-accent/80 text-xs mt-1">
-								by <span class="capitalize">{event.by == 'user' ? 'user' : 'you'}</span>
+								<p class="mt-1 font-mono text-[10px] text-muted-foreground">
+									by {event.by === 'user' ? 'customer' : 'you'}
+								</p>
 							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{:else}
-			<div class="flex flex-col h-full mt-4 w-full">
-				<div class="text-sm text-gray-400 font-semibold mb-2">Event history</div>
-				<div class="text-gray-400 text-start py-2 text-sm italic opacity-60 text-wrap">
-					So empty.... <br />If any notable events (quotes,cancellations,payments,etc) happen,<br />
-					they will be shown here.
-				</div>
-			</div>
-		{/if}
+						{/each}
+					</div>
+				{:else}
+					<p class="mt-3 text-sm italic text-muted-foreground">
+						No notable events yet. Quotes, cancellations, and payments will appear here.
+					</p>
+				{/if}
+			</PortalCard>
+		</div>
 	{/if}
 </div>
 
 {#if messageBoardOpen && req}
 	<Drawer.Root bind:open={messageBoardOpen}>
-		<Drawer.Trigger style="display:none" />
-		<Drawer.Content class="max-w-3xl mx-auto h-[100vh] sm:h-[80vh] transition-all duration-200">
+		<Drawer.Trigger class="hidden" />
+		<Drawer.Content
+			class="mx-auto flex h-[100vh] max-w-3xl flex-col border-border bg-background sm:h-[80vh]">
 			<MessageBoard
 				orderId={req.id}
 				supabase={data.supabase}
@@ -580,120 +585,124 @@
 {/if}
 
 <Dialog.Root bind:open={cancelDialogOpen}>
-	<Dialog.Content class="z-[1050]">
+	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Cancel Order</Dialog.Title>
+			<Dialog.Title>Decline request</Dialog.Title>
 			<Dialog.Description>
-				Please provide a reason for cancellation. This action cannot be undone.
+				Please provide a reason for declining. This action cannot be undone.
 			</Dialog.Description>
 		</Dialog.Header>
-		<Textarea bind:value={cancelReason} class="w-full mt-4" placeholder="Enter reason..." />
-		<Dialog.Footer>
+		<Textarea bind:value={cancelReason} class="mt-4 w-full" placeholder="Enter reason…" />
+		<Dialog.Footer class="gap-2">
+			<ScButton variant="secondary" onclick={onCancelCancel}>Cancel</ScButton>
 			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors mr-2"
-				onclick={onCancelCancel}>Cancel</button>
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+				type="button"
+				class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
 				onclick={onConfirmCancel}
-				disabled={!cancelReason.trim()}>Confirm</button>
+				disabled={!cancelReason.trim()}>
+				Confirm
+			</button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
 
 <Dialog.Root bind:open={quoteDialogOpen}>
-	<Dialog.Content class="z-[1050]">
+	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Quote Order</Dialog.Title>
-			<Dialog.Description>Please provide a quote for the order.</Dialog.Description>
+			<Dialog.Title>Quote order</Dialog.Title>
+			<Dialog.Description>Provide a quote for this print request.</Dialog.Description>
 		</Dialog.Header>
 		<Textarea
 			disabled={quoteLoading}
 			bind:value={quoteBreakdown}
-			class="w-full mt-4"
-			placeholder="Enter quote breakdown (optional)" />
-		<!-- quote inr floating input-->
-		<div class="flex flex-col gap-2">
-			<span class="text-xs text-gray-400">Quote - Final Price (₹)</span>
-			<div class="flex flex-row gap-2 items-center">
-				<span class="text-sm text-gray-400">₹</span>
+			class="mt-4 w-full"
+			placeholder="Quote breakdown (optional)…" />
+		<div class="mt-4 flex flex-col gap-2">
+			<label for="quote-amount" class="font-mono text-xs text-muted-foreground">
+				final_price_inr
+			</label>
+			<div class="flex items-center gap-2">
+				<span class="text-sm text-muted-foreground">₹</span>
 				<input
+					id="quote-amount"
 					disabled={quoteLoading}
 					type="number"
 					bind:value={quote}
-					class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
-					placeholder="Enter price like : 249.99" />
+					class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+					placeholder="e.g. 249" />
 			</div>
 		</div>
-		<Dialog.Footer class="flex justify-end gap-3 mt-6">
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors border border-white/10"
-				onclick={onCancelCancel}>Cancel</button>
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-accent-dark/30 hover:bg-accent-dark/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-				onclick={onSendQuote}
-				disabled={!quote || quoteLoading}>
+		<Dialog.Footer class="mt-6 gap-2">
+			<ScButton variant="secondary" onclick={() => (quoteDialogOpen = false)}>Cancel</ScButton>
+			<ScButton onclick={onSendQuote} disabled={!quote || quoteLoading}>
 				{#if !quoteLoading}
-					<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
+					<Icon icon={F.send} class="mr-1.5 size-4" />
 				{/if}
-				{quoteLoading ? 'Sending…' : 'Send Quote'}
-			</button>
+				{quoteLoading ? 'Sending…' : 'Send quote'}
+			</ScButton>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
 
 <Dialog.Root bind:open={shippedDialogOpen}>
-	<Dialog.Content class="z-[1050]">
+	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Mark as Shipped</Dialog.Title>
+			<Dialog.Title>Mark as shipped</Dialog.Title>
 			<Dialog.Description>
-				Please provide the shipping details. <span class="text-yellow-400"
-					>Either Tracking ID or Tracking Link is required.</span>
+				Provide shipping details. Either a tracking ID or tracking link is required.
 			</Dialog.Description>
 		</Dialog.Header>
-		<div class="flex flex-col gap-3 mt-4">
-			<label class="text-sm text-gray-300 font-medium" for="courier-name"
-				>Courier Name<span class="text-red-400">*</span></label>
-			<input
-				id="courier-name"
-				type="text"
-				bind:value={courierName}
-				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
-				placeholder="e.g. Bluedart, Delhivery, etc."
-				disabled={shippedLoading} />
-			<label class="text-sm text-gray-300 font-medium" for="tracking-id">Tracking ID</label>
-			<input
-				id="tracking-id"
-				type="text"
-				bind:value={trackingId}
-				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
-				placeholder="e.g. 1234567890"
-				disabled={shippedLoading} />
-			<label class="text-sm text-gray-300 font-medium" for="tracking-link">Tracking Link</label>
-			<input
-				id="tracking-link"
-				type="url"
-				bind:value={trackingLink}
-				class="w-full rounded-md p-2 bg-accent/5 border border-accent/10 text-sm text-gray-400 placeholder:text-gray-400 placeholder:opacity-50"
-				placeholder="e.g. https://courier.com/track/123456"
-				disabled={shippedLoading} />
+		<div class="mt-4 flex flex-col gap-3">
+			<div>
+				<label for="courier-name" class="mb-1.5 block font-mono text-xs text-muted-foreground">
+					courier_name <span class="text-destructive">*</span>
+				</label>
+				<input
+					id="courier-name"
+					type="text"
+					bind:value={courierName}
+					class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+					placeholder="e.g. Bluedart, Delhivery"
+					disabled={shippedLoading} />
+			</div>
+			<div>
+				<label for="tracking-id" class="mb-1.5 block font-mono text-xs text-muted-foreground">
+					tracking_id
+				</label>
+				<input
+					id="tracking-id"
+					type="text"
+					bind:value={trackingId}
+					class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+					placeholder="e.g. 1234567890"
+					disabled={shippedLoading} />
+			</div>
+			<div>
+				<label for="tracking-link" class="mb-1.5 block font-mono text-xs text-muted-foreground">
+					tracking_link
+				</label>
+				<input
+					id="tracking-link"
+					type="url"
+					bind:value={trackingLink}
+					class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+					placeholder="https://courier.com/track/123456"
+					disabled={shippedLoading} />
+			</div>
 			{#if shippedError}
-				<div class="text-red-400 text-xs mt-1">{shippedError}</div>
+				<p class="text-xs text-destructive">{shippedError}</p>
 			{/if}
 		</div>
-		<Dialog.Footer class="flex justify-end gap-3 mt-6">
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors border border-white/10"
-				onclick={onCancelShipped}
-				disabled={shippedLoading}>Cancel</button>
-			<button
-				class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-				onclick={onConfirmShipped}
-				disabled={shippedLoading}>
+		<Dialog.Footer class="mt-6 gap-2">
+			<ScButton variant="secondary" onclick={onCancelShipped} disabled={shippedLoading}>
+				Cancel
+			</ScButton>
+			<ScButton onclick={onConfirmShipped} disabled={shippedLoading}>
 				{#if !shippedLoading}
-					<Icon icon="ph:paper-plane-right-duotone" class="text-base" />
+					<Icon icon={F.truck} class="mr-1.5 size-4" />
 				{/if}
-				{shippedLoading ? 'Saving…' : 'Mark as Shipped'}
-			</button>
+				{shippedLoading ? 'Saving…' : 'Mark as shipped'}
+			</ScButton>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

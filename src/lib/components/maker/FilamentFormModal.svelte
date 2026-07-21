@@ -1,13 +1,14 @@
 <script lang="ts">
-	import Minus from '@lucide/svelte/icons/minus';
-	import Plus from '@lucide/svelte/icons/plus';
-	import X from '@lucide/svelte/icons/x';
-	import * as Dialog from '$lib/components/ui/dialog';
+	import Icon from '@iconify/svelte';
+	import { F } from '$lib/icons/fluent';
+
+				import * as Dialog from '$lib/components/ui/dialog';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import { PortalSectionLabel, ParameterChip } from '$lib/components/portal';
 	import { ChipGridSkeleton, ScButton, ScInput, Skeleton } from '$lib/components/sc';
 	import { onMount } from 'svelte';
 	import ColorPicker from './ColorPicker.svelte';
+	import { getConstant } from '$lib/client/catalogApi';
 	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { FilamentFormData } from '$lib/types/filament';
 
@@ -85,16 +86,12 @@
 		(async () => {
 			typesLoading = true;
 			try {
-				const { data, error } = await supabase
-					.from('constants')
-					.select('value')
-					.eq('key', 'FILTYPES')
-					.single();
-				if (error) {
+				const result = await getConstant(fetch, 'FILTYPES');
+				if (!result.ok) {
 					typesError = 'Failed to load filament types.';
 					filamentTypes = [];
 				} else {
-					const rawTypes = data?.value;
+					const rawTypes = result.data.value;
 					filamentTypes = Array.isArray(rawTypes)
 						? rawTypes.filter((value): value is string => typeof value === 'string')
 						: [];
@@ -259,7 +256,7 @@
 						class="text-muted-foreground transition-colors hover:text-foreground"
 						onclick={() => (showPresetDropdown = false)}
 						aria-label="Close presets">
-						<X class="size-4" strokeWidth={1.5} />
+						<Icon icon={F.dismiss} class="size-4" />
 					</button>
 				</div>
 				<ScInput
@@ -368,7 +365,7 @@
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
 					aria-label="Decrease quantity">
-					<Minus class="size-4" strokeWidth={1.5} />
+					<Icon icon={F.subtract} class="size-4" />
 				</button>
 				<input
 					id="quantity"
@@ -385,7 +382,7 @@
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
 					aria-label="Increase quantity">
-					<Plus class="size-4" strokeWidth={1.5} />
+					<Icon icon={F.add} class="size-4" />
 				</button>
 			</div>
 			{#if errors.quantity_kg}
@@ -403,7 +400,7 @@
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
 					aria-label="Decrease cost">
-					<Minus class="size-4" strokeWidth={1.5} />
+					<Icon icon={F.subtract} class="size-4" />
 				</button>
 				<input
 					id="cost_kg"
@@ -421,7 +418,7 @@
 					onmouseup={stopHoldStep}
 					onmouseleave={stopHoldStep}
 					aria-label="Increase cost">
-					<Plus class="size-4" strokeWidth={1.5} />
+					<Icon icon={F.add} class="size-4" />
 				</button>
 			</div>
 		</div>
