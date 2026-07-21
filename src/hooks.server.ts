@@ -9,6 +9,8 @@ import { CLIENT_ID_COOKIE_NAME } from '$lib/constants/cookies';
 import { createLogger } from '$lib/server/logger';
 import { scrubSentryEvent } from '$lib/sentry-scrub';
 import { sanitizeRequestId } from '$lib/server/request-id';
+import { fetchMakerMe, map3dpPortalRedirect } from '$lib/server/maker';
+import { redirect } from '@sveltejs/kit';
 
 const sentryDsn = env.SENTRY_DSN;
 
@@ -129,6 +131,23 @@ const appHandle: Handle = async ({ event, resolve }) => {
 			user: session?.user ?? null
 		};
 	};
+
+	event.locals.maker = null;
+	event.locals.getMaker = async () => {
+		if (event.locals.maker !== null || event.locals._makerResolved) {
+			return event.locals.maker;
+		}
+		event.locals._makerResolved = true;
+		const { session } = await event.locals.safeGetSession();
+		const maker = await fetchMakerMe(event.fetch, session?.access_token);
+		event.locals.maker = maker;
+		return maker;
+	};
+
+	const portalRedirect = map3dpPortalRedirect(event.url.pathname);
+	if (portalRedirect) {
+		throw redirect(308, portalRedirect + event.url.search);
+	}
 
 	const log = createLogger({
 		requestId,

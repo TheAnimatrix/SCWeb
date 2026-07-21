@@ -14,7 +14,7 @@ export function getProxyTimeoutMs(path: string | undefined): number {
 	return DEFAULT_TIMEOUT_MS;
 }
 
-const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE']);
+const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 function containsDotDotSegment(path: string): boolean {
 	const hasDotDot = (value: string) => value.split('/').some((segment) => segment === '..');

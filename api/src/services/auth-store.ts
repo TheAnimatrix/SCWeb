@@ -14,6 +14,7 @@ import {
 } from './email-templates/index.js';
 import type { MailService } from './mail.js';
 import { storeLog } from '../middleware/logging.js';
+import { isReservedUsername } from '../lib/reserved-usernames.js';
 
 export type AuthStore = ReturnType<typeof createAuthStore>;
 
@@ -62,6 +63,14 @@ export function createAuthStore(db: Database, env: Env, mail: MailService) {
 		async signup(body: SignupBody): Promise<AuthResult<{ needsConfirmation: boolean }>> {
 			const admin = createAdminClient(env);
 			const siteUrl = mail.siteUrl;
+
+			if (isReservedUsername(body.username)) {
+				return {
+					ok: false,
+					status: 400,
+					body: { error: 'username_reserved', message: 'Username not available' }
+				};
+			}
 
 			if (await isUsernameTaken(db, body.username)) {
 				return {

@@ -34,7 +34,8 @@ import {
 export type UpsertCartItemResult =
 	| { ok: true; response: GetCartResponse }
 	| { ok: false; status: 409; body: { error: 'insufficient_stock'; limit: number } }
-	| { ok: false; status: 404; body: { error: 'product_not_found' } };
+	| { ok: false; status: 404; body: { error: 'product_not_found' } }
+	| { ok: false; status: 409; body: { error: 'listing_not_available' } };
 
 export type MergeCartResult =
 	| { ok: true; response: MergeCartResponse }
@@ -344,6 +345,14 @@ export function createCartStore(db: Database): CartStore {
 						ok: false as const,
 						status: 404 as const,
 						body: { error: 'product_not_found' as const }
+					};
+				}
+
+				if (product.listingState !== 'live') {
+					return {
+						ok: false as const,
+						status: 409 as const,
+						body: { error: 'listing_not_available' as const }
 					};
 				}
 

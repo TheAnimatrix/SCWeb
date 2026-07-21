@@ -47,13 +47,15 @@ export function createCartRoutes(
 					return c.json(result.body, 404);
 				}
 
+				const reason =
+					'error' in result.body ? result.body.error : 'insufficient_stock';
 				logCartMutation(c, 'info', 'cart.item.rejected', {
 					productId,
 					qty: body.qty,
 					mode: body.mode,
 					actorType: actorType(actor),
-					reason: 'insufficient_stock',
-					limit: result.body.limit
+					reason,
+					...('limit' in result.body ? { limit: result.body.limit } : {})
 				});
 				return c.json(result.body, result.status);
 			}

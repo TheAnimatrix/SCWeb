@@ -30,7 +30,9 @@ describe('isAllowedProxyMethod', () => {
 	it('allows standard API verbs', () => {
 		expect(isAllowedProxyMethod('GET')).toBe(true);
 		expect(isAllowedProxyMethod('POST')).toBe(true);
-		expect(isAllowedProxyMethod('PATCH')).toBe(false);
+		expect(isAllowedProxyMethod('PUT')).toBe(true);
+		expect(isAllowedProxyMethod('PATCH')).toBe(true);
+		expect(isAllowedProxyMethod('DELETE')).toBe(true);
 	});
 });
 

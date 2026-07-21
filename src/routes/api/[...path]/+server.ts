@@ -114,4 +114,5 @@ async function proxyRequest(event: RequestEvent) {
 export const GET: RequestHandler = (event) => proxyRequest(event);
 export const POST: RequestHandler = (event) => proxyRequest(event);
 export const PUT: RequestHandler = (event) => proxyRequest(event);
+export const PATCH: RequestHandler = (event) => proxyRequest(event);
 export const DELETE: RequestHandler = (event) => proxyRequest(event);

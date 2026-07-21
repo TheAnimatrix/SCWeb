@@ -19,4 +19,5 @@ export type {
 	MergeCartResponse
 } from './contracts/index.js';
 export { requireAuth } from './middleware/require-auth.js';
+export { requireMaker, requireCapability, requireStaff } from './middleware/require-maker.js';
 export { signClientId, verifyClientIdCookie } from './lib/client-id.js';

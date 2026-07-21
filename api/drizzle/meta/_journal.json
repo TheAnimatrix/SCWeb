@@ -29,6 +29,55 @@
       "when": 1783764401374,
       "tag": "0004_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783850801374,
+      "tag": "0005_payment_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783937201374,
+      "tag": "0006_money_paise",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784023601374,
+      "tag": "0007_print_request_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784110001374,
+      "tag": "0008_drop_legacy_payment_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784196401374,
+      "tag": "0009_makers",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784282801374,
+      "tag": "0010_maker_experience",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784369201374,
+      "tag": "0011_maker_experience_hardening",
+      "breakpoints": true
     }
   ]
 }
