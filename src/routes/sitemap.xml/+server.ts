@@ -2,6 +2,7 @@ import type { RequestHandler } from './$types';
 import { productPath } from '$lib/seo/product';
 import { getSiteUrl } from '$lib/seo/site';
 import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
+import { posts } from '$lib/blog/posts';
 
 interface BrowseProduct {
 	id: string;
@@ -22,6 +23,7 @@ const STATIC_ROUTES: { path: string; changefreq: string; priority: string }[] = 
 	{ path: '/', changefreq: 'daily', priority: '1.0' },
 	{ path: '/crafts', changefreq: 'daily', priority: '0.9' },
 	{ path: '/crafting', changefreq: 'monthly', priority: '0.8' },
+	{ path: '/blog', changefreq: 'weekly', priority: '0.8' },
 	{ path: '/3dp-portal', changefreq: 'weekly', priority: '0.8' },
 	{ path: '/policy', changefreq: 'monthly', priority: '0.5' }
 ];
@@ -69,9 +71,11 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
 	const entries: string[] = [];
 
 	for (const route of STATIC_ROUTES) {
-		entries.push(
-			urlEntry(`${siteUrl}${route.path}`, undefined, route.changefreq, route.priority)
-		);
+		entries.push(urlEntry(`${siteUrl}${route.path}`, undefined, route.changefreq, route.priority));
+	}
+
+	for (const post of posts) {
+		entries.push(urlEntry(`${siteUrl}/blog/${post.slug}`, post.publishedAt, 'monthly', '0.7'));
 	}
 
 	try {
@@ -96,12 +100,7 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
 					? new Date(storefront.published_at).toISOString().slice(0, 10)
 					: undefined;
 				entries.push(
-					urlEntry(
-						`${siteUrl}${makerStorefrontPath(storefront.handle)}`,
-						lastmod,
-						'weekly',
-						'0.8'
-					)
+					urlEntry(`${siteUrl}${makerStorefrontPath(storefront.handle)}`, lastmod, 'weekly', '0.8')
 				);
 			}
 		}

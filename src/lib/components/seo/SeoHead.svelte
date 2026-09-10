@@ -5,9 +5,7 @@
 
 	let { meta = {} }: { meta?: SeoMeta } = $props();
 
-	const resolved = $derived(
-		resolveSeo(meta, getSiteUrl(page.url.origin))
-	);
+	const resolved = $derived(resolveSeo(meta, getSiteUrl(page.url.origin)));
 </script>
 
 <svelte:head>
@@ -26,7 +24,7 @@
 
 	<meta property="og:title" content={resolved.title} />
 	<meta property="og:description" content={resolved.description} />
-	<meta property="og:type" content={resolved.type === 'product' ? 'product' : 'website'} />
+	<meta property="og:type" content={resolved.type} />
 	<meta property="og:url" content={resolved.canonical} />
 	<meta property="og:image" content={resolved.image} />
 	<meta property="og:image:secure_url" content={resolved.image} />
@@ -35,6 +33,14 @@
 	<meta property="og:image:alt" content={resolved.imageAlt} />
 	<meta property="og:site_name" content="Selfcrafted India" />
 	<meta property="og:locale" content="en_IN" />
+	{#if resolved.type === 'article'}
+		{#if resolved.publishedTime}
+			<meta property="article:published_time" content={resolved.publishedTime} />
+		{/if}
+		{#if resolved.author}
+			<meta property="article:author" content={resolved.author} />
+		{/if}
+	{/if}
 	{#if resolved.type === 'product' && resolved.price != null}
 		<meta property="product:price:amount" content={String(resolved.price)} />
 		<meta property="product:price:currency" content={resolved.priceCurrency ?? 'INR'} />

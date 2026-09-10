@@ -25,6 +25,7 @@
 			title: '/explore',
 			links: [
 				{ label: 'crafts', href: '/crafts' },
+				{ label: 'blog', href: '/blog' },
 				{ label: '3dp_portal', href: '/3dp-portal' },
 				{ label: 'Start crafting', href: '/crafting' }
 			]

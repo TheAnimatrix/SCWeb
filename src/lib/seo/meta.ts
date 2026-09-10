@@ -30,6 +30,8 @@ export interface SeoMeta {
 	keywords?: string[];
 	price?: number;
 	priceCurrency?: string;
+	publishedTime?: string;
+	author?: string;
 }
 
 export const homeSeo: SeoMeta = {
@@ -77,9 +79,10 @@ export const policySeo: SeoMeta = {
 	noindex: false
 };
 
-export function resolveSeo(meta: SeoMeta = {}, origin?: string): Required<
-	Pick<SeoMeta, 'title' | 'description' | 'type' | 'noindex'>
-> & {
+export function resolveSeo(
+	meta: SeoMeta = {},
+	origin?: string
+): Required<Pick<SeoMeta, 'title' | 'description' | 'type' | 'noindex'>> & {
 	canonical: string;
 	image: string;
 	imageAlt: string;
@@ -88,12 +91,16 @@ export function resolveSeo(meta: SeoMeta = {}, origin?: string): Required<
 	keywords?: string[];
 	price?: number;
 	priceCurrency?: string;
+	publishedTime?: string;
+	author?: string;
 } {
 	const siteUrl = origin ?? getSiteUrl();
 	const title = formatTitle(meta.title === SITE_NAME ? undefined : meta.title);
 	const description = meta.description ?? DEFAULT_DESCRIPTION;
 	const canonical = meta.canonical ?? siteUrl;
-	const image = meta.image ? absoluteUrl(meta.image, siteUrl) : absoluteUrl(DEFAULT_OG_IMAGE, siteUrl);
+	const image = meta.image
+		? absoluteUrl(meta.image, siteUrl)
+		: absoluteUrl(DEFAULT_OG_IMAGE, siteUrl);
 
 	return {
 		title,
@@ -107,7 +114,9 @@ export function resolveSeo(meta: SeoMeta = {}, origin?: string): Required<
 		noindex: meta.noindex ?? false,
 		keywords: meta.keywords,
 		price: meta.price,
-		priceCurrency: meta.priceCurrency
+		priceCurrency: meta.priceCurrency,
+		publishedTime: meta.publishedTime,
+		author: meta.author
 	};
 }
 
@@ -167,10 +176,7 @@ export function productJsonLd(product: Product, origin?: string) {
 	};
 }
 
-export function breadcrumbJsonLd(
-	items: { name: string; path?: string }[],
-	origin?: string
-) {
+export function breadcrumbJsonLd(items: { name: string; path?: string }[], origin?: string) {
 	const siteUrl = origin ?? getSiteUrl();
 
 	return {
@@ -180,9 +186,7 @@ export function breadcrumbJsonLd(
 			'@type': 'ListItem',
 			position: index + 1,
 			name: item.name,
-			...(item.path
-				? { item: absoluteUrl(item.path, siteUrl) }
-				: {})
+			...(item.path ? { item: absoluteUrl(item.path, siteUrl) } : {})
 		}))
 	};
 }

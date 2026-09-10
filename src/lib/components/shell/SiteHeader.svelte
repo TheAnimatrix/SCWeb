@@ -39,7 +39,8 @@
 	const navLinks: NavLink[] = [
 		{ label: 'Crafts', href: '/crafts', icon: F.box },
 		{ label: 'Start crafting', href: '/crafting', icon: F.hammer },
-		{ label: '3D Print', href: '/3dp-portal', icon: F.print }
+		{ label: '3D Print', href: '/3dp-portal', icon: F.print },
+		{ label: 'Blog', href: '/blog', icon: F.edit }
 	];
 
 	const isSignedIn = $derived(userProfile !== null);
@@ -135,9 +136,12 @@
 			<ScLogo variant={logoVariant} class="hidden h-8 w-auto sm:block" />
 		</a>
 
-		<nav class="hidden items-center gap-8 md:flex" aria-label="Main navigation">
+		<nav class="hidden items-center gap-4 md:flex lg:gap-8" aria-label="Main navigation">
 			{#each navLinks as link (link.href)}
-				<a href={link.href} class={navLinkClass(link.href)}>
+				<a
+					href={link.href}
+					class={navLinkClass(link.href)}
+					aria-current={isActive(link.href) ? 'page' : undefined}>
 					{#if link.icon}
 						<span aria-hidden="true">
 							<Icon icon={link.icon} class="size-4 shrink-0" />
@@ -270,7 +274,11 @@
 			<ul class="flex flex-col gap-1">
 				{#each navLinks as link (link.href)}
 					<li class:py-1={isActive(link.href)}>
-						<a href={link.href} class={navLinkClass(link.href, true)} onclick={closeMobileMenu}>
+						<a
+							href={link.href}
+							class={navLinkClass(link.href, true)}
+							aria-current={isActive(link.href) ? 'page' : undefined}
+							onclick={closeMobileMenu}>
 							{#if link.icon}
 								<span aria-hidden="true">
 									<Icon icon={link.icon} class="size-4 shrink-0" />

@@ -49,6 +49,18 @@ Selfcrafted is a web application designed to provide users with an engaging and 
 
 5. Open your browser and navigate to `http://localhost:5173` to view the application.
 
+## Journal content
+
+The blog lives at `/blog`, with individual stories at `/blog/[slug]`. Edit the starter articles or add
+new entries in `src/lib/blog/posts.ts`. Each entry contains a stable slug, title, excerpt, category,
+publication date, a cover illustration with alt text and dimensions, and structured body blocks
+(paragraphs, headings, quotes, or lists). Paragraphs may include links to public sources. Reading times
+are calculated from the content; the feed and sitemap include the articles automatically. Publish
+content changes through the normal site deployment.
+
+Blog illustrations are stored in `static/images/blog`; the generation prompts are recorded in
+`docs/blog-image-prompts.md`.
+
 ## Contributing
 
 Contributions are welcome! Please follow these guidelines:
