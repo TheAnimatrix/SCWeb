@@ -314,10 +314,11 @@ export function createMakersStore(db: Database) {
 					avg_quote_time: crafter.avgQuoteTime,
 					avg_rating: crafter.avgRating,
 					completed_orders: crafter.completedOrders,
-					contact_number: crafter.contactNumber,
+					// This list is public (no sign-in). Never return a maker's phone or email here.
+					contact_number: null,
 					price_rank: crafter.priceRank ?? 3,
 					delivery_rank: crafter.deliveryRank ?? 3,
-					email: crafter.email,
+					email: null,
 					filaments: filamentsByMaker.get(crafter.makerId) ?? [],
 					reviews: reviewsByMaker.get(crafter.makerId) ?? [],
 					max_printer_size: crafter.maxPrinterSize,
