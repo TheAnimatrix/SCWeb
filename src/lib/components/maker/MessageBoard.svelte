@@ -231,15 +231,17 @@
 		if (sending || !newMessage.trim() || !session?.data?.user?.id) return;
 		sending = true;
 		try {
+			const sentText = newMessage;
 			const result = await sendChatMessage(fetch, {
 				relationship_id: orderId,
 				recipient_id: receiverId,
-				message: newMessage,
+				message: sentText,
 				message_type: 'text',
 				status: 'sent'
 			});
 			if (result.ok) {
-				newMessage = '';
+				// Clear only what was sent; keep anything typed while it was on its way.
+				if (newMessage === sentText) newMessage = '';
 			} else {
 				toastStore.show(`Couldn't send your message. ${result.error.message}`, 'error');
 			}

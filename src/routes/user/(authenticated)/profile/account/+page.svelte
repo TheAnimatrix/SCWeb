@@ -201,7 +201,7 @@
 							<div class="flex items-center justify-between gap-2">
 								<span class="text-sm">
 									@{username}
-									{#if isApprovedMaker && username}
+									{#if isApprovedMaker && username && data.maker?.storefront_state === 'live'}
 										<!-- eslint-disable svelte/no-navigation-without-resolve -- dynamic storefront path -->
 										<a
 											href={makerStorefrontPath(username)}

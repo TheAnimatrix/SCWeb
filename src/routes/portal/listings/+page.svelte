@@ -241,7 +241,9 @@
 			formError = result.error.message;
 			return;
 		}
-		const state = (result.data.listing as { listing_state?: string })?.listing_state;
+		// The API returns the stored row, whose field is `listingState`.
+		const saved = result.data.listing as { listingState?: string; listing_state?: string } | null;
+		const state = saved?.listingState ?? saved?.listing_state;
 		formMessage =
 			state === 'pending_review' && wasVisible
 				? 'Saved. This listing is now in review and hidden from buyers until it is approved.'

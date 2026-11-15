@@ -19,8 +19,14 @@
 		? import('dompurify').then(({ default: DOMPurify }) => DOMPurify as DomPurifyLike)
 		: null;
 
+	const SANITIZE_CONFIG = { ADD_TAGS: ['style'] };
+
 	function sanitize(DOMPurify: DomPurifyLike, source: string) {
-		return modifyHtml(DOMPurify.sanitize(source, { ADD_TAGS: ['style'] }));
+		// modifyHtml() rewrites tags with regexes, and a regex can be fooled by a ">" inside a
+		// quoted attribute into turning inert attribute text into live markup. So the string that
+		// reaches {@html} is sanitised again after the rewrite, never only before it.
+		const rewritten = modifyHtml(DOMPurify.sanitize(source, SANITIZE_CONFIG));
+		return DOMPurify.sanitize(rewritten, SANITIZE_CONFIG);
 	}
 
 	// Server render and the first client frame show the text without markup (escaped by

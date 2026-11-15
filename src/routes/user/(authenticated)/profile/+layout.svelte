@@ -46,10 +46,12 @@
 					<p class="mt-1 text-sm">You're an approved maker.</p>
 					<div class="mt-3 flex flex-wrap gap-3 text-sm">
 						<a href={resolve('/portal')} class="underline">Open portal</a>
-						{#if maker?.username}
+						{#if maker?.username && maker.storefront_state === 'live'}
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- dynamic storefront path -->
 							<a href={makerStorefrontPath(maker.username)} class="underline"
 								>View your shop page</a>
+						{:else}
+							<a href={resolve('/portal/storefront')} class="underline">Set up your shop page</a>
 						{/if}
 					</div>
 				{:else if makerStatus === 'pending'}

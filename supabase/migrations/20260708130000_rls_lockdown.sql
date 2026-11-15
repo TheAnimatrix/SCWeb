@@ -20,16 +20,12 @@ DROP POLICY IF EXISTS "anyone" ON "purchases";
 --    tables own the flow; legacy table is read-only until dropped in cleanup.
 DROP POLICY IF EXISTS "anyone can insert" ON "cart";
 
--- 4. addresses: INSERT allowed any authenticated user to write rows with an
---    arbitrary uid (into other users' address books). Constrain to self.
-DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON "addresses";
-CREATE POLICY "addresses_insert_own" ON "addresses"
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = uid);
-
--- 5. reviews: same uid-spoof problem on INSERT. Constrain to self.
-DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON "reviews";
-CREATE POLICY "reviews_insert_own" ON "reviews"
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+-- 4. addresses and 5. reviews: the open INSERT policies are replaced by
+--    20261115120000_printing_maker_privacy_and_review_checks.sql and
+--    20261116000000_review_ownership_checks.sql, which were applied to production first.
+--    Nothing to do here. Do NOT add "addresses_insert_own" / "reviews_insert_own" again:
+--    Postgres ORs permissive policies, so a looser INSERT rule would override the stricter
+--    "not your own listing" review rule.
 
 -- 6. CreatorStats: makers could INSERT/UPDATE their own computed stats
 --    (fake completed_orders / ratings). Stats are recalculated server-side

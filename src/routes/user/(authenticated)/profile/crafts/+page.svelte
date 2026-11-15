@@ -2,7 +2,13 @@
 	import { navigating, page } from '$app/state';
 	import ProductList from '$pages/product_list.svelte';
 	import type { Product } from '$lib/types/product.js';
-	import { ProductCardSkeleton, ProductCardList, ProductCardListItem, ScButton } from '$lib/components/sc';
+	import { productPath } from '$lib/seo/product';
+	import {
+		ProductCardSkeleton,
+		ProductCardList,
+		ProductCardListItem,
+		ScButton
+	} from '$lib/components/sc';
 
 	let { data } = $props();
 
@@ -12,7 +18,7 @@
 	);
 
 	function getLink(_i: number, product: Product) {
-		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
+		return productPath(product);
 	}
 </script>
 

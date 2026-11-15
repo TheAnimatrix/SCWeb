@@ -154,3 +154,29 @@ describe('resolveAuthCallbackNext', () => {
 		expect(resolveAuthCallbackNext('/user/sign')).toBe('/');
 	});
 });
+
+describe('auth pages are never a return target', () => {
+	it('ignores a postLogin that points back at sign-in', () => {
+		expect(postLoginFromSearchParams(new URLSearchParams('postLogin=/user/sign'))).toBeNull();
+		expect(
+			postLoginFromSearchParams(
+				new URLSearchParams({ postLogin: '/user/sign?postLogin=/user/sign' })
+			)
+		).toBeNull();
+		expect(postLoginFromSearchParams(new URLSearchParams('redirectTo=/auth/callback'))).toBeNull();
+	});
+
+	it('does not wrap sign-in inside a sign-in link', () => {
+		expect(signInPath('/user/sign?postLogin=/cart')).toBe('/user/sign');
+		expect(signInPath('/user/sign/')).toBe('/user/sign');
+	});
+
+	it('still accepts other /user pages', () => {
+		expect(signInPath('/user/profile/orders')).toBe(
+			'/user/sign?postLogin=%2Fuser%2Fprofile%2Forders'
+		);
+		expect(postLoginFromSearchParams(new URLSearchParams('postLogin=/user/signup-help'))).toBe(
+			'/user/signup-help'
+		);
+	});
+});

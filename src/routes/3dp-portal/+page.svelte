@@ -206,9 +206,9 @@
 	});
 
 	// A colour counts as chosen only once the customer has picked a maker's swatch.
-	const colourChosen = $derived(
-		selectedColorName !== '' && selectedColor !== DEFAULT_FILAMENT_COLOR
-	);
+	// The name is only set by picking a swatch, so it is the signal. (Comparing the colour
+	// itself would reject a maker's filament that happens to match the default grey.)
+	const colourChosen = $derived(selectedColorName !== '');
 	let requestSent = $state(false);
 
 	const portalSteps = $derived([

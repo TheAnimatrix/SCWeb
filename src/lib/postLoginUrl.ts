@@ -67,13 +67,27 @@ export function sanitizePostLoginUrl(value: unknown): string | null {
  */
 export function postLoginFromSearchParams(params: URLSearchParams): string | null {
 	return (
-		sanitizePostLoginUrl(params.get('postLogin')) ?? sanitizePostLoginUrl(params.get('redirectTo'))
+		notAnAuthPage(sanitizePostLoginUrl(params.get('postLogin'))) ??
+		notAnAuthPage(sanitizePostLoginUrl(params.get('redirectTo')))
 	);
+}
+
+/**
+ * Sign-in and the OAuth callback are never valid places to return to: a signed-in visitor
+ * sent to `/user/sign?postLogin=/user/sign` would bounce between them.
+ */
+function notAnAuthPage(path: string | null): string | null {
+	if (!path) return null;
+	const pathname = path.split(/[?#]/, 1)[0].replace(/\/+$/, '');
+	if (pathname === '/user/sign' || pathname === '/auth' || pathname.startsWith('/auth/')) {
+		return null;
+	}
+	return path;
 }
 
 /** `/user/sign?postLogin=<path>` when `next` is a safe same-origin path, else `/user/sign`. */
 export function signInPath(next: string | null | undefined): string {
-	const safe = sanitizePostLoginUrl(next);
+	const safe = notAnAuthPage(sanitizePostLoginUrl(next));
 	return safe ? `/user/sign?postLogin=${encodeURIComponent(safe)}` : '/user/sign';
 }
 
@@ -83,13 +97,11 @@ export function signInPath(next: string | null | undefined): string {
  */
 export function oauthCallbackUrl(origin: string, next: string | null | undefined): string {
 	const base = `${origin.replace(/\/+$/, '')}/auth/callback`;
-	const safe = sanitizePostLoginUrl(next);
+	const safe = notAnAuthPage(sanitizePostLoginUrl(next));
 	return safe ? `${base}?next=${encodeURIComponent(safe)}` : base;
 }
 
 /** Where `/auth/callback` sends the user after a successful code exchange. */
 export function resolveAuthCallbackNext(next: string | null | undefined): string {
-	const safe = sanitizePostLoginUrl(next);
-	if (!safe || safe.startsWith('/auth/') || safe.startsWith('/user/sign')) return '/';
-	return safe;
+	return notAnAuthPage(sanitizePostLoginUrl(next)) ?? '/';
 }
