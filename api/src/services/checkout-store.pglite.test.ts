@@ -319,8 +319,11 @@ describe('CheckoutStore (PGlite)', () => {
 			'pay_123'
 		);
 
-		expect(first).toEqual({ ok: true, response: { status: 'paid' } });
-		expect(second).toEqual({ ok: true, response: { status: 'already_paid' } });
+		expect(first).toEqual({ ok: true, response: { status: 'paid', orderId: expect.any(String) } });
+		expect(second).toEqual({
+			ok: true,
+			response: { status: 'already_paid', orderId: expect.any(String) }
+		});
 
 		const productRow = await testDb.db.select().from(products).where(eq(products.id, PRODUCT_1));
 		expect(productRow[0]?.stock).toEqual({ count: 3, status: 'in stock' });
@@ -353,7 +356,7 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(result).toEqual({
 			ok: false,
 			status: 409,
-			body: { error: 'stock_conflict' }
+			body: { error: 'stock_conflict', orderId: expect.any(String) }
 		});
 
 		const orderRow = await testDb.db.select().from(orders);
@@ -423,12 +426,65 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(first).toEqual({
 			ok: false,
 			status: 409,
-			body: { error: 'stock_conflict' }
+			body: { error: 'stock_conflict', orderId: expect.any(String) }
 		});
-		expect(second).toEqual({ ok: true, response: { status: 'already_paid' } });
+		expect(second).toEqual({
+			ok: true,
+			response: { status: 'already_paid', orderId: expect.any(String) }
+		});
 	});
 
-	it('marks payment_pending orders and carts as failed', async () => {
+	it('returns order status only to the order owner', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const owner = { userId: null, clientId: CLIENT_A };
+		const created = await store.createOrder(owner, orderAddresses());
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const pending = await store.getOrderStatus(owner, {
+			razorpayOrderId: created.response.razorpayOrderId
+		});
+		expect(pending).toMatchObject({
+			kind: 'cart_order',
+			orderId: created.response.orderId,
+			status: CART_ORDER_STATUS.PAYMENT_PENDING
+		});
+
+		const confirmed = await store.confirmOrder(
+			owner,
+			created.response.razorpayOrderId,
+			'pay_status'
+		);
+		expect(confirmed).toEqual({
+			ok: true,
+			response: { status: 'paid', orderId: created.response.orderId }
+		});
+
+		const status = await store.getOrderStatus(owner, { paymentId: 'pay_status' });
+		expect(status).toMatchObject({
+			kind: 'cart_order',
+			orderId: created.response.orderId,
+			status: CART_ORDER_STATUS.PAID,
+			items: [expect.objectContaining({ productId: PRODUCT_1, qty: 2 })],
+			shipping: expect.objectContaining({ name: 'Jane Doe', city: 'Bengaluru' })
+		});
+
+		await expect(
+			store.getOrderStatus({ userId: null, clientId: CLIENT_B }, { paymentId: 'pay_status' })
+		).resolves.toBeNull();
+		await expect(
+			store.getOrderStatus(
+				{ userId: '11111111-1111-4111-8111-111111111111', clientId: CLIENT_A },
+				{ paymentId: 'pay_status' }
+			)
+		).resolves.toBeNull();
+		await expect(store.getOrderStatus(owner, { paymentId: 'pay_unknown' })).resolves.toBeNull();
+	});
+
+	it('marks payment_pending orders as failed and reopens the cart', async () => {
 		await seedProduct(testDb.db, PRODUCT_1, 5);
 		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
 
@@ -448,8 +504,9 @@ describe('CheckoutStore (PGlite)', () => {
 		const orderRow = await testDb.db.select().from(orders);
 		expect(orderRow[0]?.status).toBe(CART_ORDER_STATUS.FAILED);
 
+		// The buyer keeps their items so "Try again" works.
 		const cartRow = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
-		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.FAILED);
+		expect(cartRow[0]?.status).toBe(CART_ORDER_STATUS.ACTIVE);
 
 		const auditRows = await testDb.db.select().from(auditLog).where(eq(auditLog.action, 'failed'));
 		expect(auditRows).toEqual([
@@ -810,7 +867,10 @@ describe('CheckoutStore (PGlite)', () => {
 			created.response.razorpayOrderId,
 			'pay_audit'
 		);
-		expect(confirmed).toEqual({ ok: true, response: { status: 'paid' } });
+		expect(confirmed).toEqual({
+			ok: true,
+			response: { status: 'paid', orderId: expect.any(String) }
+		});
 
 		const rows = await testDb.db.select().from(auditLog);
 		expect(rows).toEqual(
@@ -878,7 +938,7 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(result).toEqual({
 			ok: false,
 			status: 409,
-			body: { error: 'stock_conflict' }
+			body: { error: 'stock_conflict', orderId: expect.any(String) }
 		});
 
 		const paidAuditRows = await testDb.db

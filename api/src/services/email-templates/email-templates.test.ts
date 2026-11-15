@@ -35,7 +35,7 @@ describe('email templates', () => {
 	it('renders order received with order id', () => {
 		const result = renderOrderReceivedEmail({
 			siteUrl: 'http://localhost:5173',
-			orderId: 'order-1234-5678',
+			orderId: '70ec41d8-f86f-461e-9e43-14b180231d48',
 			customerName: 'Jane Doe',
 			items: [{ name: 'Widget', qty: 2, priceInr: 499 }],
 			subtotalInr: 998,
@@ -44,8 +44,10 @@ describe('email templates', () => {
 			ordersUrl: 'http://localhost:5173/user/profile/orders'
 		});
 
-		expect(result.subject).toContain('order-12');
-		expect(result.html).toContain('order-1234-5678');
+		// Same short ID the site and the order list show (formatOrderDisplayId).
+		expect(result.subject).toBe('Order received: 70EC41D8');
+		expect(result.html).toContain('70EC41D8');
+		expect(result.html).not.toContain('70ec41d8-f86f');
 		expect(result.html).toContain('Widget');
 		expect(result.html).toContain('₹1,047');
 	});

@@ -74,9 +74,19 @@ function validMetadata() {
 	};
 }
 
-function buildMultipartBody(fileBytes: Uint8Array, filename = 'model.stl') {
+function buildMultipartBody(
+	fileBytes: Uint8Array,
+	filename = 'model.stl',
+	extraFields: Record<string, string> = {}
+) {
 	const boundary = '----vitest-boundary';
 	const metadata = validMetadata();
+	const extraParts = Object.entries(extraFields).flatMap(([name, value]) => [
+		`--${boundary}`,
+		`Content-Disposition: form-data; name="${name}"`,
+		'',
+		value
+	]);
 	const parts = [
 		`--${boundary}`,
 		'Content-Disposition: form-data; name="maker_id"',
@@ -102,6 +112,7 @@ function buildMultipartBody(fileBytes: Uint8Array, filename = 'model.stl') {
 		'Content-Disposition: form-data; name="infill"',
 		'',
 		metadata.infill,
+		...extraParts,
 		`--${boundary}`,
 		`Content-Disposition: form-data; name="model_file"; filename="${filename}"`,
 		'Content-Type: application/octet-stream',
@@ -264,6 +275,48 @@ describe('print-files routes', () => {
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({ printRequest });
 		expect(uploadPrintFile).toHaveBeenCalledOnce();
+	});
+
+	it('stores walls with the model data when sent', async () => {
+		const printRequest: PrintRequestRow = {
+			id: REQUEST_ID,
+			user_id: USER_ID,
+			creator_id: MAKER_ID,
+			model: `models/${USER_ID}/file.stl`,
+			model_metadata: null,
+			model_data: { ...validMetadata(), walls: '3' },
+			request_stage: 'requested',
+			created_at: new Date().toISOString()
+		};
+		const uploadPrintFile = vi.fn(async () => ({ ok: true as const, printRequest }));
+		const app = createTestApp({ userId: USER_ID, clientId: null }, fakeStore({ uploadPrintFile }));
+		const { body, contentType } = buildMultipartBody(createBinaryStl(1), 'model.stl', {
+			walls: '3'
+		});
+		const response = await app.request('/print-files/upload', {
+			method: 'POST',
+			headers: { 'Content-Type': contentType },
+			body
+		});
+
+		expect(response.status).toBe(200);
+		expect(uploadPrintFile).toHaveBeenCalledWith(
+			expect.objectContaining({ modelData: expect.objectContaining({ walls: '3' }) })
+		);
+	});
+
+	it('rejects a walls value that is not a small whole number', async () => {
+		const app = createTestApp({ userId: USER_ID, clientId: null }, fakeStore());
+		const { body, contentType } = buildMultipartBody(createBinaryStl(1), 'model.stl', {
+			walls: 'lots'
+		});
+		const response = await app.request('/print-files/upload', {
+			method: 'POST',
+			headers: { 'Content-Type': contentType },
+			body
+		});
+
+		expect(response.status).toBe(400);
 	});
 
 	it('returns 404 for unknown download id', async () => {

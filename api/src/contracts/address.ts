@@ -71,16 +71,39 @@ function isValidIndianState(state: string): boolean {
 	);
 }
 
+/**
+ * Accepts "98765 43210", "098765-43210", "+91 98765 43210", "919876543210" and stores
+ * "+919876543210". Returns null when the input is not a 10-digit Indian mobile number.
+ * Keep in sync with `normalizeIndianPhone` in src/lib/types/product.ts.
+ */
+export function normalizeIndianPhone(raw: string): string | null {
+	let digits = raw.replace(/[\s\-().]/g, '');
+	if (digits.startsWith('+91')) digits = digits.slice(3);
+	else if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+	else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+	return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : null;
+}
+
+const indianPhoneSchema = z.string().transform((value, ctx) => {
+	const normalized = normalizeIndianPhone(value);
+	if (!normalized) {
+		ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a 10-digit mobile number.' });
+		return z.NEVER;
+	}
+	return normalized;
+});
+
 // Strict — web Address objects carry id/email/created_at and must be stripped by the frontend client (WU-2D).
+// Length limits match `validateAddressFields` in src/lib/types/product.ts.
 export const checkoutAddressSchema = z
 	.object({
-		name: z.string().min(4).max(35),
-		line1: z.string().min(10).max(80),
-		line2: z.string().max(50).optional(),
-		city: z.string().min(2),
+		name: z.string().trim().min(2).max(80),
+		line1: z.string().trim().min(3).max(80),
+		line2: z.string().trim().max(80).optional(),
+		city: z.string().trim().min(2),
 		pincode: z.string().regex(/^\d{6}$/),
 		state: z.string().refine(isValidIndianState, 'State should be a valid Indian state.'),
-		phone: z.string().regex(/^(\+91)?[6789]\d{9}$/),
+		phone: indianPhoneSchema,
 		email: z.string().email().optional()
 	})
 	.strict();

@@ -1,4 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
+import { isUniqueViolation } from '../lib/pg-errors.js';
 import type { CheckoutAddress } from '../contracts/address.js';
 import type {
 	ConfirmPrintPaymentResponse,
@@ -78,15 +79,6 @@ export interface PrintPaymentsStore {
 		razorpayOrderId: string,
 		reason?: string
 	): Promise<FailPrintPaymentResult>;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		(error as { code: string }).code === '23505'
-	);
 }
 
 async function resolveStoredPrintRazorpayOrderId(

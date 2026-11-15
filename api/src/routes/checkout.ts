@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import {
+	checkoutOrderStatusQuerySchema,
 	confirmCheckoutBodySchema,
 	createCheckoutOrderBodySchema,
 	failCheckoutBodySchema
@@ -121,6 +122,31 @@ export function createCheckoutRoutes(
 		});
 
 		return c.json(result.response);
+	});
+
+	/** Owner-only order lookup for the payment result pages (success and "confirming payment"). */
+	checkoutRoutes.get('/checkout/order-status', async (c) => {
+		const actor = c.get('actor');
+
+		if (!hasActor(actor)) {
+			return c.json({ error: 'unauthorized', message: 'Actor identity required' }, 401);
+		}
+
+		const parsed = checkoutOrderStatusQuerySchema.safeParse({
+			paymentId: c.req.query('paymentId') || undefined,
+			razorpayOrderId: c.req.query('razorpayOrderId') || undefined
+		});
+		if (!parsed.success) {
+			return c.json({ error: 'invalid_query' }, 400);
+		}
+
+		const result = await getCheckoutStore(c).getOrderStatus(actor, parsed.data);
+		if (!result) {
+			return c.json({ error: 'order_not_found' }, 404);
+		}
+
+		c.header('cache-control', 'no-store');
+		return c.json(result);
 	});
 
 	checkoutRoutes.post('/checkout/fail', validateJson(failCheckoutBodySchema), async (c) => {

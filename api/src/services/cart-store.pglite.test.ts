@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { pgErrorCode } from '../lib/pg-errors.js';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { readFileSync } from 'node:fs';
@@ -211,12 +212,18 @@ describe('CartStore (PGlite)', () => {
 				status: CART_ORDER_STATUS.ACTIVE
 			});
 
-			await expect(
-				testDb.db.insert(carts).values({
+			// drizzle wraps the driver error, so the SQLSTATE sits on `.cause`.
+			const error = await testDb.db
+				.insert(carts)
+				.values({
 					userId: USER_ID,
 					status: CART_ORDER_STATUS.ACTIVE
 				})
-			).rejects.toMatchObject({ code: '23505' });
+				.then(
+					() => null,
+					(thrown: unknown) => thrown
+				);
+			expect(pgErrorCode(error)).toBe('23505');
 		});
 	});
 

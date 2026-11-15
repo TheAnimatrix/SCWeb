@@ -1,21 +1,11 @@
-import {
-	and,
-	asc,
-	count,
-	desc,
-	eq,
-	ilike,
-	inArray,
-	or,
-	sql,
-	type SQL
-} from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
 import type {
 	BrowseCatalogResponse,
 	BrowseQuery,
 	GetConstantResponse,
 	HomeCatalogResponse,
 	ProductDetailResponse,
+	ProductMakerInfo,
 	ProductRelatedResponse,
 	ProductReviewsResponse,
 	ProductVariantsResponse
@@ -40,6 +30,7 @@ import {
 	mapProductRow,
 	mapReviewRow,
 	parseProductIdFromBannerUrl,
+	productHref,
 	type ProductView
 } from './catalog-mappers.js';
 
@@ -67,10 +58,6 @@ function filterToProductType(filter: BrowseQuery['filter']): string | null {
 		default:
 			return null;
 	}
-}
-
-function productHref(name: string, id: string): string {
-	return `/${name.replaceAll(' ', '_')}/craft/item=${id}`;
 }
 
 function buildBrowseConditions(
@@ -139,20 +126,51 @@ export interface CatalogStore {
 }
 
 export function createCatalogStore(db: Database): CatalogStore {
-	async function selectProductsWithUsers(where?: SQL, orderBy = desc(products.createdAt), limit?: number) {
+	/**
+	 * Per-product review average and count, computed from the `reviews` table so the
+	 * card, the purchase panel and the reviews tab always agree. The legacy
+	 * `products.rating` column is no longer read.
+	 */
+	function reviewStatsSubquery() {
+		return db
+			.select({
+				productId: reviews.productId,
+				average: sql<string | null>`avg(${reviews.rating})`.as('review_average'),
+				count: sql<number>`count(*)::int`.as('review_count')
+			})
+			.from(reviews)
+			.groupBy(reviews.productId)
+			.as('review_stats');
+	}
+
+	function selectProductColumns(reviewStats: ReturnType<typeof reviewStatsSubquery>) {
+		return {
+			product: products,
+			user: {
+				username: users.username,
+				tier: users.tier
+			},
+			reviewStats: {
+				average: reviewStats.average,
+				count: reviewStats.count
+			}
+		};
+	}
+
+	async function selectProductsWithUsers(
+		where?: SQL,
+		orderBy = desc(products.createdAt),
+		limit?: number
+	) {
 		const live = eq(products.listingState, 'live');
 		const combined = where ? and(live, where) : live;
+		const reviewStats = reviewStatsSubquery();
 
 		let query = db
-			.select({
-				product: products,
-				user: {
-					username: users.username,
-					tier: users.tier
-				}
-			})
+			.select(selectProductColumns(reviewStats))
 			.from(products)
 			.leftJoin(users, eq(products.uid, users.id))
+			.leftJoin(reviewStats, eq(reviewStats.productId, products.id))
 			.where(combined)
 			.orderBy(orderBy);
 
@@ -161,7 +179,30 @@ export function createCatalogStore(db: Database): CatalogStore {
 		}
 
 		const rows = await query;
-		return rows.map(({ product, user }) => mapProductRow(product, user));
+		return rows.map(({ product, user, reviewStats: stats }) => mapProductRow(product, user, stats));
+	}
+
+	async function getMakerInfo(makerId: string): Promise<ProductMakerInfo | null> {
+		const [row] = await db
+			.select({
+				location: makers.location,
+				approvedState: makers.approvedState,
+				storefrontState: makers.storefrontState,
+				publishedAt: makers.publishedAt,
+				approvedAt: makers.approvedAt
+			})
+			.from(makers)
+			.where(eq(makers.id, makerId))
+			.limit(1);
+		if (!row) return null;
+
+		const approved = row.approvedState === 'approved';
+		const sellingSince = approved ? (row.publishedAt ?? row.approvedAt ?? null) : null;
+		return {
+			location: row.location?.trim() || null,
+			sellingSince: sellingSince ? new Date(sellingSince).toISOString() : null,
+			storefrontLive: approved && row.storefrontState === 'live'
+		};
 	}
 
 	async function getTagCatalog() {
@@ -240,19 +281,23 @@ export function createCatalogStore(db: Database): CatalogStore {
 			const cached = homeCatalogCache.get('home');
 			if (cached) return cached;
 
-			const [recentProducts, recentSpares, recentFleaMarket, bannersConstant, listingsResult, makersResult, usersResult] =
-				await Promise.all([
-					loadRecentByType('product'),
-					loadRecentByType('spare'),
-					loadRecentByType('flea-market'),
-					db.select().from(constants).where(eq(constants.key, 'BANNERS')).limit(1),
-					db.select({ value: count() }).from(products),
-					db
-						.select({ value: count() })
-						.from(makers)
-						.where(eq(makers.approvedState, 'approved')),
-					db.select({ value: count() }).from(users)
-				]);
+			const [
+				recentProducts,
+				recentSpares,
+				recentFleaMarket,
+				bannersConstant,
+				listingsResult,
+				makersResult,
+				usersResult
+			] = await Promise.all([
+				loadRecentByType('product'),
+				loadRecentByType('spare'),
+				loadRecentByType('flea-market'),
+				db.select().from(constants).where(eq(constants.key, 'BANNERS')).limit(1),
+				db.select({ value: count() }).from(products).where(eq(products.listingState, 'live')),
+				db.select({ value: count() }).from(makers).where(eq(makers.approvedState, 'approved')),
+				db.select({ value: count() }).from(users)
+			]);
 
 			let featuredProducts: ProductView[] = [];
 			const banners = bannersConstant[0]?.value as { url: string }[] | undefined;
@@ -269,6 +314,8 @@ export function createCatalogStore(db: Database): CatalogStore {
 					.filter((product): product is ProductView => !!product);
 			}
 
+			const featuredIsCurated = featuredProducts.length > 0;
+
 			if (featuredProducts.length === 0 && recentProducts.length > 0) {
 				featuredProducts = recentProducts.slice(0, 3);
 			}
@@ -282,6 +329,7 @@ export function createCatalogStore(db: Database): CatalogStore {
 				recentSpares,
 				recentFleaMarket,
 				featuredProducts,
+				featuredIsCurated,
 				stats: {
 					makers: Number(makersResult[0]?.value ?? 0),
 					listings: Number(listingsResult[0]?.value ?? 0),
@@ -315,23 +363,21 @@ export function createCatalogStore(db: Database): CatalogStore {
 			const currentPage = totalPages > 0 ? Math.min(activeFilters.page, totalPages) : 1;
 			const offset = (currentPage - 1) * PAGE_SIZE;
 
+			const reviewStats = reviewStatsSubquery();
 			const rows = await db
-				.select({
-					product: products,
-					user: {
-						username: users.username,
-						tier: users.tier
-					}
-				})
+				.select(selectProductColumns(reviewStats))
 				.from(products)
 				.leftJoin(users, eq(products.uid, users.id))
+				.leftJoin(reviewStats, eq(reviewStats.productId, products.id))
 				.where(where)
 				.orderBy(browseOrderBy(activeFilters.sort))
 				.limit(PAGE_SIZE)
 				.offset(offset);
 
 			return {
-				products: rows.map(({ product, user }) => mapProductRow(product, user)),
+				products: rows.map(({ product, user, reviewStats: stats }) =>
+					mapProductRow(product, user, stats)
+				),
 				totalCount,
 				currentPage,
 				totalPages,
@@ -349,15 +395,20 @@ export function createCatalogStore(db: Database): CatalogStore {
 			if (!product) return null;
 
 			let makerCraftCount = 0;
+			let maker: ProductMakerInfo | null = null;
 			if (product.uid) {
-				const [countResult] = await db
-					.select({ value: count() })
-					.from(products)
-					.where(eq(products.uid, product.uid));
-				makerCraftCount = Number(countResult?.value ?? 0);
+				const [countRows, makerInfo] = await Promise.all([
+					db
+						.select({ value: count() })
+						.from(products)
+						.where(and(eq(products.uid, product.uid), eq(products.listingState, 'live'))),
+					getMakerInfo(product.uid)
+				]);
+				makerCraftCount = Number(countRows[0]?.value ?? 0);
+				maker = makerInfo;
 			}
 
-			return { product, makerCraftCount };
+			return { product, makerCraftCount, maker };
 		},
 
 		async getProductReviews(productId) {

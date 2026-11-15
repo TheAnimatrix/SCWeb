@@ -10,21 +10,16 @@ export const listingStateSchema = z.enum([
 	'rejected',
 	'archived'
 ]);
-export const makerCapabilityKeySchema = z.enum([
-	'physical_goods',
-	'printing_3d',
-	'digital_goods'
-]);
+export const makerCapabilityKeySchema = z.enum(['physical_goods', 'printing_3d', 'digital_goods']);
 
 /** General maker onboarding form. */
 export const makerApplicationSchema = z.object({
 	display_name: z.string().trim().min(3).max(100),
 	bio: z.string().trim().max(500).optional(),
 	city: z.string().trim().max(100).optional(),
-	capabilities: z
-		.array(makerCapabilityKeySchema)
-		.min(1)
-		.default(['physical_goods'])
+	/** Free text: links to the applicant's work (shop, GitHub, Instagram). Stored in the application answers. */
+	links: z.string().trim().max(500).optional(),
+	capabilities: z.array(makerCapabilityKeySchema).min(1).default(['physical_goods'])
 });
 
 export const makerProfileSchema = z.object({
@@ -57,12 +52,15 @@ export const updateStorefrontBodySchema = z.object({
 export const upsertListingBodySchema = z.object({
 	product_id: z.string().uuid().optional(),
 	name: z.string().trim().min(2).max(200),
-	price_new: z.number().int().nonnegative(),
+	price_new: z.number().int().min(1),
 	price_old: z.number().int().nonnegative().optional(),
 	stock_count: z.number().int().nonnegative(),
 	stock_status: z.string().trim().max(50).optional(),
 	type: z.string().trim().max(50).optional(),
-	images: z.array(z.object({ url: z.string().url() })).max(12).optional(),
+	images: z
+		.array(z.object({ url: z.string().url() }))
+		.max(12)
+		.optional(),
 	tags: z.array(z.string().trim().min(1).max(40)).max(24).optional(),
 	/** Soft fields — editable while live without re-review */
 	guarantee: z.string().trim().max(500).nullable().optional(),
@@ -70,9 +68,7 @@ export const upsertListingBodySchema = z.object({
 	docs: z.string().max(50000).optional(),
 	costing: z.string().max(50000).optional(),
 	shipping: z.string().max(20000).optional(),
-	documentation: z
-		.array(z.object({ data: z.string(), isMDUrl: z.boolean() }))
-		.optional(),
+	documentation: z.array(z.object({ data: z.string(), isMDUrl: z.boolean() })).optional(),
 	faq: z.array(z.object({ question: z.string(), answer: z.string() })).optional(),
 	submit_for_review: z.boolean().optional()
 });
@@ -88,9 +84,7 @@ export const updateListingDetailsBodySchema = z.object({
 	docs: z.string().max(50000).optional(),
 	costing: z.string().max(50000).optional(),
 	shipping: z.string().max(20000).optional(),
-	documentation: z
-		.array(z.object({ data: z.string(), isMDUrl: z.boolean() }))
-		.optional(),
+	documentation: z.array(z.object({ data: z.string(), isMDUrl: z.boolean() })).optional(),
 	faq: z.array(z.object({ question: z.string(), answer: z.string() })).optional()
 });
 
@@ -110,7 +104,9 @@ export const reviewListingBodySchema = z.object({
 
 export const makerFilamentSchema = z.object({
 	color: z.string(),
-	material_type: z.string()
+	material_type: z.string(),
+	/** The maker's product name for this filament, e.g. "PolyTerra Charcoal". */
+	name: z.string().nullable().optional()
 });
 
 export const makerReviewSchema = z.object({
@@ -126,10 +122,8 @@ export const availableMakerSchema = z.object({
 	avg_quote_time: z.union([z.number(), z.string()]).nullable(),
 	avg_rating: z.number().nullable(),
 	completed_orders: z.number().nullable(),
-	contact_number: z.string().nullable(),
 	price_rank: z.number(),
 	delivery_rank: z.number(),
-	email: z.string().nullable(),
 	filaments: z.array(makerFilamentSchema),
 	reviews: z.array(makerReviewSchema),
 	max_printer_size: z.string().nullable(),

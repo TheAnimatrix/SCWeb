@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, inArray, or, sql } from 'drizzle-orm';
+import { isUniqueViolation } from '../lib/pg-errors.js';
 import type { AvailableMaker } from '../contracts/makers.js';
 import type { Database } from '../db/index.js';
 import { creatorReviews } from '../db/schema/creatorReviews.js';
@@ -140,7 +141,12 @@ export type PublicStorefront = {
 };
 
 function groupFilamentsByMaker(
-	rows: Array<{ ownerId: string; color: string | null; materialType: string }>
+	rows: Array<{
+		ownerId: string;
+		color: string | null;
+		materialType: string;
+		name?: string | null;
+	}>
 ): Map<string, AvailableMaker['filaments']> {
 	const grouped = new Map<string, AvailableMaker['filaments']>();
 
@@ -149,7 +155,8 @@ function groupFilamentsByMaker(
 		const current = grouped.get(row.ownerId) ?? [];
 		current.push({
 			color: row.color,
-			material_type: row.materialType
+			material_type: row.materialType,
+			name: row.name?.trim() || null
 		});
 		grouped.set(row.ownerId, current);
 	}
@@ -246,8 +253,6 @@ export function createMakersStore(db: Database) {
 						makerId: printingCrafters.makerId,
 						crafterName: printingCrafters.name,
 						approvedState: printingCrafters.approvedState,
-						contactNumber: printingCrafters.contactNumber,
-						email: printingCrafters.email,
 						maxPrinterSize: printingCrafters.maxPrinterSize,
 						numberOfPrinters: printingCrafters.numberOfPrinters,
 						priceRank: printingCrafters.priceRank,
@@ -287,7 +292,8 @@ export function createMakersStore(db: Database) {
 					.select({
 						ownerId: userFilament.ownerId,
 						color: userFilament.color,
-						materialType: userFilament.materialType
+						materialType: userFilament.materialType,
+						name: userFilament.name
 					})
 					.from(userFilament)
 					.where(
@@ -314,10 +320,8 @@ export function createMakersStore(db: Database) {
 					avg_quote_time: crafter.avgQuoteTime,
 					avg_rating: crafter.avgRating,
 					completed_orders: crafter.completedOrders,
-					contact_number: crafter.contactNumber,
 					price_rank: crafter.priceRank ?? 3,
 					delivery_rank: crafter.deliveryRank ?? 3,
-					email: crafter.email,
 					filaments: filamentsByMaker.get(crafter.makerId) ?? [],
 					reviews: reviewsByMaker.get(crafter.makerId) ?? [],
 					max_printer_size: crafter.maxPrinterSize,
@@ -332,6 +336,7 @@ export function createMakersStore(db: Database) {
 			displayName: string;
 			bio?: string;
 			city?: string;
+			links?: string;
 			capabilities: MakerCapabilityKey[];
 		}) {
 			const existing = await this.resolveMaker(input.userId);
@@ -357,7 +362,8 @@ export function createMakersStore(db: Database) {
 			const answers = {
 				display_name: input.displayName,
 				bio: input.bio ?? null,
-				city: input.city ?? null
+				city: input.city ?? null,
+				links: input.links ?? null
 			};
 
 			try {
@@ -417,12 +423,33 @@ export function createMakersStore(db: Database) {
 					return application;
 				});
 			} catch (error) {
-				const code = (error as { code?: string }).code;
-				if (code === '23505') {
+				if (isUniqueViolation(error)) {
 					throw Object.assign(new Error('Application already pending'), { status: 409 });
 				}
 				throw error;
 			}
+		},
+
+		/** The applicant's most recent application, so the apply page can show its date and outcome. */
+		async getLatestApplication(userId: string) {
+			const [row] = await db
+				.select({
+					status: makerApplications.status,
+					reviewNotes: makerApplications.reviewNotes,
+					createdAt: makerApplications.createdAt,
+					reviewedAt: makerApplications.reviewedAt
+				})
+				.from(makerApplications)
+				.where(eq(makerApplications.userId, userId))
+				.orderBy(desc(makerApplications.createdAt))
+				.limit(1);
+			if (!row) return null;
+			return {
+				status: row.status,
+				review_notes: row.status === 'rejected' ? row.reviewNotes : null,
+				created_at: toIso(row.createdAt),
+				reviewed_at: toIso(row.reviewedAt)
+			};
 		},
 
 		async listPendingApplications() {
@@ -605,9 +632,34 @@ export function createMakersStore(db: Database) {
 				.where(or(eq(products.makerId, makerId), eq(products.uid, makerId)))
 				.orderBy(desc(products.createdAt));
 
+			// Latest staff rejection note per listing, shown to the maker next to a rejected listing.
+			const rejectedIds = rows
+				.filter((row) => row.listingState === 'rejected')
+				.map((row) => row.id);
+			const rejectionNotes = new Map<string, string | null>();
+			if (rejectedIds.length > 0) {
+				const reviews = await db
+					.select({ productId: listingReviews.productId, notes: listingReviews.notes })
+					.from(listingReviews)
+					.where(
+						and(
+							inArray(listingReviews.productId, rejectedIds),
+							eq(listingReviews.toState, 'rejected')
+						)
+					)
+					.orderBy(desc(listingReviews.createdAt));
+				for (const review of reviews) {
+					if (!rejectionNotes.has(review.productId)) {
+						rejectionNotes.set(review.productId, review.notes);
+					}
+				}
+			}
+
 			return rows.map((row) => {
 				const docFields = listingDocFields(row.documentation);
 				return {
+					review_notes:
+						row.listingState === 'rejected' ? (rejectionNotes.get(row.id) ?? null) : null,
 					id: row.id,
 					name: row.name,
 					price: row.price,
@@ -977,6 +1029,8 @@ export function createMakersStore(db: Database) {
 				price: row.product.price,
 				stock: row.product.stock,
 				images: row.product.images,
+				type: row.product.type,
+				description: listingDocFields(row.product.documentation).description,
 				maker_id: row.product.makerId,
 				username: row.username,
 				display_name: row.displayName,

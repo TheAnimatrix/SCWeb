@@ -186,6 +186,8 @@ describe('makers store', () => {
 				makerId: MAKER_WITH_FILAMENT,
 				approvedState: 'approved',
 				name: 'Maker One',
+				email: 'maker.one@example.com',
+				contactNumber: '+919999999999',
 				priceRank: 3,
 				deliveryRank: 4,
 				numberOfPrinters: 2,
@@ -256,5 +258,18 @@ describe('makers store', () => {
 			[]
 		);
 		expect(makers.some((maker) => maker.crafter_name === 'Pending Maker')).toBe(false);
+	});
+
+	it('never exposes maker email or phone in the public list', async () => {
+		const store = createMakersStore(testDb.db);
+		const makers = await store.listAvailableMakers();
+
+		expect(makers.length).toBeGreaterThan(0);
+		for (const maker of makers) {
+			expect(maker).not.toHaveProperty('email');
+			expect(maker).not.toHaveProperty('contact_number');
+		}
+		expect(JSON.stringify(makers)).not.toContain('maker.one@example.com');
+		expect(JSON.stringify(makers)).not.toContain('+919999999999');
 	});
 });

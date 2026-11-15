@@ -12,6 +12,7 @@ import {
 	updateStorefrontBodySchema,
 	upsertListingBodySchema
 } from '../contracts/makers.js';
+import { validationHook } from '../lib/validation.js';
 import { requireAuth } from '../middleware/require-auth.js';
 import { requireCapability, requireMaker, requireStaff } from '../middleware/require-maker.js';
 import type { MakersStore } from '../services/makers-store.js';
@@ -46,14 +47,22 @@ export function createMakersRoutes(
 
 	routes.get('/makers/me', requireAuth(), async (c) => {
 		const userId = c.get('actor').userId!;
-		const maker = await getMakersStore(c).resolveMaker(userId);
-		return c.json({ maker });
+		const store = getMakersStore(c);
+		const maker = await store.resolveMaker(userId);
+		// Applicants who are not approved yet see their latest application on the apply page.
+		const latestApplication =
+			maker && maker.approved_state !== 'approved'
+				? await store.getLatestApplication(userId)
+				: null;
+		return c.json({
+			maker: maker ? { ...maker, latest_application: latestApplication } : null
+		});
 	});
 
 	routes.post(
 		'/makers/apply',
 		requireAuth(),
-		zValidator('json', makerApplicationSchema),
+		zValidator('json', makerApplicationSchema, validationHook),
 		async (c) => {
 			const userId = c.get('actor').userId!;
 			const body = c.req.valid('json');
@@ -63,6 +72,7 @@ export function createMakersRoutes(
 					displayName: body.display_name,
 					bio: body.bio,
 					city: body.city,
+					links: body.links,
 					capabilities: body.capabilities
 				});
 				return c.json({ application }, 201);
@@ -92,7 +102,7 @@ export function createMakersRoutes(
 		'/makers/me/storefront',
 		requireAuth(),
 		requireMaker(),
-		zValidator('json', updateStorefrontBodySchema),
+		zValidator('json', updateStorefrontBodySchema, validationHook),
 		async (c) => {
 			const userId = c.get('actor').userId!;
 			const body = c.req.valid('json');
@@ -110,7 +120,10 @@ export function createMakersRoutes(
 		const userId = c.get('actor').userId!;
 		const contentType = c.req.header('content-type') ?? '';
 		if (!contentType.includes('multipart/form-data')) {
-			return c.json({ error: 'invalid_content_type', message: 'Expected multipart form upload' }, 400);
+			return c.json(
+				{ error: 'invalid_content_type', message: 'Expected multipart form upload' },
+				400
+			);
 		}
 
 		let form: FormData;
@@ -132,14 +145,14 @@ export function createMakersRoutes(
 				: 'listing';
 
 		if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-			return c.json(
-				{ error: 'invalid_type', message: 'Only JPEG, PNG, WebP, and GIF images are allowed' },
-				400
-			);
+			return c.json({ error: 'invalid_type', message: 'Use a JPG, PNG, WebP or GIF image.' }, 400);
 		}
 		if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
 			return c.json(
-				{ error: 'invalid_size', message: `Image must be between 1 byte and ${MAX_IMAGE_BYTES} bytes` },
+				{
+					error: 'invalid_size',
+					message: file.size <= 0 ? 'The image file is empty.' : 'Image must be 5 MB or smaller.'
+				},
 				413
 			);
 		}
@@ -154,7 +167,17 @@ export function createMakersRoutes(
 			upsert: false
 		});
 		if (error) {
-			return c.json({ error: 'upload_failed', message: error.message }, 500);
+			console.error(
+				JSON.stringify({
+					level: 'error',
+					event: 'makers.asset_upload_failed',
+					message: error.message
+				})
+			);
+			return c.json(
+				{ error: 'upload_failed', message: 'The image could not be uploaded. Please try again.' },
+				500
+			);
 		}
 
 		const { data } = client.storage.from(IMAGES_BUCKET).getPublicUrl(objectKey);
@@ -178,7 +201,7 @@ export function createMakersRoutes(
 		requireAuth(),
 		requireMaker(),
 		requireCapability('physical_goods'),
-		zValidator('json', upsertListingBodySchema),
+		zValidator('json', upsertListingBodySchema, validationHook),
 		async (c) => {
 			const userId = c.get('actor').userId!;
 			const maker = c.get('maker');
@@ -219,7 +242,7 @@ export function createMakersRoutes(
 		requireAuth(),
 		requireMaker(),
 		requireCapability('physical_goods'),
-		zValidator('json', updateStockBodySchema),
+		zValidator('json', updateStockBodySchema, validationHook),
 		async (c) => {
 			const userId = c.get('actor').userId!;
 			const productId = c.req.param('productId');
@@ -244,7 +267,7 @@ export function createMakersRoutes(
 		requireAuth(),
 		requireMaker(),
 		requireCapability('physical_goods'),
-		zValidator('json', updateListingDetailsBodySchema),
+		zValidator('json', updateListingDetailsBodySchema, validationHook),
 		async (c) => {
 			const userId = c.get('actor').userId!;
 			const productId = c.req.param('productId');
@@ -265,7 +288,7 @@ export function createMakersRoutes(
 		requireAuth(),
 		requireMaker(),
 		requireCapability('physical_goods'),
-		zValidator('json', makerListingStateBodySchema),
+		zValidator('json', makerListingStateBodySchema, validationHook),
 		async (c) => {
 			const userId = c.get('actor').userId!;
 			const productId = c.req.param('productId');
@@ -294,7 +317,7 @@ export function createMakersRoutes(
 		'/admin/makers/applications/:id/review',
 		requireAuth(),
 		requireStaff(),
-		zValidator('json', reviewApplicationBodySchema),
+		zValidator('json', reviewApplicationBodySchema, validationHook),
 		async (c) => {
 			const reviewerId = c.get('actor').userId!;
 			const applicationId = c.req.param('id');
@@ -324,7 +347,7 @@ export function createMakersRoutes(
 		'/admin/listings/:productId/review',
 		requireAuth(),
 		requireStaff(),
-		zValidator('json', reviewListingBodySchema),
+		zValidator('json', reviewListingBodySchema, validationHook),
 		async (c) => {
 			const reviewerId = c.get('actor').userId!;
 			const productId = c.req.param('productId');

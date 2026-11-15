@@ -5,6 +5,7 @@ import { orderItems } from '../db/schema/orderItems.js';
 import { orders } from '../db/schema/orders.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import { products } from '../db/schema/products.js';
+import { formatOrderRef } from './email-templates/order-received.js';
 import {
 	renderOrderReceivedEmail,
 	renderOrderStatusUpdateEmail,
@@ -139,14 +140,17 @@ export function notifyOrderReceived(db: Database, mail: MailService, orderId: st
 			ordersUrl: `${mail.siteUrl}/user/profile/orders`
 		});
 
+		const orderRef = formatOrderRef(order.id);
+
 		const inboxTemplate = renderOrderStatusUpdateEmail({
 			siteUrl: mail.siteUrl,
 			title: 'New order placed',
-			preheader: `Order ${order.id} was placed.`,
+			preheader: `Order ${orderRef} was placed.`,
 			intro: 'A new storefront order was placed and payment was confirmed.',
-			orderId: order.id,
+			orderId: orderRef,
 			statusLabel: 'Paid',
 			details: [
+				{ label: 'Full order ID', value: order.id },
 				{
 					label: 'Customer',
 					value: addresses?.shipping?.name ?? customerEmail ?? 'Unknown'
@@ -165,9 +169,9 @@ export function notifyOrderReceived(db: Database, mail: MailService, orderId: st
 		const makerTemplate = renderOrderStatusUpdateEmail({
 			siteUrl: mail.siteUrl,
 			title: 'New order for your product',
-			preheader: `Order ${order.id} includes your product.`,
-			intro: 'A customer placed an order that includes your product.',
-			orderId: order.id,
+			preheader: `Order ${orderRef} includes your product.`,
+			intro: 'A buyer placed an order that includes your product.',
+			orderId: orderRef,
 			statusLabel: 'Paid',
 			details: [
 				{

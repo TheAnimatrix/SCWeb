@@ -25,10 +25,8 @@ describe('makers routes', () => {
 					avg_quote_time: null,
 					avg_rating: null,
 					completed_orders: 0,
-					contact_number: null,
 					price_rank: 3,
 					delivery_rank: 3,
-					email: null,
 					filaments: [{ color: '#ffffff', material_type: 'PLA' }],
 					reviews: [],
 					max_printer_size: null,
@@ -42,6 +40,9 @@ describe('makers routes', () => {
 		const response = await app.request('http://localhost/makers/available');
 
 		expect(response.status).toBe(200);
+		const body = (await response.clone().json()) as { makers: Record<string, unknown>[] };
+		expect(body.makers[0]).not.toHaveProperty('email');
+		expect(body.makers[0]).not.toHaveProperty('contact_number');
 		await expect(response.json()).resolves.toEqual({
 			makers: [
 				expect.objectContaining({

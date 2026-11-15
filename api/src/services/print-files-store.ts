@@ -25,6 +25,7 @@ export type PrintModelDataInput = {
 	quality: string;
 	scale: string;
 	infill: string;
+	walls?: string;
 };
 
 export type PrintRequestRow = {

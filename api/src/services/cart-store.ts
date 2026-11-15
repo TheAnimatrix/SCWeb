@@ -7,6 +7,7 @@ import {
 	type UpsertCartItemBody
 } from '../contracts/cart.js';
 import type { Database, DbExecutor } from '../db/index.js';
+import { isUniqueViolation } from '../lib/pg-errors.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { products } from '../db/schema/products.js';
@@ -53,15 +54,6 @@ export interface CartStore {
 
 function partialUniqueConflict(target: IndexColumn, targetWhere: ReturnType<typeof sql>) {
 	return { target, where: targetWhere };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		(error as { code: string }).code === '23505'
-	);
 }
 
 function activeCartCondition(actor: Actor) {

@@ -13,7 +13,12 @@ export const uploadMetadataSchema = z
 		material: z.string().min(1),
 		quality: z.string().min(1),
 		scale: z.string().min(1),
-		infill: z.string().min(1)
+		infill: z.string().min(1),
+		// Optional so older clients keep working; stored in the model_data JSON.
+		walls: z
+			.string()
+			.regex(/^\d{1,2}$/)
+			.optional()
 	})
 	.strict();
 

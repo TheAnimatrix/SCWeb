@@ -137,7 +137,8 @@ function parseUploadMetadata(fields: Record<string, FormDataEntryValue | string 
 		material: String(fields.material ?? ''),
 		quality: String(fields.quality ?? ''),
 		scale: String(fields.scale ?? ''),
-		infill: String(fields.infill ?? '')
+		infill: String(fields.infill ?? ''),
+		walls: fields.walls == null || fields.walls === '' ? undefined : String(fields.walls)
 	});
 
 	return parsed;

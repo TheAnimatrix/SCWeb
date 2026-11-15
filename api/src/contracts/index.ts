@@ -19,7 +19,7 @@ export {
 	type MergeCartResponse,
 	type UpsertCartItemBody
 } from './cart.js';
-export { checkoutAddressSchema, type CheckoutAddress } from './address.js';
+export { checkoutAddressSchema, normalizeIndianPhone, type CheckoutAddress } from './address.js';
 export {
 	confirmCheckoutBodySchema,
 	confirmCheckoutResponseSchema,
@@ -27,6 +27,9 @@ export {
 	createCheckoutOrderResponseSchema,
 	failCheckoutBodySchema,
 	failCheckoutResponseSchema,
+	checkoutOrderStatusQuerySchema,
+	type CheckoutOrderStatusQuery,
+	type CheckoutOrderStatusResponse,
 	type ConfirmCheckoutBody,
 	type ConfirmCheckoutResponse,
 	type CheckoutOrderAddresses,
@@ -86,6 +89,7 @@ export {
 	getConstantResponseSchema,
 	homeCatalogResponseSchema,
 	productDetailResponseSchema,
+	productMakerInfoSchema,
 	productRelatedResponseSchema,
 	productReviewsResponseSchema,
 	productVariantsResponseSchema,
@@ -93,6 +97,7 @@ export {
 	type GetConstantResponse,
 	type HomeCatalogResponse,
 	type ProductDetailResponse,
+	type ProductMakerInfo,
 	type ProductRelatedResponse,
 	type ProductReviewsResponse,
 	type ProductVariantsResponse,

@@ -1,19 +1,21 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { CheckoutAddress } from '../contracts/address.js';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import type {
+	CheckoutOrderStatusResponse,
 	ConfirmCheckoutResponse,
 	CreateCheckoutOrderResponse,
 	FailCheckoutResponse
 } from '../contracts/checkout.js';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
-import { rupeesToPaise, paiseToRupees } from '../contracts/money.js';
+import { paiseToRupees } from '../contracts/money.js';
 import type { Database, DbExecutor } from '../db/index.js';
+import { isUniqueViolation } from '../lib/pg-errors.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { orderItems } from '../db/schema/orderItems.js';
 import { orders } from '../db/schema/orders.js';
 import { paymentAttempts } from '../db/schema/paymentAttempts.js';
+import { printrequests } from '../db/schema/printrequests.js';
 import { products } from '../db/schema/products.js';
 import type { Actor } from '../types/context.js';
 import type { ProductSnapshot } from './cart.js';
@@ -68,7 +70,13 @@ export type ConfirmOrderResult =
 	| { ok: true; response: ConfirmCheckoutResponse }
 	| { ok: false; status: 404; body: { error: 'order_not_found' } }
 	| { ok: false; status: 403; body: { error: 'forbidden' } }
-	| { ok: false; status: 409; body: { error: 'stock_conflict' } };
+	| { ok: false; status: 409; body: { error: 'stock_conflict'; orderId: string } }
+	| {
+			ok: false;
+			status: 409;
+			/** The cart was already paid by another order; this payment needs a refund. */
+			body: { error: 'duplicate_payment'; orderId: string };
+	  };
 
 export type FailOrderResult =
 	| { ok: true; response: FailCheckoutResponse }
@@ -87,15 +95,11 @@ export interface CheckoutStore {
 		razorpayPaymentId: string
 	): Promise<ConfirmOrderResult>;
 	failOrder(actor: Actor, razorpayOrderId: string, reason?: string): Promise<FailOrderResult>;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		(error as { code: string }).code === '23505'
-	);
+	/** Owner-only lookup used by the payment result pages. Returns null when not found or not owned. */
+	getOrderStatus(
+		actor: Actor,
+		query: { paymentId?: string; razorpayOrderId?: string }
+	): Promise<CheckoutOrderStatusResponse | null>;
 }
 
 function checkoutCartCondition(actor: Actor) {
@@ -219,11 +223,7 @@ async function findCheckoutOrderByProviderOrderId(tx: DbExecutor, razorpayOrderI
 		return null;
 	}
 
-	const [order] = await tx
-		.select()
-		.from(orders)
-		.where(eq(orders.id, attempt.entityId))
-		.limit(1);
+	const [order] = await tx.select().from(orders).where(eq(orders.id, attempt.entityId)).limit(1);
 
 	return order ?? null;
 }
@@ -250,6 +250,67 @@ async function persistCheckoutPaymentAttempt(
 		.where(eq(orders.id, orderId));
 
 	return attempt;
+}
+
+/**
+ * After a failed payment, put the cart back to ACTIVE so the buyer keeps their items.
+ * Falls back to FAILED (the old behaviour) if the owner already has another active cart,
+ * because only one active cart per owner is allowed.
+ */
+export async function reopenCartAfterFailedPayment(tx: DbExecutor, cartId: string): Promise<void> {
+	const [cart] = await tx.select().from(carts).where(eq(carts.id, cartId)).limit(1);
+	if (!cart) return;
+	if (
+		cart.status !== CART_ORDER_STATUS.PAYMENT_PENDING &&
+		cart.status !== CART_ORDER_STATUS.FAILED
+	) {
+		return;
+	}
+
+	const owner = cart.userId
+		? eq(carts.userId, cart.userId)
+		: cart.clientId
+			? and(isNull(carts.userId), eq(carts.clientId, cart.clientId))
+			: null;
+
+	let nextStatus: typeof CART_ORDER_STATUS.ACTIVE | typeof CART_ORDER_STATUS.FAILED =
+		CART_ORDER_STATUS.FAILED;
+
+	if (owner) {
+		const [otherActive] = await tx
+			.select({ id: carts.id })
+			.from(carts)
+			.where(and(eq(carts.status, CART_ORDER_STATUS.ACTIVE), owner, ne(carts.id, cartId)))
+			.limit(1);
+		if (!otherActive) nextStatus = CART_ORDER_STATUS.ACTIVE;
+	}
+
+	await tx
+		.update(carts)
+		.set({ status: nextStatus, updatedAt: sql`now()` })
+		.where(eq(carts.id, cartId));
+}
+
+type StoredAddress = {
+	name?: unknown;
+	line1?: unknown;
+	line2?: unknown;
+	city?: unknown;
+	state?: unknown;
+	pincode?: unknown;
+	email?: unknown;
+};
+
+function stringOrNull(value: unknown): string | null {
+	return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function shippingFromStoredAddress(stored: unknown): StoredAddress | null {
+	if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return null;
+	const record = stored as Record<string, unknown>;
+	const shipping = 'shipping' in record ? record.shipping : record;
+	if (!shipping || typeof shipping !== 'object') return null;
+	return shipping as StoredAddress;
 }
 
 export function createCheckoutStore(
@@ -287,9 +348,7 @@ export function createCheckoutStore(
 				const unavailable = lockedProducts.find((product) => product.listingState !== 'live');
 				if (unavailable || lockedProducts.length !== productIds.length) {
 					const missingId =
-						unavailable?.id ??
-						productIds.find((id) => !productById.has(id)) ??
-						productIds[0];
+						unavailable?.id ?? productIds.find((id) => !productById.has(id)) ?? productIds[0];
 					return {
 						kind: 'listing_not_available' as const,
 						productId: missingId
@@ -448,10 +507,7 @@ export function createCheckoutStore(
 			if (prepared.kind === 'reuse') {
 				const expectedAmountPaise = prepared.totalPaise;
 				const existingRazorpayOrder = await razorpayClient.fetchOrder(prepared.razorpayOrderId);
-				if (
-					existingRazorpayOrder &&
-					existingRazorpayOrder.amount === expectedAmountPaise
-				) {
+				if (existingRazorpayOrder && existingRazorpayOrder.amount === expectedAmountPaise) {
 					return {
 						ok: true,
 						response: {
@@ -557,7 +613,7 @@ export function createCheckoutStore(
 					if (order.status === CART_ORDER_STATUS.PAID) {
 						return {
 							ok: true as const,
-							response: { status: 'already_paid' as const }
+							response: { status: 'already_paid' as const, orderId: order.id }
 						};
 					}
 
@@ -581,12 +637,8 @@ export function createCheckoutStore(
 							)
 							.returning({ id: orders.id });
 					} catch (error) {
-						if (isUniqueViolation(error)) {
-							return {
-								ok: true as const,
-								response: { status: 'already_paid' as const }
-							};
-						}
+						// A unique violation here means another order for this cart is already paid
+						// (orders_one_paid_per_cart_idx). Handled outside the aborted transaction.
 						throw error;
 					}
 
@@ -600,7 +652,7 @@ export function createCheckoutStore(
 						if (current?.status === CART_ORDER_STATUS.PAID) {
 							return {
 								ok: true as const,
-								response: { status: 'already_paid' as const }
+								response: { status: 'already_paid' as const, orderId: order.id }
 							};
 						}
 
@@ -693,42 +745,127 @@ export function createCheckoutStore(
 						return {
 							ok: false,
 							status: 409,
-							body: { error: 'stock_conflict' }
+							body: { error: 'stock_conflict', orderId: order.id }
 						};
 					}
 
 					return {
 						ok: true as const,
-						response: { status: 'paid' as const }
+						response: { status: 'paid' as const, orderId: order.id }
 					};
 				});
 
 				if (result.ok && result.response.status === 'paid' && options?.mail) {
-					const [paidOrder] = await db
-						.select({ id: orders.id })
-						.from(orders)
-						.innerJoin(
-							paymentAttempts,
-							eq(paymentAttempts.id, orders.activePaymentAttemptId)
-						)
-						.where(eq(paymentAttempts.providerOrderId, razorpayOrderId))
-						.limit(1);
-
-					if (paidOrder) {
-						notifyOrderReceived(db, options.mail, paidOrder.id);
-					}
+					notifyOrderReceived(db, options.mail, result.response.orderId);
 				}
 
 				return result;
 			} catch (error) {
 				if (isUniqueViolation(error)) {
-					return {
-						ok: true,
-						response: { status: 'already_paid' }
-					};
+					// Another order for this cart is already paid (orders_one_paid_per_cart_idx), so
+					// this second captured payment is not attached to any paid order and needs a refund.
+					const located = await findCheckoutOrderByProviderOrderId(db, razorpayOrderId);
+					const [paidForCart] = located
+						? await db
+								.select({ id: orders.id })
+								.from(orders)
+								.where(
+									and(eq(orders.cartId, located.cartId), eq(orders.status, CART_ORDER_STATUS.PAID))
+								)
+								.limit(1)
+						: [];
+					if (paidForCart) {
+						storeLog('error', 'checkout.confirm.duplicate_payment', {
+							orderId: located?.id ?? null,
+							paidOrderId: paidForCart.id,
+							razorpayOrderId,
+							razorpayPaymentId,
+							requiresRefund: true
+						});
+						return {
+							ok: false,
+							status: 409,
+							body: { error: 'duplicate_payment', orderId: paidForCart.id }
+						};
+					}
 				}
 				throw error;
 			}
+		},
+
+		async getOrderStatus(actor, query) {
+			const condition = query.paymentId
+				? eq(paymentAttempts.providerPaymentId, query.paymentId)
+				: query.razorpayOrderId
+					? eq(paymentAttempts.providerOrderId, query.razorpayOrderId)
+					: null;
+			if (!condition) return null;
+
+			const [attempt] = await db.select().from(paymentAttempts).where(condition).limit(1);
+			if (!attempt) return null;
+
+			if (attempt.kind === PAYMENT_ATTEMPT_KIND.PRINT_REQUEST) {
+				if (!actor.userId) return null;
+				const [request] = await db
+					.select({ id: printrequests.id, userId: printrequests.userId })
+					.from(printrequests)
+					.where(eq(printrequests.id, attempt.entityId))
+					.limit(1);
+				if (!request || request.userId !== actor.userId) return null;
+				return {
+					kind: 'print_request',
+					printRequestId: request.id,
+					paid: attempt.status === PAYMENT_ATTEMPT_STATUS.PAID
+				};
+			}
+
+			if (attempt.kind !== PAYMENT_ATTEMPT_KIND.CART_ORDER) return null;
+
+			const [order] = await db
+				.select()
+				.from(orders)
+				.where(eq(orders.id, attempt.entityId))
+				.limit(1);
+			if (!order || !isOrderOwnedBy(order, actor)) return null;
+
+			const items = await db
+				.select({
+					productId: orderItems.productId,
+					name: orderItems.productName,
+					qty: orderItems.qty,
+					unitPricePaise: orderItems.unitPricePaise
+				})
+				.from(orderItems)
+				.where(eq(orderItems.orderId, order.id));
+
+			const shipping = shippingFromStoredAddress(order.address);
+
+			return {
+				kind: 'cart_order',
+				orderId: order.id,
+				status: order.status,
+				items: items.map((item) => ({
+					productId: item.productId,
+					name: item.name,
+					qty: item.qty,
+					unitPriceRupees: paiseToRupees(item.unitPricePaise)
+				})),
+				subtotalRupees: paiseToRupees(order.subtotalPaise),
+				deliveryFeeRupees: paiseToRupees(order.deliveryFeePaise),
+				totalRupees: paiseToRupees(order.totalPaise),
+				shipping: shipping
+					? {
+							name: stringOrNull(shipping.name),
+							line1: stringOrNull(shipping.line1),
+							line2: stringOrNull(shipping.line2),
+							city: stringOrNull(shipping.city),
+							state: stringOrNull(shipping.state),
+							pincode: stringOrNull(shipping.pincode)
+						}
+					: null,
+				email: shipping ? stringOrNull(shipping.email) : null,
+				createdAt: order.createdAt
+			};
 		},
 
 		async failOrder(actor, razorpayOrderId, reason) {
@@ -765,13 +902,9 @@ export function createCheckoutStore(
 						})
 						.where(eq(orders.id, order.id));
 
-					await tx
-						.update(carts)
-						.set({
-							status: CART_ORDER_STATUS.FAILED,
-							updatedAt: sql`now()`
-						})
-						.where(eq(carts.id, order.cartId));
+					// The order failed, not the cart: hand the cart back so "Try again" still has
+					// the buyer's items (a FAILED cart is never reloaded and the items were lost).
+					await reopenCartAfterFailedPayment(tx, order.cartId);
 
 					await markPaymentAttemptFailed(tx, razorpayOrderId, reason);
 

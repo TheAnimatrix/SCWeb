@@ -55,6 +55,8 @@ export const homeCatalogResponseSchema = z.object({
 	recentSpares: z.array(productViewSchema),
 	recentFleaMarket: z.array(productViewSchema),
 	featuredProducts: z.array(productViewSchema),
+	/** False when no banners are curated and `featuredProducts` is just the newest listings. */
+	featuredIsCurated: z.boolean(),
 	stats: z.object({
 		makers: z.number(),
 		listings: z.number(),
@@ -118,9 +120,20 @@ export const productIdParamSchema = z.object({
 	productId: z.string().uuid()
 });
 
+/** Public maker facts shown on the product page. Null when the seller has no maker profile. */
+export const productMakerInfoSchema = z.object({
+	location: z.string().nullable(),
+	/** When the maker's storefront was published (or the maker was approved). ISO string. */
+	sellingSince: z.string().nullable(),
+	/** True only when `/maker/@handle` resolves (approved maker with a live storefront). */
+	storefrontLive: z.boolean()
+});
+
 export const productDetailResponseSchema = z.object({
 	product: productViewSchema,
-	makerCraftCount: z.number().int().nonnegative()
+	/** Live listings by the same maker. */
+	makerCraftCount: z.number().int().nonnegative(),
+	maker: productMakerInfoSchema.nullable()
 });
 
 export const productReviewsResponseSchema = z.object({
@@ -148,6 +161,7 @@ export type HomeCatalogResponse = z.infer<typeof homeCatalogResponseSchema>;
 export type BrowseQuery = z.infer<typeof browseQuerySchema>;
 export type BrowseCatalogResponse = z.infer<typeof browseCatalogResponseSchema>;
 export type ProductDetailResponse = z.infer<typeof productDetailResponseSchema>;
+export type ProductMakerInfo = z.infer<typeof productMakerInfoSchema>;
 export type ProductReviewsResponse = z.infer<typeof productReviewsResponseSchema>;
 export type ProductVariantsResponse = z.infer<typeof productVariantsResponseSchema>;
 export type ProductRelatedResponse = z.infer<typeof productRelatedResponseSchema>;

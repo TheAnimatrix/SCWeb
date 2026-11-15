@@ -44,7 +44,9 @@ export const confirmCheckoutBodySchema = z
 export type ConfirmCheckoutBody = z.infer<typeof confirmCheckoutBodySchema>;
 
 export const confirmCheckoutResponseSchema = z.object({
-	status: z.enum(['paid', 'already_paid'])
+	status: z.enum(['paid', 'already_paid']),
+	/** `orders.id` — the ID shown in e-mails and the order list. */
+	orderId: z.string().uuid()
 });
 
 export type ConfirmCheckoutResponse = z.infer<typeof confirmCheckoutResponseSchema>;
@@ -63,3 +65,43 @@ export const failCheckoutResponseSchema = z.object({
 });
 
 export type FailCheckoutResponse = z.infer<typeof failCheckoutResponseSchema>;
+
+/** Look up a cart order (or print payment) by Razorpay payment ID or Razorpay order ID. */
+export const checkoutOrderStatusQuerySchema = z
+	.object({
+		paymentId: z.string().min(1).max(64).optional(),
+		razorpayOrderId: z.string().min(1).max(64).optional()
+	})
+	.refine((value) => Boolean(value.paymentId || value.razorpayOrderId), {
+		message: 'paymentId or razorpayOrderId is required'
+	});
+
+export type CheckoutOrderStatusQuery = z.infer<typeof checkoutOrderStatusQuerySchema>;
+
+export type CheckoutOrderStatusResponse =
+	| {
+			kind: 'cart_order';
+			orderId: string;
+			/** `payment_pending` | `paid` | `failed` | `fulfilled` | `cancelled` | `refunded` */
+			status: string;
+			items: { productId: string; name: string; qty: number; unitPriceRupees: number }[];
+			subtotalRupees: number;
+			deliveryFeeRupees: number;
+			totalRupees: number;
+			shipping: {
+				name: string | null;
+				line1: string | null;
+				line2: string | null;
+				city: string | null;
+				state: string | null;
+				pincode: string | null;
+			} | null;
+			/** Contact e-mail typed at checkout (guests). Signed-in buyers get mail at their account e-mail. */
+			email: string | null;
+			createdAt: string;
+	  }
+	| {
+			kind: 'print_request';
+			printRequestId: string;
+			paid: boolean;
+	  };

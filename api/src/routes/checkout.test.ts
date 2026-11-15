@@ -62,6 +62,7 @@ function fakeStore(overrides: Partial<CheckoutStore> = {}): CheckoutStore {
 		createOrder: vi.fn(),
 		confirmOrder: vi.fn(),
 		failOrder: vi.fn(),
+		getOrderStatus: vi.fn(async () => null),
 		...overrides
 	};
 }
@@ -192,7 +193,7 @@ describe('checkout routes', () => {
 	it('returns already_paid idempotently on confirm', async () => {
 		const confirmOrder = vi.fn(async () => ({
 			ok: true as const,
-			response: { status: 'already_paid' as const }
+			response: { status: 'already_paid' as const, orderId: '5f3c2b1a-0000-4000-8000-000000000001' }
 		}));
 		const app = createTestApp({ userId: null, clientId: 'guest-1' }, fakeStore({ confirmOrder }));
 
@@ -207,7 +208,10 @@ describe('checkout routes', () => {
 		});
 
 		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toEqual({ status: 'already_paid' });
+		await expect(response.json()).resolves.toEqual({
+			status: 'already_paid',
+			orderId: '5f3c2b1a-0000-4000-8000-000000000001'
+		});
 	});
 
 	it('keeps paid orders paid on fail', async () => {
@@ -225,5 +229,28 @@ describe('checkout routes', () => {
 
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({ status: 'paid' });
+	});
+
+	it('returns 401 for order-status without an identity', async () => {
+		const app = createTestApp({ userId: null, clientId: null }, fakeStore());
+		const response = await app.request('/checkout/order-status?paymentId=pay_1');
+		expect(response.status).toBe(401);
+	});
+
+	it('returns 400 for order-status without a lookup key', async () => {
+		const app = createTestApp({ userId: null, clientId: 'guest-1' }, fakeStore());
+		const response = await app.request('/checkout/order-status');
+		expect(response.status).toBe(400);
+	});
+
+	it('returns 404 when the order is missing or belongs to someone else', async () => {
+		const getOrderStatus = vi.fn(async () => null);
+		const app = createTestApp({ userId: null, clientId: 'guest-1' }, fakeStore({ getOrderStatus }));
+		const response = await app.request('/checkout/order-status?paymentId=pay_1');
+		expect(response.status).toBe(404);
+		expect(getOrderStatus).toHaveBeenCalledWith(
+			{ userId: null, clientId: 'guest-1' },
+			{ paymentId: 'pay_1' }
+		);
 	});
 });

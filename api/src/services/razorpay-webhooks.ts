@@ -15,6 +15,7 @@ import { printrequests } from '../db/schema/printrequests.js';
 import { products } from '../db/schema/products.js';
 import { storeLog } from '../middleware/logging.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
+import { reopenCartAfterFailedPayment } from './checkout-store.js';
 import type { MailService } from './mail.js';
 import { notifyOrderReceived, notifyPrintPaymentReceived } from './order-notifications.js';
 import { appendLegacyPrintRequestEvent, insertPrintRequestEvent } from './print-request-events.js';
@@ -421,10 +422,8 @@ async function handleFailed(
 				.update(orders)
 				.set({ status: CART_ORDER_STATUS.FAILED, updatedAt: sql`now()` })
 				.where(eq(orders.id, order.id));
-			await tx
-				.update(carts)
-				.set({ status: CART_ORDER_STATUS.FAILED, updatedAt: sql`now()` })
-				.where(eq(carts.id, order.cartId));
+			// Keep the buyer's items: reopen the cart rather than leaving it FAILED (lost).
+			await reopenCartAfterFailedPayment(tx, order.cartId);
 			await writeAudit(tx, {
 				actorUserId: null,
 				actorClientId: null,
