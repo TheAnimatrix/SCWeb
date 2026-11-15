@@ -43,12 +43,15 @@ async function failPaymentPendingOrderForCart(
 	// (from getCart). So nothing here reads a row and then writes by id: each statement is one
 	// conditional update that only moves something that is still waiting for payment. An order or
 	// attempt that has just been paid is left exactly as it is.
+	//
+	// Inside a transaction the cart row is locked first, the same order settlement uses (cart,
+	// then order). Taking the order first could deadlock against a capture that is settling.
+	await tx.select({ id: carts.id }).from(carts).where(eq(carts.id, cartId)).for('update');
+
 	const [order] = await tx
 		.update(orders)
 		.set({ status: CART_ORDER_STATUS.FAILED, updatedAt: sql`now()` })
-		.where(
-			and(eq(orders.cartId, cartId), eq(orders.status, CART_ORDER_STATUS.PAYMENT_PENDING))
-		)
+		.where(and(eq(orders.cartId, cartId), eq(orders.status, CART_ORDER_STATUS.PAYMENT_PENDING)))
 		.returning({ id: orders.id, activePaymentAttemptId: orders.activePaymentAttemptId });
 
 	if (!order) return;
@@ -126,11 +129,7 @@ export async function cancelStrayPaymentPendingCarts(
 		.select({ id: carts.id })
 		.from(carts)
 		.where(
-			and(
-				eq(carts.status, CART_ORDER_STATUS.PAYMENT_PENDING),
-				owner,
-				ne(carts.id, keepCartId)
-			)
+			and(eq(carts.status, CART_ORDER_STATUS.PAYMENT_PENDING), owner, ne(carts.id, keepCartId))
 		);
 
 	for (const cart of strayCarts) {

@@ -555,6 +555,41 @@ describe('CheckoutStore (PGlite)', () => {
 		await expect(store.getOrderStatus(owner, { paymentId: 'pay_unknown' })).resolves.toBeNull();
 	});
 
+	it("does not reveal whether someone else's payment ID exists", async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 9);
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+
+		// Buyer B pays for their own order.
+		const buyerB = { userId: null, clientId: CLIENT_B };
+		await seedGuestCartLine(testDb.db, CLIENT_B, PRODUCT_1, 1);
+		const theirs = await store.createOrder(buyerB, orderAddresses());
+		if (!theirs.ok) throw new Error('order failed');
+		await store.confirmOrder(buyerB, theirs.response.razorpayOrderId, 'pay_of_buyer_b');
+
+		// Buyer A has an order of their own and probes with payment IDs.
+		const buyerA = { userId: null, clientId: CLIENT_A };
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+		const mine = await store.createOrder(buyerA, orderAddresses());
+		if (!mine.ok) throw new Error('order failed');
+		const myOrder = mine.response.razorpayOrderId;
+
+		const withUnknown = await store.getOrderStatus(buyerA, {
+			razorpayOrderId: myOrder,
+			paymentId: 'pay_does_not_exist'
+		});
+		const withForeign = await store.getOrderStatus(buyerA, {
+			razorpayOrderId: myOrder,
+			paymentId: 'pay_of_buyer_b'
+		});
+
+		expect(withForeign).toEqual(withUnknown);
+		expect(withForeign).toMatchObject({ kind: 'cart_order', orderId: mine.response.orderId });
+		// On its own, a foreign payment ID is still just "not found".
+		await expect(
+			store.getOrderStatus(buyerA, { paymentId: 'pay_of_buyer_b' })
+		).resolves.toBeNull();
+	});
+
 	it('marks payment_pending orders as failed and reopens the cart', async () => {
 		await seedProduct(testDb.db, PRODUCT_1, 5);
 		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);

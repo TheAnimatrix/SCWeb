@@ -1376,8 +1376,16 @@ export function createCheckoutStore(
 			// through the Razorpay order it was paid on. Ownership is checked on that order below.
 			const attention = query.paymentId ? await findPaymentAttention(db, query.paymentId) : null;
 
+			// When the caller names a Razorpay order, that order decides which entity this is about
+			// and ownership is checked on it below. The payment ID then only adds detail for the same
+			// entity. Resolving by payment first would let a caller tell a payment that belongs to
+			// someone else (404 after the ownership check) from one that doesn't exist (200 through
+			// their own order).
 			let attempt: PaymentAttemptRow | null = null;
-			if (query.paymentId) {
+			if (query.razorpayOrderId) {
+				attempt = await findPaymentAttemptByProviderOrderId(db, query.razorpayOrderId);
+			}
+			if (!attempt && query.paymentId) {
 				const [byPayment] = await db
 					.select()
 					.from(paymentAttempts)
@@ -1387,9 +1395,6 @@ export function createCheckoutStore(
 				if (!attempt && attention?.razorpayOrderId) {
 					attempt = await findPaymentAttemptByProviderOrderId(db, attention.razorpayOrderId);
 				}
-			}
-			if (!attempt && query.razorpayOrderId) {
-				attempt = await findPaymentAttemptByProviderOrderId(db, query.razorpayOrderId);
 			}
 			if (!attempt) return null;
 

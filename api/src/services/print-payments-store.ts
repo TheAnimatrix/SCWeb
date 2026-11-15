@@ -16,7 +16,11 @@ import {
 } from './razorpay-client.js';
 import { externalFailureReason, failPendingAttempt } from './checkout-store.js';
 import { paymentAttempts } from '../db/schema/paymentAttempts.js';
-import { recordPaymentAttention, type PaymentAttention } from './payment-attention.js';
+import {
+	findPaymentAttention,
+	recordPaymentAttention,
+	type PaymentAttention
+} from './payment-attention.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
 import type { MailService } from './mail.js';
@@ -151,6 +155,20 @@ export async function settlePrintPayment(
 		return attempt.providerPaymentId === razorpayPaymentId
 			? { kind: 'already_paid' }
 			: { kind: 'attention', reason: 'duplicate_capture' };
+	}
+
+	// Once a payment has been recorded for a refund, that decision is final. Without this, a
+	// payment at an old quote could start to "match" again if the maker re-quotes back to the old
+	// price, and a re-delivered webhook would mark the request paid while support is refunding it.
+	const recorded = await findPaymentAttention(tx, razorpayPaymentId);
+	if (recorded && recorded.entityType === 'print_request' && recorded.entityId === row.id) {
+		return {
+			kind: 'attention',
+			reason:
+				recorded.reason === 'duplicate_capture' || recorded.reason === 'entity_not_payable'
+					? recorded.reason
+					: 'amount_mismatch'
+		};
 	}
 
 	if (row.requestStage !== 'quoted') {

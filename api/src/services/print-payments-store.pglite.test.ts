@@ -1140,6 +1140,29 @@ describe('PrintPaymentsStore (PGlite)', () => {
 			});
 		});
 
+		it('keeps a payment recorded for a refund unpaid when the maker re-quotes back', async () => {
+			await seedQuotedPrintRequest(testDb.db, { quote: 2500 });
+			const store = createPrintPaymentsStore(testDb.db, uniqueOrderRazorpay());
+			const created = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+			if (!created.ok) throw new Error('order failed');
+			const oldOrder = created.response.razorpayOrderId;
+			const webhook = createRazorpayWebhookService(testDb.db);
+			const capture = () =>
+				webhook.handle(webhookEvent('payment.captured', 'pay_old_quote', oldOrder, 250000));
+
+			// Captured at the old price after a re-quote: recorded for a refund.
+			await requote(5000);
+			await capture();
+			expect(await attentionRows()).toHaveLength(1);
+
+			// The maker goes back to the old price and Razorpay re-delivers the same capture.
+			await requote(2500);
+			expect(await capture()).toEqual({ ok: true, status: 'processed' });
+
+			expect(await state(oldOrder)).toMatchObject({ stage: 'quoted', attemptStatus: 'pending' });
+			expect(await attentionRows()).toHaveLength(1);
+		});
+
 		it('reconcile records a capture at the old quote and charges the new quote', async () => {
 			await seedQuotedPrintRequest(testDb.db, { quote: 2500 });
 			const razorpay = uniqueOrderRazorpay({ fetchOrderPayments: vi.fn(async () => []) });
