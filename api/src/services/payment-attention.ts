@@ -15,10 +15,7 @@ import type { MailService } from './mail.js';
 export const PAYMENT_ATTENTION_ACTION = 'payment.requires_refund';
 
 export type PaymentAttentionReason =
-	| 'duplicate_capture'
-	| 'amount_mismatch'
-	| 'entity_not_payable'
-	| 'stock_conflict';
+	'duplicate_capture' | 'amount_mismatch' | 'entity_not_payable' | 'stock_conflict';
 
 export type PaymentAttention = {
 	razorpayPaymentId: string;

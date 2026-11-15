@@ -26,8 +26,7 @@ export type PrintPaymentsApiError =
 	| { kind: 'unknown'; message: string };
 
 export type PrintPaymentsApiResult<T> =
-	| { ok: true; data: T }
-	| { ok: false; error: PrintPaymentsApiError };
+	{ ok: true; data: T } | { ok: false; error: PrintPaymentsApiError };
 
 type ApiErrorBody = {
 	error?: string;

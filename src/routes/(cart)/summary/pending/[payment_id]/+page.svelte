@@ -72,8 +72,8 @@
 						Write to {SUPPORT_EMAIL} with the payment ID below so we can sort it out.
 					{:else if data.mismatch}
 						Your payment went through, but it was for an earlier version of your cart, so we could
-						not match it to your order. Write to {SUPPORT_EMAIL} with the payment ID below and we
-						will sort it out.
+						not match it to your order. Write to {SUPPORT_EMAIL} with the payment ID below and we will
+						sort it out.
 					{:else}
 						Razorpay told us your payment went through, but we could not confirm the order yet. We
 						will e-mail you when it is confirmed. If no e-mail arrives, write to {SUPPORT_EMAIL} with

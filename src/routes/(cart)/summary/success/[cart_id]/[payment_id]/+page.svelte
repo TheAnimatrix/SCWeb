@@ -58,7 +58,10 @@
 			<div class="mt-8 text-center">
 				<div
 					class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950">
-					<Icon icon={F.clock} class="size-7 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+					<Icon
+						icon={F.clock}
+						class="size-7 text-amber-700 dark:text-amber-300"
+						aria-hidden="true" />
 				</div>
 				<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Payment received</h1>
 				<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
