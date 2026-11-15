@@ -122,6 +122,8 @@ export type PublicStorefront = {
 	socials: Record<string, string> | null;
 	storefront_state: string;
 	published_at: string | null;
+	/** The earlier of `published_at` and the maker's first live listing. */
+	selling_since: string | null;
 	tier: string | null;
 	capabilities: string[];
 	products: Array<{
@@ -191,6 +193,15 @@ function toIso(value: Date | string | null | undefined): string | null {
 	if (!value) return null;
 	if (value instanceof Date) return value.toISOString();
 	return value;
+}
+
+/** The earliest of the given timestamps as an ISO string, ignoring empty or invalid ones. */
+function earliestIso(...values: Array<Date | string | null | undefined>): string | null {
+	const times = values
+		.filter((value): value is Date | string => value != null && value !== '')
+		.map((value) => new Date(value).getTime())
+		.filter((time) => Number.isFinite(time));
+	return times.length ? new Date(Math.min(...times)).toISOString() : null;
 }
 
 export function createMakersStore(db: Database) {
@@ -1102,6 +1113,10 @@ export function createMakersStore(db: Database) {
 				socials: (row.maker.socials as Record<string, string> | null) ?? null,
 				storefront_state: row.maker.storefrontState,
 				published_at: toIso(row.maker.publishedAt),
+				selling_since: earliestIso(
+					toIso(row.maker.publishedAt),
+					listingRows.length ? listingRows[listingRows.length - 1].createdAt : null
+				),
 				tier: row.tier,
 				capabilities,
 				products: listingRows.map((p) => ({

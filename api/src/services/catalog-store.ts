@@ -197,10 +197,28 @@ export function createCatalogStore(db: Database): CatalogStore {
 		if (!row) return null;
 
 		const approved = row.approvedState === 'approved';
-		const sellingSince = approved ? (row.publishedAt ?? row.approvedAt ?? null) : null;
+		let sellingSince: string | null = null;
+		if (approved) {
+			// Makers who were listing before the makers table existed have a `published_at`
+			// later than their first listing, so take the earlier of the two.
+			const [first] = await db
+				.select({ at: sql<string | null>`min(${products.createdAt})` })
+				.from(products)
+				.where(
+					and(
+						or(eq(products.makerId, makerId), eq(products.uid, makerId)),
+						eq(products.listingState, 'live')
+					)
+				);
+			const candidates = [row.publishedAt ?? row.approvedAt ?? null, first?.at ?? null]
+				.filter((value): value is NonNullable<typeof value> => value != null)
+				.map((value) => new Date(value).getTime())
+				.filter((time) => Number.isFinite(time));
+			sellingSince = candidates.length ? new Date(Math.min(...candidates)).toISOString() : null;
+		}
 		return {
 			location: row.location?.trim() || null,
-			sellingSince: sellingSince ? new Date(sellingSince).toISOString() : null,
+			sellingSince,
 			storefrontLive: approved && row.storefrontState === 'live'
 		};
 	}

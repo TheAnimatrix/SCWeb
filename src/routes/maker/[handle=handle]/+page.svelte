@@ -17,6 +17,7 @@
 		handle: string;
 		tier: string | null;
 		published_at: string | null;
+		selling_since?: string | null;
 		display_name: string | null;
 		tagline: string | null;
 		bio: string | null;
@@ -56,7 +57,9 @@
 		return label.charAt(0).toUpperCase() + label.slice(1);
 	}
 
-	const sellingSince = $derived(formatMonthYear(storefront.published_at));
+	const sellingSince = $derived(
+		formatMonthYear(storefront.selling_since ?? storefront.published_at)
+	);
 	const listingCount = $derived(storefront.products.length);
 
 	/** Storefront rows carry fewer fields than the catalog; fill the rest for ProductCard. */
