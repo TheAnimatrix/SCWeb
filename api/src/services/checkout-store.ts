@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import type {
+	CheckoutNeedsSupport,
 	CheckoutOrderStatusResponse,
 	ConfirmCheckoutResponse,
 	CreateCheckoutOrderResponse,
@@ -26,17 +27,22 @@ import {
 	isOrderOwnedBy,
 	normalizeCheckoutOrderAddresses,
 	resolveFailOrderStatus,
+	type OrderItemSnapshot,
+	type OrderTotals,
 	shouldDecrementStock,
 	shouldReuseRazorpayOrder,
 	validateCheckoutLines,
 	type CheckoutLine
 } from './checkout.js';
-import { findCapturedPayment, type RazorpayClient } from './razorpay-client.js';
+import {
+	lookupCapturedPayment,
+	type RazorpayClient,
+	type RazorpayOrderPayment
+} from './razorpay-client.js';
 import {
 	createPaymentAttempt,
 	findPaymentAttemptById,
 	findPaymentAttemptByProviderOrderId,
-	markPaymentAttemptFailed,
 	markPaymentAttemptPaid,
 	PAYMENT_ATTEMPT_KIND,
 	PAYMENT_ATTEMPT_STATUS,
@@ -46,7 +52,12 @@ import { truncateAuditReason, writeAudit } from './audit.js';
 import { storeLog } from '../middleware/logging.js';
 import type { MailService } from './mail.js';
 import { notifyOrderReceived } from './order-notifications.js';
-import { recordPaymentAttention, type PaymentAttention } from './payment-attention.js';
+import {
+	findPaymentAttention,
+	recordPaymentAttention,
+	type PaymentAttention,
+	type PaymentAttentionReason
+} from './payment-attention.js';
 import { auditLog } from '../db/schema/auditLog.js';
 
 export type CheckoutStoreOptions = {
@@ -70,9 +81,18 @@ export type CreateOrderResult =
 			ok: false;
 			status: 409;
 			/** The previous Razorpay order turned out to be paid; no new order was created. */
-			body: { error: 'already_paid'; orderId: string; paymentId: string };
+			body: { error: 'already_paid'; orderId: string; paymentId: string | null };
 	  }
-	| { ok: false; status: 500; body: { error: 'razorpay_order_failed' } };
+	| { ok: false; status: 500; body: { error: 'razorpay_order_failed' } }
+	| {
+			ok: false;
+			status: 503;
+			/**
+			 * Razorpay could not say whether an earlier payment window for this cart was paid. No new
+			 * payment was started; the buyer should wait and try again.
+			 */
+			body: { error: 'payment_check_unavailable' };
+	  };
 
 export type ConfirmOrderResult =
 	| { ok: true; response: ConfirmCheckoutResponse }
@@ -226,6 +246,160 @@ export const STOCK_CONFLICT_AUDIT_ACTION = 'paid_stock_conflict';
 /** Statuses meaning the cart has been paid for by this order. */
 const CART_PAID_STATUSES = [CART_ORDER_STATUS.PAID, CART_ORDER_STATUS.FULFILLED];
 
+/**
+ * `failure_reason` prefix for an unpaid attempt whose Razorpay order was issued for an earlier
+ * version of the order (items, quantities, prices, delivery fee or addresses changed since). A
+ * capture on it is never fulfilled; it is recorded for a refund as `stale_order`.
+ */
+export const SUPERSEDED_ATTEMPT_REASON = 'superseded_by_newer_checkout';
+
+export function isSupersededAttempt(attempt: {
+	status: string;
+	failureReason: string | null;
+}): boolean {
+	return (
+		attempt.status === PAYMENT_ATTEMPT_STATUS.FAILED &&
+		(attempt.failureReason ?? '').startsWith(SUPERSEDED_ATTEMPT_REASON)
+	);
+}
+
+/** A failure reason from the browser or Razorpay can never pass for the superseded marker. */
+export function externalFailureReason(reason: string | null | undefined): string | null {
+	if (!reason) return null;
+	const truncated = truncateAuditReason(reason) ?? reason;
+	return truncated.startsWith(SUPERSEDED_ATTEMPT_REASON) ? `reported: ${truncated}` : truncated;
+}
+
+/**
+ * Moves one attempt from pending to failed. Never touches a paid, superseded or already failed
+ * attempt. Returns false when the attempt was not pending.
+ */
+export async function failPendingAttempt(
+	tx: DbExecutor,
+	attemptId: string,
+	reason: string | null
+): Promise<boolean> {
+	const updated = await tx
+		.update(paymentAttempts)
+		.set({
+			status: PAYMENT_ATTEMPT_STATUS.FAILED,
+			failureReason: reason,
+			updatedAt: sql`now()`
+		})
+		.where(
+			and(
+				eq(paymentAttempts.id, attemptId),
+				eq(paymentAttempts.status, PAYMENT_ATTEMPT_STATUS.PENDING)
+			)
+		)
+		.returning({ id: paymentAttempts.id });
+	return updated.length > 0;
+}
+
+/** Every unpaid attempt on the order stops being able to pay for it. */
+async function supersedeOrderAttempts(tx: DbExecutor, orderId: string): Promise<void> {
+	await tx
+		.update(paymentAttempts)
+		.set({
+			status: PAYMENT_ATTEMPT_STATUS.FAILED,
+			failureReason: sql`${SUPERSEDED_ATTEMPT_REASON} || coalesce('; ' || ${paymentAttempts.failureReason}, '')`,
+			updatedAt: sql`now()`
+		})
+		.where(
+			and(
+				eq(paymentAttempts.kind, PAYMENT_ATTEMPT_KIND.CART_ORDER),
+				eq(paymentAttempts.entityId, orderId),
+				inArray(paymentAttempts.status, [
+					PAYMENT_ATTEMPT_STATUS.PENDING,
+					PAYMENT_ATTEMPT_STATUS.FAILED
+				]),
+				sql`coalesce(${paymentAttempts.failureReason}, '') not like ${`${SUPERSEDED_ATTEMPT_REASON}%`}`
+			)
+		);
+}
+
+/**
+ * Locks a cart order for anything that changes its payment state, cart row first and then the
+ * order. Checkout creation takes the same cart lock, so settlement, failure and creation for one
+ * cart run one at a time and always in the same lock order.
+ */
+export async function lockCartOrderForPayment(
+	tx: DbExecutor,
+	orderId: string
+): Promise<OrderRow | null> {
+	const [ref] = await tx
+		.select({ cartId: orders.cartId })
+		.from(orders)
+		.where(eq(orders.id, orderId))
+		.limit(1);
+	if (!ref) return null;
+
+	await tx.select({ id: carts.id }).from(carts).where(eq(carts.id, ref.cartId)).for('update');
+
+	const [order] = await tx
+		.select()
+		.from(orders)
+		.where(eq(orders.id, orderId))
+		.for('update')
+		.limit(1);
+	return order ?? null;
+}
+
+/** The paid (or fulfilled) order for a cart and the payment that paid it, if any. */
+async function findPaidPaymentForCart(
+	tx: DbExecutor,
+	cartId: string
+): Promise<{ orderId: string; paymentId: string | null } | null> {
+	const [row] = await tx
+		.select({ orderId: orders.id, paymentId: paymentAttempts.providerPaymentId })
+		.from(orders)
+		.leftJoin(paymentAttempts, eq(paymentAttempts.id, orders.activePaymentAttemptId))
+		.where(and(eq(orders.cartId, cartId), inArray(orders.status, CART_PAID_STATUSES)))
+		.limit(1);
+	return row ? { orderId: row.orderId, paymentId: row.paymentId ?? null } : null;
+}
+
+/** What a checkout request is asking the buyer to pay for. */
+type OrderSnapshot = {
+	items: Pick<OrderItemSnapshot, 'productId' | 'qty' | 'unitPricePaise'>[];
+	totals: OrderTotals;
+	addresses: CheckoutOrderAddresses;
+};
+
+function sameOrderLines(left: OrderSnapshot['items'], right: OrderSnapshot['items']): boolean {
+	if (left.length !== right.length) return false;
+	const key = (line: OrderSnapshot['items'][number]) =>
+		`${line.productId}:${line.qty}:${line.unitPricePaise}`;
+	const a = left.map(key).sort();
+	const b = right.map(key).sort();
+	return a.every((value, index) => value === b[index]);
+}
+
+/** True when the stored order is exactly this snapshot: items, quantities, prices, fee, addresses. */
+async function orderMatchesSnapshot(
+	tx: DbExecutor,
+	order: OrderRow,
+	snapshot: OrderSnapshot
+): Promise<boolean> {
+	if (
+		order.subtotalPaise !== snapshot.totals.subtotalPaise ||
+		order.deliveryFeePaise !== snapshot.totals.deliveryFeePaise ||
+		order.totalPaise !== snapshot.totals.totalPaise ||
+		!checkoutOrderAddressesEqual(order.address, snapshot.addresses)
+	) {
+		return false;
+	}
+	const items = await tx
+		.select({
+			productId: orderItems.productId,
+			qty: orderItems.qty,
+			unitPricePaise: orderItems.unitPricePaise
+		})
+		.from(orderItems)
+		.where(eq(orderItems.orderId, order.id));
+	return sameOrderLines(items, snapshot.items);
+}
+
 class StockConflictError extends Error {
 	constructor(
 		readonly productId: string,
@@ -242,7 +416,7 @@ export type CartPaymentSettlement =
 	| {
 			kind: 'attention';
 			orderId: string;
-			reason: 'duplicate_capture' | 'amount_mismatch' | 'entity_not_payable';
+			reason: 'duplicate_capture' | 'amount_mismatch' | 'entity_not_payable' | 'stale_order';
 			/** The order that holds the cart's payment, when that is why this one was refused. */
 			paidOrderId: string | null;
 	  };
@@ -289,9 +463,13 @@ export async function settleCartPayment(
 	const attempt = (await findPaymentAttemptById(tx, input.attempt.id)) ?? input.attempt;
 	const razorpayOrderId = attempt.providerOrderId;
 	const attention = (
-		reason: 'duplicate_capture' | 'amount_mismatch' | 'entity_not_payable',
+		reason: 'duplicate_capture' | 'amount_mismatch' | 'entity_not_payable' | 'stale_order',
 		paidOrderId: string | null = null
 	): CartPaymentSettlement => ({ kind: 'attention', orderId: order.id, reason, paidOrderId });
+
+	if (attempt.kind !== PAYMENT_ATTEMPT_KIND.CART_ORDER || attempt.entityId !== order.id) {
+		return attention('entity_not_payable');
+	}
 
 	if (attempt.status === PAYMENT_ATTEMPT_STATUS.PAID) {
 		if (attempt.providerPaymentId === razorpayPaymentId) {
@@ -303,6 +481,12 @@ export async function settleCartPayment(
 		}
 		// A second payment on a Razorpay order that is already settled.
 		return attention('duplicate_capture', order.id);
+	}
+
+	// The Razorpay order was issued for an earlier version of this order (an old payment window
+	// still open after the items, prices or address changed). Never fulfil the new snapshot with it.
+	if (isSupersededAttempt(attempt)) {
+		return attention('stale_order');
 	}
 
 	if ((CART_PAID_STATUSES as string[]).includes(order.status)) {
@@ -482,7 +666,7 @@ function confirmResultFromSettlement(
 				body: { error: 'stock_conflict', orderId: settlement.orderId }
 			};
 		case 'attention':
-			if (settlement.reason === 'amount_mismatch') {
+			if (settlement.reason === 'amount_mismatch' || settlement.reason === 'stale_order') {
 				return {
 					ok: false,
 					status: 409,
@@ -512,7 +696,12 @@ export async function recordCartSettlementAttention(
 		detectedBy: PaymentAttention['detectedBy'];
 	}
 ): Promise<void> {
-	if (settlement.kind !== 'attention' && settlement.kind !== 'paid_stock_conflict') return;
+	// A repeated settlement that still reports a stock conflict records it again (idempotent): the
+	// first delivery may have committed the paid order but died before writing the record.
+	const stockConflict =
+		settlement.kind === 'paid_stock_conflict' ||
+		(settlement.kind === 'already_paid' && settlement.stockConflict);
+	if (settlement.kind !== 'attention' && !stockConflict) return;
 	await recordPaymentAttention(db, mail, {
 		razorpayPaymentId: payment.razorpayPaymentId,
 		razorpayOrderId: payment.razorpayOrderId,
@@ -543,17 +732,6 @@ async function resolveStoredRazorpayOrderId(
 	}
 
 	return null;
-}
-
-async function findCheckoutOrderByProviderOrderId(tx: DbExecutor, razorpayOrderId: string) {
-	const attempt = await findPaymentAttemptByProviderOrderId(tx, razorpayOrderId);
-	if (attempt?.kind !== PAYMENT_ATTEMPT_KIND.CART_ORDER) {
-		return null;
-	}
-
-	const [order] = await tx.select().from(orders).where(eq(orders.id, attempt.entityId)).limit(1);
-
-	return order ?? null;
 }
 
 async function persistCheckoutPaymentAttempt(
@@ -641,54 +819,43 @@ function shippingFromStoredAddress(stored: unknown): StoredAddress | null {
 	return shipping as StoredAddress;
 }
 
+
+function needsSupportForAttention(reason: PaymentAttentionReason): CheckoutNeedsSupport {
+	switch (reason) {
+		case 'stock_conflict':
+			return 'stock_conflict';
+		case 'duplicate_capture':
+			return 'duplicate_payment';
+		case 'amount_mismatch':
+		case 'stale_order':
+			return 'payment_mismatch';
+		case 'entity_not_payable':
+			return 'not_payable';
+	}
+}
+
+/** How many of a cart's latest unpaid Razorpay orders are checked before a new one is issued. */
+const RECONCILE_ATTEMPT_LIMIT = 3;
+
 export function createCheckoutStore(
 	db: Database,
 	razorpayClient: RazorpayClient,
 	options?: CheckoutStoreOptions
 ): CheckoutStore {
-	/**
-	 * Asks Razorpay whether the cart's latest unresolved Razorpay order was in fact paid. If it
-	 * was, the payment is applied and the caller must not create a new order. Returns null when
-	 * there is nothing to reconcile (or Razorpay could not be asked) and checkout should go on.
-	 */
-	async function reconcileUnresolvedCartPayment(cartId: string): Promise<CreateOrderResult | null> {
-		const [candidate] = await db
-			.select({ attempt: paymentAttempts })
-			.from(paymentAttempts)
-			.innerJoin(orders, eq(orders.id, paymentAttempts.entityId))
-			.where(
-				and(
-					eq(paymentAttempts.kind, PAYMENT_ATTEMPT_KIND.CART_ORDER),
-					eq(orders.cartId, cartId),
-					inArray(paymentAttempts.status, [
-						PAYMENT_ATTEMPT_STATUS.PENDING,
-						PAYMENT_ATTEMPT_STATUS.FAILED
-					])
-				)
-			)
-			.orderBy(desc(paymentAttempts.createdAt))
-			.limit(1);
-		if (!candidate) return null;
-
-		const razorpayOrderId = candidate.attempt.providerOrderId;
-		const captured = await findCapturedPayment(razorpayClient, razorpayOrderId).catch(() => null);
-		if (!captured) return null;
-
+	/** Applies a payment Razorpay reports as captured. Returns the result to send, or null to go on. */
+	async function applyReconciledCapture(
+		razorpayOrderId: string,
+		captured: RazorpayOrderPayment
+	): Promise<CreateOrderResult | null> {
 		storeLog('warn', 'checkout.order.reconciled_capture', {
-			cartId,
 			razorpayOrderId,
 			razorpayPaymentId: captured.id
 		});
 
 		const settlement = await db.transaction(async (tx) => {
 			const attempt = await findPaymentAttemptByProviderOrderId(tx, razorpayOrderId);
-			if (!attempt) return null;
-			const [order] = await tx
-				.select()
-				.from(orders)
-				.where(eq(orders.id, attempt.entityId))
-				.for('update')
-				.limit(1);
+			if (attempt?.kind !== PAYMENT_ATTEMPT_KIND.CART_ORDER) return null;
+			const order = await lockCartOrderForPayment(tx, attempt.entityId);
 			if (!order) return null;
 			return settleCartPayment(tx, {
 				attempt,
@@ -724,6 +891,147 @@ export function createCheckoutStore(
 		};
 	}
 
+	/**
+	 * Asks Razorpay whether one of the cart's latest unpaid Razorpay orders was paid after all
+	 * (paid in the modal after a failure, browser closed before confirm). Applies any captured
+	 * payment. Returns `already_paid` when the cart is now paid, 503 when Razorpay could not answer
+	 * for one of them, and null when checkout can go on. A cart with no earlier Razorpay order is
+	 * never sent to Razorpay here.
+	 */
+	async function reconcileUnresolvedCartPayments(
+		cartId: string
+	): Promise<CreateOrderResult | null> {
+		const candidates = await db
+			.select({ providerOrderId: paymentAttempts.providerOrderId })
+			.from(paymentAttempts)
+			.innerJoin(orders, eq(orders.id, paymentAttempts.entityId))
+			.where(
+				and(
+					eq(paymentAttempts.kind, PAYMENT_ATTEMPT_KIND.CART_ORDER),
+					eq(orders.cartId, cartId),
+					inArray(paymentAttempts.status, [
+						PAYMENT_ATTEMPT_STATUS.PENDING,
+						PAYMENT_ATTEMPT_STATUS.FAILED
+					])
+				)
+			)
+			.orderBy(desc(paymentAttempts.createdAt))
+			.limit(RECONCILE_ATTEMPT_LIMIT);
+		if (candidates.length === 0) return null;
+
+		const lookups = await Promise.all(
+			candidates.map((candidate) =>
+				lookupCapturedPayment(razorpayClient, candidate.providerOrderId)
+			)
+		);
+
+		let result: CreateOrderResult | null = null;
+		let unknown = false;
+		for (const [index, lookup] of lookups.entries()) {
+			const razorpayOrderId = candidates[index]!.providerOrderId;
+			if (lookup.kind === 'unknown') {
+				unknown = true;
+				storeLog('warn', 'checkout.order.payment_check_unavailable', { cartId, razorpayOrderId });
+				continue;
+			}
+			if (lookup.kind !== 'captured') continue;
+			const applied = await applyReconciledCapture(razorpayOrderId, lookup.payment);
+			result ??= applied;
+		}
+
+		if (result) return result;
+		if (unknown) return { ok: false, status: 503, body: { error: 'payment_check_unavailable' } };
+		return null;
+	}
+
+	/**
+	 * Under the cart lock: is the reused Razorpay order still the order's live, unpaid attempt?
+	 * Returns `already_paid` when a payment settled the cart meanwhile.
+	 */
+	async function checkReusableAttempt(prepared: {
+		cartId: string;
+		orderId: string;
+		razorpayOrderId: string;
+	}): Promise<'reusable' | 'not_reusable' | CreateOrderResult> {
+		return db.transaction(async (tx) => {
+			const order = await lockCartOrderForPayment(tx, prepared.orderId);
+			const paid = await findPaidPaymentForCart(tx, prepared.cartId);
+			if (paid) {
+				return {
+					ok: false as const,
+					status: 409 as const,
+					body: { error: 'already_paid' as const, ...paid }
+				};
+			}
+			const attempt = await findPaymentAttemptByProviderOrderId(tx, prepared.razorpayOrderId);
+			return order?.status === CART_ORDER_STATUS.PAYMENT_PENDING &&
+				attempt?.status === PAYMENT_ATTEMPT_STATUS.PENDING &&
+				order.activePaymentAttemptId === attempt.id
+				? 'reusable'
+				: 'not_reusable';
+		});
+	}
+
+	/**
+	 * Stores the new Razorpay order as the order's active attempt, unless a payment settled the cart
+	 * or another request changed the order while Razorpay was being asked. In that case the Razorpay
+	 * order is stored as superseded (a capture on it is recorded, never fulfilled) and not returned.
+	 */
+	async function persistNewAttempt(
+		prepared: { cartId: string; orderId: string; snapshot: OrderSnapshot },
+		razorpayOrder: { id: string; amount: number }
+	): Promise<'persisted' | 'changed' | CreateOrderResult> {
+		return db.transaction(async (tx) => {
+			const order = await lockCartOrderForPayment(tx, prepared.orderId);
+			const paid = await findPaidPaymentForCart(tx, prepared.cartId);
+			const current =
+				!paid &&
+				order?.status === CART_ORDER_STATUS.PAYMENT_PENDING &&
+				(await orderMatchesSnapshot(tx, order, prepared.snapshot));
+
+			if (current) {
+				await persistCheckoutPaymentAttempt(
+					tx,
+					prepared.orderId,
+					razorpayOrder.id,
+					razorpayOrder.amount
+				);
+				return 'persisted' as const;
+			}
+
+			if (order) {
+				const orphan = await createPaymentAttempt(tx, {
+					kind: PAYMENT_ATTEMPT_KIND.CART_ORDER,
+					entityId: order.id,
+					providerOrderId: razorpayOrder.id,
+					amountPaise: razorpayOrder.amount
+				});
+				await tx
+					.update(paymentAttempts)
+					.set({
+						status: PAYMENT_ATTEMPT_STATUS.FAILED,
+						failureReason: SUPERSEDED_ATTEMPT_REASON
+					})
+					.where(eq(paymentAttempts.id, orphan.id));
+			}
+
+			storeLog('warn', 'checkout.order.changed_while_creating', {
+				orderId: prepared.orderId,
+				razorpayOrderId: razorpayOrder.id,
+				paidOrderId: paid ? paid.orderId : null
+			});
+
+			if (paid) {
+				return {
+					ok: false as const,
+					status: 409 as const,
+					body: { error: 'already_paid' as const, ...paid }
+				};
+			}
+			return 'changed' as const;
+		});
+	}
+
 	return {
 		async createOrder(actor, addresses, options) {
 			const refreshPayment = options?.refreshPayment === true;
@@ -732,10 +1040,30 @@ export function createCheckoutStore(
 				addresses.billing
 			);
 
+			// Before anything is reused or issued, make sure an earlier payment window for this cart
+			// was not paid after all. Razorpay is asked outside any database transaction.
+			const cartRef = await findCheckoutCartRow(db, actor);
+			if (cartRef) {
+				const reconciled = await reconcileUnresolvedCartPayments(cartRef.id);
+				if (reconciled) return reconciled;
+			}
+
 			const prepared = await db.transaction(async (tx) => {
-				const cart = await findCheckoutCartRow(tx, actor);
-				if (!cart) {
-					return { kind: 'cart_empty' as const };
+				// Settlement takes this lock too (lockCartOrderForPayment): a payment that commits
+				// first is seen here, and one that arrives later waits until this transaction ends.
+				const found = (await findCheckoutCartRow(tx, actor)) ?? cartRef;
+				const [cart] = found
+					? await tx.select().from(carts).where(eq(carts.id, found.id)).for('update').limit(1)
+					: [];
+				if (
+					!cart ||
+					(cart.status !== CART_ORDER_STATUS.ACTIVE &&
+						cart.status !== CART_ORDER_STATUS.PAYMENT_PENDING)
+				) {
+					const paid = cart ? await findPaidPaymentForCart(tx, cart.id) : null;
+					return paid
+						? { kind: 'already_paid' as const, ...paid }
+						: { kind: 'cart_empty' as const };
 				}
 
 				const lines = await getCartLines(tx, cart.id);
@@ -773,9 +1101,12 @@ export function createCheckoutStore(
 
 				const snapshots = buildOrderItemSnapshots(lockedLines);
 				const totals = computeOrderTotals(snapshots);
+				const snapshot: OrderSnapshot = {
+					items: snapshots,
+					totals,
+					addresses: normalizedAddresses
+				};
 				const existingOrder = await findPaymentPendingOrderForCart(tx, cart.id);
-
-				let orderId: string;
 
 				if (existingOrder) {
 					const previousTotalPaise = existingOrder.totalPaise;
@@ -783,6 +1114,7 @@ export function createCheckoutStore(
 						existingOrder.address,
 						normalizedAddresses
 					);
+					const unchanged = await orderMatchesSnapshot(tx, existingOrder, snapshot);
 
 					await tx
 						.update(orders)
@@ -796,7 +1128,11 @@ export function createCheckoutStore(
 						.where(eq(orders.id, existingOrder.id));
 
 					await replaceOrderItems(tx, existingOrder.id, snapshots);
-					orderId = existingOrder.id;
+
+					if (!unchanged) {
+						// Earlier payment windows were for a different order: none may pay for this one.
+						await supersedeOrderAttempts(tx, existingOrder.id);
+					}
 
 					const auditMeta: Record<string, unknown> = { addressChanged };
 					if (totals.totalPaise !== previousTotalPaise) {
@@ -815,79 +1151,84 @@ export function createCheckoutStore(
 						meta: auditMeta
 					});
 
-					const storedRazorpayOrderId = await resolveStoredRazorpayOrderId(tx, existingOrder);
+					const storedRazorpayOrderId = unchanged
+						? await resolveStoredRazorpayOrderId(tx, existingOrder)
+						: null;
 
-					if (
-						!refreshPayment &&
-						shouldReuseRazorpayOrder(storedRazorpayOrderId) &&
-						totals.totalPaise === previousTotalPaise
-					) {
+					if (!refreshPayment && shouldReuseRazorpayOrder(storedRazorpayOrderId)) {
 						return {
 							kind: 'reuse' as const,
 							cartId: cart.id,
-							orderId,
+							orderId: existingOrder.id,
 							razorpayOrderId: storedRazorpayOrderId!,
-							totalPaise: totals.totalPaise
+							totalPaise: totals.totalPaise,
+							snapshot
 						};
 					}
 
 					return {
 						kind: 'created' as const,
 						cartId: cart.id,
-						orderId,
+						orderId: existingOrder.id,
 						totalPaise: totals.totalPaise,
-						razorpayOrderId: null
+						snapshot
 					};
-				} else {
-					const [inserted] = await tx
-						.insert(orders)
-						.values({
-							cartId: cart.id,
-							userId: cart.userId,
-							clientId: cart.clientId,
-							status: CART_ORDER_STATUS.PAYMENT_PENDING,
-							address: normalizedAddresses,
-							subtotalPaise: totals.subtotalPaise,
-							deliveryFeePaise: totals.deliveryFeePaise,
-							totalPaise: totals.totalPaise
-						})
-						.returning();
-
-					await replaceOrderItems(tx, inserted.id, snapshots);
-
-					await writeAudit(tx, {
-						actorUserId: actor.userId,
-						actorClientId: actor.clientId,
-						entityType: 'order',
-						entityId: inserted.id,
-						action: 'created',
-						fromState: null,
-						toState: CART_ORDER_STATUS.PAYMENT_PENDING,
-						meta: { cartId: cart.id, totalPaise: totals.totalPaise }
-					});
-
-					await tx
-						.update(carts)
-						.set({
-							status: CART_ORDER_STATUS.PAYMENT_PENDING,
-							updatedAt: sql`now()`
-						})
-						.where(eq(carts.id, cart.id));
-
-					orderId = inserted.id;
 				}
+
+				const [inserted] = await tx
+					.insert(orders)
+					.values({
+						cartId: cart.id,
+						userId: cart.userId,
+						clientId: cart.clientId,
+						status: CART_ORDER_STATUS.PAYMENT_PENDING,
+						address: normalizedAddresses,
+						subtotalPaise: totals.subtotalPaise,
+						deliveryFeePaise: totals.deliveryFeePaise,
+						totalPaise: totals.totalPaise
+					})
+					.returning();
+
+				await replaceOrderItems(tx, inserted.id, snapshots);
+
+				await writeAudit(tx, {
+					actorUserId: actor.userId,
+					actorClientId: actor.clientId,
+					entityType: 'order',
+					entityId: inserted.id,
+					action: 'created',
+					fromState: null,
+					toState: CART_ORDER_STATUS.PAYMENT_PENDING,
+					meta: { cartId: cart.id, totalPaise: totals.totalPaise }
+				});
+
+				await tx
+					.update(carts)
+					.set({
+						status: CART_ORDER_STATUS.PAYMENT_PENDING,
+						updatedAt: sql`now()`
+					})
+					.where(eq(carts.id, cart.id));
 
 				return {
 					kind: 'created' as const,
 					cartId: cart.id,
-					orderId,
+					orderId: inserted.id,
 					totalPaise: totals.totalPaise,
-					razorpayOrderId: null
+					snapshot
 				};
 			});
 
 			if (prepared.kind === 'cart_empty') {
 				return { ok: false, status: 400, body: { error: 'cart_empty' } };
+			}
+
+			if (prepared.kind === 'already_paid') {
+				return {
+					ok: false,
+					status: 409,
+					body: { error: 'already_paid', orderId: prepared.orderId, paymentId: prepared.paymentId }
+				};
 			}
 
 			if (prepared.kind === 'insufficient_stock') {
@@ -917,76 +1258,70 @@ export function createCheckoutStore(
 				const expectedAmountPaise = prepared.totalPaise;
 				const existingRazorpayOrder = await razorpayClient.fetchOrder(prepared.razorpayOrderId);
 				if (existingRazorpayOrder && existingRazorpayOrder.amount === expectedAmountPaise) {
-					return {
-						ok: true,
-						response: {
-							orderId: prepared.orderId,
-							razorpayOrderId: existingRazorpayOrder.id,
-							amountPaise: expectedAmountPaise,
-							totalRupees: paiseToRupees(prepared.totalPaise),
-							currency: 'INR'
-						}
-					};
+					const check = await checkReusableAttempt(prepared);
+					if (check === 'reusable') {
+						return {
+							ok: true,
+							response: {
+								orderId: prepared.orderId,
+								razorpayOrderId: existingRazorpayOrder.id,
+								amountPaise: expectedAmountPaise,
+								totalRupees: paiseToRupees(prepared.totalPaise),
+								currency: 'INR'
+							}
+						};
+					}
+					if (check !== 'not_reusable') return check;
+				} else {
+					storeLog('warn', 'checkout.order.stale_razorpay_order', {
+						orderId: prepared.orderId,
+						razorpayOrderId: prepared.razorpayOrderId,
+						expectedAmountPaise,
+						actualAmountPaise: existingRazorpayOrder?.amount ?? null
+					});
 				}
-
-				storeLog('warn', 'checkout.order.stale_razorpay_order', {
-					orderId: prepared.orderId,
-					razorpayOrderId: prepared.razorpayOrderId,
-					expectedAmountPaise,
-					actualAmountPaise: existingRazorpayOrder?.amount ?? null
-				});
 			}
 
-			if (prepared.kind === 'reuse' || prepared.kind === 'created') {
-				// Before issuing a new Razorpay order, make sure the buyer has not already paid the
-				// previous one (paid in the modal after a failure, browser closed before confirm).
-				const reconciled = await reconcileUnresolvedCartPayment(prepared.cartId);
-				if (reconciled) return reconciled;
+			try {
+				const razorpayOrder = await razorpayClient.createOrder(
+					prepared.totalPaise,
+					prepared.orderId
+				);
 
-				try {
-					const razorpayOrder = await razorpayClient.createOrder(
-						prepared.totalPaise,
-						prepared.orderId
-					);
-
-					await db.transaction(async (tx) => {
-						await persistCheckoutPaymentAttempt(
-							tx,
-							prepared.orderId,
-							razorpayOrder.id,
-							razorpayOrder.amount
-						);
-					});
-
-					return {
-						ok: true,
-						response: {
-							orderId: prepared.orderId,
-							razorpayOrderId: razorpayOrder.id,
-							amountPaise: prepared.totalPaise,
-							totalRupees: paiseToRupees(prepared.totalPaise),
-							currency: 'INR'
-						}
-					};
-				} catch (error) {
-					const razorpayError =
-						typeof error === 'object' && error !== null && 'error' in error
-							? (error as { statusCode?: number; error?: { description?: string; code?: string } })
-							: null;
-
-					storeLog('error', 'checkout.order.razorpay_failed', {
-						orderId: prepared.orderId,
-						statusCode: razorpayError?.statusCode ?? null,
-						code: razorpayError?.error?.code ?? null,
-						description: razorpayError?.error?.description ?? null,
-						message: error instanceof Error ? error.message : String(error)
-					});
-
+				const persisted = await persistNewAttempt(prepared, razorpayOrder);
+				if (persisted === 'changed') {
+					// Another checkout request changed this order meanwhile. Nothing was charged; the
+					// buyer presses Pay again and gets a payment window for the order as it is now.
 					return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
 				}
-			}
+				if (persisted !== 'persisted') return persisted;
 
-			return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
+				return {
+					ok: true,
+					response: {
+						orderId: prepared.orderId,
+						razorpayOrderId: razorpayOrder.id,
+						amountPaise: prepared.totalPaise,
+						totalRupees: paiseToRupees(prepared.totalPaise),
+						currency: 'INR'
+					}
+				};
+			} catch (error) {
+				const razorpayError =
+					typeof error === 'object' && error !== null && 'error' in error
+						? (error as { statusCode?: number; error?: { description?: string; code?: string } })
+						: null;
+
+				storeLog('error', 'checkout.order.razorpay_failed', {
+					orderId: prepared.orderId,
+					statusCode: razorpayError?.statusCode ?? null,
+					code: razorpayError?.error?.code ?? null,
+					description: razorpayError?.error?.description ?? null,
+					message: error instanceof Error ? error.message : String(error)
+				});
+
+				return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
+			}
 		},
 
 		async confirmOrder(actor, razorpayOrderId, razorpayPaymentId) {
@@ -996,12 +1331,7 @@ export function createCheckoutStore(
 					return { kind: 'not_found' as const };
 				}
 
-				const [order] = await tx
-					.select()
-					.from(orders)
-					.where(eq(orders.id, attempt.entityId))
-					.for('update')
-					.limit(1);
+				const order = await lockCartOrderForPayment(tx, attempt.entityId);
 
 				if (!order) {
 					return { kind: 'not_found' as const };
@@ -1042,15 +1372,35 @@ export function createCheckoutStore(
 		},
 
 		async getOrderStatus(actor, query) {
-			const condition = query.paymentId
-				? eq(paymentAttempts.providerPaymentId, query.paymentId)
-				: query.razorpayOrderId
-					? eq(paymentAttempts.providerOrderId, query.razorpayOrderId)
-					: null;
-			if (!condition) return null;
+			// A payment recorded for a refund was never stored on an attempt: resolve its order
+			// through the Razorpay order it was paid on. Ownership is checked on that order below.
+			const attention = query.paymentId ? await findPaymentAttention(db, query.paymentId) : null;
 
-			const [attempt] = await db.select().from(paymentAttempts).where(condition).limit(1);
+			let attempt: PaymentAttemptRow | null = null;
+			if (query.paymentId) {
+				const [byPayment] = await db
+					.select()
+					.from(paymentAttempts)
+					.where(eq(paymentAttempts.providerPaymentId, query.paymentId))
+					.limit(1);
+				attempt = byPayment ?? null;
+				if (!attempt && attention?.razorpayOrderId) {
+					attempt = await findPaymentAttemptByProviderOrderId(db, attention.razorpayOrderId);
+				}
+			}
+			if (!attempt && query.razorpayOrderId) {
+				attempt = await findPaymentAttemptByProviderOrderId(db, query.razorpayOrderId);
+			}
 			if (!attempt) return null;
+
+			const attentionEntityType =
+				attempt.kind === PAYMENT_ATTEMPT_KIND.CART_ORDER ? 'order' : 'print_request';
+			const paymentAttention =
+				attention &&
+				attention.entityType === attentionEntityType &&
+				attention.entityId === attempt.entityId
+					? needsSupportForAttention(attention.reason)
+					: null;
 
 			if (attempt.kind === PAYMENT_ATTEMPT_KIND.PRINT_REQUEST) {
 				if (!actor.userId) return null;
@@ -1063,7 +1413,8 @@ export function createCheckoutStore(
 				return {
 					kind: 'print_request',
 					printRequestId: request.id,
-					paid: attempt.status === PAYMENT_ATTEMPT_STATUS.PAID
+					paid: paymentAttention === null && attempt.status === PAYMENT_ATTEMPT_STATUS.PAID,
+					needsSupport: paymentAttention === 'stock_conflict' ? 'not_payable' : paymentAttention
 				};
 			}
 
@@ -1092,7 +1443,9 @@ export function createCheckoutStore(
 				kind: 'cart_order',
 				orderId: order.id,
 				status: order.status,
-				needsSupport: (await orderHasStockConflict(db, order.id)) ? 'stock_conflict' : null,
+				needsSupport:
+					paymentAttention ??
+					((await orderHasStockConflict(db, order.id)) ? 'stock_conflict' : null),
 				items: items.map((item) => ({
 					productId: item.productId,
 					name: item.name,
@@ -1119,9 +1472,14 @@ export function createCheckoutStore(
 
 		async failOrder(actor, razorpayOrderId, reason) {
 			return db.transaction(async (tx) => {
-				const order = await findCheckoutOrderByProviderOrderId(tx, razorpayOrderId);
+				const found = await findPaymentAttemptByProviderOrderId(tx, razorpayOrderId);
+				// Same lock order as settlement: cart, then order. Everything below is read under it.
+				const order =
+					found?.kind === PAYMENT_ATTEMPT_KIND.CART_ORDER
+						? await lockCartOrderForPayment(tx, found.entityId)
+						: null;
 
-				if (!order) {
+				if (!found || !order) {
 					return {
 						ok: false as const,
 						status: 404 as const,
@@ -1137,11 +1495,19 @@ export function createCheckoutStore(
 					};
 				}
 
-				const nextStatus = resolveFailOrderStatus(order.status);
+				// Only a pending attempt becomes failed; a paid or superseded one is left alone.
+				const attemptFailed = await failPendingAttempt(
+					tx,
+					found.id,
+					externalFailureReason(reason)
+				);
 
+				// The order fails only when this was its live payment window. A paid or fulfilled
+				// order, or one already paying through a newer Razorpay order, is never downgraded.
 				if (
-					nextStatus === CART_ORDER_STATUS.FAILED &&
-					order.status === CART_ORDER_STATUS.PAYMENT_PENDING
+					attemptFailed &&
+					order.status === CART_ORDER_STATUS.PAYMENT_PENDING &&
+					order.activePaymentAttemptId === found.id
 				) {
 					await tx
 						.update(orders)
@@ -1149,13 +1515,13 @@ export function createCheckoutStore(
 							status: CART_ORDER_STATUS.FAILED,
 							updatedAt: sql`now()`
 						})
-						.where(eq(orders.id, order.id));
+						.where(
+							and(eq(orders.id, order.id), eq(orders.status, CART_ORDER_STATUS.PAYMENT_PENDING))
+						);
 
 					// The order failed, not the cart: hand the cart back so "Try again" still has
 					// the buyer's items (a FAILED cart is never reloaded and the items were lost).
 					await reopenCartAfterFailedPayment(tx, order.cartId);
-
-					await markPaymentAttemptFailed(tx, razorpayOrderId, reason);
 
 					await writeAudit(tx, {
 						actorUserId: actor.userId,
@@ -1174,11 +1540,16 @@ export function createCheckoutStore(
 						razorpayOrderId,
 						reason: reason ?? null
 					});
+
+					return {
+						ok: true as const,
+						response: { status: CART_ORDER_STATUS.FAILED as string }
+					};
 				}
 
 				return {
 					ok: true as const,
-					response: { status: nextStatus }
+					response: { status: resolveFailOrderStatus(order.status) }
 				};
 			});
 		}

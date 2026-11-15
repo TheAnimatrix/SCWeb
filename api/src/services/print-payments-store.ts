@@ -9,7 +9,12 @@ import { rupeesToPaise, paiseToRupees } from '../contracts/money.js';
 import type { Database, DbExecutor } from '../db/index.js';
 import { printrequests } from '../db/schema/printrequests.js';
 import type { Actor } from '../types/context.js';
-import { findCapturedPayment, type RazorpayClient } from './razorpay-client.js';
+import {
+	lookupCapturedPayment,
+	type RazorpayClient,
+	type RazorpayOrderPayment
+} from './razorpay-client.js';
+import { externalFailureReason, failPendingAttempt } from './checkout-store.js';
 import { paymentAttempts } from '../db/schema/paymentAttempts.js';
 import { recordPaymentAttention, type PaymentAttention } from './payment-attention.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
@@ -20,7 +25,6 @@ import {
 	createPaymentAttempt,
 	findPaymentAttemptById,
 	findPaymentAttemptByProviderOrderId,
-	markPaymentAttemptFailed,
 	markPaymentAttemptPaid,
 	PAYMENT_ATTEMPT_KIND,
 	PAYMENT_ATTEMPT_STATUS,
@@ -51,7 +55,9 @@ export type CreatePrintPaymentOrderResult =
 	| { ok: false; status: 400; body: { error: 'no_quote' | 'invalid_quote' } }
 	/** The previous Razorpay order turned out to be paid; the request is now paid. */
 	| { ok: false; status: 409; body: { error: 'already_paid' } }
-	| { ok: false; status: 500; body: { error: 'razorpay_order_failed' } };
+	| { ok: false; status: 500; body: { error: 'razorpay_order_failed' } }
+	/** Razorpay could not say whether an earlier payment window was paid; nothing new was started. */
+	| { ok: false; status: 503; body: { error: 'payment_check_unavailable' } };
 
 export type ConfirmPrintPaymentResult =
 	| { ok: true; response: ConfirmPrintPaymentResponse }
@@ -59,7 +65,9 @@ export type ConfirmPrintPaymentResult =
 	| { ok: false; status: 403; body: { error: 'forbidden' } }
 	| { ok: false; status: 400; body: { error: 'order_mismatch' | 'no_order' | 'reorder_required' } }
 	/** Captured, but the request was already paid or can no longer be paid. Recorded for a refund. */
-	| { ok: false; status: 409; body: { error: 'duplicate_payment' } };
+	| { ok: false; status: 409; body: { error: 'duplicate_payment' } }
+	/** Captured for an amount that is not the current quote. Recorded for a refund. */
+	| { ok: false; status: 409; body: { error: 'payment_mismatch' } };
 
 export type FailPrintPaymentResult =
 	| { ok: true; response: FailPrintPaymentResponse }
@@ -91,10 +99,20 @@ type PaymentAttemptRow = Awaited<ReturnType<typeof findPaymentAttemptById>> & {}
 
 const PAID_PRINT_STAGES = ['paid', 'paid_externally', 'shipped', 'completed'];
 
+/** The request's current quote in paise, or null when it has no usable quote. */
+function currentQuotePaise(events: unknown): number | null {
+	try {
+		const quote = getLatestQuote(events);
+		return quote === null ? null : rupeesToPaise(quote);
+	} catch {
+		return null;
+	}
+}
+
 export type PrintPaymentSettlement =
 	| { kind: 'paid'; amountPaise: number }
 	| { kind: 'already_paid' }
-	| { kind: 'attention'; reason: 'duplicate_capture' | 'entity_not_payable' };
+	| { kind: 'attention'; reason: 'duplicate_capture' | 'entity_not_payable' | 'amount_mismatch' };
 
 export type PrintPaymentSource =
 	| { kind: 'confirm'; userId: string; clientId: string | null }
@@ -122,6 +140,13 @@ export async function settlePrintPayment(
 	const attempt = (await findPaymentAttemptById(tx, input.attempt.id)) ?? input.attempt;
 	const razorpayOrderId = attempt.providerOrderId;
 
+	if (
+		attempt.kind !== PAYMENT_ATTEMPT_KIND.PRINT_REQUEST ||
+		attempt.entityId !== row.id
+	) {
+		return { kind: 'attention', reason: 'entity_not_payable' };
+	}
+
 	if (attempt.status === PAYMENT_ATTEMPT_STATUS.PAID) {
 		return attempt.providerPaymentId === razorpayPaymentId
 			? { kind: 'already_paid' }
@@ -136,6 +161,18 @@ export async function settlePrintPayment(
 				? 'duplicate_capture'
 				: 'entity_not_payable'
 		};
+	}
+
+	// The maker may have re-quoted after this payment window opened. Only the current quote pays
+	// for the request; an older amount is recorded for a refund.
+	if (currentQuotePaise(row.events) !== attempt.amountPaise) {
+		storeLog('warn', 'print_payments.quote_drift', {
+			printRequestId: row.id,
+			razorpayOrderId,
+			attemptAmountPaise: attempt.amountPaise,
+			quotePaise: currentQuotePaise(row.events)
+		});
+		return { kind: 'attention', reason: 'amount_mismatch' };
 	}
 
 	const claimed = await tx
@@ -268,33 +305,12 @@ export function createPrintPaymentsStore(
 	razorpayClient: RazorpayClient,
 	options?: PrintPaymentsStoreOptions
 ): PrintPaymentsStore {
-	/**
-	 * Asks Razorpay whether the request's latest unresolved Razorpay order was paid. Applies the
-	 * payment and returns true when it was (the request is now paid). Returns false when there is
-	 * nothing to reconcile, Razorpay could not be asked, or the payment was recorded for a refund.
-	 */
-	async function reconcileUnresolvedPrintPayment(printRequestId: string): Promise<boolean> {
-		const [candidate] = await db
-			.select()
-			.from(paymentAttempts)
-			.where(
-				and(
-					eq(paymentAttempts.kind, PAYMENT_ATTEMPT_KIND.PRINT_REQUEST),
-					eq(paymentAttempts.entityId, printRequestId),
-					inArray(paymentAttempts.status, [
-						PAYMENT_ATTEMPT_STATUS.PENDING,
-						PAYMENT_ATTEMPT_STATUS.FAILED
-					])
-				)
-			)
-			.orderBy(desc(paymentAttempts.createdAt))
-			.limit(1);
-		if (!candidate) return false;
-
-		const razorpayOrderId = candidate.providerOrderId;
-		const captured = await findCapturedPayment(razorpayClient, razorpayOrderId).catch(() => null);
-		if (!captured) return false;
-
+	/** Applies a payment Razorpay reports as captured. Returns true when the request is now paid. */
+	async function applyReconciledCapture(
+		printRequestId: string,
+		razorpayOrderId: string,
+		captured: RazorpayOrderPayment
+	): Promise<boolean> {
 		storeLog('warn', 'print_payments.order.reconciled_capture', {
 			printRequestId,
 			razorpayOrderId,
@@ -333,6 +349,59 @@ export function createPrintPaymentsStore(
 			detectedBy: 'reconcile'
 		});
 		return false;
+	}
+
+	/**
+	 * Asks Razorpay whether one of the request's latest unpaid Razorpay orders was paid after all,
+	 * and applies it. `paid`: the request is now paid. `unknown`: Razorpay could not answer, so no
+	 * payment window may be offered. `clear`: checkout can go on. A request with no earlier
+	 * Razorpay order is never sent to Razorpay here.
+	 */
+	async function reconcileUnresolvedPrintPayments(
+		printRequestId: string
+	): Promise<'paid' | 'unknown' | 'clear'> {
+		const candidates = await db
+			.select({ providerOrderId: paymentAttempts.providerOrderId })
+			.from(paymentAttempts)
+			.where(
+				and(
+					eq(paymentAttempts.kind, PAYMENT_ATTEMPT_KIND.PRINT_REQUEST),
+					eq(paymentAttempts.entityId, printRequestId),
+					inArray(paymentAttempts.status, [
+						PAYMENT_ATTEMPT_STATUS.PENDING,
+						PAYMENT_ATTEMPT_STATUS.FAILED
+					])
+				)
+			)
+			.orderBy(desc(paymentAttempts.createdAt))
+			.limit(3);
+		if (candidates.length === 0) return 'clear';
+
+		const lookups = await Promise.all(
+			candidates.map((candidate) =>
+				lookupCapturedPayment(razorpayClient, candidate.providerOrderId)
+			)
+		);
+
+		let paid = false;
+		let unknown = false;
+		for (const [index, lookup] of lookups.entries()) {
+			const razorpayOrderId = candidates[index]!.providerOrderId;
+			if (lookup.kind === 'unknown') {
+				unknown = true;
+				storeLog('warn', 'print_payments.order.payment_check_unavailable', {
+					printRequestId,
+					razorpayOrderId
+				});
+				continue;
+			}
+			if (lookup.kind !== 'captured') continue;
+			if (await applyReconciledCapture(printRequestId, razorpayOrderId, lookup.payment)) {
+				paid = true;
+			}
+		}
+
+		return paid ? 'paid' : unknown ? 'unknown' : 'clear';
 	}
 
 	return {
@@ -377,23 +446,6 @@ export function createPrintPaymentsStore(
 					? await findPaymentAttemptById(tx, row.activePaymentAttemptId)
 					: null;
 
-				if (shouldReusePrintPaymentOrder(activeAttempt, latestQuote)) {
-					const storedOrderId = activeAttempt!.providerOrderId;
-					await tx
-						.update(printrequests)
-						.set({
-							address: normalizedAddress,
-							lastUpdated: sql`now()`
-						})
-						.where(eq(printrequests.id, printRequestId));
-
-					return {
-						kind: 'reuse' as const,
-						razorpayOrderId: storedOrderId,
-						amount: latestQuote
-					};
-				}
-
 				await tx
 					.update(printrequests)
 					.set({
@@ -401,6 +453,14 @@ export function createPrintPaymentsStore(
 						lastUpdated: sql`now()`
 					})
 					.where(eq(printrequests.id, printRequestId));
+
+				if (shouldReusePrintPaymentOrder(activeAttempt, latestQuote)) {
+					return {
+						kind: 'reuse' as const,
+						razorpayOrderId: activeAttempt!.providerOrderId,
+						amount: latestQuote
+					};
+				}
 
 				return {
 					kind: 'create' as const,
@@ -424,38 +484,69 @@ export function createPrintPaymentsStore(
 				return { ok: false, status: 400, body: { error: 'invalid_quote' } };
 			}
 
-			if (prepared.kind === 'reuse') {
-				return {
-					ok: true,
-					response: {
-						razorpayOrderId: prepared.razorpayOrderId,
-						amountPaise: rupeesToPaise(prepared.amount),
-						currency: 'INR'
-					}
-				};
+			// Before a payment window is reused or issued, make sure an earlier one was not paid
+			// after all (paid in the modal after a failed attempt, browser closed before confirm).
+			const reconciled = await reconcileUnresolvedPrintPayments(printRequestId);
+			if (reconciled === 'paid') {
+				return { ok: false, status: 409, body: { error: 'already_paid' } };
+			}
+			if (reconciled === 'unknown') {
+				return { ok: false, status: 503, body: { error: 'payment_check_unavailable' } };
 			}
 
-			// Before issuing a new Razorpay order, make sure the previous one was not paid after all
-			// (paid in the modal after a failed attempt, browser closed before confirm).
-			if (await reconcileUnresolvedPrintPayment(printRequestId)) {
-				return { ok: false, status: 409, body: { error: 'already_paid' } };
+			const amountPaise = rupeesToPaise(prepared.amount);
+
+			if (prepared.kind === 'reuse') {
+				// Re-read under the request lock: a payment or a re-quote may have landed meanwhile.
+				const reusable = await db.transaction(async (tx) => {
+					const [row] = await tx
+						.select()
+						.from(printrequests)
+						.where(eq(printrequests.id, printRequestId))
+						.for('update')
+						.limit(1);
+					if (!row) return 'not_payable' as const;
+					if (PAID_PRINT_STAGES.includes(row.requestStage ?? '')) return 'already_paid' as const;
+					if (row.requestStage !== 'quoted') return 'not_payable' as const;
+					const attempt = await findPaymentAttemptByProviderOrderId(tx, prepared.razorpayOrderId);
+					return attempt?.status === PAYMENT_ATTEMPT_STATUS.PENDING &&
+						row.activePaymentAttemptId === attempt.id &&
+						attempt.amountPaise === amountPaise &&
+						currentQuotePaise(row.events) === amountPaise
+						? ('reusable' as const)
+						: ('create' as const);
+				});
+				if (reusable === 'already_paid') {
+					return { ok: false, status: 409, body: { error: 'already_paid' } };
+				}
+				if (reusable === 'not_payable') {
+					return { ok: false, status: 409, body: { error: 'not_payable' } };
+				}
+				if (reusable === 'reusable') {
+					return {
+						ok: true,
+						response: {
+							razorpayOrderId: prepared.razorpayOrderId,
+							amountPaise,
+							currency: 'INR'
+						}
+					};
+				}
 			}
 
 			// Razorpay SDK call is intentionally outside the row lock; confirm binds to the
 			// persisted order_id so orphan Razorpay orders are harmless.
 			try {
-				const razorpayOrder = await razorpayClient.createOrder(
-					rupeesToPaise(prepared.amount),
-					printRequestId
-				);
+				const razorpayOrder = await razorpayClient.createOrder(amountPaise, printRequestId);
 
 				const orderCreatedEvent = buildOrderCreatedEvent(prepared.amount, razorpayOrder.id);
 
-				await db.transaction(async (tx) => {
+				const persisted = await db.transaction(async (tx) => {
 					const [current] = await tx
-						.select({ requestStage: printrequests.requestStage })
+						.select()
 						.from(printrequests)
 						.where(eq(printrequests.id, printRequestId))
+						.for('update')
 						.limit(1);
 
 					const attempt = await createPaymentAttempt(tx, {
@@ -464,6 +555,25 @@ export function createPrintPaymentsStore(
 						providerOrderId: razorpayOrder.id,
 						amountPaise: razorpayOrder.amount
 					});
+
+					// A payment settled the request, or the maker re-quoted, while Razorpay was being
+					// asked. Keep the Razorpay order on record as unusable and do not hand it out.
+					const stillPayable =
+						current?.requestStage === 'quoted' &&
+						currentQuotePaise(current.events) === razorpayOrder.amount;
+					if (!stillPayable) {
+						await failPendingAttempt(tx, attempt.id, 'superseded_before_use');
+						storeLog('warn', 'print_payments.order.changed_while_creating', {
+							printRequestId,
+							razorpayOrderId: razorpayOrder.id,
+							requestStage: current?.requestStage ?? null
+						});
+						return PAID_PRINT_STAGES.includes(current?.requestStage ?? '')
+							? ('already_paid' as const)
+							: current?.requestStage === 'quoted'
+								? ('changed' as const)
+								: ('not_payable' as const);
+					}
 
 					await tx
 						.update(printrequests)
@@ -492,11 +602,22 @@ export function createPrintPaymentsStore(
 						entityType: 'print_request',
 						entityId: printRequestId,
 						action: 'payment_order_created',
-						fromState: current?.requestStage ?? null,
-						toState: current?.requestStage ?? null,
+						fromState: current.requestStage ?? null,
+						toState: current.requestStage ?? null,
 						providerIds: { razorpayOrderId: razorpayOrder.id }
 					});
+					return 'persisted' as const;
 				});
+
+				if (persisted === 'already_paid') {
+					return { ok: false, status: 409, body: { error: 'already_paid' } };
+				}
+				if (persisted === 'not_payable') {
+					return { ok: false, status: 409, body: { error: 'not_payable' } };
+				}
+				if (persisted === 'changed') {
+					return { ok: false, status: 500, body: { error: 'razorpay_order_failed' } };
+				}
 
 				return {
 					ok: true,
@@ -539,16 +660,6 @@ export function createPrintPaymentsStore(
 					return { kind: 'order_mismatch' as const };
 				}
 
-				const orderAmount = paiseToRupees(attempt.amountPaise);
-				const latestQuote = getLatestQuote(row.events);
-				if (latestQuote !== null && latestQuote !== orderAmount) {
-					storeLog('warn', 'print_payments.quote_drift', {
-						printRequestId,
-						orderAmount,
-						latestQuote
-					});
-				}
-
 				const settlement = await settlePrintPayment(tx, {
 					attempt,
 					row,
@@ -585,6 +696,9 @@ export function createPrintPaymentsStore(
 				amountPaise: outcome.amountPaise,
 				detectedBy: 'confirm'
 			});
+			if (settlement.reason === 'amount_mismatch') {
+				return { ok: false, status: 409, body: { error: 'payment_mismatch' } };
+			}
 			return { ok: false, status: 409, body: { error: 'duplicate_payment' } };
 		},
 
@@ -640,9 +754,18 @@ export function createPrintPaymentsStore(
 					};
 				}
 
+				// Re-read under the request lock; only a pending attempt becomes failed.
+				const attempt = await findPaymentAttemptByProviderOrderId(tx, razorpayOrderId);
+				if (!attempt || !(await failPendingAttempt(tx, attempt.id, externalFailureReason(reason)))) {
+					return {
+						ok: true as const,
+						response: { status: row.requestStage ?? 'quoted' }
+					};
+				}
+
 				const failedEvent = buildPaymentFailedEvent(razorpayOrderId, reason);
 
-				const changed = await tx
+				await tx
 					.update(printrequests)
 					.set({
 						activePaymentAttemptId: null,
@@ -650,17 +773,7 @@ export function createPrintPaymentsStore(
 					})
 					.where(
 						and(eq(printrequests.id, printRequestId), eq(printrequests.requestStage, 'quoted'))
-					)
-					.returning({ id: printrequests.id });
-
-				if (changed.length === 0) {
-					return {
-						ok: true as const,
-						response: { status: row.requestStage ?? 'quoted' }
-					};
-				}
-
-				await markPaymentAttemptFailed(tx, razorpayOrderId, reason);
+					);
 
 				await insertPrintRequestEvent(tx, {
 					printRequestId,

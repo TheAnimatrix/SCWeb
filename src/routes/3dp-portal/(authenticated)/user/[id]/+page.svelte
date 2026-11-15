@@ -141,7 +141,7 @@
 	 * Set when Razorpay took a payment that this page could not confirm, or that was not needed.
 	 * Kept in sessionStorage so a reload does not offer Pay again. Pay stays disabled while set.
 	 */
-	type PaymentNotice = { paymentId: string; kind: 'unconfirmed' | 'duplicate' };
+	type PaymentNotice = { paymentId: string; kind: 'unconfirmed' | 'duplicate' | 'mismatch' };
 	let paymentNotice = $state<PaymentNotice | null>(null);
 
 	function paymentNoticeKey(requestId: string) {
@@ -157,7 +157,8 @@
 				typeof parsed === 'object' &&
 				typeof (parsed as PaymentNotice).paymentId === 'string' &&
 				((parsed as PaymentNotice).kind === 'unconfirmed' ||
-					(parsed as PaymentNotice).kind === 'duplicate')
+					(parsed as PaymentNotice).kind === 'duplicate' ||
+					(parsed as PaymentNotice).kind === 'mismatch')
 			) {
 				return parsed as PaymentNotice;
 			}
@@ -261,11 +262,15 @@
 							await goto(`/summary/success/${requestId}/${response.razorpay_payment_id}`);
 							return;
 						}
-						if (confirmResult.error.kind === 'duplicate_payment') {
-							// Already paid by another payment; this one is recorded for a refund.
+						if (
+							confirmResult.error.kind === 'duplicate_payment' ||
+							confirmResult.error.kind === 'payment_mismatch'
+						) {
+							// Not used for this request (already paid, or paid at an earlier quote); this
+							// payment is recorded for a refund.
 							savePaymentNotice(requestId, {
 								paymentId: response.razorpay_payment_id,
-								kind: 'duplicate'
+								kind: confirmResult.error.kind === 'duplicate_payment' ? 'duplicate' : 'mismatch'
 							});
 							payLoading = false;
 							await invalidate('3dp-portal:printrequest');
@@ -790,6 +795,11 @@
 				<p class="rounded-md border border-border bg-card p-3 text-sm" role="alert">
 					{#if paymentNotice.kind === 'duplicate'}
 						This request was already paid, so your latest payment was not needed.
+						<strong>Don't pay again.</strong>
+						Write to
+					{:else if paymentNotice.kind === 'mismatch'}
+						Your payment went through, but it was for an earlier quote, so it was not used for this
+						request.
 						<strong>Don't pay again.</strong>
 						Write to
 					{:else}

@@ -4,7 +4,7 @@ import type {
 	FailPrintPaymentResponse
 } from '@scweb/api/contracts';
 import type { Address } from '$lib/types/product';
-import { stripCheckoutAddress } from '$lib/client/cartApi';
+import { PAYMENT_CHECK_UNAVAILABLE, stripCheckoutAddress } from '$lib/client/cartApi';
 
 export type PrintPaymentsApiError =
 	| { kind: 'not_found'; message: string }
@@ -20,6 +20,10 @@ export type PrintPaymentsApiError =
 	| { kind: 'already_paid'; message: string }
 	/** Captured, but the request was already paid or can no longer be paid. Support refunds it. */
 	| { kind: 'duplicate_payment'; message: string }
+	/** Captured for an amount that is not the current quote. Support refunds it. */
+	| { kind: 'payment_mismatch'; message: string }
+	/** Razorpay could not say whether an earlier payment went through; no new payment was started. */
+	| { kind: 'payment_check_unavailable'; message: string }
 	| { kind: 'unauthorized'; message: string }
 	| { kind: 'rate_limited'; message: string }
 	| { kind: 'network'; message: string }
@@ -87,6 +91,14 @@ export function mapPrintPaymentsError(status: number, body: unknown): PrintPayme
 				kind: 'duplicate_payment',
 				message: 'This request was already paid, so this payment was not needed.'
 			};
+		case 'payment_mismatch':
+			return {
+				kind: 'payment_mismatch',
+				message:
+					'Your payment went through, but it was for an earlier quote, so it was not used for this request. Do not pay again. Write to support@selfcrafted.in.'
+			};
+		case 'payment_check_unavailable':
+			return { kind: 'payment_check_unavailable', message: PAYMENT_CHECK_UNAVAILABLE };
 		case 'unauthorized':
 			return { kind: 'unauthorized', message: fallbackMessage };
 		case 'rate_limited':

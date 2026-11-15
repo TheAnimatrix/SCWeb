@@ -1,6 +1,6 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { paiseToRupees } from '../contracts/money.js';
-import type { Database } from '../db/index.js';
+import type { Database, DbExecutor } from '../db/index.js';
 import { auditLog } from '../db/schema/auditLog.js';
 import { storeLog } from '../middleware/logging.js';
 import { writeAudit } from './audit.js';
@@ -15,7 +15,12 @@ import type { MailService } from './mail.js';
 export const PAYMENT_ATTENTION_ACTION = 'payment.requires_refund';
 
 export type PaymentAttentionReason =
-	'duplicate_capture' | 'amount_mismatch' | 'entity_not_payable' | 'stock_conflict';
+	| 'duplicate_capture'
+	| 'amount_mismatch'
+	| 'entity_not_payable'
+	| 'stock_conflict'
+	/** Paid on a Razorpay order issued for an earlier version of the cart. */
+	| 'stale_order';
 
 export type PaymentAttention = {
 	razorpayPaymentId: string;
@@ -34,8 +39,52 @@ const REASON_LABELS: Record<PaymentAttentionReason, string> = {
 	duplicate_capture: 'Paid twice. Another payment already covers this order or request.',
 	amount_mismatch: 'The amount paid does not match the current order total.',
 	entity_not_payable: 'The order or request could not take a payment in its current state.',
-	stock_conflict: 'Paid, but an item sold out before stock could be reserved.'
+	stock_conflict: 'Paid, but an item sold out before stock could be reserved.',
+	stale_order:
+		'Paid for an earlier version of the order. The items, prices or address changed after this payment window opened.'
 };
+
+export type RecordedPaymentAttention = {
+	entityType: string;
+	entityId: string;
+	razorpayOrderId: string | null;
+	reason: PaymentAttentionReason;
+};
+
+/** The latest attention record for a Razorpay payment, if one was written. */
+export async function findPaymentAttention(
+	db: DbExecutor,
+	razorpayPaymentId: string
+): Promise<RecordedPaymentAttention | null> {
+	const [row] = await db
+		.select({
+			entityType: auditLog.entityType,
+			entityId: auditLog.entityId,
+			providerIds: auditLog.providerIds,
+			meta: auditLog.meta
+		})
+		.from(auditLog)
+		.where(
+			and(
+				eq(auditLog.action, PAYMENT_ATTENTION_ACTION),
+				sql`${auditLog.providerIds}->>'razorpayPaymentId' = ${razorpayPaymentId}`
+			)
+		)
+		.orderBy(desc(auditLog.at))
+		.limit(1);
+	if (!row) return null;
+
+	const providerIds = (row.providerIds ?? {}) as Record<string, unknown>;
+	const meta = (row.meta ?? {}) as Record<string, unknown>;
+	const reason = typeof meta.reason === 'string' ? meta.reason : '';
+	return {
+		entityType: row.entityType,
+		entityId: row.entityId,
+		razorpayOrderId:
+			typeof providerIds.razorpayOrderId === 'string' ? providerIds.razorpayOrderId : null,
+		reason: (reason in REASON_LABELS ? reason : 'entity_not_payable') as PaymentAttentionReason
+	};
+}
 
 function sendAttentionEmail(mail: MailService, attention: PaymentAttention): void {
 	try {

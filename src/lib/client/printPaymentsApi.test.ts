@@ -43,4 +43,12 @@ describe('mapPrintPaymentsError', () => {
 			message: 'Print request not found.'
 		});
 	});
+
+	it('maps payment_mismatch and payment_check_unavailable', () => {
+		expect(mapPrintPaymentsError(409, { error: 'payment_mismatch' }).kind).toBe('payment_mismatch');
+		expect(mapPrintPaymentsError(503, { error: 'payment_check_unavailable' })).toMatchObject({
+			kind: 'payment_check_unavailable',
+			message: expect.stringContaining('do not pay again')
+		});
+	});
 });

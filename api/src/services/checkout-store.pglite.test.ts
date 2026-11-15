@@ -17,8 +17,15 @@ import { orders } from '../db/schema/orders.js';
 import { products } from '../db/schema/products.js';
 import { auditLog } from '../db/schema/auditLog.js';
 import { paymentAttempts } from '../db/schema/paymentAttempts.js';
-import { createCheckoutStore, settleCartPayment } from './checkout-store.js';
-import type { RazorpayClient } from './razorpay-client.js';
+import {
+	createCheckoutStore,
+	failPendingAttempt,
+	lockCartOrderForPayment,
+	settleCartPayment
+} from './checkout-store.js';
+import { abandonPaymentPendingCart, reactivatePaymentPendingCart } from './abandoned-checkout.js';
+import { lookupCapturedPayment, type RazorpayClient } from './razorpay-client.js';
+import { createRazorpayWebhookService } from './razorpay-webhooks.js';
 import type { MailService } from './mail.js';
 
 const CLIENT_A = 'client-a';
@@ -297,6 +304,68 @@ describe('CheckoutStore (PGlite)', () => {
 		const activeOrder = orderRows.find((row) => row.cartId === activeCart.id);
 		expect(activeOrder).toBeTruthy();
 		expect(activeOrder?.id).not.toBe(pendingOrder.id);
+	});
+
+	it('editing the cart after its payment was captured leaves the paid order alone', async () => {
+		// Simulates: the buyer changes the cart in another tab at the moment the capture lands.
+		// The abandon helpers used to read the pending order, then write by id, which could
+		// set a just-paid order and attempt back to failed and reopen a paid cart.
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const razorpay = fakeRazorpay();
+		const store = createCheckoutStore(testDb.db, razorpay);
+		const created = await store.createOrder(actor, orderAddresses());
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const confirmed = await store.confirmOrder(actor, created.response.razorpayOrderId, 'pay_1');
+		expect(confirmed.ok).toBe(true);
+
+		// The stale request still believes this cart is waiting for payment.
+		const reactivated = await reactivatePaymentPendingCart(testDb.db, actor, { id: cart.id });
+		await abandonPaymentPendingCart(testDb.db, actor, cart.id, 'checkout_resumed');
+
+		expect(reactivated).toBeNull();
+		const [order] = await testDb.db.select().from(orders).where(eq(orders.cartId, cart.id));
+		expect(order?.status).toBe(CART_ORDER_STATUS.PAID);
+		const [attempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.providerOrderId, created.response.razorpayOrderId));
+		expect(attempt?.status).toBe('paid');
+		const [cartRow] = await testDb.db.select().from(carts).where(eq(carts.id, cart.id));
+		expect(cartRow?.status).not.toBe(CART_ORDER_STATUS.ACTIVE);
+		expect(cartRow?.status).not.toBe(CART_ORDER_STATUS.FAILED);
+
+		// A re-delivered confirm is still the same paid order, with stock taken once.
+		const again = await store.confirmOrder(actor, created.response.razorpayOrderId, 'pay_1');
+		expect(again.ok).toBe(true);
+		const [product] = await testDb.db.select().from(products).where(eq(products.id, PRODUCT_1));
+		expect((product?.stock as { count: number }).count).toBe(3);
+	});
+
+	it('editing a cart that is still waiting for payment fails its order and reopens it', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const store = createCheckoutStore(testDb.db, fakeRazorpay());
+		const created = await store.createOrder(actor, orderAddresses());
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+
+		const reactivated = await reactivatePaymentPendingCart(testDb.db, actor, { id: cart.id });
+
+		expect(reactivated?.status).toBe(CART_ORDER_STATUS.ACTIVE);
+		const [order] = await testDb.db.select().from(orders).where(eq(orders.cartId, cart.id));
+		expect(order?.status).toBe(CART_ORDER_STATUS.FAILED);
+		const [attempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.providerOrderId, created.response.razorpayOrderId));
+		expect(attempt?.status).toBe('failed');
 	});
 
 	it('confirms once and decrements stock exactly once', async () => {
@@ -652,7 +721,7 @@ describe('CheckoutStore (PGlite)', () => {
 		});
 	});
 
-	it('reuses Razorpay order when re-entering with unchanged total', async () => {
+	it('reuses the Razorpay order when re-entering with nothing changed', async () => {
 		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
 		const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
 
@@ -668,8 +737,7 @@ describe('CheckoutStore (PGlite)', () => {
 		expect(first.ok).toBe(true);
 		if (!first.ok) return;
 
-		const updatedAddress = { ...ADDRESS, name: 'John Smith' };
-		const second = await store.createOrder(actor, orderAddresses(updatedAddress));
+		const second = await store.createOrder(actor, orderAddresses());
 		expect(second.ok).toBe(true);
 		if (!second.ok) return;
 
@@ -682,7 +750,7 @@ describe('CheckoutStore (PGlite)', () => {
 			deliveryFeePaise: 9900,
 			totalPaise: 29900
 		});
-		expect(orderRow[0]?.address).toEqual(orderAddresses(updatedAddress));
+		expect(orderRow[0]?.address).toEqual(orderAddresses());
 
 		const items = await testDb.db
 			.select()
@@ -708,9 +776,74 @@ describe('CheckoutStore (PGlite)', () => {
 			expect.objectContaining({
 				entityType: 'order',
 				action: 'updated',
-				meta: { addressChanged: true }
+				meta: { addressChanged: false }
 			})
 		]);
+	});
+
+	it('issues a new Razorpay order and retires the old one when only the address changed', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+		let razorpayCall = 0;
+		const createOrder = vi.fn(async (amountPaise: number, receipt: string) => ({
+			id: `order_${receipt}_v${++razorpayCall}`,
+			amount: amountPaise,
+			currency: 'INR'
+		}));
+		const store = createCheckoutStore(testDb.db, fakeRazorpay({ createOrder }));
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const first = await store.createOrder(actor, orderAddresses());
+		if (!first.ok) throw new Error('first order failed');
+		const updatedAddress = { ...ADDRESS, name: 'John Smith' };
+		const second = await store.createOrder(actor, orderAddresses(updatedAddress));
+		if (!second.ok) throw new Error('second order failed');
+
+		// Same total, new snapshot: a new payment window, never the old one.
+		expect(second.response.amountPaise).toBe(first.response.amountPaise);
+		expect(second.response.razorpayOrderId).not.toBe(first.response.razorpayOrderId);
+		expect(createOrder).toHaveBeenCalledTimes(2);
+
+		const [oldAttempt] = await testDb.db
+			.select()
+			.from(paymentAttempts)
+			.where(eq(paymentAttempts.providerOrderId, first.response.razorpayOrderId));
+		expect(oldAttempt).toMatchObject({
+			status: 'failed',
+			failureReason: expect.stringMatching(/^superseded_by_newer_checkout/)
+		});
+
+		// The old modal is paid anyway: recorded for a refund, the new address is not fulfilled.
+		const late = await store.confirmOrder(actor, first.response.razorpayOrderId, 'pay_old_modal');
+		expect(late).toEqual({
+			ok: false,
+			status: 409,
+			body: { error: 'payment_mismatch', orderId: first.response.orderId }
+		});
+		const [order] = await testDb.db.select().from(orders);
+		expect(order?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
+		const attention = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'payment.requires_refund'));
+		expect(attention).toEqual([
+			expect.objectContaining({
+				entityId: first.response.orderId,
+				meta: expect.objectContaining({ reason: 'stale_order', detectedBy: 'confirm' })
+			})
+		]);
+		expect(await store.getOrderStatus(actor, { paymentId: 'pay_old_modal' })).toMatchObject({
+			kind: 'cart_order',
+			orderId: first.response.orderId,
+			needsSupport: 'payment_mismatch'
+		});
+
+		// The current window still pays for the current snapshot.
+		expect(await store.confirmOrder(actor, second.response.razorpayOrderId, 'pay_new')).toEqual({
+			ok: true,
+			response: { status: 'paid', orderId: first.response.orderId }
+		});
 	});
 
 	it('creates a new Razorpay order when the stored order belongs to another account', async () => {
@@ -1119,7 +1252,7 @@ describe('CheckoutStore (PGlite)', () => {
 				expect.objectContaining({
 					entityId: old.response.orderId,
 					meta: expect.objectContaining({
-						reason: 'amount_mismatch',
+						reason: 'stale_order',
 						detectedBy: 'confirm',
 						amountPaise: old.response.amountPaise
 					})
@@ -1256,21 +1389,462 @@ describe('CheckoutStore (PGlite)', () => {
 			expect(await stockOf(PRODUCT_1)).toBe(3);
 		});
 
-		it('creates a new order when Razorpay cannot be asked about the previous one', async () => {
+		it('starts no new payment when Razorpay cannot be asked about the previous one', async () => {
 			await seedProduct(testDb.db, PRODUCT_1, 5);
 			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
 			const razorpay = uniqueOrderRazorpay({ fetchOrderPayments: vi.fn(async () => null) });
 			const store = createCheckoutStore(testDb.db, razorpay);
 
+			// A brand-new cart has nothing to check, so a Razorpay lookup outage does not block it.
 			const a = await store.createOrder(guest, orderAddresses());
 			if (!a.ok) throw new Error('order failed');
+			expect(razorpay.fetchOrderPayments).not.toHaveBeenCalled();
+
 			await store.failOrder(guest, a.response.razorpayOrderId, 'declined');
 			const again = await store.createOrder(guest, orderAddresses());
 
-			expect(again.ok).toBe(true);
-			expect(razorpay.createOrder).toHaveBeenCalledTimes(2);
+			expect(again).toEqual({
+				ok: false,
+				status: 503,
+				body: { error: 'payment_check_unavailable' }
+			});
+			expect(razorpay.createOrder).toHaveBeenCalledTimes(1);
 		});
 	});
+	describe('payment path, second review round', () => {
+		const guest = { userId: null, clientId: CLIENT_A };
+
+		function capturedEvent(paymentId: string, orderId: string, amount: number) {
+			return {
+				event: 'payment.captured',
+				payload: {
+					payment: {
+						entity: { id: paymentId, order_id: orderId, amount, currency: 'INR', status: 'captured' }
+					}
+				}
+			};
+		}
+
+		function failedEvent(paymentId: string, orderId: string) {
+			return {
+				event: 'payment.failed',
+				payload: {
+					payment: {
+						entity: {
+							id: paymentId,
+							order_id: orderId,
+							amount: 1,
+							currency: 'INR',
+							status: 'failed',
+							error_description: 'Card declined'
+						}
+					}
+				}
+			};
+		}
+
+		async function attentionRows() {
+			return testDb.db
+				.select()
+				.from(auditLog)
+				.where(eq(auditLog.action, 'payment.requires_refund'));
+		}
+
+		async function stockOf(productId: string) {
+			const [row] = await testDb.db.select().from(products).where(eq(products.id, productId));
+			return (row?.stock as { count: number }).count;
+		}
+
+		async function snapshotState(orderId: string, razorpayOrderId: string) {
+			const [order] = await testDb.db.select().from(orders).where(eq(orders.id, orderId));
+			const [attempt] = await testDb.db
+				.select()
+				.from(paymentAttempts)
+				.where(eq(paymentAttempts.providerOrderId, razorpayOrderId));
+			const [cart] = await testDb.db.select().from(carts).where(eq(carts.id, order!.cartId));
+			return {
+				orderStatus: order?.status,
+				activePaymentAttemptId: order?.activePaymentAttemptId,
+				attemptStatus: attempt?.status,
+				attemptPaymentId: attempt?.providerPaymentId,
+				cartStatus: cart?.status,
+				stock: await stockOf(PRODUCT_1)
+			};
+		}
+
+		// Item 1: failure paths never downgrade a paid order or attempt.
+
+		it('a browser failure that arrives after the payment settled changes nothing', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			const { orderId, razorpayOrderId, amountPaise } = created.response;
+
+			await store.confirmOrder(guest, razorpayOrderId, 'pay_ok');
+			const before = await snapshotState(orderId, razorpayOrderId);
+			expect(before).toMatchObject({
+				orderStatus: CART_ORDER_STATUS.PAID,
+				attemptStatus: 'paid',
+				cartStatus: CART_ORDER_STATUS.PAID,
+				stock: 3
+			});
+
+			expect(await store.failOrder(guest, razorpayOrderId, 'late failure')).toEqual({
+				ok: true,
+				response: { status: CART_ORDER_STATUS.PAID }
+			});
+			expect(await snapshotState(orderId, razorpayOrderId)).toEqual(before);
+
+			// A repeated confirm and a re-delivered capture are the same payment, not a duplicate.
+			expect(await store.confirmOrder(guest, razorpayOrderId, 'pay_ok')).toEqual({
+				ok: true,
+				response: { status: 'already_paid', orderId }
+			});
+			const webhook = createRazorpayWebhookService(testDb.db);
+			expect(await webhook.handle(capturedEvent('pay_ok', razorpayOrderId, amountPaise))).toEqual({
+				ok: true,
+				status: 'already_processed'
+			});
+			expect(await snapshotState(orderId, razorpayOrderId)).toEqual(before);
+			expect(await attentionRows()).toHaveLength(0);
+		});
+
+		it('a payment.failed webhook that arrives after the capture changes nothing', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			const { orderId, razorpayOrderId, amountPaise } = created.response;
+			const webhook = createRazorpayWebhookService(testDb.db);
+
+			await webhook.handle(capturedEvent('pay_ok', razorpayOrderId, amountPaise));
+			const before = await snapshotState(orderId, razorpayOrderId);
+			expect(before.orderStatus).toBe(CART_ORDER_STATUS.PAID);
+
+			expect(await webhook.handle(failedEvent('pay_declined', razorpayOrderId))).toEqual({
+				ok: true,
+				status: 'already_processed'
+			});
+			expect(await snapshotState(orderId, razorpayOrderId)).toEqual(before);
+
+			// Razorpay re-delivers the legitimate capture: no false duplicate_capture alert.
+			expect(await webhook.handle(capturedEvent('pay_ok', razorpayOrderId, amountPaise))).toEqual({
+				ok: true,
+				status: 'already_processed'
+			});
+			expect(await attentionRows()).toHaveLength(0);
+		});
+
+		it('simulates a failure that read the attempt as pending before a capture committed', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			const { orderId, razorpayOrderId } = created.response;
+
+			// Step A (failure handler): read the attempt while it is still pending.
+			const [staleAttempt] = await testDb.db
+				.select()
+				.from(paymentAttempts)
+				.where(eq(paymentAttempts.providerOrderId, razorpayOrderId));
+			expect(staleAttempt?.status).toBe('pending');
+			// Step B (capture) runs to completion.
+			await store.confirmOrder(guest, razorpayOrderId, 'pay_ok');
+			const before = await snapshotState(orderId, razorpayOrderId);
+
+			// Step A's write, as every failure path now does it: under the lock, pending only.
+			const changed = await testDb.db.transaction(async (tx) => {
+				const order = await lockCartOrderForPayment(tx, staleAttempt!.entityId);
+				expect(order?.status).toBe(CART_ORDER_STATUS.PAID);
+				return failPendingAttempt(tx, staleAttempt!.id, 'declined');
+			});
+
+			expect(changed).toBe(false);
+			expect(await snapshotState(orderId, razorpayOrderId)).toEqual(before);
+		});
+
+		it('a failure on an old payment window does not fail an order paying through a newer one', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+			const x = await store.createOrder(guest, orderAddresses());
+			const y = await store.createOrder(guest, orderAddresses(), { refreshPayment: true });
+			if (!x.ok || !y.ok) throw new Error('order failed');
+
+			await store.failOrder(guest, x.response.razorpayOrderId, 'declined');
+
+			const [order] = await testDb.db.select().from(orders);
+			expect(order?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
+			expect(await store.confirmOrder(guest, y.response.razorpayOrderId, 'pay_y')).toEqual({
+				ok: true,
+				response: { status: 'paid', orderId: y.response.orderId }
+			});
+		});
+
+		// Item 2: creation and settlement are serialised on the cart row.
+
+		it('simulates a capture committing while creation asks Razorpay about the earlier window', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+			const webhook = createRazorpayWebhookService(testDb.db);
+			let first: { razorpayOrderId: string; amountPaise: number } | null = null;
+			const razorpay = uniqueOrderRazorpay({
+				fetchOrderPayments: vi.fn(async () => {
+					// Razorpay answers "not paid yet", and the capture commits right after.
+					await webhook.handle(capturedEvent('pay_race', first!.razorpayOrderId, first!.amountPaise));
+					return [];
+				})
+			});
+			const store = createCheckoutStore(testDb.db, razorpay);
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			first = created.response;
+
+			const again = await store.createOrder(guest, orderAddresses(), { refreshPayment: true });
+
+			expect(again).toEqual({
+				ok: false,
+				status: 409,
+				body: { error: 'already_paid', orderId: created.response.orderId, paymentId: 'pay_race' }
+			});
+			expect(razorpay.createOrder).toHaveBeenCalledTimes(1);
+			const allOrders = await testDb.db.select().from(orders);
+			expect(allOrders).toHaveLength(1);
+			expect(allOrders[0]?.status).toBe(CART_ORDER_STATUS.PAID);
+			const [cart] = await testDb.db.select().from(carts);
+			expect(cart?.status).toBe(CART_ORDER_STATUS.PAID);
+			expect(await stockOf(PRODUCT_1)).toBe(3);
+			expect(await attentionRows()).toHaveLength(0);
+		});
+
+		it('simulates a capture committing while Razorpay creates the replacement order', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+			const webhook = createRazorpayWebhookService(testDb.db);
+			let counter = 0;
+			let first: { razorpayOrderId: string; amountPaise: number } | null = null;
+			const createOrder = vi.fn(async (amountPaise: number) => {
+				counter += 1;
+				if (counter === 2) {
+					await webhook.handle(capturedEvent('pay_race', first!.razorpayOrderId, first!.amountPaise));
+				}
+				return { id: `order_cart_${counter}`, amount: amountPaise, currency: 'INR' };
+			});
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay({ createOrder }));
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			first = created.response;
+			const [orderBefore] = await testDb.db.select().from(orders);
+
+			const again = await store.createOrder(guest, orderAddresses(), { refreshPayment: true });
+
+			expect(again).toEqual({
+				ok: false,
+				status: 409,
+				body: { error: 'already_paid', orderId: created.response.orderId, paymentId: 'pay_race' }
+			});
+			const [order] = await testDb.db.select().from(orders);
+			expect(order?.status).toBe(CART_ORDER_STATUS.PAID);
+			expect(order?.activePaymentAttemptId).toBe(orderBefore?.activePaymentAttemptId);
+			const [late] = await testDb.db
+				.select()
+				.from(paymentAttempts)
+				.where(eq(paymentAttempts.providerOrderId, 'order_cart_2'));
+			expect(late).toMatchObject({
+				status: 'failed',
+				failureReason: expect.stringMatching(/^superseded_by_newer_checkout/)
+			});
+		});
+
+		it('simulates another checkout request changing the order while Razorpay creates one', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			let counter = 0;
+			let store: ReturnType<typeof createCheckoutStore> | null = null;
+			let inner: Awaited<ReturnType<ReturnType<typeof createCheckoutStore>['createOrder']>> | null =
+				null;
+			const createOrder = vi.fn(async (amountPaise: number) => {
+				counter += 1;
+				const id = `order_cart_${counter}`;
+				if (counter === 1) {
+					// Request Y: the buyer changed the quantity in another tab and checked out.
+					await testDb.db.update(cartItems).set({ qty: 2 }).where(eq(cartItems.cartId, cart.id));
+					inner = await store!.createOrder(guest, orderAddresses());
+				}
+				return { id, amount: amountPaise, currency: 'INR' };
+			});
+			store = createCheckoutStore(testDb.db, uniqueOrderRazorpay({ createOrder }));
+
+			const outer = await store.createOrder(guest, orderAddresses());
+
+			// Request X's Razorpay order was for one item; it is never handed out.
+			expect(outer).toEqual({ ok: false, status: 500, body: { error: 'razorpay_order_failed' } });
+			expect(inner).toMatchObject({ ok: true, response: { razorpayOrderId: 'order_cart_2' } });
+			const [stale] = await testDb.db
+				.select()
+				.from(paymentAttempts)
+				.where(eq(paymentAttempts.providerOrderId, 'order_cart_1'));
+			expect(stale?.status).toBe('failed');
+			const [order] = await testDb.db.select().from(orders);
+			const [active] = await testDb.db
+				.select()
+				.from(paymentAttempts)
+				.where(eq(paymentAttempts.id, order!.activePaymentAttemptId!));
+			expect(active?.providerOrderId).toBe('order_cart_2');
+		});
+
+		// Item 4: "could not check" is not "not paid".
+
+		it('reconciles before reusing a pending Razorpay order', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			const razorpay = uniqueOrderRazorpay({ fetchOrderPayments: vi.fn(async () => []) });
+			const store = createCheckoutStore(testDb.db, razorpay);
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+
+			// Paid in the modal; the browser closed before confirm and the webhook is late.
+			razorpay.fetchOrderPayments = vi.fn(async () => [
+				{ id: 'pay_modal', status: 'captured', amount: created.response.amountPaise, currency: 'INR' }
+			]);
+			const again = await store.createOrder(guest, orderAddresses());
+
+			expect(again).toEqual({
+				ok: false,
+				status: 409,
+				body: { error: 'already_paid', orderId: created.response.orderId, paymentId: 'pay_modal' }
+			});
+			expect(razorpay.fetchOrder).not.toHaveBeenCalled();
+		});
+
+		it('starts no new payment while an earlier payment is authorised but not captured', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			const razorpay = uniqueOrderRazorpay({
+				fetchOrderPayments: vi.fn(async () => [
+					{ id: 'pay_auth', status: 'authorized', amount: 19900, currency: 'INR' }
+				])
+			});
+			const store = createCheckoutStore(testDb.db, razorpay);
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+
+			expect(await store.createOrder(guest, orderAddresses(), { refreshPayment: true })).toEqual({
+				ok: false,
+				status: 503,
+				body: { error: 'payment_check_unavailable' }
+			});
+			expect(razorpay.createOrder).toHaveBeenCalledTimes(1);
+		});
+
+		it('treats a Razorpay lookup that does not answer in time as unknown', async () => {
+			const client = uniqueOrderRazorpay({
+				fetchOrderPayments: vi.fn(() => new Promise<null>(() => {}))
+			});
+			expect(await lookupCapturedPayment(client, 'order_stalled', 20)).toEqual({ kind: 'unknown' });
+			client.fetchOrderPayments = vi.fn(async () => {
+				throw new Error('network');
+			});
+			expect(await lookupCapturedPayment(client, 'order_err', 20)).toEqual({ kind: 'unknown' });
+			client.fetchOrderPayments = vi.fn(async () => [
+				{ id: 'pay_f', status: 'failed', amount: 1, currency: 'INR' }
+			]);
+			expect(await lookupCapturedPayment(client, 'order_failed', 20)).toEqual({
+				kind: 'not_captured'
+			});
+		});
+
+		// Item 5: the result pages read the persisted attention record.
+
+		it('reports a webhook-recorded duplicate to the owner by payment ID, and to no one else', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+			const x = await store.createOrder(guest, orderAddresses());
+			const y = await store.createOrder(guest, orderAddresses(), { refreshPayment: true });
+			if (!x.ok || !y.ok) throw new Error('order failed');
+			const webhook = createRazorpayWebhookService(testDb.db);
+
+			await webhook.handle(capturedEvent('pay_y', y.response.razorpayOrderId, y.response.amountPaise));
+			await webhook.handle(capturedEvent('pay_x', x.response.razorpayOrderId, x.response.amountPaise));
+
+			// pay_x was never stored on an attempt; it is found through its attention record.
+			expect(await store.getOrderStatus(guest, { paymentId: 'pay_x' })).toMatchObject({
+				kind: 'cart_order',
+				orderId: x.response.orderId,
+				status: CART_ORDER_STATUS.PAID,
+				needsSupport: 'duplicate_payment'
+			});
+			expect(await store.getOrderStatus(guest, { paymentId: 'pay_y' })).toMatchObject({
+				needsSupport: null
+			});
+			expect(
+				await store.getOrderStatus({ userId: null, clientId: CLIENT_B }, { paymentId: 'pay_x' })
+			).toBeNull();
+			// A payment ID paired with someone else's Razorpay order does not borrow its attention.
+			expect(
+				await store.getOrderStatus(guest, {
+					paymentId: 'pay_unknown',
+					razorpayOrderId: y.response.razorpayOrderId
+				})
+			).toMatchObject({ needsSupport: null });
+		});
+
+		// Item 6: a lost stock-conflict alert is repaired by the next delivery.
+
+		it('re-creates the stock-conflict attention record when the first write was lost', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 1);
+			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			await testDb.db
+				.update(products)
+				.set({ stock: { count: 0, status: 'in stock' } })
+				.where(eq(products.id, PRODUCT_1));
+
+			// The settlement commits; the process dies before recordPaymentAttention runs.
+			const settlement = await testDb.db.transaction(async (tx) => {
+				const [attempt] = await tx
+					.select()
+					.from(paymentAttempts)
+					.where(eq(paymentAttempts.providerOrderId, created.response.razorpayOrderId));
+				const order = await lockCartOrderForPayment(tx, attempt!.entityId);
+				return settleCartPayment(tx, {
+					attempt: attempt!,
+					order: order!,
+					razorpayPaymentId: 'pay_sc',
+					actorUserId: null,
+					actorClientId: null,
+					paidAction: 'paid_webhook'
+				});
+			});
+			expect(settlement.kind).toBe('paid_stock_conflict');
+			expect(await attentionRows()).toHaveLength(0);
+
+			const webhook = createRazorpayWebhookService(testDb.db);
+			expect(
+				await webhook.handle(
+					capturedEvent('pay_sc', created.response.razorpayOrderId, created.response.amountPaise)
+				)
+			).toEqual({ ok: true, status: 'already_processed' });
+			expect(await attentionRows()).toEqual([
+				expect.objectContaining({
+					entityId: created.response.orderId,
+					meta: expect.objectContaining({ reason: 'stock_conflict', detectedBy: 'webhook' })
+				})
+			]);
+
+			// Further deliveries do not add a second record.
+			await store.confirmOrder(guest, created.response.razorpayOrderId, 'pay_sc');
+			expect(await attentionRows()).toHaveLength(1);
+		});
+	});
+
 });
 
 function uniqueOrderRazorpay(overrides: Partial<RazorpayClient> = {}) {

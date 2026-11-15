@@ -1,15 +1,12 @@
 import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
+import { PAYMENT_ATTEMPT_STATUS } from '../contracts/payment-attempts.js';
 import type { DbExecutor } from '../db/index.js';
 import { carts } from '../db/schema/carts.js';
 import { orders } from '../db/schema/orders.js';
+import { paymentAttempts } from '../db/schema/paymentAttempts.js';
 import type { Actor } from '../types/context.js';
 import { writeAudit } from './audit.js';
-import {
-	findPaymentAttemptById,
-	markPaymentAttemptFailed,
-	resolveProviderOrderId
-} from './payment-attempts.js';
 
 export function actorCartOwnerCondition(actor: Actor) {
 	if (actor.userId) {
@@ -42,27 +39,34 @@ async function failPaymentPendingOrderForCart(
 	cartId: string,
 	reason: string
 ) {
+	// A payment can be captured at any moment, and this helper also runs outside a transaction
+	// (from getCart). So nothing here reads a row and then writes by id: each statement is one
+	// conditional update that only moves something that is still waiting for payment. An order or
+	// attempt that has just been paid is left exactly as it is.
 	const [order] = await tx
-		.select()
-		.from(orders)
+		.update(orders)
+		.set({ status: CART_ORDER_STATUS.FAILED, updatedAt: sql`now()` })
 		.where(
 			and(eq(orders.cartId, cartId), eq(orders.status, CART_ORDER_STATUS.PAYMENT_PENDING))
 		)
-		.limit(1);
+		.returning({ id: orders.id, activePaymentAttemptId: orders.activePaymentAttemptId });
 
 	if (!order) return;
 
-	await tx
-		.update(orders)
-		.set({ status: CART_ORDER_STATUS.FAILED, updatedAt: sql`now()` })
-		.where(eq(orders.id, order.id));
-
 	if (order.activePaymentAttemptId) {
-		const attempt = await findPaymentAttemptById(tx, order.activePaymentAttemptId);
-		const providerOrderId = resolveProviderOrderId(attempt);
-		if (providerOrderId) {
-			await markPaymentAttemptFailed(tx, providerOrderId, reason);
-		}
+		await tx
+			.update(paymentAttempts)
+			.set({
+				status: PAYMENT_ATTEMPT_STATUS.FAILED,
+				failureReason: reason,
+				updatedAt: sql`now()`
+			})
+			.where(
+				and(
+					eq(paymentAttempts.id, order.activePaymentAttemptId),
+					eq(paymentAttempts.status, PAYMENT_ATTEMPT_STATUS.PENDING)
+				)
+			);
 	}
 
 	await writeAudit(tx, {
@@ -91,17 +95,21 @@ export async function abandonPaymentPendingCart(
 		.where(and(eq(carts.id, cartId), eq(carts.status, CART_ORDER_STATUS.PAYMENT_PENDING)));
 }
 
-export async function reactivatePaymentPendingCart(
+export async function reactivatePaymentPendingCart<T extends { id: string }>(
 	tx: DbExecutor,
 	actor: Actor,
-	cart: { id: string }
+	cart: T
 ) {
 	await failPaymentPendingOrderForCart(tx, actor, cart.id, 'checkout_resumed');
 
-	await tx
+	// Only a cart that is still waiting for payment goes back to active. If its payment was
+	// captured in the meantime the cart is paid, and the caller starts a fresh one.
+	const [reactivated] = await tx
 		.update(carts)
 		.set({ status: CART_ORDER_STATUS.ACTIVE, updatedAt: sql`now()` })
-		.where(eq(carts.id, cart.id));
+		.where(and(eq(carts.id, cart.id), eq(carts.status, CART_ORDER_STATUS.PAYMENT_PENDING)))
+		.returning({ id: carts.id });
+	if (!reactivated) return null;
 
 	return { ...cart, status: CART_ORDER_STATUS.ACTIVE as typeof CART_ORDER_STATUS.ACTIVE };
 }

@@ -142,7 +142,9 @@ async function getOrCreateActiveCart(db: DbExecutor, actor: Actor) {
 
 	const pending = await findPaymentPendingCartRow(db, actor);
 	if (pending) {
-		return reactivatePaymentPendingCart(db, actor, pending);
+		const reactivated = await reactivatePaymentPendingCart(db, actor, pending);
+		if (reactivated) return reactivated;
+		// The pending cart was paid while we looked at it; fall through and start a new one.
 	}
 
 	const active = CART_ORDER_STATUS.ACTIVE;

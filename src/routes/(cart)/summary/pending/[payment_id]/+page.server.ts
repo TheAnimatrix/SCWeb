@@ -13,20 +13,23 @@ export const load: PageServerLoad = async ({ params, url, fetch, depends }) => {
 	depends('checkout:pending');
 
 	const razorpayOrderId = url.searchParams.get('order') ?? undefined;
+	// Only a hint from checkout. What the server recorded for this payment comes first.
 	const reasonParam = url.searchParams.get('reason');
-	const duplicate = reasonParam === 'duplicate';
-	const mismatch = reasonParam === 'mismatch';
 
-	const result = razorpayOrderId
-		? await getCheckoutOrderStatus(fetch, { razorpayOrderId })
-		: await getCheckoutOrderStatus(fetch, { paymentId: params.payment_id });
+	const result = await getCheckoutOrderStatus(fetch, {
+		paymentId: params.payment_id,
+		razorpayOrderId
+	});
 
 	const order = result.ok && result.data.kind === 'cart_order' ? result.data : null;
 	const confirmed = order != null && (order.status === 'paid' || order.status === 'fulfilled');
-	// The webhook may find the stock conflict while this page waits, so read it from the order too.
-	const soldOut = reasonParam === 'stock' || order?.needsSupport === 'stock_conflict';
+	const recorded = order?.needsSupport ?? null;
+	const soldOut = recorded === 'stock_conflict' || (!recorded && reasonParam === 'stock');
+	const duplicate = recorded === 'duplicate_payment' || (!recorded && reasonParam === 'duplicate');
+	const mismatch = recorded === 'payment_mismatch' || (!recorded && reasonParam === 'mismatch');
+	const notPayable = recorded === 'not_payable';
 
-	if (confirmed && !soldOut && !duplicate && !mismatch) {
+	if (confirmed && !soldOut && !duplicate && !mismatch && !notPayable) {
 		redirect(303, `/summary/success/${order.orderId}/${encodeURIComponent(params.payment_id)}`);
 	}
 
@@ -37,6 +40,7 @@ export const load: PageServerLoad = async ({ params, url, fetch, depends }) => {
 		confirmed,
 		soldOut,
 		duplicate,
-		mismatch
+		mismatch,
+		notPayable
 	};
 };

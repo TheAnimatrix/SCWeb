@@ -47,6 +47,8 @@ export type CartApiError =
 	/** Checkout found that the previous payment went through; no new payment was started. */
 	| { kind: 'already_paid'; orderId?: string; paymentId?: string; message: string }
 	| { kind: 'razorpay_order_failed'; message: string }
+	/** Razorpay could not say whether an earlier payment went through; no new payment was started. */
+	| { kind: 'payment_check_unavailable'; message: string }
 	| { kind: 'unauthorized'; message: string }
 	| { kind: 'rate_limited'; message: string }
 	| { kind: 'network'; message: string }
@@ -94,6 +96,8 @@ export function stockLimitMessage(limit: number, name?: string): string {
 const GENERIC_ERROR = 'Something went wrong. Try again.';
 const SESSION_ENDED = 'Your session has ended. Sign in again to continue.';
 const RATE_LIMITED = 'Too many attempts. Wait a minute and try again.';
+export const PAYMENT_CHECK_UNAVAILABLE =
+	"We couldn't check your earlier payment. Wait a minute and try again. If money left your account, do not pay again; write to support@selfcrafted.in.";
 
 export function mapApiError(status: number, body: unknown): CartApiError {
 	const parsed = parseErrorBody(body);
@@ -160,6 +164,8 @@ export function mapApiError(status: number, body: unknown): CartApiError {
 				message:
 					"Couldn't start payment. Nothing was charged. Try again or write to support@selfcrafted.in."
 			};
+		case 'payment_check_unavailable':
+			return { kind: 'payment_check_unavailable', message: PAYMENT_CHECK_UNAVAILABLE };
 		case 'unauthorized':
 			return { kind: 'unauthorized', message: SESSION_ENDED };
 		case 'rate_limited':

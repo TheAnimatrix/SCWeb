@@ -1,9 +1,6 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
-import {
-	PAYMENT_ATTEMPT_KIND,
-	PAYMENT_ATTEMPT_STATUS
-} from '../contracts/payment-attempts.js';
+import { PAYMENT_ATTEMPT_KIND, PAYMENT_ATTEMPT_STATUS } from '../contracts/payment-attempts.js';
 import type { Database, DbExecutor } from '../db/index.js';
 import { orders } from '../db/schema/orders.js';
 import { paymentAttempts } from '../db/schema/paymentAttempts.js';
@@ -11,6 +8,9 @@ import { printrequests } from '../db/schema/printrequests.js';
 import { storeLog } from '../middleware/logging.js';
 import { truncateAuditReason, writeAudit } from './audit.js';
 import {
+	externalFailureReason,
+	failPendingAttempt,
+	lockCartOrderForPayment,
 	recordCartSettlementAttention,
 	reopenCartAfterFailedPayment,
 	settleCartPayment
@@ -105,17 +105,6 @@ async function findAttemptByProviderOrderId(tx: DbExecutor, providerOrderId: str
 	return attempt ?? null;
 }
 
-async function markAttemptFailed(tx: DbExecutor, attemptId: string, reason: string) {
-	await tx
-		.update(paymentAttempts)
-		.set({
-			status: PAYMENT_ATTEMPT_STATUS.FAILED,
-			failureReason: truncateAuditReason(reason) ?? reason,
-			updatedAt: sql`now()`
-		})
-		.where(eq(paymentAttempts.id, attemptId));
-}
-
 type CapturedPayment = ReturnType<typeof paymentFromPayload> & {};
 
 async function handleCaptured(
@@ -150,12 +139,7 @@ async function handleCaptured(
 		}
 
 		if (attempt.kind === PAYMENT_ATTEMPT_KIND.CART_ORDER) {
-			const [order] = await tx
-				.select()
-				.from(orders)
-				.where(eq(orders.id, attempt.entityId))
-				.for('update')
-				.limit(1);
+			const order = await lockCartOrderForPayment(tx, attempt.entityId);
 			if (!order) return { kind: 'missing_entity' as const, attempt };
 
 			const settlement = await settleCartPayment(tx, {
@@ -270,28 +254,31 @@ async function handleFailed(
 	eventId?: string | null
 ) {
 	return db.transaction(async (tx) => {
-		const attempt = await findAttemptByProviderOrderId(tx, payment.providerOrderId);
-		if (!attempt) return 'ignored' as const;
-		if (attempt.status !== PAYMENT_ATTEMPT_STATUS.PENDING) return 'already_processed' as const;
+		const found = await findAttemptByProviderOrderId(tx, payment.providerOrderId);
+		if (!found) return 'ignored' as const;
+		const failureReason = externalFailureReason(payment.failureReason);
 
-		await markAttemptFailed(tx, attempt.id, payment.failureReason);
+		if (found.kind === PAYMENT_ATTEMPT_KIND.CART_ORDER) {
+			// Lock the entity first, in the same order as settlement (cart, then order), and decide
+			// from the attempt as it is under that lock: a capture may have committed since it was read.
+			const order = await lockCartOrderForPayment(tx, found.entityId);
+			if (!(await failPendingAttempt(tx, found.id, failureReason))) {
+				return 'already_processed' as const;
+			}
 
-		if (attempt.kind === PAYMENT_ATTEMPT_KIND.CART_ORDER) {
-			const [order] = await tx
-				.select()
-				.from(orders)
-				.where(eq(orders.id, attempt.entityId))
-				.for('update')
-				.limit(1);
-
-			if (!order || order.status !== CART_ORDER_STATUS.PAYMENT_PENDING) {
-				return 'ignored' as const;
+			// Only the order's live payment window fails the order; a paid order is never touched.
+			if (
+				!order ||
+				order.status !== CART_ORDER_STATUS.PAYMENT_PENDING ||
+				order.activePaymentAttemptId !== found.id
+			) {
+				return 'processed' as const;
 			}
 
 			await tx
 				.update(orders)
 				.set({ status: CART_ORDER_STATUS.FAILED, updatedAt: sql`now()` })
-				.where(eq(orders.id, order.id));
+				.where(and(eq(orders.id, order.id), eq(orders.status, CART_ORDER_STATUS.PAYMENT_PENDING)));
 			// Keep the buyer's items: reopen the cart rather than leaving it FAILED (lost).
 			await reopenCartAfterFailedPayment(tx, order.cartId);
 			await writeAudit(tx, {
@@ -308,17 +295,27 @@ async function handleFailed(
 					...(eventId ? { razorpayEventId: eventId } : {})
 				}
 			});
+			return 'processed' as const;
 		}
 
-		if (attempt.kind === PAYMENT_ATTEMPT_KIND.PRINT_REQUEST) {
+		if (found.kind === PAYMENT_ATTEMPT_KIND.PRINT_REQUEST) {
 			const [row] = await tx
 				.select()
 				.from(printrequests)
-				.where(eq(printrequests.id, attempt.entityId))
+				.where(eq(printrequests.id, found.entityId))
 				.for('update')
 				.limit(1);
+			if (!(await failPendingAttempt(tx, found.id, failureReason))) {
+				return 'already_processed' as const;
+			}
 
-			if (!row || row.requestStage !== 'quoted') return 'ignored' as const;
+			if (
+				!row ||
+				row.requestStage !== 'quoted' ||
+				row.activePaymentAttemptId !== found.id
+			) {
+				return 'processed' as const;
+			}
 
 			const failedEvent = {
 				...buildPaymentFailedEvent(payment.providerOrderId, payment.failureReason),
@@ -331,7 +328,7 @@ async function handleFailed(
 					activePaymentAttemptId: null,
 					lastUpdated: sql`now()`
 				})
-				.where(eq(printrequests.id, row.id));
+				.where(and(eq(printrequests.id, row.id), eq(printrequests.requestStage, 'quoted')));
 
 			await insertPrintRequestEvent(tx, {
 				printRequestId: row.id,
@@ -363,9 +360,10 @@ async function handleFailed(
 					...(eventId ? { razorpayEventId: eventId } : {})
 				}
 			});
+			return 'processed' as const;
 		}
 
-		return 'processed' as const;
+		return 'ignored' as const;
 	});
 }
 

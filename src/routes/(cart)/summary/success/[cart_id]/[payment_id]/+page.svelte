@@ -19,8 +19,19 @@
 	const printOrder = $derived(data.order?.kind === 'print_request' ? data.order : null);
 	/** Paid, but an item sold out before stock was reserved: not a normal success. */
 	const soldOut = $derived(cartOrder?.needsSupport === 'stock_conflict');
+	/**
+	 * This payment was captured but recorded for a refund (paid twice, for an earlier version of the
+	 * order, or for an order that could no longer be paid). Never show it as a success.
+	 */
+	const refundReason = $derived(
+		cartOrder?.needsSupport && cartOrder.needsSupport !== 'stock_conflict'
+			? cartOrder.needsSupport
+			: (printOrder?.needsSupport ?? null)
+	);
 	const isPaid = $derived(
-		cartOrder && !soldOut ? cartOrder.status === 'paid' || cartOrder.status === 'fulfilled' : false
+		cartOrder && !cartOrder.needsSupport
+			? cartOrder.status === 'paid' || cartOrder.status === 'fulfilled'
+			: false
 	);
 	const orderRef = $derived(cartOrder ? formatOrderDisplayId(cartOrder.orderId) : null);
 	const receiptEmail = $derived(cartOrder?.email ?? data.accountEmail);
@@ -52,6 +63,30 @@
 				<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Payment successful</h1>
 				<p class="mt-2 text-sm text-muted-foreground">
 					Your order {orderRef} is confirmed. Orders ship in 3 to 14 days.
+				</p>
+			</div>
+		{:else if refundReason}
+			<div class="mt-8 text-center">
+				<div
+					class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950">
+					<Icon
+						icon={F.clock}
+						class="size-7 text-amber-700 dark:text-amber-300"
+						aria-hidden="true" />
+				</div>
+				<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Payment received</h1>
+				<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+					{#if refundReason === 'duplicate_payment'}
+						This was already paid for in an earlier payment, so this payment was not needed.
+					{:else if refundReason === 'payment_mismatch'}
+						Your payment went through, but it was for an earlier version of your order, so we could
+						not use it.
+					{:else}
+						Your payment went through, but this order could no longer take a payment, so we did not
+						use it.
+					{/if}
+					<strong class="text-foreground">Do not pay again.</strong>
+					Write to {SUPPORT_EMAIL} with the payment ID below and we will sort it out.
 				</p>
 			</div>
 		{:else if cartOrder && soldOut}

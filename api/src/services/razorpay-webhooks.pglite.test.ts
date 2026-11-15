@@ -385,7 +385,7 @@ describe('Razorpay webhook service (PGlite)', () => {
 			expect(product?.stock).toMatchObject({ count: 5 });
 			expect(await attentionRows()).toEqual([
 				expect.objectContaining({
-					meta: expect.objectContaining({ reason: 'amount_mismatch', detectedBy: 'webhook' })
+					meta: expect.objectContaining({ reason: 'stale_order', detectedBy: 'webhook' })
 				})
 			]);
 		});

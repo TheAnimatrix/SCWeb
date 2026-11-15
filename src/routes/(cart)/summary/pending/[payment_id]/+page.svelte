@@ -16,7 +16,9 @@
 	const MAX_POLLS = 24;
 
 	let polls = $state(0);
-	const needsSupport = $derived(data.soldOut || data.duplicate || data.mismatch);
+	const needsSupport = $derived(
+		data.soldOut || data.duplicate || data.mismatch || data.notPayable
+	);
 	const stillChecking = $derived(!needsSupport && !data.confirmed && polls < MAX_POLLS);
 	const orderRef = $derived(data.orderId ? formatOrderDisplayId(data.orderId) : null);
 	const supportHref = $derived(
@@ -74,6 +76,9 @@
 						Your payment went through, but it was for an earlier version of your cart, so we could
 						not match it to your order. Write to {SUPPORT_EMAIL} with the payment ID below and we will
 						sort it out.
+					{:else if data.notPayable}
+						Your payment went through, but this order could no longer take a payment, so we did not
+						use it. Write to {SUPPORT_EMAIL} with the payment ID below and we will sort it out.
 					{:else}
 						Razorpay told us your payment went through, but we could not confirm the order yet. We
 						will e-mail you when it is confirmed. If no e-mail arrives, write to {SUPPORT_EMAIL} with

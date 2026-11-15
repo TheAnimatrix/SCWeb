@@ -112,4 +112,11 @@ describe('mapApiError payment outcomes', () => {
 			mapApiError(409, { error: 'already_paid', orderId: 'o1', paymentId: 'pay_1' })
 		).toMatchObject({ kind: 'already_paid', orderId: 'o1', paymentId: 'pay_1' });
 	});
+
+	it('maps payment_check_unavailable to a retry message that says not to pay again', () => {
+		const error = mapApiError(503, { error: 'payment_check_unavailable' });
+		expect(error.kind).toBe('payment_check_unavailable');
+		expect(error.message).toContain('do not pay again');
+		expect(error.message).toContain('support@selfcrafted.in');
+	});
 });

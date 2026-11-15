@@ -178,6 +178,12 @@
 			);
 			return;
 		}
+		if (error.kind === 'already_paid') {
+			// Paid already, but the payment ID is not known here. Never offer Pay again.
+			cart_store.set({ valid: true, itemCount: 0 });
+			payError = `${error.message} Do not pay again. Check your e-mail for the receipt, or write to ${SUPPORT_EMAIL}.`;
+			return;
+		}
 		if (error.kind === 'insufficient_stock' || error.kind === 'listing_not_available') {
 			const item = cartItems.find((line) => line.productId === error.productId);
 			const message =

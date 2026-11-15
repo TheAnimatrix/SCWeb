@@ -78,6 +78,12 @@ export const checkoutOrderStatusQuerySchema = z
 
 export type CheckoutOrderStatusQuery = z.infer<typeof checkoutOrderStatusQuerySchema>;
 
+export type CheckoutNeedsSupport =
+	| 'stock_conflict'
+	| 'duplicate_payment'
+	| 'payment_mismatch'
+	| 'not_payable';
+
 export type CheckoutOrderStatusResponse =
 	| {
 			kind: 'cart_order';
@@ -85,10 +91,12 @@ export type CheckoutOrderStatusResponse =
 			/** `payment_pending` | `paid` | `failed` | `fulfilled` | `cancelled` | `refunded` */
 			status: string;
 			/**
-			 * `stock_conflict`: paid, but an item sold out before stock was reserved. The buyer must
-			 * write to support; do not show a plain success or a receipt.
+			 * Set when the buyer must write to support; never show a plain success or a receipt then.
+			 * `stock_conflict`: paid, but an item sold out before stock was reserved.
+			 * `duplicate_payment`, `payment_mismatch`, `not_payable`: the payment asked about (by
+			 * `paymentId`) was captured but recorded for a refund, not used for this order.
 			 */
-			needsSupport: 'stock_conflict' | null;
+			needsSupport: CheckoutNeedsSupport | null;
 			items: { productId: string; name: string; qty: number; unitPriceRupees: number }[];
 			subtotalRupees: number;
 			deliveryFeeRupees: number;
@@ -108,5 +116,8 @@ export type CheckoutOrderStatusResponse =
 	| {
 			kind: 'print_request';
 			printRequestId: string;
+			/** True only when this payment paid the request. */
 			paid: boolean;
+			/** The payment asked about was captured but recorded for a refund. */
+			needsSupport: Exclude<CheckoutNeedsSupport, 'stock_conflict'> | null;
 	  };
