@@ -3,34 +3,41 @@ import type { BlogPost } from './types';
 export type { BlogBlock, BlogCategory, BlogPost } from './types';
 export { formatPostDate } from './types';
 
+const DISCORD_URL = 'https://discord.gg/UQ74TQfMqM';
+const ILLUSTRATION_CREDIT = 'Illustration made with an AI image tool.';
+
+/**
+ * Writing rules for this file: say things we know first-hand, name real products and real
+ * pages, and leave out anything that isn't built yet unless the post says so plainly.
+ * No pull quotes unless a named person said the words.
+ */
 const postDrafts: Omit<BlogPost, 'readingMinutes'>[] = [
 	{
 		slug: 'why-india-needs-selfcrafted',
 		cover: {
-			src: '/images/blog/a-home-for-indie-hardware.webp',
-			alt: 'Ink illustration of makers gathered around a table of small hardware projects.',
+			src: '/images/blog/board-and-box.webp',
+			alt: 'Line drawing of a small radio board with pin headers, a USB-C socket and a coiled antenna, next to an open cardboard box.',
 			width: 1400,
 			height: 933,
-			caption: 'A small community can still be exactly the right audience.'
+			ogSrc: '/images/blog/board-and-box-og.jpg',
+			lineArt: true,
+			credit: ILLUSTRATION_CREDIT
 		},
-		title: "India needs a home for the hardware that isn't for everyone.",
+		title: "India needs a home for hardware that isn't for everyone",
 		excerpt:
-			'A seller account is useful. A place to find your people, figure out what to build, and keep improving it is a different thing.',
-		category: 'Perspectives',
+			"We couldn't find a good place to sell a small-batch board in India, so we built one. This is the thinking behind it.",
+		category: 'Notes',
 		publishedAt: '2026-09-10',
+		updatedAt: '2026-11-15',
 		body: [
 			{
 				type: 'paragraph',
-				text: 'You build a thing. It solves a weirdly specific problem. You show it to a few people and one of them goes, “Wait, I need that.” Then you hit the awkward bit: where does this thing actually belong?'
+				text: 'LorNode is a small LoRa board we make. The first version went to a closed group of people in late 2023. They told us what was wrong with it, and the second version fixed those things. Then came the awkward part: where do you sell a board like that in India?'
 			},
+			{ type: 'heading', text: 'Why not just sell on Amazon?' },
 			{
 				type: 'paragraph',
-				text: "Maybe it's a little desk device. A controller for one particular hobby. A better enclosure for a board people already use. It doesn't need to become the next big consumer brand to be worth making. It needs to reach the people who get it. That's the bit we want Selfcrafted to care about, here in India."
-			},
-			{ type: 'heading', text: '“Why not just sell on Amazon?”' },
-			{
-				type: 'paragraph',
-				text: "Fair question. Amazon has a seller registration route, and Robu has a seller enquiry form. Those doors exist. We're not pretending otherwise. If you've got a finished product and need somewhere to sell it, they're routes you can look into.",
+				text: 'You can. Amazon India has a seller registration route, and Robu has a seller enquiry form. If you have a finished product and need somewhere to list it, look at both.',
 				links: [
 					{ label: 'Amazon India seller information', href: 'https://sell.amazon.in/sell-online' },
 					{ label: 'Robu seller form', href: 'https://robu.in/seller-form/' }
@@ -38,409 +45,272 @@ const postDrafts: Omit<BlogPost, 'readingMinutes'>[] = [
 			},
 			{
 				type: 'paragraph',
-				text: "Our experience with Lornode was a bit less encouraging. We reached out to Robu about getting onboarded and got no response. I wondered whether their own products were part of the reason, but I couldn't verify that. The experience I can actually speak to is the unanswered outreach."
+				text: "Our own attempt didn't get far. We wrote to Robu about listing LorNode and never heard back. We don't know why, and one unanswered enquiry says nothing about how they treat anyone else. It did leave us with a board and nowhere obvious to put it."
 			},
 			{
 				type: 'paragraph',
-				text: "That's just our experience. It did make a very practical question harder to shake, though: why should an independent product's next step depend so much on whether someone else's catalogue has room for it?"
+				text: "It also made us think about every other small product in the same spot. Whether it gets a chance shouldn't depend on someone else's catalogue having room for it."
 			},
 			{
 				type: 'paragraph',
-				text: "Even a successful listing leaves another question open. What if you're still working out the product? Who wants the smaller version? Is that extra feature useful, or just something you enjoyed adding? Who will try the awkward first revision and tell you what needs fixing? A place to sell the answer isn't automatically a place to work out the question."
+				text: "And a listing only solves part of the problem. While you're still working a product out, the questions are different. Who wants the smaller version? Is that extra feature useful, or did you just enjoy adding it? Who will try the rough first revision and tell you what to fix? LorNode got better because a few people did exactly that. A page that sells the finished thing doesn't find you those people."
 			},
-			{ type: 'heading', text: 'Niche is an audience, not a unit count' },
+			{ type: 'heading', text: 'Small audience, any batch size' },
 			{
 				type: 'paragraph',
-				text: "Imagine a graph. One axis is how broad the audience is. The other is how many units they need. People tend to squash those into the same thing: small audience, small opportunity. But they don't always travel together."
-			},
-			{
-				type: 'paragraph',
-				text: 'A small hobby community might want a handful of a very particular accessory. A narrow type of business might need that same kind of specialised object over and over. Both audiences are niche. One needs a small batch; the other could need a much bigger one. Neither has to appeal to absolutely everyone.'
-			},
-			{
-				type: 'quote',
-				text: 'A small audience can still have a very real need. The batch size is a separate conversation.'
+				text: 'People tend to treat "niche" and "low volume" as the same thing. A hobby community might want twenty of a very particular accessory. A small business might need that same accessory by the hundred, again and again. Both audiences are niche. Only one of them is a small batch.'
 			},
 			{
 				type: 'paragraph',
-				text: "That's the part of the graph we're interested in. Consumer and hobbyist hardware with a clear reason to exist, whether the right quantity is modest or surprisingly large. We don't want a project to have to cosplay as a mass-market startup just to be taken seriously."
+				text: "That's the hardware we want on Selfcrafted: things with a clear reason to exist for a specific group of people, whatever the quantity turns out to be. A project shouldn't have to cosplay as a mass-market startup to be taken seriously."
 			},
-			{ type: 'heading', text: 'Make the figuring-it-out part fun' },
+			{ type: 'heading', text: 'What we want to build next' },
 			{
 				type: 'paragraph',
-				text: "This is where the gamification idea comes in. We'd like product research and development to feel like something people can join. You discover a project, react to an early direction, help the maker understand a problem, and get to see what changed because people cared enough to contribute."
-			},
-			{
-				type: 'paragraph',
-				text: "Think visible progress, useful little milestones, and reasons to come back as an idea gets better. The interesting achievement is a better product, or a clearer understanding of what people need. A pile of clicks with nothing learned doesn't do much for anyone. We're still figuring out how to make that participation feel rewarding without turning it into noise."
+				text: 'Right now Selfcrafted is a shop. Makers list products, spares and flea-market parts, and there is a 3D printing service where you send a model to a maker who owns a printer.'
 			},
 			{
 				type: 'paragraph',
-				text: "And the consumer belongs in that process. You shouldn't need to design a circuit board to say, “This would be perfect if I could use it one-handed.” Hobbyists, buyers and makers notice different things. Getting them into the same conversation, while changes are still possible, is the whole point."
-			},
-			{ type: 'heading', text: 'Why we keep coming back to a platform of our own' },
-			{
-				type: 'paragraph',
-				text: 'Sure, you can stitch together a shop, a chat group, a feedback form and a long trail of DMs. People make that work. But somebody has to keep carrying the context between all those places. The customer sees a listing. The maker sees a dozen scattered requests. The story of how the thing got better gets lost somewhere in the middle.'
+				text: "The part we haven't built is the part before a product is finished. We'd like buyers to be able to follow a project while it can still change, and tell the maker what would make it better. You shouldn't need to design a circuit board to say \"this would be perfect if I could use it one-handed.\" Makers, hobbyists and buyers notice different things, and the useful time to hear from all of them is before the design is frozen."
 			},
 			{
 				type: 'paragraph',
-				text: "For what we're trying to do, adding another seller account doesn't really solve it. We want discovery, development and the eventual product to stay connected. We want a maker in India to have somewhere to start before the product looks like an obvious retail bet, and somewhere to stay if the audience remains small and specific."
+				text: "We don't know yet what that looks like on the site. We've set ourselves one rule: taking part has to lead to a better product, or to a clearer idea of what people need. Clicks for their own sake don't count."
+			},
+			{ type: 'heading', text: 'Why a platform of our own' },
+			{
+				type: 'paragraph',
+				text: "You can run all of this with a shop page, a chat group, a feedback form and a long trail of DMs. People do. The trouble is that somebody has to carry the context between those places, and it's usually the maker. The buyer sees a listing. The maker sees a dozen scattered requests. Nobody sees how the product got to where it is."
 			},
 			{
 				type: 'paragraph',
-				text: "That's the case for Selfcrafted. It's an attempt, not a victory lap. We still have to earn the attention of the people we want to serve, and the more playful R&D experience is a direction we're working towards. But the thing we're building around is pretty simple: if something is really useful to the right people, it deserves a fair shot at existing."
+				text: 'We want those to live in one place. And we want a maker in India to have somewhere to start before the product looks like an obvious retail bet, and somewhere to stay if the audience remains small.'
+			},
+			{
+				type: 'paragraph',
+				text: "That's the case for Selfcrafted. It's early. The shop works, the rest is still ahead of us, and we have to earn the attention of the people we're building it for. If you make hardware in India, apply to sell here. If something is missing, tell us on Discord.",
+				links: [
+					{ label: 'Apply as a maker', href: '/maker/apply' },
+					{ label: 'Selfcrafted on Discord', href: DISCORD_URL }
+				]
 			}
 		]
 	},
 	{
 		slug: 'a-product-studio-for-the-ai-era',
 		cover: {
-			src: '/images/blog/product-studio-ai-era.webp',
-			alt: 'A maker considers a digital design alongside sketches and a physical prototype.',
+			src: '/images/blog/sketch-and-object.webp',
+			alt: 'Line drawing of a rough sketch of a wedge-shaped desk gadget on paper, the finished gadget next to it, and a digital caliper.',
 			width: 1400,
 			height: 933,
-			caption: 'Somewhere between the first sketch and the thing you can hold.'
+			ogSrc: '/images/blog/sketch-and-object-og.jpg',
+			lineArt: true,
+			credit: ILLUSTRATION_CREDIT
 		},
-		title: "So, about that product studio we're thinking of building.",
+		title: "A product studio we're thinking about building",
 		excerpt:
-			"AI can make an idea look real very quickly. We're exploring what it takes to help someone actually make the thing.",
-		category: 'Perspectives',
+			"AI can make an idea look real in an evening. We're working out what it would take to help someone get the thing made.",
+		category: 'Notes',
 		publishedAt: '2026-09-10',
+		updatedAt: '2026-11-15',
 		body: [
 			{
 				type: 'paragraph',
-				text: 'You can spend an evening playing with an idea and come away with a name, a page and a rather convincing picture of the product. Lovely. Now put the actual thing on the desk. That next step is where the conversation gets interesting.'
+				text: "We're considering a product studio inside Selfcrafted. Nothing is built yet, and this post isn't a promise that anything is about to ship. We're writing the idea down so you can tell us where it's wrong."
+			},
+			{ type: 'heading', text: 'The problem' },
+			{
+				type: 'paragraph',
+				text: 'You can spend an evening with an AI tool and come away with a name, a page and a convincing picture of a product. Then someone asks how it goes together, whether the parts fit, or who is going to make it, and the picture has nothing to say.'
 			},
 			{
 				type: 'paragraph',
-				text: "It's also why we're thinking about a product studio inside Selfcrafted. Right now, in September 2026, this is a concept we're actively exploring. There isn't a finished studio hiding behind a launch button, and this post isn't a promise that every feature is about to ship. It's a look at the problem that's been occupying us."
+				text: "Physical products have to deal with physical reality, and somebody has to own the decisions between the nice image and the thing that arrives in a box. That gap is what we'd want a studio to help with."
 			},
-			{ type: 'heading', text: 'The picture is the easy bit to fall in love with' },
+			{ type: 'heading', text: 'The idea' },
 			{
 				type: 'paragraph',
-				text: "A nice product image makes it very easy to skip ahead in your head. You can almost feel the object. You already know where you'd put it. Then someone asks how it goes together, whether the parts fit, or who is actually going to make it. Suddenly the picture has a lot less to say."
-			},
-			{
-				type: 'paragraph',
-				text: 'AI is opening up a fun space for exploring shapes, ideas and alternatives. We want to use that. But physical products eventually have to deal with physical reality, and somebody has to take responsibility for the decisions between the exciting image and the thing you receive. That gap is what a product studio ought to help with.'
-			},
-			{ type: 'heading', text: 'Somewhere to work on your thing' },
-			{
-				type: 'paragraph',
-				text: 'The broad idea is an approachable place to describe a product, explore what it could look like, change your mind a few times, and make progress towards something buildable. Maybe you start with a problem. Maybe you already have a bit of hardware and want to turn it into an object someone would actually enjoy using.'
+				text: "You describe what you want, or start from a bit of hardware you already have. You try a few shapes, change your mind, and work towards something that could be built. You shouldn't have to know every tool, every supplier and every question to ask before you can start."
 			},
 			{
 				type: 'paragraph',
-				text: 'Say you want a little desk device that shows the information you keep checking on your phone. You should be able to explore that idea without first becoming the person who knows every tool, every supplier and every question to ask. You still need decisions and judgement. The studio should help you reach those decisions with a lot less aimless running around.'
-			},
-			{
-				type: 'quote',
-				text: 'The useful part starts when an idea can survive a conversation with the person who has to make it.'
+				text: "Then a person looks at it. The direction we're exploring sends a proposed build to an approved maker, who says what can't be made as drawn and what it would take to make it properly. An attractive concept and an agreed, makeable product are two different stages, and whoever is using the studio should be able to tell which one they're at."
 			},
 			{
 				type: 'paragraph',
-				text: "We want that exploration to stay playful. Try a different shape. Realise the original one was better. Discover a simpler way to get the result you wanted. There's value in having somewhere to do that, even if you never intend to launch a company around the outcome."
+				text: 'There is a second reason we like it. A marketplace is hard to start, because buyers wait for makers and makers wait for buyers. A studio is useful to one person with one idea, before any crowd exists.'
 			},
-			{ type: 'heading', text: 'Useful before the crowd arrives' },
-			{
-				type: 'paragraph',
-				text: 'A marketplace has an awkward early question: why should a buyer show up before there are enough makers, and why should a maker show up before there are enough buyers? A studio gives us another place to begin. One person, one idea, one useful session. There can be a reason to open Selfcrafted even before a crowd is waiting for the result.'
-			},
-			{
-				type: 'paragraph',
-				text: "That's an important shift in what we're thinking about. Help somebody make progress first. If that progress turns into a product other people want, there's a natural reason for the marketplace and the community to be there. The creation process can give the rest of the platform something real to gather around."
-			},
-			{ type: 'heading', text: 'The people making it still matter' },
-			{
-				type: 'paragraph',
-				text: "The direction we're exploring includes a path from the studio to approved makers who can review a proposed build and help turn it into a physical object. That human step matters. An attractive concept and an agreed, makeable product are different stages of the work. We want the experience to make that difference understandable."
-			},
-			{
-				type: 'paragraph',
-				text: "We're also interested in what happens when an idea finds its small crowd. Maybe a few people want the same thing and can get behind a batch together. That's a possibility we're exploring, not an ordering programme we're announcing today. The details need to make sense for the person buying and the person doing the making."
-			},
-			{ type: 'heading', text: "We're keeping the machinery off this page" },
-			{
-				type: 'paragraph',
-				text: "There are plenty of technical questions behind this, and we're deliberately not getting into them here. The same goes for pricing, exact launch scope and the finer points of how orders would work. Those are still being worked through. We'd rather share the direction clearly than dress an unfinished decision up as a feature."
-			},
-			{
-				type: 'paragraph',
-				text: "What we're comfortable saying is this: as AI makes it easier to explore an idea, helping someone choose well and get something useful made becomes more interesting. A product studio should give that enthusiasm somewhere practical to go. Less time wondering which disconnected step comes next; more time working on the thing itself."
-			},
-			{
-				type: 'paragraph',
-				text: "So that's what we're conceptualising at Selfcrafted at the moment. A place where a consumer, a hobbyist or a maker can start with “wouldn't it be nice if…” and have a better chance of ending up with something they can hold. We have a lot to figure out. It feels like a worthwhile thing to figure out."
-			}
-		]
-	},
-	{
-		slug: 'the-best-hardware-starts-with-a-small-stubborn-problem',
-		cover: {
-			src: '/images/blog/small-stubborn-problem.webp',
-			alt: 'A hand adjusts a simple metal bracket on a wooden workbench.',
-			width: 1400,
-			height: 933
-		},
-		title: 'The best hardware starts with a small, stubborn problem.',
-		excerpt: 'A useful product often begins with one ordinary frustration that refuses to go away.',
-		category: 'Perspectives',
-		publishedAt: '2026-09-10',
-		body: [
-			{
-				type: 'paragraph',
-				text: 'Hardware ideas are often introduced at their largest scale: a platform, an ecosystem, a new category. The work usually begins somewhere much smaller. A connector is awkward to reach. A tool has nowhere sensible to sit. A common enclosure almost fits, but wastes the space that matters. The problem is modest enough to ignore and persistent enough that somebody eventually decides not to.'
-			},
-			{
-				type: 'paragraph',
-				text: 'That small beginning is useful because it gives the maker a sharp test. The object either improves a real moment or it does not. There is less room for a vague promise when a prototype must fit a hand, a desk, or another part. The physical world keeps the brief honest.'
-			},
-			{ type: 'heading', text: 'Stay close to the irritation' },
-			{
-				type: 'paragraph',
-				text: 'Before choosing features, describe the troublesome moment precisely. What is someone trying to do? What interrupts them? What workaround have they already invented? A taped-on spacer or hand-labelled switch is not an embarrassment. It is evidence that the need has survived contact with daily life.'
-			},
-			{
-				type: 'quote',
-				text: 'A narrow problem gives each design decision somewhere solid to stand.'
-			},
-			{
-				type: 'paragraph',
-				text: 'A clear problem also helps with restraint. If a display, wireless connection, or companion app does not improve that moment, it can wait. Every addition asks for space, power, assembly time, documentation, and support. A simple object can still be ambitious; its ambition is to remove friction reliably.'
-			},
-			{ type: 'heading', text: 'Build the smallest complete answer' },
-			{
-				type: 'paragraph',
-				text: 'The first useful version should form a complete loop. A mount should mount securely and release when expected. A controller should make its essential state legible. A small instrument should produce a result that its user can understand. “Complete” does not mean polished or final. It means the central promise can be tested without explaining away missing pieces.'
-			},
+			{ type: 'heading', text: "What we haven't decided" },
 			{
 				type: 'list',
 				items: [
-					'Name the one action the object must make easier.',
-					'List the constraints the physical setting imposes.',
-					'Remove any feature that cannot yet justify its cost and complexity.',
-					'Put the result in the place where the problem actually happens.'
+					'Pricing.',
+					'What the first version would do.',
+					'How an order works once a maker agrees to build something.',
+					"Whether a few people who want the same thing could back a batch together. We like the idea and haven't worked it through."
 				]
 			},
 			{
 				type: 'paragraph',
-				text: 'Once the core works, the surrounding product becomes easier to see. Repeated use reveals which edge needs softening, which label is unclear, and which step belongs in the instructions. Those details are discovered through attention, not guessed in a feature list.'
-			},
-			{ type: 'heading', text: 'Let usefulness set the scale' },
-			{
-				type: 'paragraph',
-				text: 'Some stubborn problems belong to a small group, and that can be enough. Indie hardware does not need to imitate the scale of mass-market electronics to matter. A carefully made part can serve a particular workflow, repair a familiar annoyance, or keep another object in use. Its value comes from the quality of the fit between problem and answer.'
-			},
-			{
-				type: 'paragraph',
-				text: 'The maker can always widen the view later. Variants, accessories, and new uses may emerge. Starting narrow simply means the first claim is one you can inspect, build, and improve. Find the small problem that keeps asking for attention. Give it a direct answer. That is enough ground for good hardware to begin.'
+				text: "If you'd use something like this, or you're a maker who would hate being sent these, tell us on Discord.",
+				links: [{ label: 'Selfcrafted on Discord', href: DISCORD_URL }]
 			}
 		]
 	},
 	{
 		slug: 'what-to-document-before-you-ship-your-first-build',
 		cover: {
-			src: '/images/blog/document-your-build.webp',
-			alt: 'An open notebook of assembly sketches sits beside a device and its neatly arranged parts.',
+			src: '/images/blog/device-and-guide.webp',
+			alt: 'Line drawing of a small device with one button, its open carton, a three-step instruction sheet, four hex screws and a hex key.',
 			width: 1400,
-			height: 933
+			height: 933,
+			ogSrc: '/images/blog/device-and-guide-og.jpg',
+			lineArt: true,
+			credit: ILLUSTRATION_CREDIT
 		},
-		title: 'What to document before you ship your first build.',
+		title: 'What to document before you ship your first build',
 		excerpt:
-			'Good documentation preserves the decisions behind a build and gives its next owner a confident start.',
+			"A checklist for the sheet that goes in the box, and two tests that show you what's missing from it.",
 		category: 'Guides',
-		publishedAt: '2026-09-08',
+		publishedAt: '2026-09-10',
+		updatedAt: '2026-11-15',
 		body: [
 			{
 				type: 'paragraph',
-				text: 'The final assembly is still on the bench, so every detail feels obvious. You know which cable goes where, how firmly the case closes, and what the status light means during startup. The person opening the box knows none of this. Documentation is the bridge between those two points of view.'
+				text: 'While the build is on your bench, everything about it is obvious to you. You know which cable goes where and what the status light means during startup. The person opening the box knows none of it.'
 			},
 			{
 				type: 'paragraph',
-				text: 'Writing it before shipping does more than help the recipient. It exposes unfinished parts of the product. If the setup needs a long explanation, the interface may need another pass. If two revisions look identical but behave differently, the revision needs a visible identity. Documentation is part of the build because it tests whether the object can leave its maker.'
+				text: "Writing the guide before you ship does a second job: it shows you what isn't finished. If setup needs a long explanation, the product probably needs another pass. If two revisions look the same and behave differently, the revision needs to be printed on the board."
 			},
-			{ type: 'heading', text: 'Record what this unit is' },
+			{ type: 'heading', text: 'Say what this unit is' },
 			{
 				type: 'paragraph',
-				text: 'Begin with identity. Give the product a stable name and the build a revision. Record the date assembled and the firmware or configuration version when relevant. If a future replacement part must match a dimension or connector, write that down too. The aim is not to publish the whole workshop notebook. It is to make this physical unit understandable six months from now.'
+				text: 'Put these where the owner can still find them a year from now: on the board, on a sticker under the base, or in the first lines of the guide.'
 			},
 			{
 				type: 'list',
 				items: [
-					'Product name, hardware revision, and unit identifier.',
-					'What is included in the package and what the user must provide.',
-					'Compatible accessories, software, and ordinary operating requirements.',
-					'A dated record of any variation specific to this build.'
+					'The product name and hardware revision.',
+					'The firmware or configuration version it shipped with, if it has one.',
+					"What's in the box, and what the buyer has to bring, such as a power supply, a cable or a memory card.",
+					'The supply voltage and current, and the connector it expects.',
+					'Anything that makes this unit different from the standard build.'
 				]
 			},
-			{ type: 'heading', text: 'Walk through the first ten minutes' },
+			{ type: 'heading', text: 'Write the first ten minutes' },
 			{
 				type: 'paragraph',
-				text: 'Write setup instructions while following them with a reset device and a cleared workspace. Start at the unopened package. Describe connections in the order they should happen, using the same names that appear on the object. Say what successful startup looks like. A useful instruction pairs an action with an observable result: connect this, then expect that.'
-			},
-			{
-				type: 'quote',
-				text: 'The first-run guide should replace the maker standing beside the product.'
+				text: 'Reset a unit, clear your desk and follow your own instructions, starting from the sealed box. Write each step as an action and what should happen next. For example: plug in USB, the green light blinks twice, then stays on. Use the names printed on the product. If the board says BOOT, the guide says BOOT.'
 			},
 			{
 				type: 'paragraph',
-				text: 'Include the normal controls and states after setup. Label diagrams sparingly and make them match the shipped revision. Photographs can help with orientation, but a sentence should still explain why the pictured detail matters. Keep optional tuning separate from the shortest path to a useful result.'
+				text: 'Keep optional tuning out of this part. The first page gets someone to a working device. Everything else can come after it.'
 			},
-			{ type: 'heading', text: 'Make recovery ordinary' },
+			{ type: 'heading', text: 'Cover the few things that go wrong' },
 			{
 				type: 'paragraph',
-				text: 'A product feels more dependable when common confusion has a calm answer. Document how to restart, return to a known state, and distinguish a normal wait from a problem. List a few symptoms in the language a user would use, followed by simple checks. Avoid turning the guide into an exhaustive fault tree; give people a sensible next step and a clear route to support.'
-			},
-			{
-				type: 'paragraph',
-				text: 'Also say how to care for, store, and clean the object where that affects ordinary use. Identify parts intended to be replaced and how someone can request them. If the enclosure can be opened for planned maintenance, explain the boundary of that task without encouraging risky improvisation.'
-			},
-			{ type: 'heading', text: 'Preserve the maker record' },
-			{
-				type: 'paragraph',
-				text: 'Keep a private build record alongside the customer-facing guide. Note the bill of materials revision, assembly checks, and final functional check. Record departures from the standard build. This is the trail you will need when feedback arrives or the next batch begins.'
+				text: 'You don\'t need a fault tree. Write down how to restart it, how to get back to a known state, and how to tell a normal wait from a problem. Then list the few symptoms you expect, in the words a buyer would use, like "the light never turns on", each with one thing to check. End with where to ask for help.'
 			},
 			{
 				type: 'paragraph',
-				text: 'Finally, read every document as the owner rather than the inventor. Remove workshop shorthand. Check every link and filename. Put the essential guide where it can be found after the packaging is gone. Shipping the object transfers possession; good documentation transfers enough knowledge for the object to become useful.'
+				text: 'If a part is meant to be replaced, say which one and how to get another. If the case is meant to be opened, say how far.'
+			},
+			{ type: 'heading', text: 'Two tests before you ship' },
+			{
+				type: 'paragraph',
+				text: 'Build a second unit using only your written notes. Wherever you stall, the process is still in your hands and not on paper: the order you tighten the screws, the wire that has to bend a certain way, the setting you changed once and forgot.'
+			},
+			{
+				type: 'paragraph',
+				text: "Then hand a unit and the draft guide to someone who hasn't watched you build it. Ask them to say out loud what they expect at each step, and don't help. Where they pause, the guide is missing something. What they think a label means matters more than what you meant by it."
+			},
+			{
+				type: 'paragraph',
+				text: 'Fix anything that stops the main task or leaves them stuck. Opinions about colour can wait for the next revision.'
+			},
+			{ type: 'heading', text: 'Keep your own record' },
+			{
+				type: 'paragraph',
+				text: "Next to the buyer's guide, keep a private note for each batch: the bill of materials revision, the checks you ran before packing, and anything you did differently. You'll want it when the first support email arrives, and again when you start the next batch."
+			},
+			{ type: 'heading', text: 'Where it goes on Selfcrafted' },
+			{
+				type: 'paragraph',
+				text: 'Every listing has room for documentation next to the description. Put the guide there as well as in the box, so it can still be found after the packaging is gone. The Korby Probe listing is an example.',
+				links: [
+					{
+						label: 'Korby Probe listing',
+						href: '/Korby_Probe/craft/item=67e3bf38-f9ca-4468-86a7-9e26e36c3e09'
+					}
+				]
 			}
 		]
 	},
 	{
 		slug: 'a-useful-part-deserves-a-second-life',
 		cover: {
-			src: '/images/blog/second-life-parts.webp',
-			alt: 'Hands sort spare knobs, brackets, circuit boards and enclosures for reuse.',
+			src: '/images/blog/parts-organiser.webp',
+			alt: 'Line drawing of an open parts organiser holding screws, standoffs, a stepper motor, a heater cartridge, a fan, wire, switches and knobs.',
 			width: 1400,
-			height: 933
+			height: 933,
+			ogSrc: '/images/blog/parts-organiser-og.jpg',
+			lineArt: true,
+			credit: ILLUSTRATION_CREDIT
 		},
-		title: 'A useful part deserves a second life.',
+		title: 'A useful part deserves a second life',
 		excerpt:
-			'Spare parts become valuable again when their condition, context, and potential are made legible.',
-		category: 'Field notes',
-		publishedAt: '2026-09-05',
-		body: [
-			{
-				type: 'paragraph',
-				text: 'A workshop slowly gathers a quiet inventory. There are switches left after a redesign, motors from an abandoned prototype, displays ordered in the wrong size, and perfectly good fasteners that no longer belong to an active build. Each part is too useful to discard and too poorly described to use.'
-			},
-			{
-				type: 'paragraph',
-				text: 'The obstacle is rarely the part alone. It is missing context. Without a clear identity, condition, and reason to trust it, a component becomes a question someone else must spend time answering. Giving a part a second life starts by reducing that uncertainty.'
-			},
-			{ type: 'heading', text: 'Make the part legible' },
-			{
-				type: 'paragraph',
-				text: 'Begin with what can be observed and verified. Record the manufacturer marking or exact model when available, the quantity, major dimensions, and connector or mounting details. Say whether it is unused surplus, removed from a working assembly, or untested. These are different conditions, and plain language serves the next maker better than an optimistic label.'
-			},
-			{
-				type: 'quote',
-				text: 'A spare becomes useful when another maker can understand it without inheriting your guesswork.'
-			},
-			{
-				type: 'paragraph',
-				text: 'A few deliberate photographs can carry much of the remaining context. Show the whole part, its markings, its connectors, and any wear. Include a sense of scale. If there are several units, show the actual group rather than a representative catalogue image. The goal is not glamour; it is a confident decision.'
-			},
-			{ type: 'heading', text: 'Preserve the small pieces of knowledge' },
-			{
-				type: 'paragraph',
-				text: 'Parts often arrive with knowledge that never made it into a formal specification. A bracket was made to fit a common extrusion. A display needs an unusual cutout. A knob clears one shaft but not another. Write down what you learned while using it, while keeping observation separate from assumption.'
-			},
-			{
-				type: 'list',
-				items: [
-					'Keep labels, matching cables, and known accessories with the part.',
-					'Add a short note about the project and environment it came from.',
-					'Package small items so markings and delicate features stay readable.',
-					'Update the record if you test, divide, or reserve the quantity.'
-				]
-			},
-			{ type: 'heading', text: 'Design with recovery in mind' },
-			{
-				type: 'paragraph',
-				text: 'Second lives are easier when the original product allows parts to leave gracefully. Standard fasteners, accessible assemblies, replaceable wear parts, and visible revision marks all help. So does keeping a modest service record. These choices support repair today and make components easier to recover when the larger object eventually changes purpose.'
-			},
-			{
-				type: 'paragraph',
-				text: 'This does not mean every fragment must be saved indefinitely. Sorting is an act of judgment. Some parts lack a sensible path back to use, and clutter can hide the good material. Set a clear space for surplus, review it periodically, and describe promising items while their history is still fresh.'
-			},
-			{
-				type: 'paragraph',
-				text: 'A component moving from one bench to another is a small form of continuity. It shortens someone’s search and lets existing material answer a new problem. The practical work is simple: identify it, tell the truth about it, preserve what you know, and make the handoff easy.'
-			}
-		]
-	},
-	{
-		slug: 'from-prototype-to-something-people-can-use',
-		cover: {
-			src: '/images/blog/prototype-to-product.webp',
-			alt: 'Three versions of a desk light, from a cardboard model to a working prototype and a finished object.',
-			width: 1400,
-			height: 933
-		},
-		title: 'From prototype to something people can use.',
-		excerpt:
-			'The distance from a working demo to a usable product is filled with small, consequential decisions.',
+			"How to list spares and leftover parts so the next person can trust what they're buying.",
 		category: 'Guides',
-		publishedAt: '2026-09-02',
+		publishedAt: '2026-09-10',
+		updatedAt: '2026-11-15',
 		body: [
 			{
 				type: 'paragraph',
-				text: 'A prototype answers an exciting question: can this idea work? A product must answer a slower set of questions. Can someone recognize what to do? Can the maker build it again? Can it travel, be set up, and return to a useful state after something unexpected happens? The proof on the bench is the beginning of that work.'
+				text: 'Every workshop collects them. Switches left over after a redesign, motors from a prototype you abandoned, a display ordered in the wrong size. Too useful to throw away, and too poorly described for anyone else to use.'
 			},
 			{
 				type: 'paragraph',
-				text: 'This transition can feel less creative because progress arrives through details. A cable receives strain relief. A confusing button gets a better label. A temporary spacer becomes a repeatable part. Yet these decisions are where the invention becomes available to another person.'
+				text: 'Selfcrafted has two places for parts like these. Spares are replacement parts for a product, like the magnets and the PCB for the Korby Probe. The flea market is for surplus and used parts from your bench. In both, the description is what makes a part sellable.'
 			},
-			{ type: 'heading', text: 'Define the promise before refining the object' },
+			{ type: 'heading', text: 'Say exactly what it is' },
 			{
 				type: 'paragraph',
-				text: 'Write one sentence describing what the finished build helps someone accomplish. Then define the conditions around that promise: where it is used, what it connects to, what the user already knows, and what they must provide. This boundary prevents polish from spreading into parts of the concept that are not ready to become product.'
+				text: "Write down what you can see and check: the manufacturer's marking or model number, how many you have, the main dimensions, and the connector or mounting. If it only fits certain things, say which. A bracket made for 2020 extrusion is useful to far fewer people than the photo suggests."
 			},
-			{
-				type: 'quote',
-				text: 'A product is a repeatable experience built around a working idea.'
-			},
+			{ type: 'heading', text: "Say what state it's in" },
 			{
 				type: 'paragraph',
-				text: 'Choose a small set of success conditions from that promise. The essential operation should be reliable. Setup should have a clear path. The main states should be visible. The build should tolerate ordinary handling in its intended setting. Specific conditions give each revision a purpose and make “done” less dependent on mood.'
+				text: 'There are three honest answers and they\'re different: unused surplus, removed from something that was working, or untested. Pick one and put it in the first line of the description. Untested is fine. People buy untested parts all the time, at a price that reflects it. What they won\'t forgive is "works perfectly" on a part you never powered up.'
 			},
-			{ type: 'heading', text: 'Replace memory with repeatability' },
+			{ type: 'heading', text: 'Photograph the actual part' },
 			{
 				type: 'paragraph',
-				text: 'The prototype contains invisible knowledge: the order you tighten parts, the wire that must bend a certain way, the configuration you changed once and forgot. Build a second unit from written notes. Wherever the second build stalls, the process is still living in your hands rather than in the product.'
+				text: "Show the whole part, its markings, its connectors and any wear, with something in the frame for scale. If you have five, photograph the five. A catalogue image from the manufacturer's website shows the buyer what a new one looks like, and you aren't selling a new one."
+			},
+			{ type: 'heading', text: 'Pass on what you learned' },
+			{
+				type: 'paragraph',
+				text: "Parts come with knowledge that never made it into a datasheet. The display needs an odd cutout. The knob clears one shaft and fouls another. The fan is louder than its rating suggests. Write it down, and keep what you measured separate from what you're guessing."
 			},
 			{
 				type: 'list',
 				items: [
-					'Freeze a revision before changing parts, files, or assembly steps.',
-					'Name components consistently across the bill of materials and instructions.',
-					'Record simple checks at stages where mistakes become hidden later.',
-					'Keep acceptable variations explicit instead of correcting them from memory.'
+					'Keep matching cables, screws and labels with the part.',
+					'Say what project it came out of.',
+					'Pack small parts so the markings stay readable.',
+					'Update the stock count when you sell or use some.'
 				]
 			},
+			{ type: 'heading', text: 'Listing it' },
 			{
 				type: 'paragraph',
-				text: 'Repeatability also changes sourcing decisions. A convenient one-off part may be awkward to replace. A beautiful finish may vary too much between builds. The right choice is not always the most standardized one, but its tradeoff should be visible before a batch depends on it.'
-			},
-			{ type: 'heading', text: 'Watch someone meet it' },
-			{
-				type: 'paragraph',
-				text: 'Give a representative build and its draft instructions to someone who has not watched it develop. Ask them to narrate what they expect, then resist guiding each step. Their pauses reveal missing cues. Their interpretation of a label matters more than the meaning you intended. Observe the product and instructions as one system.'
+				text: 'In the maker portal, add a listing and set its type to spare or flea market. Give it a price and a stock count, add your photos, and submit it. We look at each listing before it goes live.',
+				links: [{ label: 'Apply as a maker', href: '/maker/apply' }]
 			},
 			{
 				type: 'paragraph',
-				text: 'Sort what you learn by consequence. Address anything that prevents the main task, creates an easy-to-make assembly error, or leaves the user unable to recover. Cosmetic preferences can inform later revisions. Trying to absorb every suggestion at once makes the product less coherent and delays the next useful test.'
-			},
-			{ type: 'heading', text: 'Prepare the handoff' },
-			{
-				type: 'paragraph',
-				text: 'Before release, assemble the exact package: product, accessories, setup guide, revision identity, and support route. Follow the customer path from opening it to completing the central task. Then store the files and records needed to make or understand that revision again.'
-			},
-			{
-				type: 'paragraph',
-				text: 'There is no point where a physical product stops changing forever. Shipping creates a stable reference, not a final answer. Make that reference coherent, document what it is, and let real use provide the next set of questions. The prototype proved the mechanism. The product earns trust by making its value repeatable.'
+				text: "Not every leftover deserves a listing. If you can't say what a part is or what it fits, nobody else will be able to either. List the ones you can describe, while you still remember where they came from."
 			}
 		]
 	}

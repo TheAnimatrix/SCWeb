@@ -6,27 +6,16 @@ test.beforeEach(async ({ page }) => {
 	});
 });
 
-test('readers can filter stories, open an article, and return to the journal', async ({ page }) => {
+test('readers can open a post and return to the blog', async ({ page }) => {
 	await page.goto('/blog');
-	await expect(page).toHaveTitle('Selfcrafted Journal | Selfcrafted India');
-	await expect(
-		page.getByRole('heading', { name: 'Selfcrafted Journal', exact: true })
-	).toBeVisible();
+	await expect(page).toHaveTitle('Blog | Selfcrafted India');
+	await expect(page.getByRole('heading', { name: 'Blog', exact: true, level: 1 })).toBeVisible();
 	await expect(
 		page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Blog' })
 	).toHaveAttribute('aria-current', 'page');
 
-	const stories = page.getByRole('region', { name: 'Latest stories' });
-	await expect(stories.locator('article')).toHaveCount(5);
-	await page.getByRole('button', { name: 'Guides', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Guides', exact: true })).toHaveAttribute(
-		'aria-pressed',
-		'true'
-	);
-	await expect(stories.locator('article')).toHaveCount(2);
-	await expect(stories).not.toContainText('A useful part deserves a second life.');
-	await page.getByRole('button', { name: 'All stories', exact: true }).click();
-	await expect(stories.locator('article')).toHaveCount(5);
+	const stories = page.getByRole('region', { name: 'Posts' });
+	await expect(stories.locator('article')).toHaveCount(4);
 
 	const story = stories.locator('article').first();
 	const title = (await story.getByRole('heading').innerText()).trim();
@@ -51,15 +40,18 @@ test('readers can filter stories, open an article, and return to the journal', a
 	);
 	const structuredData = await page.locator('script[type="application/ld+json"]').allTextContents();
 	expect(structuredData.some((value) => JSON.parse(value)['@type'] === 'BlogPosting')).toBe(true);
-	await page.getByRole('link', { name: /back to (the )?journal/i }).click();
+	await page
+		.getByRole('link', { name: /all posts/i })
+		.first()
+		.click();
 	await expect(page).toHaveURL(/\/blog$/);
 });
 
-test('journal works on narrow screens and in both themes', async ({ page }) => {
+test('blog works on narrow screens and in both themes', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await page.goto('/blog');
-	await expect(page).toHaveTitle('Selfcrafted Journal | Selfcrafted India');
+	await expect(page).toHaveTitle('Blog | Selfcrafted India');
 	await page.getByRole('button', { name: 'Open menu', exact: true }).click();
 	const navigation = page.getByRole('dialog', { name: 'Mobile navigation' });
 	await expect(navigation.getByRole('link', { name: 'Blog', exact: true })).toBeVisible();
@@ -67,11 +59,10 @@ test('journal works on narrow screens and in both themes', async ({ page }) => {
 	await expect(page.locator('html')).toHaveClass(/light/);
 	await navigation.getByRole('link', { name: 'Blog', exact: true }).click();
 	await expect(navigation).not.toBeVisible();
-	await page.getByRole('button', { name: 'Field notes', exact: true }).click();
-	const stories = page.getByRole('region', { name: 'Latest stories' });
-	await expect(stories.locator('article')).toHaveCount(1);
+	const stories = page.getByRole('region', { name: 'Posts' });
+	await expect(stories.locator('article')).toHaveCount(4);
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-	await stories.locator('article').getByRole('link').click();
+	await stories.locator('article').first().getByRole('link').click();
 	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	await page.setViewportSize({ width: 768, height: 1024 });
@@ -85,13 +76,11 @@ test('articles are server rendered and unknown slugs return 404', async ({ reque
 	const paths = [
 		...new Set([...html.matchAll(/href="\.?(\/blog\/[a-z0-9-]+)"/g)].map((match) => match[1]))
 	];
-	expect(paths).toHaveLength(6);
+	expect(paths).toHaveLength(4);
 	expect(paths).toEqual(
 		expect.arrayContaining([
-			'/blog/the-best-hardware-starts-with-a-small-stubborn-problem',
 			'/blog/what-to-document-before-you-ship-your-first-build',
 			'/blog/a-useful-part-deserves-a-second-life',
-			'/blog/from-prototype-to-something-people-can-use',
 			'/blog/why-india-needs-selfcrafted',
 			'/blog/a-product-studio-for-the-ai-era'
 		])

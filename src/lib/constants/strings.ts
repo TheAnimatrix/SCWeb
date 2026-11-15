@@ -1,155 +1,119 @@
-const origin: string = `* **Frustration with the Maker Ecosystem**: <br/>  Born out of frustration with the challenges in India's maker ecosystem, including import bans, high customs fees, and lack of local tooling options.
-
-* **Impact on Individual Makers**: <br/>  Individual makers face difficulties due to these issues, affecting their ability to pursue their passion and contribute to innovation.
-
-* **Addressing the Problem Head-On**: <br/>  Rather than accepting defeat, this project aims to tackle the challenges head-on, considering it a form of war against the constraints imposed on the maker community.  
-
-* **Empowering Passionate Makers**: <br/>  The goal is to empower passionate makers by providing adequate support in designing, prototyping, sourcing, and developing low-cost indie electronics.  
-
-* **Disrupting the Space**: <br/>  Focused initially on the electronics maker ecosystem, the project seeks to disrupt and make affordable tools crucial for a rapid revolution in the maker space.  
-
-* **Examples of Targeted Products**: <br/>  Specific products include 3D printing boards, probes, designs, low-cost adjustable current and voltage power supplies, remote sensing systems, and more.  
-
-* **Inclusive Community Building**: <br/>  Welcoming individuals who share the vision to join the cause, with a presence on Discord for collaboration and discussion.  
-
-* **Encouraging interested individuals to explore the "Start Crafting" page for more details and engagement opportunities.**
-`;
-
-const risks: string = `At the core of our platform, sellers come in two distinct types: **_Selfcrafted Approved_** and **_Selfcrafted Fulfilled_**.  
-  
-**Selfcrafted Orginal**  
-Simply put, Selfcrafted Originals comprise of a line of products that's been crafted either by us or under our supervision and we take care of every aspect related to these products, even after they land in your hands.
-This even includes handling warranties and guarantees applicable to your purchase.  
-   
-**Selfcrafted Approved**  
-Now, let's delve into Selfcrafted Approved. 
-While it's true that these products may not be production level, we've got your back on a case-by-case basis if the seller falls short. We guarantee that you will receive the product no matter what,
-and it's only the performance that's ever at stake if at all. Should any issues arise, we're here to assist you. Moreover, crafters have to bear with the consequences if the product doesn't function as intended.
-Your satisfaction and peace of mind are our top priorities throughout your entire experience.`;
-
-const roadmap: string = `
-1. [ ] <span class="text-sccyan">Website Launch</span> _TBD_  
-Shipped preliminary e-commerce front-end to kickstart the Selfcrafted Project  
-
-2. [x] gtas
------
-`;
-
-const privacy: string = `
-* This privacy policy sets out how Selfcrafted uses and protects any information that you give Selfcrafted when you visit their website and/or agree to purchase from them.
-
-* Selfcrafted is committed to ensuring that your privacy is protected. Should we ask you to provide certain information by which you can be identified when using this website, and then you can be assured that it will only be used in accordance with this privacy statement.
-
-* Selfcrafted may change this policy from time to time by updating this page. You should check this page from time to time to ensure that you adhere to these changes.
-
-**We may collect the following information:**
-
-Name
-
-Contact information including email address
-
-* Demographic information such as postcode, preferences and interests, if required
-
-**What we do with the information we gather:**
-
-* We require this information to understand your needs and provide you with a better service, and in particular for the following reasons:
-
-Internal record keeping.
-
-* We may use the information to improve our products and services.
-
-* We may periodically send promotional emails about new products, special offers or other information which we think you may find interesting using the email address which you have provided. This feature is opted out by default.
-
-* From time to time, we may also use your information to contact you for market research purposes. We may contact you by email, phone, fax or mail. We may use the information to customise the website according to your interests.
-
-* We are committed to ensuring that your information is secure. In order to prevent unauthorised access or disclosure we have put in suitable measures.
-
-**How we use cookies**
-
-* A cookie is a small file which asks permission to be placed on your computer's hard drive. Once you agree, the file is added and the cookie helps analyze web traffic or lets you know when you visit a particular site. Cookies allow web applications to respond to you as an individual. The web application can tailor its operations to your needs, likes and dislikes by gathering and remembering information about your preferences.
-
-* We use cookies to understand and save your preferences for future visits. We only use this information for statistics analysis purposes and then the data is removed from the system.
-
-* Overall, cookies help us provide you with a better website, by enabling us to monitor which pages you find useful and which you do not. A cookie in no way gives us access to your computer or any information about you, other than the data you choose to share with us.
-
-* You can choose to accept or decline cookies. Most web browsers automatically accept cookies, but you can usually modify your browser setting to decline cookies if you prefer. This may prevent you from taking full advantage of the website.
-
-* We will not sell, distribute or lease your personal information`;
-
-const terms: string = `
-* For the purpose of these Terms and Conditions, The term "we", "us", "our" used anywhere on this page shall mean **Selfcrafted**.
-* "you", “your”, "user", “visitor” shall mean any natural or legal person who is visiting our website and/or agreed to purchase from us.
-
-* Your use of the website and/or purchase from us are governed by following **Terms and Conditions**:
-
-* The content of the pages of this website is subject to change without notice.
-
-* Neither we nor any third parties provide any warranty or guarantee as to the accuracy, timeliness, performance, completeness or suitability of the information and materials found or offered on this website for any particular purpose. You acknowledge that such information and materials may contain inaccuracies or errors and we expressly exclude liability for any such inaccuracies or errors to the fullest extent permitted by law.
-
-* Your use of any information or materials on our website and/or product pages is entirely at your own risk, for which we shall not be liable. It shall be your own responsibility to ensure that any products, services or information available through our website and/or product pages meet your specific requirements.
-
-* Our website contains material which is owned by or licensed to us. This material includes, but are not limited to, the design, layout, look, appearance and graphics. Reproduction is prohibited other than in accordance with the copyright notice, which forms part of these terms and conditions.
-
-* All trademarks reproduced in our website which are not the property of, or licensed to, the operator are acknowledged on the website.
-
-* Unauthorized use of information provided by us shall give rise to a claim for damages and/or be a criminal offense.
-
-* From time to time our website may also include links to other websites. These links are provided for your convenience to provide further information.
-
-* Any dispute arising out of use of our website and/or purchase with us and/or any engagement with us is subject to the laws of India.`;
+/**
+ * Policy text for /policy, written as markdown and rendered with snarkdown.
+ * Keep it plain and specific: say what actually happens on this site.
+ */
 
 const shipping: string = `
-* Selfcrafted only accepts orders and ships within the country of India. 
+We ship within India only.
 
-* Orders are shipped through registered domestic courier companies. 
+Orders go out by courier 3 to 14 days after payment, depending on the maker and whether the item is made to order. If a different date was agreed when the order was confirmed, that date applies.
 
-* Orders are shipped within 3-14 days from the date of the order and payment or as per the delivery date agreed at the time of order confirmation. Delivery of the shipment is subject to Courier Company / post office norms. 
+Delivery is a flat ₹99 per order.
 
-* Selfcrafted is not liable for any delay in delivery by the courier company / postal authorities and only guarantees to hand over the consignment to the courier company or postal authorities within 3-14 days from the date of the order and payment or as per the delivery date agreed at the time of order confirmation. 
+Our part is getting your parcel to the courier inside that window. Once the courier has it, the delivery time is theirs, and we can't be held responsible for their delays.
 
-* Delivery of all orders will be to the address provided by the buyer.
-* Delivery of our services will be confirmed on your mail ID as specified during registration. 
-* For any issues in utilizing our services you may contact us using the details below`;
+We deliver to the address you give at checkout, so check it before you pay. We email you when the order is confirmed and when its status changes.`;
 
 const cancellation: string = `
-Selfcrafted believes in helping its customers as far as possible, and has therefore a liberal cancellation policy.
+**Can I cancel an order?**
 
-* Under this policy:
+Yes, on the day you place it, as long as the maker hasn't started shipping it. Write to **support@selfcrafted.in** from the email address you ordered with and include your order ID.
 
-**When can I cancel an order?**
+**What can't be cancelled or refunded?**
 
-* Cancellations will be considered only if the request is made within the same day of placing the order. However, the cancellation request may not be entertained if the orders have been communicated to the vendors/merchants and they have initiated the process of shipping them.
+Listings marked as non-returnable on their own page.
 
-**What items are not eligible for cancellation/refund?**
+**What if it arrives damaged or faulty?**
 
-* Products that are explicitly marked as non cancellable/non-returnable on their respective pages are not eligible for cancellation/refund
+Tell us the day it arrives. Write to **support@selfcrafted.in** from the email address you ordered with, and include your order ID and photos. The maker checks the report, and we decide each case on what we find.
 
-**What if my item is damaged or defective?**
+**What if it isn't what the listing showed?**
 
-* In case of receipt of damaged or defective items, please report the same to **support@selfcrafted.in** along with your order id from the e-mail address that was used to placed the order. The request will, however, be entertained once the merchant has checked and determined the same at his own end. This should be reported within the same day of receipt of the products.
-* However, this may be reviewed and approved on a case-by-case basis.
+Tell us the day it arrives, the same way. We'll look into it and tell you what we can do.
 
-**What if the product received is not as shown on the site or as per my expectations?**
+**What about products with a warranty or guarantee?**
 
-* In case you feel that the product received is not as shown on the site or as per your expectations, you must bring it to the notice of our customer service within the same day of receiving the product. The Customer Service Team after looking into your complaint will take an appropriate decision.
+If the listing carries a Selfcrafted warranty or guarantee, write to support@selfcrafted.in with your order ID. We review every claim. We can refuse one if the product shows signs of tampering, fraud or damage.
 
-**What if it is a product with a warranty/guarantee ?**
+**How long does a refund take?**
 
-* In case of complaints regarding products that come with a warranty/guarantee from Selfcrafted, you may report your issue to support@selfcrafted.in along with your order id from the e-mail address that was used to placed the order. Our customer service will take an appropriate decision after reviewing your complaint. Selfcrafted also reserves the right to reject your warranty claims should their be evidence of tamper/fraud/damage to the product.
+Once we approve a refund, it takes 9 to 15 days to reach you.`;
 
-**How long will it take for the refund to be processed?**
+const risks: string = `
+Every listing is one of two kinds.
 
-In case of any Refunds approved by the Selfcrafted, it’ll take 9-15 days for the refund to be processed to the end customer.`;
+**Selfcrafted Original**
+
+We made it, or it was built under our supervision. We look after it even after it reaches you, including any warranty or guarantee on the listing.
+
+**Selfcrafted Approved**
+
+An independent maker built it and we approved the listing. These are often early or small-batch products, so they may not be finished to factory standard.
+
+We guarantee that what you ordered reaches you. If it arrives and doesn't work as described, write to support@selfcrafted.in. We'll take it up with the maker, who is responsible for a product that doesn't do what the listing says, and we decide these case by case.`;
+
+const privacy: string = `
+This is what Selfcrafted stores about you and why. If it changes, we'll update this page.
+
+**What we store**
+
+* Your email address and username.
+* Your name and profile photo, if you sign in with Google.
+* The delivery addresses and phone number you enter at checkout or save to your account.
+* Your orders, reviews and messages with makers.
+* Any 3D models you upload to request a print.
+
+**What we use it for**
+
+* Running your account and delivering your orders. Whoever packs and ships your order needs your delivery details to do it.
+* Emailing you about your account, your orders and your print requests. We don't send marketing email unless you ask for it.
+* Keeping our own records.
+
+**Payments**
+
+Payments go through Razorpay. Your card, UPI and bank details go to them. We never see or store them.
+
+**Cookies**
+
+We use cookies to keep you signed in and to remember your cart. Your light or dark theme choice is saved in your browser. We don't use advertising or tracking cookies. If you block cookies, sign-in and the cart won't work.
+
+**Error reports**
+
+When something breaks, an error report goes to Sentry so we can fix it.
+
+**Sharing**
+
+We don't sell, rent or trade your personal information.
+
+**Deleting your data**
+
+To delete your account, write to support@selfcrafted.in from the email address on the account.`;
+
+const terms: string = `
+On this page, "we", "us" and "our" mean **Selfcrafted**. "You" means anyone who visits this website or buys through it.
+
+By using this website or buying through it, you agree to the following.
+
+* What's on these pages can change without notice.
+
+* We don't guarantee that the information on this website is accurate, complete, up to date or suitable for any particular purpose. It may contain mistakes, and to the fullest extent the law allows we aren't liable for them.
+
+* You use the information and products on this website at your own risk. It's up to you to check that a product meets your needs.
+
+* The design, layout, look and graphics of this website are owned by us or licensed to us.
+
+* Using information from this website without permission may lead to a claim for damages and may be a criminal offence.
+
+* We sometimes link to other websites for your convenience. We aren't responsible for what's on them.
+
+* Any dispute arising from your use of this website, a purchase through it or any dealings with us is governed by the laws of India.`;
 
 const contact: string = `
-* ### **Selfcrafted**
-* Ph : +91-86374-52606 (sms, whatsapp)
-* E-Mail : support@selfcrafted.in
-`;
+Email: **support@selfcrafted.in**
+
+WhatsApp or SMS: **+91 86374 52606**`;
 
 interface ABOUTSTR {
-	origin: string;
-	roadmap: string;
 	risks: string;
 	privacy: string;
 	terms: string;
@@ -159,9 +123,7 @@ interface ABOUTSTR {
 }
 
 export const ABOUT_STRINGS: ABOUTSTR = {
-	origin,
 	risks,
-	roadmap,
 	privacy,
 	terms,
 	shipping,

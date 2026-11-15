@@ -9,23 +9,36 @@
 	import { page } from '$app/state';
 
 	const sections = [
-		{ id: 'privacy', label: 'privacy', title: 'Privacy Policy', content: ABOUT_STRINGS.privacy },
-		{ id: 'terms', label: 'terms', title: 'Terms & Conditions', content: ABOUT_STRINGS.terms },
+		{
+			id: 'shipping',
+			label: 'Shipping',
+			title: 'Shipping and delivery',
+			content: ABOUT_STRINGS.shipping
+		},
 		{
 			id: 'cancellation',
-			label: 'refunds',
-			title: 'Cancellation & Refund',
+			label: 'Refunds',
+			title: 'Cancellation and refunds',
 			content: ABOUT_STRINGS.cancellation
 		},
 		{
-			id: 'shipping',
-			label: 'shipping',
-			title: 'Shipping & Delivery',
-			content: ABOUT_STRINGS.shipping
+			id: 'buyer-protection',
+			label: 'Buyer protection',
+			title: 'Who is responsible for your order',
+			content: ABOUT_STRINGS.risks
 		},
-		{ id: 'contact', label: 'contact', title: 'Contact Us', content: ABOUT_STRINGS.contact },
-		{ id: 'risks', label: 'risks', title: 'Risks', content: ABOUT_STRINGS.risks }
+		{ id: 'privacy', label: 'Privacy', title: 'Privacy', content: ABOUT_STRINGS.privacy },
+		{ id: 'terms', label: 'Terms', title: 'Terms of use', content: ABOUT_STRINGS.terms },
+		{ id: 'contact', label: 'Contact', title: 'Contact', content: ABOUT_STRINGS.contact }
 	] as const;
+
+	/** snarkdown doesn't emit paragraphs, so render each blank-line-separated block on its own. */
+	function blocks(markdown: string): string[] {
+		return markdown
+			.trim()
+			.split(/\n{2,}/)
+			.filter((block) => block.trim().length > 0);
+	}
 
 	let activeSection = $state(0);
 	let navAnchor = $state<HTMLElement | null>(null);
@@ -92,13 +105,12 @@
 
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-3xl px-4 py-6 md:py-8">
-		<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'legal' }]} />
+		<Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Policies' }]} />
 
 		<header class="mt-4">
-			<p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">// legal</p>
-			<h1 class="mt-1 text-2xl font-semibold tracking-tight">Policies</h1>
+			<h1 class="text-2xl font-semibold tracking-tight">Policies</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
-				Terms, privacy, shipping, refunds, and contact.
+				Shipping, refunds, privacy, terms and how to reach us. Last updated 15 November 2026.
 			</p>
 		</header>
 
@@ -116,7 +128,7 @@
 					{#each sections as section, i (section.id)}
 						<button
 							type="button"
-							class="whitespace-nowrap border-b-2 px-2.5 py-2 font-mono text-xs uppercase tracking-wide transition-colors
+							class="whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors
 								{activeSection === i
 								? 'border-foreground text-foreground'
 								: 'border-transparent text-muted-foreground hover:text-foreground'}"
@@ -128,13 +140,17 @@
 			</nav>
 		</div>
 
-		<div class="mt-6 space-y-8">
+		<div class="mt-8 space-y-12">
 			{#each sections as section (section.id)}
 				<section id={section.id} class="policy-section">
-					<h2 class="text-sm font-semibold tracking-tight">{section.title}</h2>
-					<div class="policy-prose mt-2 text-sm leading-relaxed text-muted-foreground">
-						<!-- eslint-disable-next-line svelte/no-at-html-tags -- snarkdown on trusted static policy markdown -->
-						{@html snarkdown(section.content)}
+					<h2 class="text-lg font-semibold tracking-tight">{section.title}</h2>
+					<div class="policy-prose mt-3 max-w-[65ch] text-base leading-relaxed text-foreground/80">
+						{#each blocks(section.content) as block, i (i)}
+							<div class="policy-block">
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -- snarkdown on trusted static policy markdown -->
+								{@html snarkdown(block)}
+							</div>
+						{/each}
 					</div>
 				</section>
 			{/each}
@@ -170,16 +186,22 @@
 		scroll-margin-top: calc(var(--site-topbar-height, 5.25rem) + 2.75rem);
 	}
 
-	:global(.policy-prose p),
-	:global(.policy-prose ul),
-	:global(.policy-prose ol) {
-		margin-bottom: 0.75em;
+	:global(.policy-block) {
+		margin-bottom: 0.85em;
 	}
 
-	:global(.policy-prose p:last-child),
-	:global(.policy-prose ul:last-child),
-	:global(.policy-prose ol:last-child) {
+	:global(.policy-block:last-child) {
 		margin-bottom: 0;
+	}
+
+	/* A bold line on its own is a question or sub-heading: give it room above. */
+	:global(.policy-block > strong:only-child) {
+		display: block;
+		margin-top: 1.5em;
+	}
+
+	:global(.policy-block:first-child > strong:only-child) {
+		margin-top: 0;
 	}
 
 	:global(.policy-prose h2),
@@ -195,7 +217,16 @@
 	:global(.policy-prose h4) {
 		margin-top: 1em;
 		margin-bottom: 0.5em;
-		font-size: 0.875rem;
+		font-size: 1rem;
+	}
+
+	:global(.policy-prose ul) {
+		list-style: disc;
+		padding-left: 1.25em;
+	}
+
+	:global(.policy-prose li) {
+		margin-bottom: 0.4em;
 	}
 
 	:global(.policy-prose a) {

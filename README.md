@@ -7,7 +7,7 @@
 
 ## Overview
 
-Selfcrafted is a web application designed to provide users with an engaging and interactive experience. The platform allows users to explore crafts, learn about the company, start crafting processes, manage their user profiles, and view their shopping carts.
+The code behind [selfcrafted.in](https://selfcrafted.in), a marketplace where independent hardware makers in India sell finished products, spares and surplus parts, plus a service for getting a model 3D printed by a maker who owns a printer. SvelteKit front end, Hono API in `api/`.
 
 ## Getting Started
 
@@ -49,14 +49,14 @@ Selfcrafted is a web application designed to provide users with an engaging and 
 
 5. Open your browser and navigate to `http://localhost:5173` to view the application.
 
-## Journal content
+## Blog content
 
-The blog lives at `/blog`, with individual stories at `/blog/[slug]`. Edit the starter articles or add
-new entries in `src/lib/blog/posts.ts`. Each entry contains a stable slug, title, excerpt, category,
-publication date, a cover illustration with alt text and dimensions, and structured body blocks
-(paragraphs, headings, quotes, or lists). Paragraphs may include links to public sources. Reading times
-are calculated from the content; the feed and sitemap include the articles automatically. Publish
-content changes through the normal site deployment.
+The blog lives at `/blog`, with individual posts at `/blog/[slug]`. Posts are entries in
+`src/lib/blog/posts.ts`: a stable slug, title, excerpt, category, the date it first went live, an
+optional cover image with alt text and credit, and body blocks (paragraphs, headings, lists, and quotes
+with an attribution). Paragraphs can carry links. Reading time is calculated from the text and the
+sitemap picks posts up automatically. Write from first-hand experience and name real products and pages;
+the comment at the top of `posts.ts` has the rules.
 
 Blog illustrations are stored in `static/images/blog`; the generation prompts are recorded in
 `docs/blog-image-prompts.md`.
