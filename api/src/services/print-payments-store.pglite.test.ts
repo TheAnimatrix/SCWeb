@@ -11,6 +11,8 @@ import { printRequestEvents } from '../db/schema/printRequestEvents.js';
 import { auditLog } from '../db/schema/auditLog.js';
 import { createPrintPaymentsStore } from './print-payments-store.js';
 import type { RazorpayClient } from './razorpay-client.js';
+import type { MailService } from './mail.js';
+import { createRazorpayWebhookService } from './razorpay-webhooks.js';
 
 const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const OTHER_USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -348,7 +350,15 @@ describe('PrintPaymentsStore (PGlite)', () => {
 			result.ok ? result.response.status : 'error'
 		);
 		expect(statuses).toContain('paid');
-		expect(statuses).toContain('already_paid');
+		// The second payment ID on a settled Razorpay order is a duplicate capture, not a repeat.
+		const loser = [first, second].find((result) => !result.ok);
+		expect(loser).toEqual({ ok: false, status: 409, body: { error: 'duplicate_payment' } });
+		const attention = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'payment.requires_refund'));
+		expect(attention).toHaveLength(1);
+		expect(attention[0]?.meta).toMatchObject({ reason: 'duplicate_capture', detectedBy: 'confirm' });
 
 		const paidAttempts = await testDb.db
 			.select()
@@ -732,4 +742,235 @@ describe('PrintPaymentsStore (PGlite)', () => {
 		);
 		expect(events).toHaveLength(3);
 	});
+
+	describe('payment reconciliation', () => {
+		function uniqueOrderRazorpay(overrides: Partial<RazorpayClient> = {}) {
+			let counter = 0;
+			const createOrder = vi.fn(async (amountPaise: number) => ({
+				id: `order_print_${++counter}`,
+				amount: amountPaise,
+				currency: 'INR'
+			}));
+			return { createOrder, fetchOrder: vi.fn(async () => null), ...overrides };
+		}
+
+		const actor = { userId: USER_ID, clientId: CLIENT_ID };
+
+		async function attentionRows() {
+			return testDb.db
+				.select()
+				.from(auditLog)
+				.where(eq(auditLog.action, 'payment.requires_refund'));
+		}
+
+		it('confirms a payment made in the same modal after a failed attempt', async () => {
+			await seedQuotedPrintRequest(testDb.db);
+			const store = createPrintPaymentsStore(testDb.db, uniqueOrderRazorpay());
+
+			const created = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+			expect(created.ok).toBe(true);
+			if (!created.ok) return;
+			const razorpayOrderId = created.response.razorpayOrderId;
+
+			// Wrong UPI PIN: the failure is recorded, the modal stays open, the buyer retries.
+			await store.failPayment(actor, PRINT_REQUEST_ID, razorpayOrderId, 'wrong pin');
+			const result = await store.confirmPayment(
+				actor,
+				PRINT_REQUEST_ID,
+				razorpayOrderId,
+				'pay_after_fail'
+			);
+
+			expect(result).toEqual({ ok: true, response: { status: 'paid' } });
+			const [attempt] = await testDb.db
+				.select()
+				.from(paymentAttempts)
+				.where(eq(paymentAttempts.providerOrderId, razorpayOrderId));
+			expect(attempt).toMatchObject({ status: 'paid', providerPaymentId: 'pay_after_fail' });
+			const [row] = await testDb.db
+				.select()
+				.from(printrequests)
+				.where(eq(printrequests.id, PRINT_REQUEST_ID));
+			expect(row?.requestStage).toBe('paid');
+			expect(row?.activePaymentAttemptId).toBe(attempt?.id);
+			expect(await attentionRows()).toHaveLength(0);
+		});
+
+		it('records a late second capture once, whether confirm or the webhook sees it', async () => {
+			await seedQuotedPrintRequest(testDb.db);
+			const { mail, sent, flush } = fakeMail();
+			const store = createPrintPaymentsStore(testDb.db, uniqueOrderRazorpay(), { mail });
+
+			const first = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+			if (!first.ok) throw new Error('first order failed');
+			await store.failPayment(actor, PRINT_REQUEST_ID, first.response.razorpayOrderId);
+			const second = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+			if (!second.ok) throw new Error('second order failed');
+			expect(second.response.razorpayOrderId).not.toBe(first.response.razorpayOrderId);
+
+			expect(
+				await store.confirmPayment(actor, PRINT_REQUEST_ID, second.response.razorpayOrderId, 'pay_2')
+			).toEqual({ ok: true, response: { status: 'paid' } });
+
+			// The first Razorpay order is paid late.
+			const late = await store.confirmPayment(
+				actor,
+				PRINT_REQUEST_ID,
+				first.response.razorpayOrderId,
+				'pay_1_late'
+			);
+			expect(late).toEqual({ ok: false, status: 409, body: { error: 'duplicate_payment' } });
+
+			const webhook = createRazorpayWebhookService(testDb.db, { mail });
+			const webhookResult = await webhook.handle({
+				event: 'payment.captured',
+				payload: {
+					payment: {
+						entity: {
+							id: 'pay_1_late',
+							order_id: first.response.razorpayOrderId,
+							amount: 250000,
+							currency: 'INR',
+							status: 'captured'
+						}
+					}
+				}
+			});
+			expect(webhookResult).toEqual({ ok: true, status: 'processed' });
+
+			expect(await attentionRows()).toEqual([
+				expect.objectContaining({
+					entityType: 'print_request',
+					entityId: PRINT_REQUEST_ID,
+					providerIds: {
+						razorpayOrderId: first.response.razorpayOrderId,
+						razorpayPaymentId: 'pay_1_late'
+					},
+					meta: expect.objectContaining({
+						reason: 'duplicate_capture',
+						detectedBy: 'confirm',
+						amountPaise: 250000
+					})
+				})
+			]);
+
+			await flush();
+			const alerts = sent.filter((email) => email.subject.startsWith('Payment needs attention'));
+			expect(alerts).toHaveLength(1);
+			expect(alerts[0]?.to).toBe('orders@example.test');
+			expect(alerts[0]?.text).toContain(
+				'This payment was captured but not fulfilled. Refund it in Razorpay or resolve it by hand.'
+			);
+			expect(alerts[0]?.text).toContain('pay_1_late');
+		});
+
+		it('still writes the attention record when the alert e-mail fails', async () => {
+			await seedQuotedPrintRequest(testDb.db, { stage: 'cancelled' });
+			const { mail } = fakeMail();
+			mail.send = () => {
+				throw new Error('smtp down');
+			};
+			mail.dispatch = (_event, task) => {
+				void task().catch(() => {});
+			};
+			await testDb.db.insert(paymentAttempts).values({
+				kind: 'print_request',
+				entityId: PRINT_REQUEST_ID,
+				provider: 'razorpay',
+				providerOrderId: 'order_cancelled',
+				amountPaise: 250000,
+				status: 'pending'
+			});
+
+			const webhook = createRazorpayWebhookService(testDb.db, { mail });
+			const result = await webhook.handle({
+				event: 'payment.captured',
+				payload: {
+					payment: {
+						entity: {
+							id: 'pay_on_cancelled',
+							order_id: 'order_cancelled',
+							amount: 250000,
+							currency: 'INR'
+						}
+					}
+				}
+			});
+
+			expect(result).toEqual({ ok: true, status: 'processed' });
+			expect(await attentionRows()).toEqual([
+				expect.objectContaining({
+					meta: expect.objectContaining({ reason: 'entity_not_payable', detectedBy: 'webhook' })
+				})
+			]);
+		});
+
+		it('reconciles a captured payment instead of creating a new Razorpay order', async () => {
+			await seedQuotedPrintRequest(testDb.db);
+			const razorpay = uniqueOrderRazorpay({
+				fetchOrderPayments: vi.fn(async () => [
+					{ id: 'pay_in_modal', status: 'captured', amount: 250000, currency: 'INR' }
+				])
+			});
+			const store = createPrintPaymentsStore(testDb.db, razorpay);
+
+			const created = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+			if (!created.ok) throw new Error('order failed');
+			await store.failPayment(actor, PRINT_REQUEST_ID, created.response.razorpayOrderId);
+
+			const again = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+
+			expect(again).toEqual({ ok: false, status: 409, body: { error: 'already_paid' } });
+			expect(razorpay.createOrder).toHaveBeenCalledTimes(1);
+			const [row] = await testDb.db
+				.select()
+				.from(printrequests)
+				.where(eq(printrequests.id, PRINT_REQUEST_ID));
+			expect(row?.requestStage).toBe('paid');
+			const [attempt] = await testDb.db
+				.select()
+				.from(paymentAttempts)
+				.where(eq(paymentAttempts.providerOrderId, created.response.razorpayOrderId));
+			expect(attempt).toMatchObject({ status: 'paid', providerPaymentId: 'pay_in_modal' });
+		});
+
+		it('creates a new order when the previous Razorpay order has no captured payment', async () => {
+			await seedQuotedPrintRequest(testDb.db);
+			const razorpay = uniqueOrderRazorpay({
+				fetchOrderPayments: vi.fn(async () => [
+					{ id: 'pay_failed', status: 'failed', amount: 250000, currency: 'INR' }
+				])
+			});
+			const store = createPrintPaymentsStore(testDb.db, razorpay);
+
+			const created = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+			if (!created.ok) throw new Error('order failed');
+			await store.failPayment(actor, PRINT_REQUEST_ID, created.response.razorpayOrderId);
+
+			const again = await store.createOrder(actor, PRINT_REQUEST_ID, ADDRESS);
+			expect(again.ok).toBe(true);
+			expect(razorpay.createOrder).toHaveBeenCalledTimes(2);
+		});
+	});
 });
+
+function fakeMail() {
+	const pending: Promise<void>[] = [];
+	const sent: { to: string | null | undefined; subject: string; text: string }[] = [];
+	const mail: MailService = {
+		isConfigured: true,
+		ordersInbox: 'orders@example.test',
+		env: {} as MailService['env'],
+		siteUrl: 'https://example.test',
+		send: (to, email) => {
+			sent.push({ to, subject: email.subject, text: email.text });
+		},
+		sendToMany: () => {},
+		dispatch: (_event, task) => {
+			pending.push(task());
+		},
+		resolveUserEmail: async () => null,
+		resolveUserEmails: async () => new Map()
+	};
+	return { mail, sent, flush: () => Promise.all(pending) };
+}

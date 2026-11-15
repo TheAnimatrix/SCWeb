@@ -232,7 +232,7 @@ describe('Razorpay webhook service (PGlite)', () => {
 		expect(webhookAudits).toHaveLength(1);
 	});
 
-	it('rejects captured events whose amount does not match the stored attempt', async () => {
+	it('does not fulfil captured events whose amount does not match the stored attempt', async () => {
 		await seedProduct(testDb.db, 5);
 		await seedGuestCartLine(testDb.db, 2);
 		const checkoutStore = createCheckoutStore(testDb.db, fakeRazorpay());
@@ -259,9 +259,171 @@ describe('Razorpay webhook service (PGlite)', () => {
 			}
 		});
 
-		expect(result).toEqual({ ok: true, status: 'ignored' });
+		expect(result).toEqual({ ok: true, status: 'processed' });
 
 		const [order] = await testDb.db.select().from(orders);
 		expect(order?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
+
+		const attention = await testDb.db
+			.select()
+			.from(auditLog)
+			.where(eq(auditLog.action, 'payment.requires_refund'));
+		expect(attention).toEqual([
+			expect.objectContaining({
+				entityType: 'order',
+				entityId: order?.id,
+				providerIds: {
+					razorpayOrderId: created.response.razorpayOrderId,
+					razorpayPaymentId: 'pay_wrong_amount'
+				},
+				meta: expect.objectContaining({ reason: 'amount_mismatch', detectedBy: 'webhook' })
+			})
+		]);
+	});
+
+	describe('payment reconciliation', () => {
+		const guest = { userId: null, clientId: CLIENT_A };
+
+		function uniqueOrderRazorpay() {
+			let counter = 0;
+			return fakeRazorpay({
+				createOrder: vi.fn(async (amountPaise: number) => ({
+					id: `order_wh_${++counter}`,
+					amount: amountPaise,
+					currency: 'INR'
+				}))
+			});
+		}
+
+		function captured(paymentId: string, orderId: string, amount: number) {
+			return {
+				event: 'payment.captured',
+				payload: {
+					payment: {
+						entity: { id: paymentId, order_id: orderId, amount, currency: 'INR', status: 'captured' }
+					}
+				}
+			};
+		}
+
+		async function attentionRows() {
+			return testDb.db
+				.select()
+				.from(auditLog)
+				.where(eq(auditLog.action, 'payment.requires_refund'));
+		}
+
+		it('records a late capture on a failed attempt instead of rolling it back', async () => {
+			await seedProduct(testDb.db, 5);
+			await seedGuestCartLine(testDb.db, 2);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+
+			const a = await store.createOrder(guest, orderAddresses());
+			if (!a.ok) throw new Error('order A failed');
+			await store.failOrder(guest, a.response.razorpayOrderId, 'declined');
+			const b = await store.createOrder(guest, orderAddresses());
+			if (!b.ok) throw new Error('order B failed');
+			await store.confirmOrder(guest, b.response.razorpayOrderId, 'pay_b');
+
+			const webhook = createRazorpayWebhookService(testDb.db);
+			const result = await webhook.handle(
+				captured('pay_a_late', a.response.razorpayOrderId, a.response.amountPaise),
+				'evt_late'
+			);
+			// Razorpay retries the same event.
+			const retry = await webhook.handle(
+				captured('pay_a_late', a.response.razorpayOrderId, a.response.amountPaise),
+				'evt_late'
+			);
+
+			expect(result).toEqual({ ok: true, status: 'processed' });
+			expect(retry).toEqual({ ok: true, status: 'processed' });
+			const [orderA] = await testDb.db
+				.select()
+				.from(orders)
+				.where(eq(orders.id, a.response.orderId));
+			expect(orderA?.status).toBe(CART_ORDER_STATUS.FAILED);
+			const [product] = await testDb.db.select().from(products).where(eq(products.id, PRODUCT_1));
+			expect(product?.stock).toMatchObject({ count: 3 });
+			expect(await attentionRows()).toEqual([
+				expect.objectContaining({
+					entityType: 'order',
+					entityId: a.response.orderId,
+					providerIds: {
+						razorpayOrderId: a.response.razorpayOrderId,
+						razorpayPaymentId: 'pay_a_late'
+					},
+					meta: expect.objectContaining({
+						reason: 'duplicate_capture',
+						detectedBy: 'webhook',
+						paidOrderId: b.response.orderId
+					})
+				})
+			]);
+		});
+
+		it('records a capture on an old Razorpay order whose amount no longer matches the order', async () => {
+			await seedProduct(testDb.db, 5);
+			const cart = await seedGuestCartLine(testDb.db, 1);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+
+			const old = await store.createOrder(guest, orderAddresses());
+			if (!old.ok) throw new Error('order failed');
+			await testDb.db.update(cartItems).set({ qty: 2 }).where(eq(cartItems.cartId, cart.id));
+			const repriced = await store.createOrder(guest, orderAddresses());
+			if (!repriced.ok) throw new Error('order failed');
+
+			const webhook = createRazorpayWebhookService(testDb.db);
+			const result = await webhook.handle(
+				captured('pay_old', old.response.razorpayOrderId, old.response.amountPaise)
+			);
+
+			expect(result).toEqual({ ok: true, status: 'processed' });
+			const [order] = await testDb.db.select().from(orders);
+			expect(order?.status).toBe(CART_ORDER_STATUS.PAYMENT_PENDING);
+			const [product] = await testDb.db.select().from(products).where(eq(products.id, PRODUCT_1));
+			expect(product?.stock).toMatchObject({ count: 5 });
+			expect(await attentionRows()).toEqual([
+				expect.objectContaining({
+					meta: expect.objectContaining({ reason: 'amount_mismatch', detectedBy: 'webhook' })
+				})
+			]);
+		});
+
+		it('keeps a webhook stock conflict visible to confirm and the order status', async () => {
+			await seedProduct(testDb.db, 5);
+			await seedGuestCartLine(testDb.db, 2);
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay());
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			await testDb.db
+				.update(products)
+				.set({ stock: { count: 1, status: 'in stock' } })
+				.where(eq(products.id, PRODUCT_1));
+
+			const webhook = createRazorpayWebhookService(testDb.db);
+			expect(
+				await webhook.handle(
+					captured('pay_sc', created.response.razorpayOrderId, created.response.amountPaise)
+				)
+			).toEqual({ ok: true, status: 'processed' });
+
+			// The browser confirm arrives after the webhook.
+			expect(await store.confirmOrder(guest, created.response.razorpayOrderId, 'pay_sc')).toEqual({
+				ok: false,
+				status: 409,
+				body: { error: 'stock_conflict', orderId: created.response.orderId }
+			});
+			expect(
+				await store.getOrderStatus(guest, { razorpayOrderId: created.response.razorpayOrderId })
+			).toMatchObject({ status: CART_ORDER_STATUS.PAID, needsSupport: 'stock_conflict' });
+			const [product] = await testDb.db.select().from(products).where(eq(products.id, PRODUCT_1));
+			expect(product?.stock).toMatchObject({ count: 1 });
+			expect(await attentionRows()).toEqual([
+				expect.objectContaining({
+					meta: expect.objectContaining({ reason: 'stock_conflict', detectedBy: 'webhook' })
+				})
+			]);
+		});
 	});
 });

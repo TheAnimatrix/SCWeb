@@ -91,7 +91,7 @@
 
 	function pendingHref(
 		response: RazorpayCheckoutSuccessResponse,
-		reason: 'stock' | 'duplicate' | null
+		reason: 'stock' | 'duplicate' | 'mismatch' | null
 	): string {
 		const query = `order=${encodeURIComponent(response.razorpay_order_id)}${reason ? `&reason=${reason}` : ''}`;
 		return `/summary/pending/${encodeURIComponent(response.razorpay_payment_id)}?${query}`;
@@ -165,6 +165,17 @@
 		}
 		if (error.kind === 'cart_empty') {
 			await goto(resolve('/cart'));
+			return;
+		}
+		if (error.kind === 'already_paid' && error.orderId && error.paymentId) {
+			// An earlier payment window for this cart was paid after all. Never offer Pay again.
+			cart_store.set({ valid: true, itemCount: 0 });
+			await goto(
+				resolve('/(cart)/summary/success/[cart_id]/[payment_id]', {
+					cart_id: error.orderId,
+					payment_id: error.paymentId
+				})
+			);
 			return;
 		}
 		if (error.kind === 'insufficient_stock' || error.kind === 'listing_not_available') {
@@ -288,7 +299,9 @@
 									? 'stock'
 									: kind === 'duplicate_payment'
 										? 'duplicate'
-										: null;
+										: kind === 'payment_mismatch'
+											? 'mismatch'
+											: null;
 							if (reason) cart_store.set({ valid: true, itemCount: 0 });
 							// eslint-disable-next-line svelte/no-navigation-without-resolve -- result page built from Razorpay ids
 							await goto(pendingHref(response, reason));

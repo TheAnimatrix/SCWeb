@@ -1,24 +1,18 @@
 -- RLS lockdown for legacy tables, derived from a live policy audit (2026-07-08).
--- Context: all business mutations now go through the Hono API (service role,
--- bypasses RLS). Browser clients need read access + a few narrow writes.
--- DO NOT APPLY until the Phase 2/3 code is deployed — these drops break the
--- OLD client-side write paths by design.
+-- Context: all business mutations go through the Hono API (service role, bypasses RLS).
+-- Browser clients need read access plus one narrow write (chat read receipts).
+--
+-- Applied to production on 2026-11-16, after checking that neither the live code nor the
+-- branch being deployed writes to these tables from the browser.
 
--- 1. printrequests: users/makers could UPDATE their rows directly (PostgREST),
---    which allowed forging quote events / stages. All mutations now via
---    POST /print-requests/:id/actions and the payments endpoints.
+-- 1. printrequests: users/makers could UPDATE their rows directly (PostgREST), which allowed
+--    forging quote events and stages (for example marking a request paid). All mutations go
+--    through POST /print-requests/:id/actions and the payments endpoints.
 DROP POLICY IF EXISTS "Users can update their own print requests" ON "printrequests";
 DROP POLICY IF EXISTS "Makers can update requests assigned to them" ON "printrequests";
--- (INSERT by owner and both SELECT policies stay: request creation still
--- happens client-side via the upload flow's row, reads power the portals.)
 
--- 2. purchases: `anyone` INSERT (with_check TRUE) let any caller insert
---    arbitrary purchase rows. Purchases are inserted by the API only.
-DROP POLICY IF EXISTS "anyone" ON "purchases";
-
--- 3. cart (legacy jsonb table): open INSERT no longer needed — the new carts
---    tables own the flow; legacy table is read-only until dropped in cleanup.
-DROP POLICY IF EXISTS "anyone can insert" ON "cart";
+-- 2. purchases and 3. cart (legacy): both tables were dropped by
+--    20260709170000_drop_legacy_payment_tables.sql, so there is nothing left to lock.
 
 -- 4. addresses and 5. reviews: the open INSERT policies are replaced by
 --    20261115120000_printing_maker_privacy_and_review_checks.sql and
@@ -33,7 +27,7 @@ DROP POLICY IF EXISTS "anyone can insert" ON "cart";
 DROP POLICY IF EXISTS "Allow individual maker write access" ON "CreatorStats";
 DROP POLICY IF EXISTS "Allow individual maker update access" ON "CreatorStats";
 
--- 7. Chat: inserts now go through POST /chats/messages (service role).
+-- 7. Chat: inserts go through POST /chats/messages (service role).
 DROP POLICY IF EXISTS "Allow insert for sender" ON "Chat";
 --    Read receipts remain client-side, but the recipient UPDATE policy allowed
 --    rewriting *any* column (including message content) of received messages.

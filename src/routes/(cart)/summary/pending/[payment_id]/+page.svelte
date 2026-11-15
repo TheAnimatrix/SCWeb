@@ -16,7 +16,7 @@
 	const MAX_POLLS = 24;
 
 	let polls = $state(0);
-	const needsSupport = $derived(data.soldOut || data.duplicate);
+	const needsSupport = $derived(data.soldOut || data.duplicate || data.mismatch);
 	const stillChecking = $derived(!needsSupport && !data.confirmed && polls < MAX_POLLS);
 	const orderRef = $derived(data.orderId ? formatOrderDisplayId(data.orderId) : null);
 	const supportHref = $derived(
@@ -61,17 +61,24 @@
 				{needsSupport ? 'Payment received' : 'Payment received. Confirming your order'}
 			</h1>
 			<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-				<strong class="text-foreground">Do not pay again.</strong>
-				{#if data.duplicate}
-					This cart was already paid for in an earlier payment, so this payment was not needed.
-					Write to {SUPPORT_EMAIL} with the payment ID below so we can sort it out.
-				{:else if data.soldOut}
-					Your payment went through, but an item sold out while you were paying. Write to
-					{SUPPORT_EMAIL} with the payment ID below so we can sort it out.
+				{#if data.soldOut}
+					Your payment went through, but an item in this order sold out before we could reserve it.
+					<strong class="text-foreground">Do not pay again.</strong>
+					Write to {SUPPORT_EMAIL} with your payment ID and we will sort it out.
 				{:else}
-					Razorpay told us your payment went through, but we could not confirm the order yet. We
-					will e-mail you when it is confirmed. If no e-mail arrives, write to {SUPPORT_EMAIL} with the
-					payment ID below.
+					<strong class="text-foreground">Do not pay again.</strong>
+					{#if data.duplicate}
+						This cart was already paid for in an earlier payment, so this payment was not needed.
+						Write to {SUPPORT_EMAIL} with the payment ID below so we can sort it out.
+					{:else if data.mismatch}
+						Your payment went through, but it was for an earlier version of your cart, so we could
+						not match it to your order. Write to {SUPPORT_EMAIL} with the payment ID below and we
+						will sort it out.
+					{:else}
+						Razorpay told us your payment went through, but we could not confirm the order yet. We
+						will e-mail you when it is confirmed. If no e-mail arrives, write to {SUPPORT_EMAIL} with
+						the payment ID below.
+					{/if}
 				{/if}
 			</p>
 		</div>

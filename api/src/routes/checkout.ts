@@ -45,13 +45,18 @@ export function createCheckoutRoutes(
 			}
 
 			if (result.status === 409) {
-				logCheckoutTransition(c, 'warn', 'checkout.order.rejected', {
-					reason: result.body.error,
-					productId: result.body.productId,
-					...(result.body.error === 'insufficient_stock'
-						? { limit: result.body.limit }
-						: {})
-				});
+				if (result.body.error === 'already_paid') {
+					logCheckoutTransition(c, 'warn', 'checkout.order.already_paid', {
+						orderId: result.body.orderId,
+						razorpayPaymentId: result.body.paymentId
+					});
+				} else {
+					logCheckoutTransition(c, 'warn', 'checkout.order.rejected', {
+						reason: result.body.error,
+						productId: result.body.productId,
+						...(result.body.error === 'insufficient_stock' ? { limit: result.body.limit } : {})
+					});
+				}
 			}
 
 			if (result.status === 500) {

@@ -16,6 +16,10 @@ export type PrintPaymentsApiError =
 	| { kind: 'order_mismatch'; message: string }
 	| { kind: 'no_order'; message: string }
 	| { kind: 'razorpay_order_failed'; message: string }
+	/** The previous payment for this request went through; no new payment was started. */
+	| { kind: 'already_paid'; message: string }
+	/** Captured, but the request was already paid or can no longer be paid. Support refunds it. */
+	| { kind: 'duplicate_payment'; message: string }
 	| { kind: 'unauthorized'; message: string }
 	| { kind: 'rate_limited'; message: string }
 	| { kind: 'network'; message: string }
@@ -73,6 +77,16 @@ export function mapPrintPaymentsError(status: number, body: unknown): PrintPayme
 			return {
 				kind: 'razorpay_order_failed',
 				message: 'Failed to create payment order. Please try again.'
+			};
+		case 'already_paid':
+			return {
+				kind: 'already_paid',
+				message: 'Your earlier payment for this request went through. Do not pay again.'
+			};
+		case 'duplicate_payment':
+			return {
+				kind: 'duplicate_payment',
+				message: 'This request was already paid, so this payment was not needed.'
 			};
 		case 'unauthorized':
 			return { kind: 'unauthorized', message: fallbackMessage };

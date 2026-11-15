@@ -101,6 +101,73 @@ async function createTestDb(): Promise<TestDb> {
 	return { client, db };
 }
 
+type AnyTx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/** Runs `before` the first time a query builder is awaited. Every chained builder is wrapped. */
+function runBeforeAwait<T extends object>(builder: T, before: () => Promise<void>): T {
+	return new Proxy(builder, {
+		get(target, prop) {
+			const value = Reflect.get(target, prop) as unknown;
+			if (prop === 'then' && typeof value === 'function') {
+				return (onFulfilled: unknown, onRejected: unknown) =>
+					before().then(() =>
+						(value as (a: unknown, b: unknown) => unknown).call(target, onFulfilled, onRejected)
+					);
+			}
+			if (typeof value !== 'function') return value;
+			return (...args: unknown[]) => {
+				const result = (value as (...a: unknown[]) => unknown).apply(target, args);
+				return result && typeof result === 'object' ? runBeforeAwait(result, before) : result;
+			};
+		}
+	});
+}
+
+/**
+ * Wraps the database so `race(tx)` runs once inside the store's transaction, just before the
+ * guest-cart claim: either when the claim opens a savepoint or when the claim UPDATE runs.
+ * The race writes go through the outer transaction so a savepoint rollback does not undo them.
+ */
+function withRaceBeforeCartClaim(db: Database, race: (tx: AnyTx) => Promise<void>): Database {
+	let fired = false;
+	const fire = async (tx: AnyTx) => {
+		if (fired) return;
+		fired = true;
+		await race(tx);
+	};
+
+	const wrapTx = (tx: AnyTx): AnyTx =>
+		new Proxy(tx, {
+			get(target, prop) {
+				if (prop === 'transaction') {
+					return async (inner: (sp: AnyTx) => Promise<unknown>) => {
+						await fire(target);
+						return target.transaction(inner);
+					};
+				}
+				if (prop === 'update') {
+					return (table: unknown) => {
+						const builder = target.update(table as typeof carts);
+						return table === carts ? runBeforeAwait(builder, () => fire(target)) : builder;
+					};
+				}
+				const value = Reflect.get(target, prop) as unknown;
+				return typeof value === 'function' ? value.bind(target) : value;
+			}
+		});
+
+	return new Proxy(db, {
+		get(target, prop) {
+			if (prop === 'transaction') {
+				return (cb: (tx: AnyTx) => Promise<unknown>) =>
+					target.transaction((tx) => cb(wrapTx(tx)));
+			}
+			const value = Reflect.get(target, prop) as unknown;
+			return typeof value === 'function' ? value.bind(target) : value;
+		}
+	});
+}
+
 async function seedProduct(db: Database, id: string, stockCount: number, name = 'Test product') {
 	await db.insert(products).values({
 		id,
@@ -301,6 +368,45 @@ describe('CartStore (PGlite)', () => {
 					meta: { guestCartId: guestCart.id }
 				})
 			]);
+		});
+
+		it('recovers when a concurrent request gives the user an active cart mid-claim', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 10);
+			await seedProduct(testDb.db, PRODUCT_2, 10);
+			const guestCart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 2);
+
+			// Simulates the race: after mergeCart has looked up both carts (and found no user cart),
+			// another request creates the user's active cart. The claim then hits the unique index.
+			let racedUserCartId: string | null = null;
+			const raced = withRaceBeforeCartClaim(testDb.db, async (tx) => {
+				const [userCart] = await tx
+					.insert(carts)
+					.values({ userId: USER_ID, status: CART_ORDER_STATUS.ACTIVE })
+					.returning();
+				await tx.insert(cartItems).values({ cartId: userCart.id, productId: PRODUCT_2, qty: 1 });
+				racedUserCartId = userCart.id;
+			});
+
+			const store = createCartStore(raced);
+			const result = await store.mergeCart({ userId: USER_ID, clientId: CLIENT_A }, CLIENT_A);
+
+			expect(racedUserCartId).not.toBeNull();
+			expect(result).toEqual({ ok: true, response: { merged: true } });
+
+			const guestLeft = await testDb.db.select().from(carts).where(eq(carts.id, guestCart.id));
+			expect(guestLeft).toHaveLength(0);
+
+			const userView = await createCartStore(testDb.db).getCart({
+				userId: USER_ID,
+				clientId: CLIENT_A
+			});
+			expect(userView.cart?.id).toBe(racedUserCartId);
+			expect(userView.cart?.items).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ productId: PRODUCT_1, qty: 2 }),
+					expect.objectContaining({ productId: PRODUCT_2, qty: 1 })
+				])
+			);
 		});
 
 		it('is idempotent when re-merging after guest cart is gone', async () => {

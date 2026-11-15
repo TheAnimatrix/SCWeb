@@ -425,13 +425,18 @@ export function createCartStore(db: Database): CartStore {
 
 				if (scenario === 'only_guest' && guestCart) {
 					try {
-						await tx
-							.update(carts)
-							.set({
-								userId: actor.userId,
-								updatedAt: sql`now()`
-							})
-							.where(eq(carts.id, guestCart.id));
+						// Savepoint: if a concurrent request just gave this user an active cart, the
+						// unique index fails this statement only, and the recovery queries below can
+						// still run (otherwise Postgres aborts the whole transaction, 25P02).
+						await tx.transaction(async (sp) => {
+							await sp
+								.update(carts)
+								.set({
+									userId: actor.userId,
+									updatedAt: sql`now()`
+								})
+								.where(eq(carts.id, guestCart.id));
+						});
 
 						await writeAudit(tx, {
 							actorUserId: actor.userId,

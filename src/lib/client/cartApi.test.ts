@@ -98,3 +98,18 @@ describe('stripCheckoutAddress', () => {
 		});
 	});
 });
+
+describe('mapApiError payment outcomes', () => {
+	it('maps payment_mismatch with the order id', () => {
+		expect(mapApiError(409, { error: 'payment_mismatch', orderId: 'o1' })).toMatchObject({
+			kind: 'payment_mismatch',
+			orderId: 'o1'
+		});
+	});
+
+	it('maps already_paid with the order and payment ids', () => {
+		expect(
+			mapApiError(409, { error: 'already_paid', orderId: 'o1', paymentId: 'pay_1' })
+		).toMatchObject({ kind: 'already_paid', orderId: 'o1', paymentId: 'pay_1' });
+	});
+});

@@ -14,8 +14,8 @@ export const load: PageServerLoad = async ({ params, url, fetch, depends }) => {
 
 	const razorpayOrderId = url.searchParams.get('order') ?? undefined;
 	const reasonParam = url.searchParams.get('reason');
-	const soldOut = reasonParam === 'stock';
 	const duplicate = reasonParam === 'duplicate';
+	const mismatch = reasonParam === 'mismatch';
 
 	const result = razorpayOrderId
 		? await getCheckoutOrderStatus(fetch, { razorpayOrderId })
@@ -23,8 +23,10 @@ export const load: PageServerLoad = async ({ params, url, fetch, depends }) => {
 
 	const order = result.ok && result.data.kind === 'cart_order' ? result.data : null;
 	const confirmed = order != null && (order.status === 'paid' || order.status === 'fulfilled');
+	// The webhook may find the stock conflict while this page waits, so read it from the order too.
+	const soldOut = reasonParam === 'stock' || order?.needsSupport === 'stock_conflict';
 
-	if (confirmed && !soldOut && !duplicate) {
+	if (confirmed && !soldOut && !duplicate && !mismatch) {
 		redirect(303, `/summary/success/${order.orderId}/${encodeURIComponent(params.payment_id)}`);
 	}
 
@@ -34,6 +36,7 @@ export const load: PageServerLoad = async ({ params, url, fetch, depends }) => {
 		found: order != null,
 		confirmed,
 		soldOut,
-		duplicate
+		duplicate,
+		mismatch
 	};
 };

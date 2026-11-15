@@ -17,8 +17,10 @@
 
 	const cartOrder = $derived(data.order?.kind === 'cart_order' ? data.order : null);
 	const printOrder = $derived(data.order?.kind === 'print_request' ? data.order : null);
+	/** Paid, but an item sold out before stock was reserved: not a normal success. */
+	const soldOut = $derived(cartOrder?.needsSupport === 'stock_conflict');
 	const isPaid = $derived(
-		cartOrder ? cartOrder.status === 'paid' || cartOrder.status === 'fulfilled' : false
+		cartOrder && !soldOut ? cartOrder.status === 'paid' || cartOrder.status === 'fulfilled' : false
 	);
 	const orderRef = $derived(cartOrder ? formatOrderDisplayId(cartOrder.orderId) : null);
 	const receiptEmail = $derived(cartOrder?.email ?? data.accountEmail);
@@ -50,6 +52,19 @@
 				<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Payment successful</h1>
 				<p class="mt-2 text-sm text-muted-foreground">
 					Your order {orderRef} is confirmed. Orders ship in 3 to 14 days.
+				</p>
+			</div>
+		{:else if cartOrder && soldOut}
+			<div class="mt-8 text-center">
+				<div
+					class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950">
+					<Icon icon={F.clock} class="size-7 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+				</div>
+				<h1 class="text-2xl font-semibold tracking-tight md:text-3xl">Payment received</h1>
+				<p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+					Your payment went through, but an item in this order sold out before we could reserve it.
+					<strong class="text-foreground">Do not pay again.</strong>
+					Write to {SUPPORT_EMAIL} with your payment ID and we will sort it out.
 				</p>
 			</div>
 		{:else if cartOrder}

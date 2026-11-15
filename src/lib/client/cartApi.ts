@@ -42,6 +42,10 @@ export type CartApiError =
 	| { kind: 'forbidden'; message: string }
 	| { kind: 'stock_conflict'; orderId?: string; message: string }
 	| { kind: 'duplicate_payment'; orderId?: string; message: string }
+	/** Paid, but not for the order total as it stands now (an older payment window). */
+	| { kind: 'payment_mismatch'; orderId?: string; message: string }
+	/** Checkout found that the previous payment went through; no new payment was started. */
+	| { kind: 'already_paid'; orderId?: string; paymentId?: string; message: string }
 	| { kind: 'razorpay_order_failed'; message: string }
 	| { kind: 'unauthorized'; message: string }
 	| { kind: 'rate_limited'; message: string }
@@ -56,6 +60,7 @@ type ApiErrorBody = {
 	limit?: number;
 	productId?: string;
 	orderId?: string;
+	paymentId?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,7 +74,8 @@ function parseErrorBody(body: unknown): ApiErrorBody {
 		message: typeof body.message === 'string' ? body.message : undefined,
 		limit: typeof body.limit === 'number' ? body.limit : undefined,
 		productId: typeof body.productId === 'string' ? body.productId : undefined,
-		orderId: typeof body.orderId === 'string' ? body.orderId : undefined
+		orderId: typeof body.orderId === 'string' ? body.orderId : undefined,
+		paymentId: typeof body.paymentId === 'string' ? body.paymentId : undefined
 	};
 }
 
@@ -134,6 +140,19 @@ export function mapApiError(status: number, body: unknown): CartApiError {
 				kind: 'duplicate_payment',
 				...(parsed.orderId ? { orderId: parsed.orderId } : {}),
 				message: 'This cart was already paid for.'
+			};
+		case 'payment_mismatch':
+			return {
+				kind: 'payment_mismatch',
+				...(parsed.orderId ? { orderId: parsed.orderId } : {}),
+				message: 'Your payment went through, but it did not match your order total.'
+			};
+		case 'already_paid':
+			return {
+				kind: 'already_paid',
+				...(parsed.orderId ? { orderId: parsed.orderId } : {}),
+				...(parsed.paymentId ? { paymentId: parsed.paymentId } : {}),
+				message: 'Your earlier payment for this cart went through.'
 			};
 		case 'razorpay_order_failed':
 			return {

@@ -136,8 +136,63 @@
 	});
 
 	let payLoading = $state(false);
-	/** Set when Razorpay took the payment but we couldn't confirm it. Pay stays disabled. */
-	let unconfirmedPaymentId = $state<string | null>(null);
+
+	/**
+	 * Set when Razorpay took a payment that this page could not confirm, or that was not needed.
+	 * Kept in sessionStorage so a reload does not offer Pay again. Pay stays disabled while set.
+	 */
+	type PaymentNotice = { paymentId: string; kind: 'unconfirmed' | 'duplicate' };
+	let paymentNotice = $state<PaymentNotice | null>(null);
+
+	function paymentNoticeKey(requestId: string) {
+		return `sc:print-payment-notice:${requestId}`;
+	}
+
+	function readPaymentNotice(requestId: string): PaymentNotice | null {
+		try {
+			const raw = sessionStorage.getItem(paymentNoticeKey(requestId));
+			const parsed: unknown = raw ? JSON.parse(raw) : null;
+			if (
+				parsed &&
+				typeof parsed === 'object' &&
+				typeof (parsed as PaymentNotice).paymentId === 'string' &&
+				((parsed as PaymentNotice).kind === 'unconfirmed' ||
+					(parsed as PaymentNotice).kind === 'duplicate')
+			) {
+				return parsed as PaymentNotice;
+			}
+		} catch {
+			// Storage blocked or bad JSON: the in-memory notice still applies.
+		}
+		return null;
+	}
+
+	function savePaymentNotice(requestId: string, notice: PaymentNotice) {
+		paymentNotice = notice;
+		try {
+			sessionStorage.setItem(paymentNoticeKey(requestId), JSON.stringify(notice));
+		} catch {
+			// The in-memory notice still keeps Pay disabled until a reload.
+		}
+	}
+
+	$effect(() => {
+		const requestId = req?.id;
+		const stage = req?.request_stage;
+		if (!requestId) return;
+		const stored = readPaymentNotice(requestId);
+		if (stored?.kind === 'unconfirmed' && isPaidStage(stage)) {
+			// The server has the payment now.
+			try {
+				sessionStorage.removeItem(paymentNoticeKey(requestId));
+			} catch {
+				// Nothing to clear.
+			}
+			paymentNotice = null;
+			return;
+		}
+		if (stored) paymentNotice = stored;
+	});
 
 	async function payQuote() {
 		if (payLoading) return;
@@ -162,6 +217,13 @@
 		try {
 			const orderResult = await createPrintPaymentOrder(fetch, order.id, validAddress);
 			if (!orderResult.ok) {
+				if (orderResult.error.kind === 'already_paid') {
+					// The previous payment went through after all; the request is now paid.
+					toastStore.show(orderResult.error.message, 'info');
+					await invalidate('3dp-portal:printrequest');
+					payLoading = false;
+					return;
+				}
 				toastStore.show(orderResult.error.message, 'error');
 				payLoading = false;
 				return;
@@ -172,6 +234,7 @@
 			// Razorpay said the money moved. From then on, never offer Pay again.
 			let captured = false;
 			let failedRazorpayOrderId: string | null = null;
+			let failureReason: string | undefined;
 
 			const outcome = await openRazorpayCheckout({
 				key: razorpayKey,
@@ -198,11 +261,24 @@
 							await goto(`/summary/success/${requestId}/${response.razorpay_payment_id}`);
 							return;
 						}
+						if (confirmResult.error.kind === 'duplicate_payment') {
+							// Already paid by another payment; this one is recorded for a refund.
+							savePaymentNotice(requestId, {
+								paymentId: response.razorpay_payment_id,
+								kind: 'duplicate'
+							});
+							payLoading = false;
+							await invalidate('3dp-portal:printrequest');
+							return;
+						}
 					} catch {
 						// Fall through: the payment exists, we just couldn't confirm it from here.
 					}
 					// Keep Pay disabled. The Razorpay webhook marks the request paid on its own.
-					unconfirmedPaymentId = response.razorpay_payment_id;
+					savePaymentNotice(requestId, {
+						paymentId: response.razorpay_payment_id,
+						kind: 'unconfirmed'
+					});
 				},
 				modal: {
 					ondismiss: async function () {
@@ -217,19 +293,20 @@
 					color: '#2084fe'
 				},
 				onPaymentFailed: function (failedResponse) {
-					// Razorpay keeps its own "Retry" screen open, so only record the failure here.
+					// Razorpay keeps its own "Retry" screen open and the buyer may still pay, so only
+					// remember the failure. It is reported once the modal closes without a payment.
 					failedRazorpayOrderId = failedResponse.error?.metadata?.order_id ?? razorpayOrderId;
-					void failPrintPayment(
-						fetch,
-						requestId,
-						failedRazorpayOrderId,
-						failedResponse.error?.description
-					);
+					failureReason = failedResponse.error?.description;
 				}
 			});
 
 			if (captured) return;
 			if (outcome === 'failed' && failedRazorpayOrderId) {
+				try {
+					await failPrintPayment(fetch, requestId, failedRazorpayOrderId, failureReason);
+				} catch {
+					// The webhook records the failure too.
+				}
 				window.location.href = `/summary/failure/${requestId}/${failedRazorpayOrderId}`;
 				return;
 			}
@@ -709,6 +786,26 @@
 				{/if}
 			</PortalCard>
 
+			{#if paymentNotice}
+				<p class="rounded-md border border-border bg-card p-3 text-sm" role="alert">
+					{#if paymentNotice.kind === 'duplicate'}
+						This request was already paid, so your latest payment was not needed.
+						<strong>Don't pay again.</strong>
+						Write to
+					{:else}
+						Your payment went through, but we couldn't confirm it from this page.
+						<strong>Don't pay again.</strong>
+						Reload in a minute. If the request still shows as unpaid, write to
+					{/if}
+					<a
+						class="underline underline-offset-2"
+						href="mailto:support@selfcrafted.in?subject={encodeURIComponent(
+							`Print payment ${paymentNotice.paymentId}`
+						)}">support@selfcrafted.in</a>
+					with payment ref {paymentNotice.paymentId}.
+				</p>
+			{/if}
+
 			{#if req.request_stage === 'quoted'}
 				<PortalCard>
 					<PortalSectionLabel label="Payment" />
@@ -729,7 +826,7 @@
 						class:ring-2={highlightPay}
 						class:ring-foreground={highlightPay}
 						class:ring-offset-2={highlightPay}
-						disabled={payLoading || latestQuoteAmount == null}
+						disabled={payLoading || latestQuoteAmount == null || paymentNotice != null}
 						bind:this={payButtonRef}
 						onclick={() => {
 							void payQuote();
@@ -740,19 +837,6 @@
 								? `Pay ${formatInr(latestQuoteAmount)}`
 								: 'Pay'}
 					</button>
-					{#if unconfirmedPaymentId}
-						<p class="mt-3 rounded-md border border-border p-3 text-sm" role="alert">
-							Your payment went through, but we couldn't confirm it from this page.
-							<strong>Don't pay again.</strong>
-							Reload in a minute. If the request still shows as unpaid, write to
-							<a
-								class="underline underline-offset-2"
-								href="mailto:support@selfcrafted.in?subject={encodeURIComponent(
-									`Print payment ${unconfirmedPaymentId}`
-								)}">support@selfcrafted.in</a>
-							with payment ref {unconfirmedPaymentId}.
-						</p>
-					{/if}
 					<p class="mt-2 text-sm text-muted-foreground">This is the maker's quoted price.</p>
 					<p class="mt-1 text-sm">
 						<a class="text-foreground underline underline-offset-2" href={resolve('/policy')}

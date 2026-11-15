@@ -84,6 +84,11 @@ export type CheckoutOrderStatusResponse =
 			orderId: string;
 			/** `payment_pending` | `paid` | `failed` | `fulfilled` | `cancelled` | `refunded` */
 			status: string;
+			/**
+			 * `stock_conflict`: paid, but an item sold out before stock was reserved. The buyer must
+			 * write to support; do not show a plain success or a receipt.
+			 */
+			needsSupport: 'stock_conflict' | null;
 			items: { productId: string; name: string; qty: number; unitPriceRupees: number }[];
 			subtotalRupees: number;
 			deliveryFeeRupees: number;
