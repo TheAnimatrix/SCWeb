@@ -3,6 +3,8 @@ import { productPath } from '$lib/seo/product';
 import { getSiteUrl } from '$lib/seo/site';
 import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
 import { posts } from '$lib/blog/posts';
+import { docsProducts } from '$lib/docs/registry';
+import { getDocsMeta, listDocPages } from '$lib/server/docs/content';
 
 interface BrowseProduct {
 	id: string;
@@ -76,6 +78,19 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
 
 	for (const post of posts) {
 		entries.push(urlEntry(`${siteUrl}/blog/${post.slug}`, post.publishedAt, 'monthly', '0.7'));
+	}
+
+	const docsSyncDates = docsProducts.map((product) =>
+		getDocsMeta(product.slug)?.syncedAt.slice(0, 10)
+	);
+	const latestDocsSync = docsSyncDates.filter(Boolean).sort().at(-1);
+	entries.push(urlEntry(`${siteUrl}/docs`, latestDocsSync, 'weekly', '0.7'));
+	for (const [index, product] of docsProducts.entries()) {
+		const lastmod = docsSyncDates[index];
+		for (const doc of listDocPages(product.slug)) {
+			const path = doc.slug ? `/docs/${product.slug}/${doc.slug}` : `/docs/${product.slug}`;
+			entries.push(urlEntry(`${siteUrl}${path}`, lastmod, 'weekly', '0.7'));
+		}
 	}
 
 	try {
