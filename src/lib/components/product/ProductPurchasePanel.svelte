@@ -22,8 +22,6 @@
 		/** Formatted maker name and where it links (storefront when live, otherwise a search). */
 		makerName?: string | null;
 		makerHref?: string | null;
-		/** Maker's location, shown as "Ships from …" when set. */
-		shipsFrom?: string | null;
 		cartQty?: number;
 		addToCartSuccess?: boolean | null;
 		addToCartMsg?: string;
@@ -44,7 +42,6 @@
 		product,
 		makerName = null,
 		makerHref = null,
-		shipsFrom = null,
 		cartQty = $bindable(1),
 		addToCartSuccess = null,
 		addToCartMsg = '',
@@ -290,8 +287,7 @@
 			</li>
 			<li class="flex items-start gap-2">
 				<Icon icon={F.box} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-				<span
-					>{shipsFrom ? `Ships in 3 to 14 days from ${shipsFrom}` : 'Ships in 3 to 14 days'}</span>
+				<span>Packed and shipped by Selfcrafted in 3 to 14 days</span>
 			</li>
 			<li class="flex items-start gap-2">
 				<Icon icon={F.mail} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />

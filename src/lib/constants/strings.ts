@@ -6,6 +6,8 @@
 const shipping: string = `
 We ship within India only.
 
+Makers send their products to us, and we pack and ship your order ourselves.
+
 Orders go out by courier 3 to 14 days after payment, depending on the maker and whether the item is made to order. If a different date was agreed when the order was confirmed, that date applies.
 
 Delivery is a flat ₹99 per order.
@@ -50,7 +52,7 @@ We made it, or it was built under our supervision. We look after it even after i
 
 An independent maker built it and we approved the listing. These are often early or small-batch products, so they may not be finished to factory standard.
 
-We guarantee that what you ordered reaches you. If it arrives and doesn't work as described, write to support@selfcrafted.in. We'll take it up with the maker, who is responsible for a product that doesn't do what the listing says, and we decide these case by case.`;
+We ship these ourselves, so we guarantee that what you ordered reaches you. If it arrives and doesn't work as described, write to support@selfcrafted.in. We handle replacements and send faulty units back to the maker, who is responsible for a product that doesn't do what the listing says. We decide these case by case.`;
 
 const privacy: string = `
 This is what Selfcrafted stores about you and why. If it changes, we'll update this page.
@@ -65,7 +67,7 @@ This is what Selfcrafted stores about you and why. If it changes, we'll update t
 
 **What we use it for**
 
-* Running your account and delivering your orders. Whoever packs and ships your order needs your delivery details to do it.
+* Running your account and delivering your orders. We pack and ship product orders ourselves. For a 3D printing order, the maker who prints your part ships it, and sees your delivery details once you have paid.
 * Emailing you about your account, your orders and your print requests. We don't send marketing email unless you ask for it.
 * Keeping our own records.
 

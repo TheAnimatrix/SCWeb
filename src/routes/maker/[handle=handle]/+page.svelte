@@ -121,7 +121,7 @@
 				{/if}
 				<p class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
 					{#if storefront.location}
-						<span>Ships from {storefront.location}</span>
+						<span>Based in {storefront.location}</span>
 					{/if}
 					{#if sellingSince}
 						<span>Selling since {sellingSince}</span>

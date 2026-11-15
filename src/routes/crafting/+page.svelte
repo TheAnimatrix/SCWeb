@@ -32,6 +32,11 @@
 			title: 'Add your listings',
 			description:
 				'Each listing has photos, a price and a stock count. We look at every listing before it goes live. If you later change its name, price or photos, we look at it again.'
+		},
+		{
+			title: 'Send us your products',
+			description:
+				'You send your products to us, and we pack and ship each order to the buyer. We also handle replacements. If a unit turns out to be defective, we send it back to you.'
 		}
 	];
 
@@ -51,12 +56,13 @@
 		{
 			title: '3D printing jobs',
 			description:
-				'If you own a printer, list the filament you have in stock. Buyers send you a model, you quote a price, and you print it once they pay.'
+				'If you own a printer, list the filament you have in stock. Buyers send you a model, you quote a price, and once they pay you print it and ship it to them.'
 		}
 	];
 
 	const quickFacts = [
-		{ term: 'Platform fee', detail: '5%' },
+		{ term: 'Platform fee', detail: 'None right now' },
+		{ term: 'Shipping', detail: 'We do it' },
 		{ term: 'Ships to', detail: 'India only' },
 		{ term: 'Site code', detail: 'Open source (AGPL-3.0)' }
 	];
@@ -86,7 +92,7 @@
 				</h1>
 				<p class="max-w-prose text-base leading-relaxed text-muted-foreground">
 					List your hardware on Selfcrafted. We review your application, you set up a shop page, and
-					buyers across India can order from you.
+					buyers across India can order from you. We handle the shipping.
 				</p>
 			</div>
 
@@ -188,7 +194,13 @@
 					<div
 						class="mt-8 space-y-4 border border-border bg-card p-5 text-sm leading-relaxed text-muted-foreground">
 						<p>
-							<span class="font-medium text-foreground">We charge a 5% platform fee.</span>
+							<span class="font-medium text-foreground"
+								>We don't charge a platform fee right now.</span>
+							You set your price and we don't take a cut of it.
+						</p>
+						<p>
+							Buyers pay a flat ₹99 delivery fee on each order. That goes to us, because we do the
+							packing and shipping.
 						</p>
 						<p>
 							If you need a hand with something bigger, like an enclosure, sourcing a part or

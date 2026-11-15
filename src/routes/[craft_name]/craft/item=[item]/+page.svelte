@@ -238,7 +238,6 @@
 					product={productItem}
 					{makerName}
 					makerHref={shopHref}
-					shipsFrom={makerLocation}
 					bind:cartQty
 					{addToCartSuccess}
 					{addToCartMsg}
