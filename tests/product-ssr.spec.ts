@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('product detail direct load (SSR cold load)', async ({ page }) => {
 	await page.goto('/');
 
-	const featured = page.getByRole('region', { name: 'Featured crafts' });
+	const featured = page.getByRole('region', { name: 'Featured listings' });
 	await expect(featured).toBeVisible();
 
 	const productName = await featured.getByRole('heading', { level: 2 }).innerText();
@@ -19,5 +19,5 @@ test('product detail direct load (SSR cold load)', async ({ page }) => {
 test('3dp portal direct load (SSR)', async ({ page }) => {
 	const response = await page.goto('/3dp-portal');
 	expect(response?.status()).toBe(200);
-	await expect(page.getByRole('heading', { name: 'Community 3D Printing' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: '3D printing', exact: true })).toBeVisible();
 });

@@ -3,14 +3,20 @@
 
 	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { Json } from '../../../../supabase/types';
-	import type { PrintRequestEvent } from '$lib/types/printRequest';
+	import {
+		getPrintRequestDisplayName,
+		makerHasNextStep,
+		printStageLabel,
+		type PrintRequestEvent
+	} from '$lib/types/printRequest';
 	import Icon from '@iconify/svelte';
-		import { toastStore } from '$lib/client/toastStore';
+	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
-	import { goto } from '$app/navigation';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
 	import { TableBodySkeleton } from '$lib/components/sc';
+	import { formatDate, formatInr } from '$lib/utils/format';
 	import { cn } from '$lib/utils';
+	import { resolve } from '$app/paths';
 
 	let {
 		supabase,
@@ -33,7 +39,7 @@
 			material: string;
 			quality: string;
 			infill: string;
-			walls: string;
+			walls?: string;
 		};
 		events?: PrintRequestEvent[];
 		update_count?: number;
@@ -46,23 +52,33 @@
 	let pageSize = 50;
 	let downloading = $state(-1);
 	let downloadProgress = $state(0);
+	// The orders endpoint returns no total, so a full page means there may be more.
+	const hasOlder = $derived(orders.length === pageSize);
+
+	// Requests where the maker has the next step come first; otherwise newest first.
+	const sortedOrders = $derived(
+		[...orders].sort((a, b) => {
+			const turnA = makerHasNextStep(a.request_stage) ? 0 : 1;
+			const turnB = makerHasNextStep(b.request_stage) ? 0 : 1;
+			if (turnA !== turnB) return turnA - turnB;
+			return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+		})
+	);
 
 	let orderUnreadCounts = $state<Record<string, number>>({});
 
-	async function downloadModel(printRequestId: string, modelPath: string, index: number) {
-		const pathParts = modelPath.split('/').pop()?.split('.') ?? [];
-		const nameParts = pathParts[pathParts.length - 2]?.split('_') ?? [];
-		const modelName = `${nameParts[nameParts.length - 1]}.${pathParts[pathParts.length - 1]}`;
-		if (!modelPath || !printRequestId) return;
+	async function downloadModel(order: PrintRequest, index: number) {
+		if (!order.model || !order.id) return;
+		const modelName = getPrintRequestDisplayName(order.model, order.model_metadata);
 		const { data: userRes, error: userErr } = await supabase.auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
-			toastStore.show('You must be logged in to request a quote', 'error');
+			toastStore.show('Sign in to download this model.', 'error');
 			return;
 		}
 		downloading = index;
 		downloadProgress = 0;
 		try {
-			const result = await getModelDownloadUrl(fetch, printRequestId);
+			const result = await getModelDownloadUrl(fetch, order.id);
 			if (!result.ok) {
 				toastStore.show(result.error.message, 'error');
 				downloading = -1;
@@ -80,7 +96,7 @@
 				onError: (message) => toastStore.show(message, 'error')
 			});
 		} catch {
-			toastStore.show('Error downloading model', 'error');
+			toastStore.show("Couldn't download the model. Try again.", 'error');
 			downloading = -1;
 			downloadProgress = 0;
 		}
@@ -90,7 +106,7 @@
 		if (!session?.data?.user?.id) {
 			orders = [];
 			isLoading = false;
-			error = 'No session or user.';
+			error = 'Sign in to see your print requests.';
 			return;
 		}
 		isLoading = true;
@@ -99,17 +115,15 @@
 		try {
 			const res = await fetch(`/user/maker/orders?page=${page}&pageSize=${pageSize}`);
 			if (!res.ok) {
-				const err = await res.json();
-				error = err.error || 'Failed to fetch orders.';
+				error = "Couldn't load print requests. Refresh to try again.";
 				orders = [];
 				return;
 			}
 			const result = await res.json();
-			console.log(result);
 			orders = result.orders || [];
 			page = result.page || 1;
-		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Unknown error';
+		} catch {
+			error = "Couldn't load print requests. Refresh to try again.";
 			orders = [];
 		} finally {
 			isLoading = false;
@@ -119,21 +133,6 @@
 	$effect(() => {
 		fetchOrders();
 	});
-
-	function formatDate(dateStr: string) {
-		const date = new Date(dateStr);
-		const day = date.getDate();
-		const month = date.toLocaleString('en-US', { month: 'short' });
-		const year = date.getFullYear();
-		// Suffix for day
-		const j = day % 10,
-			k = day % 100;
-		let suffix = 'th';
-		if (j === 1 && k !== 11) suffix = 'st';
-		else if (j === 2 && k !== 12) suffix = 'nd';
-		else if (j === 3 && k !== 13) suffix = 'rd';
-		return `${day}${suffix} ${month} ${year}`;
-	}
 
 	const STAGE_STYLES: Record<string, string> = {
 		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
@@ -211,7 +210,7 @@
 						fetchOrders(page);
 					}
 					if (payload.new?.sender_id !== userId) {
-						toastStore.show('New chat message received!', 'info');
+						toastStore.show('New message from a customer.', 'info');
 						fetchOrderUnreadCounts();
 					}
 				}
@@ -226,145 +225,151 @@
 
 <div id="orderManagement">
 	<PortalCard>
-		<PortalSectionLabel label="order_management" class="mb-4" />
+		<PortalSectionLabel label="Print requests" class="mb-4" />
 
 		{#if isLoading}
 			<div class="overflow-x-auto rounded-md border border-border">
 				<table class="min-w-full divide-y divide-border text-left">
 					<thead class="bg-muted/30">
 						<tr>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>ID</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Date</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Stage</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Quote</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Ordered by</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Model</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Date</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Quote</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Customer</th>
 						</tr>
 					</thead>
 					<TableBodySkeleton rows={5} columns={5} />
 				</table>
 			</div>
 		{:else if error}
-			<div class="py-10 text-center text-sm text-destructive">{error}</div>
-		{:else if orders.length === 0}
+			<div class="py-10 text-center text-sm text-destructive" role="alert">{error}</div>
+		{:else if orders.length === 0 && page === 1}
 			<div class="py-10 text-center text-sm text-muted-foreground">
-				No print requests found for you yet.
+				No print requests yet. Customers can find you once you have at least one filament with
+				stock.
 			</div>
 		{:else}
 			<div class="overflow-x-auto rounded-md border border-border">
 				<table class="min-w-full divide-y divide-border text-left">
 					<thead class="bg-muted/30">
 						<tr>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>ID</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Date</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Stage</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Quote</th>
-							<th class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted-foreground"
-								>Ordered by</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Model</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Date</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Quote</th>
+							<th class="px-4 py-3 text-sm font-medium text-muted-foreground">Customer</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-border">
-						{#each orders as order, index (order.id)}
-							<tr
-								class="cursor-pointer transition-colors hover:bg-muted/20"
-								onclick={() => goto(`/3dp-portal/maker/${order.id}`)}>
-								<td
-									class="flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm text-foreground">
-									{#if isUrl(order.model)}
+						{#each sortedOrders as order, index (order.id)}
+							{@const modelName = getPrintRequestDisplayName(order.model, order.model_metadata)}
+							<tr class="transition-colors hover:bg-muted/20">
+								<td class="px-4 py-3 text-sm text-foreground">
+									<div class="flex items-center gap-2">
 										<a
-											href={order.model}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:bg-muted"
-											download
-											onclick={(e) => e.stopPropagation()}>
-											<Icon icon={F.download} class="text-base" />
-											{order.id.slice(order.id.length - 10, order.id.length)}
+											href={resolve('/3dp-portal/(authenticated)/maker/[id]', { id: order.id })}
+											class="max-w-[16rem] truncate font-medium text-foreground underline-offset-2 hover:underline">
+											{modelName}
 										</a>
-									{:else if order.model?.endsWith('.stl')}
-										<div class="relative w-fit">
-											{#if order.request_stage !== 'cancelled'}
-												<button
-													type="button"
-													class={cn(
-														'inline-flex items-center gap-1 border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
-														downloading === index ? 'rounded-t opacity-60' : 'rounded'
-													)}
-													disabled={downloading === index || order.request_stage === 'cancelled'}
-													onclick={(e) => {
-														e.stopPropagation();
-														downloadModel(order.id, order.model ?? '', index);
-													}}>
-													<Icon icon={F.download} class="text-base" />
-													{downloading !== index
-														? order.id.slice(order.id.length - 10, order.id.length)
-														: `Downloading… ${downloadProgress}%`}
-												</button>
-											{:else}
-												<span class="font-mono text-xs text-muted-foreground"
-													>{order.id.slice(order.id.length - 10, order.id.length)}</span>
-											{/if}
-											{#if downloading && downloadProgress > 0 && downloading === index}
-												<div class="absolute inset-x-0 bottom-0 h-1 rounded-b bg-border">
-													<div
-														class="h-1 rounded-b bg-foreground transition-all duration-200"
-														style={`width: ${downloadProgress}%`}>
-													</div>
-												</div>
-											{/if}
-										</div>
-									{:else}
-										<span class="font-mono text-xs text-muted-foreground"
-											>{order.id.slice(order.id.length - 10, order.id.length)}</span>
-									{/if}
-									{#if orderUnreadCounts[order.id] > 0}
-										<span
-											class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-xs text-destructive-foreground">
-											<Icon icon={F.chat} class="size-3" />
-											{orderUnreadCounts[order.id]}
-										</span>
-									{/if}
+										{#if orderUnreadCounts[order.id] > 0}
+											<span
+												class="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground"
+												aria-label="{orderUnreadCounts[order.id]} unread messages">
+												<Icon icon={F.chat} class="size-3" aria-hidden="true" />
+												{orderUnreadCounts[order.id]}
+											</span>
+										{/if}
+										{#if order.model && order.request_stage !== 'cancelled'}
+											<div class="relative ml-auto w-fit shrink-0">
+												{#if isUrl(order.model)}
+													<!-- eslint-disable svelte/no-navigation-without-resolve -- external file URL -->
+													<a
+														href={order.model}
+														target="_blank"
+														rel="noopener noreferrer"
+														download
+														class="inline-flex size-9 items-center justify-center rounded-md border border-border bg-muted/40 text-foreground transition-colors hover:bg-muted"
+														aria-label="Download {modelName}">
+														<Icon icon={F.download} class="size-4" aria-hidden="true" />
+													</a>
+													<!-- eslint-enable svelte/no-navigation-without-resolve -->
+												{:else if order.model.endsWith('.stl')}
+													<button
+														type="button"
+														class="inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-border bg-muted/40 px-2 text-xs text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+														disabled={downloading === index}
+														aria-label={downloading === index
+															? `Downloading ${modelName}, ${downloadProgress}%`
+															: `Download ${modelName}`}
+														onclick={() => downloadModel(order, index)}>
+														{#if downloading === index}
+															{downloadProgress}%
+														{:else}
+															<Icon icon={F.download} class="size-4" aria-hidden="true" />
+														{/if}
+													</button>
+													{#if downloading === index && downloadProgress > 0}
+														<div class="absolute inset-x-0 bottom-0 h-1 rounded-b bg-border">
+															<div
+																class="h-1 rounded-b bg-foreground transition-all duration-200"
+																style={`width: ${downloadProgress}%`}>
+															</div>
+														</div>
+													{/if}
+												{/if}
+											</div>
+										{/if}
+									</div>
 								</td>
 								<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
 									>{formatDate(order.created_at)}</td>
 								<td class="whitespace-nowrap px-4 py-3 text-sm">
-									{#if order.request_stage}
+									<div class="flex flex-wrap items-center gap-1.5">
 										<span
 											class={cn(
-												'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs capitalize',
-												STAGE_STYLES[order.request_stage] ?? STAGE_STYLES.default
+												'inline-flex items-center rounded-md border px-2 py-0.5 text-xs',
+												STAGE_STYLES[order.request_stage ?? ''] ?? STAGE_STYLES.default
 											)}>
-											{order.request_stage.replace('_', ' ')}
+											{printStageLabel(order.request_stage)}
 										</span>
-									{:else}
-										<span
-											class="inline-flex items-center rounded-md border border-border bg-muted/40 px-2 py-0.5 font-mono text-xs text-muted-foreground">
-											N/A
-										</span>
-									{/if}
+										{#if makerHasNextStep(order.request_stage)}
+											<span
+												class="inline-flex items-center rounded-md border border-foreground bg-foreground px-2 py-0.5 text-xs font-medium text-background">
+												Your turn
+											</span>
+										{/if}
+									</div>
 								</td>
 								<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground"
-									>{order.quote ?? '—'}</td>
+									>{order.quote != null ? formatInr(order.quote) : '—'}</td>
 								<td class="whitespace-nowrap px-4 py-3 text-sm text-foreground">
-									{order.username
-										? order.username
-										: order.user_id
-											? order.user_id.slice(0, 8) + '...'
-											: 'N/A'}
+									{order.username ? order.username : 'Customer'}
 								</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 			</div>
+			{#if page > 1 || hasOlder}
+				<div class="mt-4 flex items-center justify-between gap-3 text-sm">
+					<button
+						type="button"
+						class="rounded-md border border-border px-3 py-1.5 text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+						disabled={page <= 1}
+						onclick={() => fetchOrders(page - 1)}>
+						Newer
+					</button>
+					<span class="text-muted-foreground">Page {page}</span>
+					<button
+						type="button"
+						class="rounded-md border border-border px-3 py-1.5 text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+						disabled={!hasOlder}
+						onclick={() => fetchOrders(page + 1)}>
+						Older
+					</button>
+				</div>
+			{/if}
 		{/if}
 	</PortalCard>
 </div>

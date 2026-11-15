@@ -18,12 +18,16 @@ const { subscribe, set, update } = writable<ToastState>(initialToastState);
 
 let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
+const ERROR_TOAST_DURATION = 8000;
+
 function showToast(message: string, type: ToastState['type'] = 'info', duration?: number) {
 	if (timeoutId) {
 		clearTimeout(timeoutId); // Clear previous timeout if a new toast is shown quickly
 	}
 
-	const toastDuration = duration ?? initialToastState.duration;
+	// Errors stay up longer: they often carry a stock or payment message worth reading.
+	const toastDuration =
+		duration ?? (type === 'error' ? ERROR_TOAST_DURATION : initialToastState.duration);
 
 	update((state) => ({
 		...state,

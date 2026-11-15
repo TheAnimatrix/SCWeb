@@ -6,7 +6,7 @@
 	import OrderManagement from './OrderManagement.svelte';
 	import { PortalCard } from '$lib/components/portal';
 	import { Skeleton } from '$lib/components/sc';
-			import type { TypedSupabaseClient } from '$lib/types/database';
+	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { Filament } from '$lib/types/filament';
 
 	let {
@@ -45,27 +45,38 @@
 					<Skeleton class="h-9 w-56 rounded-md" />
 				{:then filamentData}
 					{#if filamentData && !filamentData.error && filamentData.data.length > 0}
-						{#if filamentData.data.some((filament) => ((filament as Filament).quantity_kg ?? 0) <= 0)}
+						{@const emptyCount = filamentData.data.filter(
+							(filament) => ((filament as Filament).quantity_kg ?? 0) <= 0
+						).length}
+						{#if emptyCount === filamentData.data.length}
+							<!-- Customers only see filaments with stock, so every spool is empty here. -->
 							<span
 								class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning">
-								<Icon icon={F.errorCircle} class="size-4 shrink-0" />
-								Unlisted — add quantity to be visible
+								<Icon icon={F.errorCircle} class="size-4 shrink-0" aria-hidden="true" />
+								Hidden from customers. Add stock to a filament to be listed.
 							</span>
 						{:else}
-							<span
-								class="relative inline-flex items-center gap-2 overflow-hidden rounded-md border-2 border-foreground bg-foreground px-3 py-1.5 text-sm font-semibold text-background shadow-sm">
+							<div class="flex flex-col items-start gap-1.5">
 								<span
-									class="sc-stripes-bold pointer-events-none absolute inset-0 opacity-20"
-									aria-hidden="true"></span>
-								<Icon icon={F.checkCircle} class="relative size-4 shrink-0" />
-								<span class="relative">Listed · visible to customers</span>
-							</span>
+									class="relative inline-flex items-center gap-2 overflow-hidden rounded-md border-2 border-foreground bg-foreground px-3 py-1.5 text-sm font-semibold text-background shadow-sm">
+									<span
+										class="sc-stripes-bold pointer-events-none absolute inset-0 opacity-20"
+										aria-hidden="true"></span>
+									<Icon icon={F.checkCircle} class="relative size-4 shrink-0" aria-hidden="true" />
+									<span class="relative">Listed · visible to customers</span>
+								</span>
+								{#if emptyCount > 0}
+									<span class="text-xs text-muted-foreground">
+										{emptyCount} filament{emptyCount === 1 ? '' : 's'} hidden (0 kg left)
+									</span>
+								{/if}
+							</div>
 						{/if}
 					{:else}
 						<span
 							class="inline-flex items-center gap-2 rounded-md border-2 border-warning/40 bg-warning/10 px-3 py-1.5 text-sm font-medium text-warning">
-							<Icon icon={F.errorCircle} class="size-4 shrink-0" />
-							Unlisted — add filaments to be visible
+							<Icon icon={F.errorCircle} class="size-4 shrink-0" aria-hidden="true" />
+							Hidden from customers. Add a filament to be listed.
 						</span>
 					{/if}
 				{/await}

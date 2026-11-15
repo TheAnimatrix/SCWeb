@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { ProductCard, ProductCardSkeleton } from '$lib/components/sc';
 	import { getRelatedProducts } from '$lib/client/catalogApi';
+	import { productPath } from '$lib/seo/product';
 	import type { Product } from '$lib/types/product';
 	import { relatedProductItemClass, relatedProductsLayoutClass } from '$lib/utils/relatedProducts';
 
@@ -16,49 +17,55 @@
 	const relatedProductsPromise = $derived(
 		browser
 			? getRelatedProducts(fetch, product.id).then((result) =>
-					result.ok ? result.data.products : []
+					result.ok ? (result.data.products as Product[]) : []
 				)
 			: null
 	);
 
-	function productHref(item: Product): string {
-		return `/${item.name.replaceAll(' ', '_')}/craft/item=${item.id}`;
+	/**
+	 * The API fills with the same maker's items, then the same type, then the newest
+	 * anywhere. Only claim "More from this maker" when every item really is theirs;
+	 * never claim the items go together.
+	 */
+	function sectionTitle(items: Product[]): string {
+		const sameMaker = !!product.uid && items.every((item) => item.uid === product.uid);
+		return sameMaker ? 'More from this maker' : 'You might also like';
 	}
 </script>
 
-<section class={className}>
-	<div class="mb-4 flex items-center justify-between gap-3">
-		<h2 class="font-mono text-sm text-foreground">Pairs well with</h2>
-	</div>
-
-	{#if !relatedProductsPromise}
-		<div class={relatedProductsLayoutClass()} aria-hidden="true">
+{#if !relatedProductsPromise}
+	<div class={className} aria-hidden="true">
+		<div class={relatedProductsLayoutClass()}>
 			{#each [...Array(4).keys()] as index (index)}
 				<ProductCardSkeleton class={relatedProductItemClass()} />
 			{/each}
 		</div>
-	{:else}
-		{#await relatedProductsPromise}
-			<div class={relatedProductsLayoutClass()} aria-hidden="true">
+	</div>
+{:else}
+	{#await relatedProductsPromise}
+		<div class={className} aria-hidden="true">
+			<div class={relatedProductsLayoutClass()}>
 				{#each [...Array(4).keys()] as index (index)}
 					<ProductCardSkeleton class={relatedProductItemClass()} />
 				{/each}
 			</div>
-		{:then relatedProducts}
-			{#if relatedProducts.length > 0}
+		</div>
+	{:then relatedProducts}
+		{#if relatedProducts.length > 0}
+			<section class={className} aria-labelledby="related-products-title">
+				<h2 id="related-products-title" class="mb-4 text-base font-medium text-foreground">
+					{sectionTitle(relatedProducts)}
+				</h2>
 				<div class={relatedProductsLayoutClass()}>
 					{#each relatedProducts as relatedProduct (relatedProduct.id)}
 						<ProductCard
 							class={relatedProductItemClass()}
-							product={relatedProduct as Product}
-							href={productHref(relatedProduct as Product)} />
+							product={relatedProduct}
+							href={productPath(relatedProduct)}
+							dimOutOfStock />
 					{/each}
 				</div>
-			{:else}
-				<div class="rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
-					<p class="font-mono text-xs text-muted-foreground">No related products</p>
-				</div>
-			{/if}
-		{/await}
-	{/if}
-</section>
+			</section>
+		{/if}
+	{/await}
+{/if}

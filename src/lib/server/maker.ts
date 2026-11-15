@@ -13,6 +13,15 @@ export type ResolvedMakerLocals = {
 	avatar_url?: string | null;
 	banner_url?: string | null;
 	location?: string | null;
+	/** Present for makers who are not approved yet, so the apply page can show the outcome. */
+	latest_application?: MakerLatestApplication | null;
+};
+
+export type MakerLatestApplication = {
+	status: string;
+	review_notes: string | null;
+	created_at: string | null;
+	reviewed_at: string | null;
 };
 
 function getApiOrigin(): string {

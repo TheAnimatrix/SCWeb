@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
@@ -38,35 +39,35 @@
 			<h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
 		</div>
 
-		<div class="mt-4 rounded-md border border-border bg-muted/20 p-4">
-			<p class="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">Maker status</p>
-			{#if makerStatus === 'approved'}
-				<p class="mt-1 text-sm">You’re an approved maker.</p>
-				<div class="mt-3 flex flex-wrap gap-3 text-sm">
-					<a href="/portal" class="underline">Open portal</a>
-					{#if maker?.username}
-						<a href={makerStorefrontPath(maker.username)} class="underline">View storefront</a>
-					{/if}
-				</div>
-			{:else if makerStatus === 'pending'}
-				<p class="mt-1 text-sm">Your maker application is pending review.</p>
-			{:else if makerStatus === 'rejected'}
-				<p class="mt-1 text-sm">Your previous application was rejected.</p>
-				<a href="/maker/apply?source=profile" class="mt-3 inline-block text-sm underline"
-					>Apply again</a
-				>
-			{:else}
-				<p class="mt-1 text-sm">Sell products or offer printing on Selfcrafted.</p>
-				<a href="/maker/apply?source=profile" class="mt-3 inline-block text-sm underline"
-					>Apply to become a maker</a
-				>
-			{/if}
-		</div>
+		{#if makerStatus}
+			<div class="mt-4 rounded-md border border-border bg-muted/20 p-4">
+				<p class="text-sm text-muted-foreground">Maker status</p>
+				{#if makerStatus === 'approved'}
+					<p class="mt-1 text-sm">You're an approved maker.</p>
+					<div class="mt-3 flex flex-wrap gap-3 text-sm">
+						<a href={resolve('/portal')} class="underline">Open portal</a>
+						{#if maker?.username}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- dynamic storefront path -->
+							<a href={makerStorefrontPath(maker.username)} class="underline"
+								>View your shop page</a>
+						{/if}
+					</div>
+				{:else if makerStatus === 'pending'}
+					<p class="mt-1 text-sm">Your maker application is waiting for review.</p>
+				{:else if makerStatus === 'rejected'}
+					<p class="mt-1 text-sm">Your last maker application wasn't approved.</p>
+					<a
+						href="{resolve('/maker/apply')}?source=profile"
+						class="mt-3 inline-block text-sm underline">Apply again</a>
+				{/if}
+			</div>
+		{/if}
 
 		<nav
 			aria-label="Profile sections"
 			class="mt-4 flex gap-1 overflow-x-auto border-b border-border">
 			{#each navItems as { href, label } (href)}
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- static profile tab paths -->
 				<a
 					{href}
 					class={cn(
@@ -77,6 +78,7 @@
 					)}>
 					{label}
 				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			{/each}
 		</nav>
 

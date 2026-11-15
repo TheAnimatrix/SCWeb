@@ -60,3 +60,36 @@ export function sanitizePostLoginUrl(value: unknown): string | null {
 
 	return trimmed;
 }
+
+/**
+ * Reads the post-login target from a sign-in URL. `postLogin` is the canonical name;
+ * `redirectTo` is accepted as a legacy alias.
+ */
+export function postLoginFromSearchParams(params: URLSearchParams): string | null {
+	return (
+		sanitizePostLoginUrl(params.get('postLogin')) ?? sanitizePostLoginUrl(params.get('redirectTo'))
+	);
+}
+
+/** `/user/sign?postLogin=<path>` when `next` is a safe same-origin path, else `/user/sign`. */
+export function signInPath(next: string | null | undefined): string {
+	const safe = sanitizePostLoginUrl(next);
+	return safe ? `/user/sign?postLogin=${encodeURIComponent(safe)}` : '/user/sign';
+}
+
+/**
+ * OAuth `redirectTo`: `<origin>/auth/callback`, with `next` carried as a query parameter
+ * only when it is a safe same-origin path.
+ */
+export function oauthCallbackUrl(origin: string, next: string | null | undefined): string {
+	const base = `${origin.replace(/\/+$/, '')}/auth/callback`;
+	const safe = sanitizePostLoginUrl(next);
+	return safe ? `${base}?next=${encodeURIComponent(safe)}` : base;
+}
+
+/** Where `/auth/callback` sends the user after a successful code exchange. */
+export function resolveAuthCallbackNext(next: string | null | undefined): string {
+	const safe = sanitizePostLoginUrl(next);
+	if (!safe || safe.startsWith('/auth/') || safe.startsWith('/user/sign')) return '/';
+	return safe;
+}

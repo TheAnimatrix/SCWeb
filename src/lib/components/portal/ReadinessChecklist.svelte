@@ -3,7 +3,7 @@
 	import { F } from '$lib/icons/fluent';
 
 	import { cn } from '$lib/utils';
-		
+
 	interface Item {
 		label: string;
 		done: boolean;

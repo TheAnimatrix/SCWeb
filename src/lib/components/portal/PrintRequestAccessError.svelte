@@ -4,7 +4,7 @@
 
 	import { page } from '$app/state';
 	import PortalCard from './PortalCard.svelte';
-	import { ScButton, TagBadge } from '$lib/components/sc';
+	import { ScButton } from '$lib/components/sc';
 
 	type Portal = 'maker' | 'user';
 
@@ -20,18 +20,15 @@
 
 	const copy = $derived.by(() => {
 		const accountLabel = portal === 'maker' ? 'maker' : 'customer';
-		const portalHref = portal === 'maker' ? '/3dp-portal/maker#orderManagement' : '/3dp-portal/user';
-		const portalCta = portal === 'maker' ? 'Back to maker portal' : 'Back to user portal';
-		const ordersCta = portal === 'maker' ? 'Back to your orders' : 'Back to your requests';
+		const portalHref = portal === 'maker' ? '/portal/printing#orderManagement' : '/3dp-portal/user';
+		const portalCta = portal === 'maker' ? 'Print requests' : 'My print requests';
+		const ordersCta = portalCta;
 
 		if (status === 401) {
 			return {
-				badge: 'sign_in_required',
 				icon: F.signIn,
-				title: 'Sign in to view this order',
-				body:
-					message ??
-					`Sign in with the ${accountLabel} account linked to this order to view its details.`,
+				title: 'Sign in to view this request',
+				body: message ?? `Sign in with the ${accountLabel} account linked to this request.`,
 				primary: { label: 'Sign in', href: signInHref },
 				secondary: { label: portalCta, href: portalHref }
 			};
@@ -39,14 +36,13 @@
 
 		if (status === 403) {
 			return {
-				badge: 'access_denied',
 				icon: F.lock,
-				title: "This isn't for your eyes",
+				title: "You don't have access to this request",
 				body:
 					message ??
 					(portal === 'maker'
-						? 'This print request belongs to another maker. You can only view orders assigned to your account.'
-						: 'This print request belongs to another customer. You can only view orders on your account.'),
+						? 'This request was sent to a different maker. Sign in with the account it was sent to.'
+						: 'This request belongs to a different account. Sign in with the account that placed it.'),
 				primary: { label: ordersCta, href: portalHref },
 				secondary: null
 			};
@@ -54,22 +50,18 @@
 
 		if (status === 404) {
 			return {
-				badge: 'not_found',
 				icon: F.warning,
 				title: 'Print request not found',
-				body:
-					message ??
-					'This order may have been removed, or the link might be incorrect. Check your portal for active requests.',
+				body: message ?? 'It may have been removed, or the link may be wrong.',
 				primary: { label: portalCta, href: portalHref },
 				secondary: null
 			};
 		}
 
 		return {
-			badge: 'error',
 			icon: F.warning,
-			title: 'Something went wrong',
-			body: message ?? 'We could not load this print request. Please try again.',
+			title: "Couldn't load this request",
+			body: message ?? 'Refresh the page to try again.',
 			primary: { label: portalCta, href: portalHref },
 			secondary: null
 		};
@@ -78,7 +70,6 @@
 
 <div class="mx-auto max-w-7xl px-4 pb-16 pt-4">
 	<PortalCard class="mx-auto max-w-lg py-12 text-center">
-		<TagBadge label={copy.badge} class="mb-4" />
 		<div
 			class="mx-auto mb-4 flex size-12 items-center justify-center rounded-md border border-border bg-muted/40">
 			<Icon icon={copy.icon} class="size-5 text-muted-foreground" />

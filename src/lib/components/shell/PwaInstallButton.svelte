@@ -4,7 +4,7 @@
 
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-			import {
+	import {
 		dismissInstallPrompt,
 		initPwaInstallState,
 		installEvent,
@@ -53,7 +53,7 @@
 	<div class="relative" bind:this={container}>
 		<button
 			type="button"
-			class="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+			class="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
 			onclick={(event) => {
 				event.stopPropagation();
 				void handleInstall();
@@ -62,7 +62,7 @@
 			aria-expanded={showIosInstructions}
 			aria-haspopup={isIosDevice() && !$installEvent ? 'dialog' : undefined}>
 			<Icon icon={F.download} class="size-3" aria-hidden="true" />
-			<span>{$installing ? 'installing…' : 'install_app'}</span>
+			<span>{$installing ? 'Installing…' : 'Install app'}</span>
 		</button>
 
 		{#if showIosInstructions && isIosDevice() && !$installEvent}

@@ -2,7 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
-				import * as Dialog from '$lib/components/ui/dialog';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import { PortalSectionLabel, ParameterChip } from '$lib/components/portal';
 	import { ChipGridSkeleton, ScButton, ScInput, Skeleton } from '$lib/components/sc';
@@ -23,7 +23,8 @@
 		isOpen?: boolean;
 		mode?: 'add' | 'edit';
 		filament?: Partial<FilamentFormData>;
-		onSave: (data: FilamentFormData) => void;
+		/** Resolves to an error message to show in the form, or null when saved. */
+		onSave: (data: FilamentFormData) => Promise<string | null>;
 		onClose: () => void;
 		supabase: TypedSupabaseClient;
 	} = $props();
@@ -88,7 +89,7 @@
 			try {
 				const result = await getConstant(fetch, 'FILTYPES');
 				if (!result.ok) {
-					typesError = 'Failed to load filament types.';
+					typesError = "Couldn't load materials. Close this and try again.";
 					filamentTypes = [];
 				} else {
 					const rawTypes = result.data.value;
@@ -97,7 +98,7 @@
 						: [];
 				}
 			} catch {
-				typesError = 'Error loading filament types.';
+				typesError = "Couldn't load materials. Close this and try again.";
 				filamentTypes = [];
 			} finally {
 				typesLoading = false;
@@ -111,13 +112,13 @@
 					.select('id, name, brand, material_type, cost_approx, product_link')
 					.limit(100);
 				if (error) {
-					presetError = 'Failed to load filament presets.';
+					presetError = "Couldn't load presets.";
 					filamentPresets = [];
 				} else {
 					filamentPresets = (data ?? []) as unknown as typeof filamentPresets;
 				}
 			} catch {
-				presetError = 'Error loading filament presets.';
+				presetError = "Couldn't load presets.";
 				filamentPresets = [];
 			} finally {
 				presetLoading = false;
@@ -156,33 +157,34 @@
 
 	function validate(): boolean {
 		errors = {};
-		if (!formData.name.trim()) errors.name = 'Name is required';
-		if (!formData.brand.trim()) errors.brand = 'Brand is required';
-		if (!formData.type.trim()) errors.type = 'Type is required';
-		if (!formData.color.trim()) errors.color = 'Color is required';
+		if (!formData.name.trim()) errors.name = 'Enter the product name.';
+		if (!formData.brand.trim()) errors.brand = 'Enter the brand.';
+		if (!formData.type.trim()) errors.type = 'Choose a material.';
+		if (!formData.color.trim()) errors.color = 'Pick a colour.';
 		if (
 			formData.quantity_kg === null ||
 			formData.quantity_kg === undefined ||
 			isNaN(formData.quantity_kg) ||
 			formData.quantity_kg < 0
 		) {
-			errors.quantity_kg = 'Quantity must be a non-negative number';
+			errors.quantity_kg = 'Enter how much is left, in kg (0 or more).';
 		}
 		return Object.keys(errors).length === 0;
 	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!validate()) return;
+		if (isSaving || !validate()) return;
 		isSaving = true;
 		try {
-			onSave({
+			const saveError = await onSave({
 				id: filament?.id,
 				...formData
 			});
+			if (saveError) errors.general = saveError;
 		} catch (error) {
 			console.error('Error saving filament:', error);
-			errors.general = 'Failed to save filament.';
+			errors.general = "Couldn't save this filament. Try again.";
 		} finally {
 			isSaving = false;
 		}
@@ -235,6 +237,12 @@
 		if (holdTimeout) clearTimeout(holdTimeout);
 		if (holdInterval) clearInterval(holdInterval);
 	}
+
+	// Pointer presses step (and repeat while held); keyboard Enter/Space fire a click
+	// with detail 0, which steps once.
+	function keyboardStep(e: MouseEvent, field: 'quantity_kg' | 'cost_kg', delta: number) {
+		if (e.detail === 0) stepValue(field, delta);
+	}
 </script>
 
 {#snippet formBody()}
@@ -250,7 +258,7 @@
 			<div
 				class="absolute inset-x-0 top-full z-50 mt-2 max-h-[50vh] overflow-auto rounded-md border border-border bg-card p-4 shadow-sm">
 				<div class="mb-3 flex items-center justify-between gap-2">
-					<PortalSectionLabel label="filament_presets" class="mb-0" />
+					<PortalSectionLabel label="Presets" class="mb-0" />
 					<button
 						type="button"
 						class="text-muted-foreground transition-colors hover:text-foreground"
@@ -273,7 +281,7 @@
 				{:else if presetError}
 					<p class="py-4 text-center text-sm text-destructive">{presetError}</p>
 				{:else if filteredPresets.length === 0}
-					<p class="py-4 text-center text-sm text-muted-foreground">No matching presets found</p>
+					<p class="py-4 text-center text-sm text-muted-foreground">No presets match.</p>
 				{:else}
 					<div class="flex flex-col gap-1">
 						{#each filteredPresets as preset (preset.id)}
@@ -282,7 +290,7 @@
 								class="rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-muted/40"
 								onclick={() => selectPreset(preset)}>
 								<span class="font-medium text-foreground">{preset.brand} {preset.name}</span>
-								<span class="mt-0.5 block font-mono text-xs text-muted-foreground">
+								<span class="mt-0.5 block text-xs text-muted-foreground">
 									{preset.material_type}
 								</span>
 							</button>
@@ -295,25 +303,35 @@
 
 	<form id="filament-form" onsubmit={handleSubmit} class="grid gap-4">
 		{#if errors.general}
-			<p class="text-center text-sm text-destructive">{errors.general}</p>
+			<p class="text-center text-sm text-destructive" role="alert">{errors.general}</p>
 		{/if}
 
 		<div>
-			<ScInput id="name" label="name" bind:value={formData.name} required />
+			<ScInput
+				id="name"
+				label="Product name (for example PolyTerra Charcoal)"
+				labelClass="text-sm font-medium text-foreground"
+				bind:value={formData.name}
+				required />
 			{#if errors.name}
 				<p class="mt-1 text-xs text-destructive">{errors.name}</p>
 			{/if}
 		</div>
 
 		<div>
-			<ScInput id="brand" label="brand" bind:value={formData.brand} required />
+			<ScInput
+				id="brand"
+				label="Brand"
+				labelClass="text-sm font-medium text-foreground"
+				bind:value={formData.brand}
+				required />
 			{#if errors.brand}
 				<p class="mt-1 text-xs text-destructive">{errors.brand}</p>
 			{/if}
 		</div>
 
 		<div>
-			<PortalSectionLabel label="material_type" />
+			<PortalSectionLabel label="Material" />
 			{#if typesLoading}
 				<div class="mt-2">
 					<ChipGridSkeleton chips={5} />
@@ -325,9 +343,9 @@
 					<ParameterChip selected={true}>{formData.type}</ParameterChip>
 					<button
 						type="button"
-						class="font-mono text-xs text-muted-foreground underline-offset-2 hover:underline"
+						class="text-sm text-muted-foreground underline-offset-2 hover:underline"
 						onclick={clearType}>
-						change
+						Change
 					</button>
 				</div>
 			{:else}
@@ -343,12 +361,15 @@
 		</div>
 
 		<div>
-			<PortalSectionLabel label="color" />
+			<PortalSectionLabel label="Colour" />
 			<div class="mt-2 flex items-center gap-3">
 				<span
 					class="inline-block size-8 rounded-full border border-border"
-					style="background-color: {formData.color}"></span>
-				<ScButton variant="secondary" onclick={() => (showColorDialog = true)}>Pick color</ScButton>
+					style="background-color: {formData.color}"
+					aria-hidden="true"></span>
+				<span class="font-mono text-xs text-muted-foreground">{formData.color}</span>
+				<ScButton variant="secondary" onclick={() => (showColorDialog = true)}
+					>Pick colour</ScButton>
 			</div>
 			{#if errors.color}
 				<p class="mt-1 text-xs text-destructive">{errors.color}</p>
@@ -356,15 +377,17 @@
 		</div>
 
 		<div>
-			<PortalSectionLabel label="quantity_kg" />
+			<label for="quantity" class="mb-2 block text-sm font-medium text-muted-foreground"
+				>Spool remaining (kg)</label>
 			<div class="mt-2 flex items-center gap-2">
 				<button
 					type="button"
 					class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted"
-					onmousedown={() => startHoldStep('quantity_kg', -0.1)}
-					onmouseup={stopHoldStep}
-					onmouseleave={stopHoldStep}
-					aria-label="Decrease quantity">
+					onpointerdown={() => startHoldStep('quantity_kg', -0.1)}
+					onpointerup={stopHoldStep}
+					onpointerleave={stopHoldStep}
+					onclick={(e) => keyboardStep(e, 'quantity_kg', -0.1)}
+					aria-label="Decrease by 0.1 kg">
 					<Icon icon={F.subtract} class="size-4" />
 				</button>
 				<input
@@ -378,10 +401,11 @@
 				<button
 					type="button"
 					class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted"
-					onmousedown={() => startHoldStep('quantity_kg', 0.1)}
-					onmouseup={stopHoldStep}
-					onmouseleave={stopHoldStep}
-					aria-label="Increase quantity">
+					onpointerdown={() => startHoldStep('quantity_kg', 0.1)}
+					onpointerup={stopHoldStep}
+					onpointerleave={stopHoldStep}
+					onclick={(e) => keyboardStep(e, 'quantity_kg', 0.1)}
+					aria-label="Increase by 0.1 kg">
 					<Icon icon={F.add} class="size-4" />
 				</button>
 			</div>
@@ -391,15 +415,20 @@
 		</div>
 
 		<div>
-			<PortalSectionLabel label="cost_per_kg_inr" />
+			<label for="cost_kg" class="mb-2 block text-sm font-medium text-muted-foreground"
+				>Cost per kg (₹)</label>
+			<p class="-mt-1 mb-2 text-xs text-muted-foreground">
+				For your own reference when you work out prices. Customers don't see it.
+			</p>
 			<div class="mt-2 flex items-center gap-2">
 				<button
 					type="button"
 					class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted"
-					onmousedown={() => startHoldStep('cost_kg', -10)}
-					onmouseup={stopHoldStep}
-					onmouseleave={stopHoldStep}
-					aria-label="Decrease cost">
+					onpointerdown={() => startHoldStep('cost_kg', -10)}
+					onpointerup={stopHoldStep}
+					onpointerleave={stopHoldStep}
+					onclick={(e) => keyboardStep(e, 'cost_kg', -10)}
+					aria-label="Decrease by ₹10">
 					<Icon icon={F.subtract} class="size-4" />
 				</button>
 				<input
@@ -414,10 +443,11 @@
 				<button
 					type="button"
 					class="inline-flex size-10 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted"
-					onmousedown={() => startHoldStep('cost_kg', 10)}
-					onmouseup={stopHoldStep}
-					onmouseleave={stopHoldStep}
-					aria-label="Increase cost">
+					onpointerdown={() => startHoldStep('cost_kg', 10)}
+					onpointerup={stopHoldStep}
+					onpointerleave={stopHoldStep}
+					onclick={(e) => keyboardStep(e, 'cost_kg', 10)}
+					aria-label="Increase by ₹10">
 					<Icon icon={F.add} class="size-4" />
 				</button>
 			</div>
@@ -427,7 +457,8 @@
 			<ScInput
 				id="product_link"
 				type="url"
-				label="product_link"
+				label="Product link (optional)"
+				labelClass="text-sm font-medium text-foreground"
 				bind:value={formData.product_link}
 				placeholder="https://… (optional)" />
 		</div>
@@ -455,7 +486,7 @@
 	<Drawer.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
 		<Drawer.Content class="max-h-[92vh] border-border bg-background">
 			<Drawer.Header class="border-b border-border pb-4 text-left">
-				<Drawer.Title class="font-mono text-sm text-foreground">{title}</Drawer.Title>
+				<Drawer.Title class="text-base font-semibold text-foreground">{title}</Drawer.Title>
 			</Drawer.Header>
 			<div class="overflow-y-auto px-4 py-4">
 				{@render formBody()}
@@ -470,7 +501,7 @@
 		<Dialog.Content
 			class="max-h-[90vh] w-[95vw] overflow-hidden border-border bg-card p-0 sm:max-w-lg">
 			<Dialog.Header class="border-b border-border px-6 py-4">
-				<Dialog.Title class="font-mono text-sm text-foreground">{title}</Dialog.Title>
+				<Dialog.Title class="text-base font-semibold text-foreground">{title}</Dialog.Title>
 			</Dialog.Header>
 			<div class="max-h-[calc(90vh-8rem)] overflow-y-auto px-6 py-4">
 				{@render formBody()}

@@ -36,4 +36,14 @@ describe('mapPortalApiError', () => {
 			message: 'Too many requests. Please wait and try again.'
 		});
 	});
+
+	it('passes through the plain validation message from the API', () => {
+		expect(
+			mapPortalApiError(400, {
+				error: 'invalid_payload',
+				message: 'Message must be 4000 characters or fewer.',
+				issues: [{ path: ['message'], code: 'too_big' }]
+			})
+		).toEqual({ kind: 'invalid_payload', message: 'Message must be 4000 characters or fewer.' });
+	});
 });

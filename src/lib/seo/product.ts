@@ -36,13 +36,19 @@ export function productDescription(product: Product, maxLength = 160): string {
 		}
 	}
 
-	const tags = product.tags?.map((tag) => tag.tag).filter(Boolean).slice(0, 3);
+	const tags = product.tags
+		?.map((tag) => tag.tag)
+		.filter(Boolean)
+		.slice(0, 3);
 	const tagSuffix = tags?.length ? ` — ${tags.join(', ')}` : '';
 	const base = `Buy ${product.name} on Selfcrafted India${tagSuffix}.`;
 	return base.length > maxLength ? `${base.slice(0, maxLength - 1).trim()}…` : base;
 }
 
-export function productImageUrl(product: Product, origin?: string): string | undefined {
+export function productImageUrl(
+	product: Pick<Product, 'images'> | { images?: { url: string }[] },
+	origin?: string
+): string | undefined {
 	const url = product.images?.[0]?.url;
 	if (!url) return undefined;
 	if (url.startsWith('http://') || url.startsWith('https://')) return url;

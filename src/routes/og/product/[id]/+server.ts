@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ params, fetch, url }) => {
 	try {
 		const image = await generateProductOgImage(product.name, productImageUrl(product, origin));
 
-		return new Response(image, {
+		return new Response(new Uint8Array(image), {
 			headers: {
 				'Content-Type': 'image/jpeg',
 				'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400'

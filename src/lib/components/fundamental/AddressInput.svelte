@@ -6,7 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ScInput } from '$lib/components/sc';
 	import AddressLocationFields from '$lib/components/fundamental/AddressLocationFields.svelte';
-						
+
 	interface Props {
 		address: Address;
 		isEditing?: boolean;
@@ -95,7 +95,7 @@
 
 	const uniqueId = `addr-${address.id || Math.random().toString(36).substring(2, 9)}`;
 
-	const labelClass = 'font-mono text-xs text-muted-foreground';
+	const labelClass = 'text-sm text-muted-foreground';
 </script>
 
 <div class="{className} rounded-md border border-border bg-card">
@@ -121,7 +121,7 @@
 		{:else}
 			<div class="min-w-0 flex-1 space-y-3">
 				<div>
-					<label for="{uniqueId}-name" class={labelClass}>name</label>
+					<label for="{uniqueId}-name" class={labelClass}>Name</label>
 					<ScInput
 						id="{uniqueId}-name"
 						type="text"
@@ -132,7 +132,7 @@
 				</div>
 
 				<div>
-					<label for="{uniqueId}-line1" class={labelClass}>address</label>
+					<label for="{uniqueId}-line1" class={labelClass}>Address</label>
 					<ScInput
 						id="{uniqueId}-line1"
 						type="text"
@@ -143,9 +143,7 @@
 				</div>
 
 				<div>
-					<label for="{uniqueId}-line2" class={labelClass}>
-						line 2 <span class="normal-case">(optional)</span>
-					</label>
+					<label for="{uniqueId}-line2" class={labelClass}> Address line 2 (optional) </label>
 					<ScInput
 						id="{uniqueId}-line2"
 						type="text"
@@ -164,7 +162,7 @@
 					bind:state={editableAddress.state} />
 
 				<div>
-					<label for="{uniqueId}-phone" class={labelClass}>phone</label>
+					<label for="{uniqueId}-phone" class={labelClass}>Phone</label>
 					<ScInput
 						id="{uniqueId}-phone"
 						type="tel"
@@ -179,40 +177,29 @@
 			</div>
 		{/if}
 
-		<div class="flex shrink-0 gap-1">
-			{#if !isEditing}
+		{#if !isEditing}
+			<div class="flex shrink-0 gap-1">
+				<Button variant="ghost" size="sm" onclick={handleEditRequest}>
+					<Icon icon={F.edit} class="size-3.5" aria-hidden="true" />
+					Edit
+				</Button>
 				<Button
 					variant="ghost"
-					size="icon"
-					class="size-8"
-					onclick={handleEditRequest}
-					aria-label="Edit">
-					<Icon icon={F.edit} class="size-3.5" />
+					size="sm"
+					class="text-destructive hover:text-destructive"
+					onclick={() => onDelete()}>
+					<Icon icon={F.delete} class="size-3.5" aria-hidden="true" />
+					Delete
 				</Button>
-			{:else}
-				<Button
-					variant="ghost"
-					size="icon"
-					class="size-8"
-					onclick={handleSaveRequest}
-					aria-label="Save">
-					<Icon icon={F.check} class="size-3.5" />
-				</Button>
-			{/if}
-			<Button
-				variant="ghost"
-				size="icon"
-				class="size-8 text-destructive hover:text-destructive"
-				onclick={isEditing ? () => onCancel() : () => onDelete()}
-				aria-label={isEditing ? 'Cancel' : 'Delete'}>
-				{#if isEditing}
-					<Icon icon={F.dismiss} class="size-3.5" />
-				{:else}
-					<Icon icon={F.delete} class="size-3.5" />
-				{/if}
-			</Button>
-		</div>
+			</div>
+		{/if}
 	</div>
+	{#if isEditing}
+		<div class="flex justify-end gap-2 border-t border-border p-3">
+			<Button variant="ghost" size="sm" onclick={() => onCancel()}>Cancel</Button>
+			<Button size="sm" onclick={handleSaveRequest}>Save address</Button>
+		</div>
+	{/if}
 </div>
 
 <style>

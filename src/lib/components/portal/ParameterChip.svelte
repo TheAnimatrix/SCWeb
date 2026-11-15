@@ -21,6 +21,7 @@
 			: 'border-border bg-card text-foreground hover:border-foreground/30 hover:bg-muted/30',
 		className
 	)}
+	aria-pressed={selected}
 	{onclick}>
 	{@render children?.()}
 </button>

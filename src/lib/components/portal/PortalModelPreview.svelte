@@ -2,7 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
-				import ModelViewer from '$lib/components/ModelViewer.svelte';
+	import ModelViewer from '$lib/components/ModelViewer.svelte';
 	import { cn } from '$lib/utils';
 
 	function formatDimension(value: number): string {
@@ -122,10 +122,10 @@
 				<div class="text-xs">
 					<div class="mb-2 text-xs font-medium text-muted-foreground">Model info</div>
 					<div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
-						<span class="text-muted-foreground">Size</span>
+						<span class="text-muted-foreground">File size</span>
 						<span class="text-foreground">{modelInfo.fileSize}</span>
 
-						<span class="text-muted-foreground">Dimensions</span>
+						<span class="text-muted-foreground">Size (if the file is in mm)</span>
 						<span class="text-foreground">
 							{formatDimension(modelInfo.dimensions.x * selectedScale)} ×
 							{formatDimension(modelInfo.dimensions.y * selectedScale)} ×

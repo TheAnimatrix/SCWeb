@@ -9,13 +9,25 @@
 	import * as Drawer from '$lib/components/ui/drawer';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { goto, invalidate } from '$app/navigation';
+	import { invalidate } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
-	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
-	import { MetaChip, ScButton, TagBadge } from '$lib/components/sc';
+	import {
+		PortalCard,
+		PortalSectionLabel,
+		PrintEventHistory,
+		PrintRequestSupport
+	} from '$lib/components/portal';
+	import { MetaChip, ScButton } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
-	import { asPrintRequest, getPrintRequestDisplayName } from '$lib/types/printRequest';
-	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
+	import { formatDateTime } from '$lib/utils/format';
+	import {
+		asPrintRequest,
+		getPrintModelSize,
+		getPrintRequestDisplayName,
+		isPaidStage,
+		printStageLabel
+	} from '$lib/types/printRequest';
 
 	let { data } = $props();
 
@@ -23,10 +35,7 @@
 		return requireBrowserSupabase(data.supabase);
 	}
 
-	let req = $state(asPrintRequest(data.printRequest));
-	$effect(() => {
-		req = asPrintRequest(data.printRequest);
-	});
+	const req = $derived(asPrintRequest(data.printRequest));
 
 	const sortedEvents = $derived(
 		req?.events
@@ -45,6 +54,7 @@
 	const displayModelName = $derived.by(() =>
 		getPrintRequestDisplayName(req?.model, req?.model_metadata)
 	);
+	const modelSize = $derived(getPrintModelSize(req?.model_metadata));
 
 	const STAGE_STYLES: Record<string, string> = {
 		cancelled: 'border-destructive/30 bg-destructive/5 text-destructive',
@@ -100,16 +110,16 @@
 		e.preventDefault();
 		shippedError = '';
 		if (!courierName.trim()) {
-			shippedError = 'Courier name is required.';
+			shippedError = 'Enter the courier name.';
 			return;
 		}
 		if (!trackingId.trim() && !trackingLink.trim()) {
-			shippedError = 'Please provide either a tracking ID or tracking link.';
+			shippedError = 'Enter a tracking ID or a tracking link.';
 			return;
 		}
 
 		if (trackingLink.trim() && !isValidUrl(trackingLink)) {
-			shippedError = 'Please provide a valid tracking link.';
+			shippedError = 'Enter a full tracking link, starting with https://.';
 			return;
 		}
 
@@ -122,7 +132,7 @@
 			}
 		}
 		if (!req || !req.id || !data.session?.data?.user?.id) {
-			shippedError = 'Order or session missing.';
+			shippedError = 'Your session has expired. Refresh the page and try again.';
 			return;
 		}
 		shippedLoading = true;
@@ -146,14 +156,14 @@
 		trackingLink = '';
 		shippedError = '';
 		invalidate('3dp-portal:printrequest');
-		toastStore.show('Order marked as shipped', 'success');
+		toastStore.show('Marked as shipped. The customer can now see the tracking details.', 'success');
 	}
 
 	async function downloadModel() {
 		if (!req?.model || !req?.id) return;
 		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
-			toastStore.show('You must be logged in to download the model', 'error');
+			toastStore.show('Sign in to download this model.', 'error');
 			return;
 		}
 		downloading = true;
@@ -177,7 +187,7 @@
 				onError: (message) => toastStore.show(message, 'error')
 			});
 		} catch {
-			toastStore.show('Error downloading model', 'error');
+			toastStore.show("Couldn't download the model. Try again.", 'error');
 			downloading = false;
 			downloadProgress = 0;
 		}
@@ -190,16 +200,16 @@
 
 	async function onSendQuote() {
 		if (!quote) {
-			toastStore.show('Please enter a quote', 'error');
+			toastStore.show('Enter a price.', 'error');
 			return;
 		}
 		if (!req || !req.id) {
-			toastStore.show('No valid order selected', 'error');
+			toastStore.show('Refresh the page and try again.', 'error');
 			return;
 		}
 		const amount = Number(quote);
 		if (!Number.isInteger(amount) || amount <= 0) {
-			toastStore.show('Quote must be a positive whole number in rupees', 'error');
+			toastStore.show('Enter the price in whole rupees, for example 249.', 'error');
 			return;
 		}
 		quoteLoading = true;
@@ -216,7 +226,7 @@
 			return;
 		}
 		invalidate('3dp-portal:printrequest');
-		toastStore.show('Quote sent', 'success');
+		toastStore.show('Quote sent to the customer.', 'success');
 		quoteLoading = false;
 		quoteDialogOpen = false;
 	}
@@ -250,46 +260,58 @@
 		if (!stage) return { msg: 'No stage information.', turn: 'maker' };
 		switch (stage) {
 			case 'cancelled':
-				return { msg: 'This order was cancelled and requires no further action.', turn: 'closed' };
+				return { msg: 'This request was cancelled. Nothing more to do.', turn: 'closed' };
 			case 'requested':
 				return {
-					msg: `${username ?? 'The customer'} has requested a print. Please review and provide a quote.`,
+					msg: `${username ?? 'The customer'} wants this printed. Download the model, then send a price.`,
 					turn: 'maker'
 				};
 			case 'quoted':
-				return { msg: 'Quote has been provided. Awaiting customer action.', turn: 'user' };
-			case 'actionable':
-				return { msg: 'Order is actionable. Proceed with the next steps.', turn: 'user' };
+				return {
+					msg: 'You sent a price. Waiting for the customer to pay. You can send a new price if needed.',
+					turn: 'user'
+				};
 			case 'paid':
-				return { msg: 'Order has been paid. Begin processing the order.', turn: 'maker' };
 			case 'paid_externally':
-				return { msg: 'Order was paid externally. Confirm and proceed.', turn: 'maker' };
+				return {
+					msg: 'The customer has paid. Print the model, ship it to the address below, then mark it as shipped.',
+					turn: 'maker'
+				};
 			case 'shipped':
 				return {
-					msg: 'Order is shipped. No further action needed. This order will close when the customer marks it delivered or in 21 days, whichever comes first.',
+					msg: 'Shipped. The order closes when the customer confirms delivery.',
 					turn: 'user'
 				};
 			case 'in dispute':
-				return { msg: 'Order is in dispute. Await resolution from the SC team.', turn: 'SC Team' };
+				return { msg: 'Selfcrafted is looking into this request.', turn: 'SC Team' };
 			case 'completed':
-				return { msg: 'Order is completed.', turn: 'closed' };
+				return { msg: 'The customer confirmed delivery. This request is closed.', turn: 'closed' };
 			default:
-				return { msg: 'Unknown stage.', turn: 'SC Team' };
+				return {
+					msg: "We can't show the status of this request. Contact support.",
+					turn: 'SC Team'
+				};
 		}
 	}
 
 	function getTurn(turn: string): { msg: string; style: string } {
 		switch (turn) {
 			case 'maker':
-				return { msg: 'your_turn', style: 'border-border bg-foreground/5 text-foreground' };
+				return { msg: 'Your turn', style: 'border-foreground bg-foreground text-background' };
 			case 'user':
-				return { msg: 'customer_turn', style: 'border-border bg-muted text-muted-foreground' };
+				return {
+					msg: 'Waiting for customer',
+					style: 'border-border bg-muted text-muted-foreground'
+				};
 			case 'SC Team':
-				return { msg: 'sc_review_pending', style: 'border-warning/30 bg-warning/5 text-warning' };
+				return {
+					msg: 'Selfcrafted reviewing',
+					style: 'border-warning/30 bg-warning/5 text-warning'
+				};
 			case 'closed':
-				return { msg: 'closed', style: 'border-border bg-muted/30 text-muted-foreground' };
+				return { msg: 'Closed', style: 'border-border bg-muted/30 text-muted-foreground' };
 			default:
-				return { msg: 'unknown', style: 'border-border bg-muted/30 text-muted-foreground' };
+				return { msg: 'Unknown', style: 'border-border bg-muted/30 text-muted-foreground' };
 		}
 	}
 
@@ -344,13 +366,12 @@
 </script>
 
 <div class="mx-auto max-w-7xl px-4 pb-16">
-	<button
-		type="button"
-		onclick={() => goto('/3dp-portal/maker#orderManagement')}
-		class="mb-6 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
-		<Icon icon={F.arrowLeft} class="size-3.5" />
-		back_to_orders
-	</button>
+	<a
+		href="{resolve('/portal/printing')}#orderManagement"
+		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+		<Icon icon={F.arrowLeft} class="size-3.5" aria-hidden="true" />
+		Print requests
+	</a>
 
 	{#if !req}
 		<PortalCard class="py-16 text-center">
@@ -358,56 +379,90 @@
 		</PortalCard>
 	{:else}
 		<header class="mb-8 border-b border-border pb-8">
-			<TagBadge label="print_request" class="mb-3" />
 			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">{displayModelName}</h1>
-			<p class="mt-2 font-mono text-xs text-muted-foreground">
-				{new Date(req.created_at).toLocaleString()}
+			<p class="mt-2 text-sm text-muted-foreground">
+				Requested {formatDateTime(req.created_at)}
 			</p>
 		</header>
 
 		<div class="grid gap-4">
 			<PortalCard>
-				<PortalSectionLabel label="customer" />
+				<PortalSectionLabel label="Customer" />
 				<div class="mt-2 space-y-1">
 					<p class="font-medium text-foreground">{data.username ?? 'Customer'}</p>
 				</div>
 			</PortalCard>
 
+			{#if data.shipTo}
+				<PortalCard>
+					<PortalSectionLabel label="Ship to" />
+					<address class="mt-2 space-y-0.5 text-sm not-italic text-foreground">
+						{#if data.shipTo.name}
+							<p class="font-medium">{data.shipTo.name}</p>
+						{/if}
+						{#each data.shipTo.lines as line (line)}
+							<p>{line}</p>
+						{/each}
+						{#if data.shipTo.phone}
+							<p class="pt-1">Phone: {data.shipTo.phone}</p>
+						{/if}
+					</address>
+				</PortalCard>
+			{:else if isPaidStage(req.request_stage)}
+				<PortalCard>
+					<PortalSectionLabel label="Ship to" />
+					<p class="mt-2 text-sm text-muted-foreground">
+						No shipping address was saved with this payment. Ask the customer in Messages.
+					</p>
+				</PortalCard>
+			{/if}
+
 			<PortalCard>
-				<PortalSectionLabel label="model_details" />
+				<PortalSectionLabel label="Print settings" />
 				<div class="mt-2 flex flex-wrap gap-1.5">
 					<MetaChip>
 						<span class="inline-flex items-center gap-1.5">
-							color:
+							Colour
 							<span
 								class="inline-block size-3 rounded-sm border border-border"
 								style={`background-color:${req.model_data.color}`}></span>
+							<span class="font-mono text-xs">{req.model_data.color}</span>
 						</span>
 					</MetaChip>
-					<MetaChip>material: {req.model_data.material}</MetaChip>
-					<MetaChip tone="muted">quality: {req.model_data.quality}</MetaChip>
-					<MetaChip tone="muted">scale: {req.model_data.scale}x</MetaChip>
-					<MetaChip tone="muted">infill: {req.model_data.infill}%</MetaChip>
-					<MetaChip tone="muted">walls: {req.model_data.walls}</MetaChip>
+					<MetaChip>Material: {req.model_data.material}</MetaChip>
+					<MetaChip tone="muted">Quality: {req.model_data.quality}</MetaChip>
+					<MetaChip tone="muted">Scale: {req.model_data.scale}x</MetaChip>
+					<MetaChip tone="muted">Infill: {req.model_data.infill}%</MetaChip>
+					{#if req.model_data.walls != null}
+						<MetaChip tone="muted">Walls: {req.model_data.walls}</MetaChip>
+					{/if}
+					{#if modelSize}
+						<MetaChip tone="muted">Size: {modelSize}</MetaChip>
+					{/if}
 				</div>
+				{#if modelSize}
+					<p class="mt-2 text-xs text-muted-foreground">
+						Size as measured in the customer's browser, assuming the file is in mm.
+					</p>
+				{/if}
 			</PortalCard>
 
 			<PortalCard>
-				<PortalSectionLabel label="stage" />
+				<PortalSectionLabel label="Status" />
 				<div class="mt-2 space-y-2">
 					<div class="flex flex-wrap items-center gap-2">
 						<span
 							class={cn(
-								'inline-flex items-center rounded-md border px-2.5 py-1 font-mono text-xs capitalize',
+								'inline-flex items-center rounded-md border px-2.5 py-1 text-xs',
 								stageStyle(req.request_stage)
 							)}>
-							{req.request_stage?.replaceAll('_', ' ') ?? 'pending'}
+							{printStageLabel(req.request_stage)}
 						</span>
 						{#if req.request_stage}
 							{@const turn = getTurn(stageInfo.turn)}
 							<span
 								class={cn(
-									'inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[10px]',
+									'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
 									turn.style
 								)}>
 								{turn.msg}
@@ -419,7 +474,7 @@
 			</PortalCard>
 
 			<PortalCard>
-				<PortalSectionLabel label="actions" />
+				<PortalSectionLabel label="Actions" />
 				<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
 					<button
 						type="button"
@@ -429,7 +484,8 @@
 						Message
 						{#if unreadCount > 0}
 							<span
-								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-[10px] text-destructive-foreground">
+								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground"
+								aria-label="{unreadCount} unread">
 								{unreadCount}
 							</span>
 						{/if}
@@ -471,9 +527,9 @@
 					{:else if req.request_stage === 'quoted'}
 						<ScButton variant="secondary" class="justify-center" onclick={quoteOrder}>
 							<Icon icon={F.money} class="mr-1.5 size-4" />
-							Re-quote
+							Send a new price
 						</ScButton>
-					{:else if req.request_stage === 'paid'}
+					{:else if req.request_stage === 'paid' || req.request_stage === 'paid_externally'}
 						<ScButton class="justify-center" onclick={onOpenShippedDialog}>
 							<Icon icon={F.truck} class="mr-1.5 size-4" />
 							Mark as shipped
@@ -498,73 +554,14 @@
 						</ScButton>
 					{/if}
 				</div>
-			</PortalCard>
-
-			<PortalCard>
-				<PortalSectionLabel label="event_history" />
-				{#if sortedEvents && sortedEvents.length > 0}
-					<div class="mt-3 flex flex-col gap-2">
-						{#each sortedEvents as event (event.timestamp + event.type)}
-							<div
-								class={cn(
-									'rounded-md border px-4 py-3 text-sm',
-									event.type === 'cancelled'
-										? 'border-destructive/30 bg-destructive/5'
-										: event.type === 'paid'
-											? 'border-border bg-muted/30'
-											: 'border-border bg-card'
-								)}>
-								<div class="flex items-center justify-between gap-3">
-									<span class="font-mono text-xs text-foreground capitalize">
-										{event.type.replaceAll('_', ' ')}
-									</span>
-									<span class="font-mono text-[10px] text-muted-foreground">
-										{new Date(event.timestamp).toLocaleString(undefined, {
-											hour: '2-digit',
-											minute: '2-digit',
-											year: 'numeric',
-											month: 'short',
-											day: 'numeric'
-										})}
-									</span>
-								</div>
-								{#if event.reason}
-									<p class="mt-1 text-xs text-muted-foreground">{event.reason}</p>
-								{/if}
-								{#if event.extra}
-									{#if event.extra.quote}
-										<p class="mt-1 font-mono text-xs text-foreground">
-											quote: {event.extra.quote}₹
-										</p>
-									{/if}
-									{#if event.extra.payment_id_a}
-										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											order_id: {event.extra.payment_id_a}
-										</p>
-									{/if}
-									{#if event.extra.payment_id_b}
-										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											payment_id: {event.extra.payment_id_b}
-										</p>
-									{/if}
-									{#if formatPrintEventAmountInr(event.extra)}
-										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											amount: {formatPrintEventAmountInr(event.extra)}₹
-										</p>
-									{/if}
-								{/if}
-								<p class="mt-1 font-mono text-[10px] text-muted-foreground">
-									by {event.by === 'user' ? 'customer' : 'you'}
-								</p>
-							</div>
-						{/each}
+				{#if isPaidStage(req.request_stage)}
+					<div class="mt-4">
+						<PrintRequestSupport requestId={req.id} />
 					</div>
-				{:else}
-					<p class="mt-3 text-sm italic text-muted-foreground">
-						No notable events yet. Quotes, cancellations, and payments will appear here.
-					</p>
 				{/if}
 			</PortalCard>
+
+			<PrintEventHistory events={sortedEvents} viewer="maker" />
 		</div>
 	{/if}
 </div>
@@ -587,20 +584,22 @@
 <Dialog.Root bind:open={cancelDialogOpen}>
 	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Decline request</Dialog.Title>
-			<Dialog.Description>
-				Please provide a reason for declining. This action cannot be undone.
-			</Dialog.Description>
+			<Dialog.Title>Decline this request?</Dialog.Title>
+			<Dialog.Description>Tell the customer why. You can't undo this.</Dialog.Description>
 		</Dialog.Header>
-		<Textarea bind:value={cancelReason} class="mt-4 w-full" placeholder="Enter reason…" />
+		<Textarea
+			bind:value={cancelReason}
+			class="mt-4 w-full"
+			aria-label="Reason for declining"
+			placeholder="For example: this model is too big for my printer." />
 		<Dialog.Footer class="gap-2">
-			<ScButton variant="secondary" onclick={onCancelCancel}>Cancel</ScButton>
+			<ScButton variant="secondary" onclick={onCancelCancel}>Keep request</ScButton>
 			<button
 				type="button"
 				class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
 				onclick={onConfirmCancel}
 				disabled={!cancelReason.trim()}>
-				Confirm
+				Decline request
 			</button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -609,29 +608,41 @@
 <Dialog.Root bind:open={quoteDialogOpen}>
 	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Quote order</Dialog.Title>
-			<Dialog.Description>Provide a quote for this print request.</Dialog.Description>
+			<Dialog.Title>Send a price</Dialog.Title>
+			<Dialog.Description>The customer sees this price and can pay it.</Dialog.Description>
 		</Dialog.Header>
-		<Textarea
-			disabled={quoteLoading}
-			bind:value={quoteBreakdown}
-			class="mt-4 w-full"
-			placeholder="Quote breakdown (optional)…" />
 		<div class="mt-4 flex flex-col gap-2">
-			<label for="quote-amount" class="font-mono text-xs text-muted-foreground">
-				final_price_inr
+			<label for="quote-amount" class="text-sm font-medium text-foreground">
+				Price to the customer (₹)
 			</label>
 			<div class="flex items-center gap-2">
-				<span class="text-sm text-muted-foreground">₹</span>
+				<span class="text-sm text-muted-foreground" aria-hidden="true">₹</span>
 				<input
 					id="quote-amount"
 					disabled={quoteLoading}
 					type="number"
+					inputmode="numeric"
+					min="1"
+					step="1"
+					aria-describedby="quote-amount-help"
 					bind:value={quote}
 					class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-					placeholder="e.g. 249" />
+					placeholder="249" />
 			</div>
+			<p id="quote-amount-help" class="text-xs text-muted-foreground">
+				Whole rupees. The customer pays exactly this amount, so include everything you need to
+				charge, such as shipping.
+			</p>
 		</div>
+		<label for="quote-breakdown" class="mt-4 text-sm font-medium text-foreground">
+			Breakdown for the customer (optional)
+		</label>
+		<Textarea
+			id="quote-breakdown"
+			disabled={quoteLoading}
+			bind:value={quoteBreakdown}
+			class="mt-2 w-full"
+			placeholder="For example: printing ₹180, shipping ₹69." />
 		<Dialog.Footer class="mt-6 gap-2">
 			<ScButton variant="secondary" onclick={() => (quoteDialogOpen = false)}>Cancel</ScButton>
 			<ScButton onclick={onSendQuote} disabled={!quote || quoteLoading}>
@@ -649,13 +660,13 @@
 		<Dialog.Header>
 			<Dialog.Title>Mark as shipped</Dialog.Title>
 			<Dialog.Description>
-				Provide shipping details. Either a tracking ID or tracking link is required.
+				Enter the courier and a tracking ID or tracking link. The customer sees these.
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="mt-4 flex flex-col gap-3">
 			<div>
-				<label for="courier-name" class="mb-1.5 block font-mono text-xs text-muted-foreground">
-					courier_name <span class="text-destructive">*</span>
+				<label for="courier-name" class="mb-1.5 block text-sm font-medium text-foreground">
+					Courier <span class="text-destructive" aria-hidden="true">*</span>
 				</label>
 				<input
 					id="courier-name"
@@ -666,8 +677,8 @@
 					disabled={shippedLoading} />
 			</div>
 			<div>
-				<label for="tracking-id" class="mb-1.5 block font-mono text-xs text-muted-foreground">
-					tracking_id
+				<label for="tracking-id" class="mb-1.5 block text-sm font-medium text-foreground">
+					Tracking ID
 				</label>
 				<input
 					id="tracking-id"
@@ -678,8 +689,8 @@
 					disabled={shippedLoading} />
 			</div>
 			<div>
-				<label for="tracking-link" class="mb-1.5 block font-mono text-xs text-muted-foreground">
-					tracking_link
+				<label for="tracking-link" class="mb-1.5 block text-sm font-medium text-foreground">
+					Tracking link
 				</label>
 				<input
 					id="tracking-link"
@@ -690,12 +701,12 @@
 					disabled={shippedLoading} />
 			</div>
 			{#if shippedError}
-				<p class="text-xs text-destructive">{shippedError}</p>
+				<p class="text-sm text-destructive" role="alert">{shippedError}</p>
 			{/if}
 		</div>
 		<Dialog.Footer class="mt-6 gap-2">
 			<ScButton variant="secondary" onclick={onCancelShipped} disabled={shippedLoading}>
-				Cancel
+				Not yet
 			</ScButton>
 			<ScButton onclick={onConfirmShipped} disabled={shippedLoading}>
 				{#if !shippedLoading}

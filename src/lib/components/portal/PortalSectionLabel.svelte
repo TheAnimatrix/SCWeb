@@ -8,11 +8,13 @@
 
 	let { label, class: className }: Props = $props();
 
-	const displayLabel = $derived(
-		label.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-	);
+	// Sentence case: "model_details" -> "Model details".
+	const displayLabel = $derived.by(() => {
+		const text = label.replace(/_/g, ' ').trim();
+		return text.charAt(0).toUpperCase() + text.slice(1);
+	});
 </script>
 
-<p class={cn('mb-2 text-xs font-medium text-muted-foreground', className)}>
+<p class={cn('mb-2 text-sm font-medium text-muted-foreground', className)}>
 	{displayLabel}
 </p>

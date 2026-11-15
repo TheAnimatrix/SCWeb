@@ -1,1 +1,1 @@
-<span class="text-black">Error</span>
+<!-- /user/profile redirects to /user/profile/account in +layout.server.ts. -->

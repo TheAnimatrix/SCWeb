@@ -5,8 +5,8 @@ test('cart page renders empty state or API error without crashing', async ({ pag
 
 	await expect(page.getByRole('heading', { name: 'Your cart' })).toBeVisible();
 
-	const emptyState = page.getByRole('heading', { name: 'Nothing here yet' });
-	const apiError = page.getByText('Could not load your cart');
+	const emptyState = page.getByText('Your cart is empty.');
+	const apiError = page.getByText("Your cart didn't load.");
 
-	await expect(emptyState.or(apiError)).toBeVisible();
+	await expect(emptyState.or(apiError).first()).toBeVisible();
 });

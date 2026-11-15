@@ -2,9 +2,10 @@
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { navigating, page } from '$app/state';
-			import { Breadcrumbs } from '$lib/components/shell';
+	import { tick } from 'svelte';
+	import { Breadcrumbs } from '$lib/components/shell';
 	import {
 		FilterSidebar,
 		Pagination,
@@ -18,6 +19,8 @@
 	import type { BrowseFilters, BrowseSort } from '$lib/types/browse';
 	import type { Product } from '$lib/types/product';
 	import { formatActiveTagLabel } from '$lib/utils/browseTags';
+	import { formatInr } from '$lib/utils/format';
+	import { productPath } from '$lib/seo/product';
 	import { SeoHead } from '$lib/components/seo';
 	import { craftsSeo } from '$lib/seo/meta';
 	import { absoluteUrl } from '$lib/seo/site';
@@ -31,13 +34,25 @@
 	let { data } = $props();
 
 	let mobileFiltersOpen = $state(false);
+	let filtersCloseButton = $state<HTMLButtonElement | null>(null);
+	let filtersTrigger = $state<HTMLButtonElement | null>(null);
 
-	const isRefreshing = $derived(page.url.pathname.startsWith('/crafts') && !!navigating.to);
+	// Only a navigation that stays on /crafts refreshes the grid; leaving for a product must not.
+	const isRefreshing = $derived(
+		page.url.pathname.startsWith('/crafts') && navigating.to?.url.pathname === '/crafts'
+	);
+
+	const CATEGORY_LABELS: Record<BrowseFilters['filter'], string> = {
+		all: 'All',
+		products: 'Products',
+		spares: 'Spares',
+		flea_market: 'Flea market'
+	};
 
 	const sortOptions: { value: BrowseSort; label: string }[] = [
-		{ value: 'newest', label: 'newest' },
-		{ value: 'price_asc', label: 'price ↑' },
-		{ value: 'price_desc', label: 'price ↓' }
+		{ value: 'newest', label: 'Newest' },
+		{ value: 'price_asc', label: 'Price: low to high' },
+		{ value: 'price_desc', label: 'Price: high to low' }
 	];
 
 	const activeFilterChips = $derived.by((): ActiveFilterChip[] => {
@@ -46,7 +61,7 @@
 		if (data.filters.filter !== 'all') {
 			chips.push({
 				id: 'filter',
-				label: data.filters.filter,
+				label: CATEGORY_LABELS[data.filters.filter],
 				patch: { filter: 'all', page: 1 }
 			});
 		}
@@ -54,7 +69,7 @@
 		if (data.filters.q) {
 			chips.push({
 				id: 'q',
-				label: `search: ${data.filters.q}`,
+				label: `Search: ${data.filters.q}`,
 				patch: { q: '', page: 1 }
 			});
 		}
@@ -68,11 +83,11 @@
 		}
 
 		if (data.filters.minPrice != null || data.filters.maxPrice != null) {
-			const min = data.filters.minPrice ?? '…';
-			const max = data.filters.maxPrice ?? '…';
+			const min = data.filters.minPrice != null ? formatInr(data.filters.minPrice) : '₹0';
+			const max = data.filters.maxPrice != null ? formatInr(data.filters.maxPrice) : 'any';
 			chips.push({
 				id: 'price',
-				label: `price: ${min}–${max}`,
+				label: `${min} to ${max}`,
 				patch: { minPrice: null, maxPrice: null, page: 1 }
 			});
 		}
@@ -80,7 +95,7 @@
 		if (data.filters.inStock) {
 			chips.push({
 				id: 'inStock',
-				label: 'in_stock',
+				label: 'In stock only',
 				patch: { inStock: false, page: 1 }
 			});
 		}
@@ -91,7 +106,7 @@
 	const hasActiveFilters = $derived(activeFilterChips.length > 0);
 
 	function productHref(product: Product): string {
-		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
+		return productPath(product);
 	}
 
 	function buildSearchParams(patch: Partial<BrowseFilters> = {}): URLSearchParams {
@@ -113,7 +128,8 @@
 	function navigate(patch: Partial<BrowseFilters> = {}) {
 		const params = buildSearchParams(patch);
 		const query = params.toString();
-		mobileFiltersOpen = false;
+		// The mobile drawer stays open so several filters can be set in a row;
+		// "Show N results" closes it.
 
 		if (query) {
 			goto(`?${query}`, { keepFocus: true, noScroll: false });
@@ -137,6 +153,46 @@
 		const target = event.currentTarget as HTMLSelectElement;
 		navigate({ sort: target.value as BrowseSort, page: 1 });
 	}
+
+	function clearFilters() {
+		goto('/crafts', { keepFocus: true, noScroll: false });
+	}
+
+	async function openMobileFilters() {
+		mobileFiltersOpen = true;
+		await tick();
+		filtersCloseButton?.focus();
+	}
+
+	function closeMobileFilters() {
+		mobileFiltersOpen = false;
+		filtersTrigger?.focus();
+	}
+
+	// Body scroll lock and Escape while the mobile drawer is open (same as the header sheet).
+	$effect(() => {
+		if (!mobileFiltersOpen) return;
+
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+
+		function onKeydown(event: KeyboardEvent) {
+			if (event.key === 'Escape') closeMobileFilters();
+		}
+
+		window.addEventListener('keydown', onKeydown);
+		return () => {
+			document.body.style.overflow = previousOverflow;
+			window.removeEventListener('keydown', onKeydown);
+		};
+	});
+
+	// The header search icon links to /crafts#search: put the cursor in the box.
+	afterNavigate(() => {
+		if (page.url.hash === '#search') {
+			document.getElementById('search')?.focus();
+		}
+	});
 </script>
 
 <SeoHead
@@ -147,32 +203,33 @@
 
 <div class="min-h-screen w-full bg-background text-foreground">
 	<div class="mx-auto w-full max-w-7xl px-4 py-8 md:py-12">
-		<Breadcrumbs items={[{ label: 'home', href: '/' }, { label: 'crafts' }]} />
+		<Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Shop' }]} />
 
 		<div class="mt-6 flex flex-col gap-6">
-			<SearchBar value={data.filters.q} onsearch={handleSearch} class="w-full max-w-xl" />
+			<SearchBar
+				value={data.filters.q}
+				onsearch={handleSearch}
+				inputId="search"
+				class="w-full max-w-xl" />
 
 			<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div class="min-w-0">
-					<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Browse creations</h1>
-					<p class="mt-1 font-mono text-sm text-muted-foreground">
+					<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Shop</h1>
+					<p class="mt-1 text-sm text-muted-foreground" aria-live="polite">
 						{#if isRefreshing}
 							<Skeleton class="inline-block h-4 w-32 rounded-sm align-middle" />
-						{:else}
+						{:else if !data.apiError}
 							{data.totalCount} result{data.totalCount === 1 ? '' : 's'}
-							<span aria-hidden="true"> · </span>
-							sort: {data.filters.sort}
 						{/if}
 					</p>
 				</div>
 
-				<label
-					class="flex w-full items-center gap-2 font-mono text-xs text-muted-foreground sm:w-auto">
-					<span>sort</span>
+				<label class="flex w-full items-center gap-2 text-sm text-muted-foreground sm:w-auto">
+					<span>Sort</span>
 					<select
 						value={data.filters.sort}
 						onchange={handleSortChange}
-						class="h-9 w-full rounded-md border border-border bg-card px-3 font-mono text-sm text-foreground focus:border-foreground/30 focus:outline-none sm:w-auto">
+						class="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus:border-foreground/30 focus:outline-none sm:w-auto">
 						{#each sortOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}
@@ -184,12 +241,12 @@
 		<div class="mt-8 md:mt-10">
 			{#if hasActiveFilters}
 				<div class="mb-4 flex flex-wrap items-center gap-2">
-					<p class="w-full font-mono text-xs text-muted-foreground sm:w-auto">// active_filters</p>
+					<p class="w-full text-sm text-muted-foreground sm:w-auto">Active filters</p>
 					{#each activeFilterChips as chip (chip.id)}
 						<button
 							type="button"
 							onclick={() => navigate(chip.patch)}
-							class="inline-flex items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1 font-mono text-xs text-background transition-colors hover:bg-foreground/90">
+							class="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1 text-sm text-background transition-colors hover:bg-foreground/90">
 							{chip.label}
 							<Icon icon={F.dismiss} class="size-3 shrink-0" aria-hidden="true" />
 							<span class="sr-only">Remove {chip.label} filter</span>
@@ -197,9 +254,9 @@
 					{/each}
 					<button
 						type="button"
-						onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
-						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-						clear_all →
+						onclick={clearFilters}
+						class="min-h-9 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+						Clear filters
 					</button>
 				</div>
 			{/if}
@@ -207,17 +264,20 @@
 			<div class="mb-4 flex items-center justify-between md:hidden">
 				<button
 					type="button"
-					onclick={() => (mobileFiltersOpen = true)}
-					class="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 font-mono text-xs text-foreground transition-colors hover:border-foreground/30">
-					<Icon icon={F.options} class="size-3.5" aria-hidden="true" />
-					filters
+					bind:this={filtersTrigger}
+					onclick={openMobileFilters}
+					aria-haspopup="dialog"
+					aria-expanded={mobileFiltersOpen}
+					class="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-foreground transition-colors hover:border-foreground/30">
+					<Icon icon={F.options} class="size-4" aria-hidden="true" />
+					Filters
 				</button>
 				{#if hasActiveFilters}
 					<button
 						type="button"
-						onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
-						class="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-						clear_filters →
+						onclick={clearFilters}
+						class="min-h-10 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+						Clear filters
 					</button>
 				{/if}
 			</div>
@@ -233,13 +293,21 @@
 
 				<div class="min-w-0">
 					{#if isRefreshing}
-						<ProductCardList aria-busy="true" aria-label="Loading crafts">
+						<ProductCardList aria-busy="true" aria-label="Loading listings">
 							{#each [...Array(6).keys()] as i (i)}
 								<ProductCardListItem>
 									<ProductCardSkeleton />
 								</ProductCardListItem>
 							{/each}
 						</ProductCardList>
+					{:else if data.apiError}
+						<div
+							class="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center"
+							role="status">
+							<p class="max-w-md text-sm text-foreground">
+								Search is unavailable right now. Try again in a minute.
+							</p>
+						</div>
 					{:else if data.products.length > 0}
 						<ProductCardList>
 							{#each data.products as product (product.id)}
@@ -257,16 +325,19 @@
 					{:else}
 						<div
 							class="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center">
-							<p class="font-mono text-sm text-muted-foreground">no_results</p>
-							<p class="mt-2 max-w-md text-sm text-foreground">
-								No creations match your filters. Try adjusting search or clearing filters.
+							<p class="max-w-md text-sm text-foreground">
+								{#if data.filters.q}
+									Nothing matches "{data.filters.q}". Try a shorter search or clear filters.
+								{:else}
+									Nothing matches these filters. Try clearing some.
+								{/if}
 							</p>
 							{#if hasActiveFilters}
 								<button
 									type="button"
-									onclick={() => goto('/crafts', { keepFocus: true, noScroll: false })}
-									class="mt-4 font-mono text-xs text-foreground underline-offset-4 hover:underline">
-									clear_filters →
+									onclick={clearFilters}
+									class="mt-4 min-h-10 text-sm text-foreground underline-offset-4 hover:underline">
+									Clear filters
 								</button>
 							{/if}
 						</div>
@@ -283,7 +354,8 @@
 			type="button"
 			class="absolute inset-0 bg-black/40"
 			aria-label="Close filters"
-			onclick={() => (mobileFiltersOpen = false)}></button>
+			tabindex="-1"
+			onclick={closeMobileFilters}></button>
 
 		<div
 			class="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-xl border-t border-border bg-background shadow-2xl"
@@ -291,12 +363,13 @@
 			aria-modal="true"
 			aria-label="Filters">
 			<div class="flex items-center justify-between border-b border-border px-4 py-3">
-				<p class="font-mono text-sm text-foreground">// filters</p>
+				<p class="text-base font-medium text-foreground">Filters</p>
 				<button
 					type="button"
-					class="inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+					bind:this={filtersCloseButton}
+					class="inline-flex size-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
 					aria-label="Close filters"
-					onclick={() => (mobileFiltersOpen = false)}>
+					onclick={closeMobileFilters}>
 					<Icon icon={F.dismiss} class="size-4" />
 				</button>
 			</div>
@@ -308,6 +381,22 @@
 					tagGroups={data.tagGroups}
 					standaloneTags={data.standaloneTags}
 					onchange={navigate} />
+			</div>
+
+			<div class="border-t border-border bg-background px-4 py-3">
+				<button
+					type="button"
+					class="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+					disabled={isRefreshing}
+					onclick={closeMobileFilters}>
+					{#if isRefreshing}
+						Updating results…
+					{:else if data.apiError}
+						Close
+					{:else}
+						Show {data.totalCount} result{data.totalCount === 1 ? '' : 's'}
+					{/if}
+				</button>
 			</div>
 		</div>
 	</div>

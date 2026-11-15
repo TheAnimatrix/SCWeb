@@ -19,6 +19,7 @@
 	import { SeoHead, JsonLd } from '$lib/components/seo';
 	import { homeSeo, organizationJsonLd, websiteJsonLd } from '$lib/seo/meta';
 	import { absoluteUrl } from '$lib/seo/site';
+	import { productPath } from '$lib/seo/product';
 	import { page } from '$app/state';
 
 	let { data } = $props();
@@ -29,52 +30,57 @@
 
 	const features = [
 		{
-			title: 'Maker Marketplace',
+			title: 'Products',
 			description:
-				'Buy and sell finished products and critical components on one platform built for indie hardware.'
+				'Boards, tools and kits built by makers in India. Every listing names the maker who made it.'
 		},
 		{
-			title: 'Local Sourcing',
+			title: 'Spares and flea market',
 			description:
-				'Reduce dependency on expensive imports by connecting with component makers in your city.'
+				"Replacement parts for things you already own, and surplus parts from other makers' benches."
 		},
 		{
-			title: 'Creator Community',
+			title: '3D printing',
 			description:
-				'Join a network of indie creators solving common sourcing and scaling challenges together.'
+				'Upload an STL, pick a material and colour, and ask a maker who owns a printer for a quote.'
 		}
 	];
 
 	function productHref(product: Product) {
-		return `/${product.name.replaceAll(' ', '_')}/craft/item=${product.id}`;
+		return productPath(product);
 	}
 
 	const listingPreview = $derived(data.recentProducts.slice(0, 4));
 	const sparesPreview = $derived(data.recentSpares.slice(0, 4));
 	const fleaMarketPreview = $derived(data.recentFleaMarket.slice(0, 4));
 	const featuredProducts = $derived(data.featuredProducts);
+	const featuredLabel = $derived(data.featuredIsCurated ? 'Featured' : 'Newest');
+	const stats = $derived(data.stats);
+
+	/** Home shows 4 cards per section, so cap the grid at 4 columns (no empty 5th slot). */
+	const HOME_GRID_CLASS = '@min-[1060px]:grid-cols-4';
 
 	const listingSectionMeta = [
 		{
 			id: 'products',
-			title: 'Fresh listings',
-			icon: F.sparkle,
+			title: 'Products',
+			icon: F.box,
 			browseHref: '/crafts?filter=products',
-			emptyMessage: 'No listings yet — check back soon'
+			emptyMessage: 'Nothing listed here yet.'
 		},
 		{
 			id: 'spares',
 			title: 'Spares',
 			icon: F.puzzleCube,
 			browseHref: '/crafts?filter=spares',
-			emptyMessage: 'No spares listed yet — check back soon'
+			emptyMessage: 'No spares listed yet.'
 		},
 		{
 			id: 'flea_market',
 			title: 'Flea market',
 			icon: F.buildingShop,
 			browseHref: '/crafts?filter=flea_market',
-			emptyMessage: 'No flea market listings yet — check back soon'
+			emptyMessage: 'Nothing in the flea market yet.'
 		}
 	] as const;
 
@@ -97,50 +103,47 @@
 			<div class="flex flex-col gap-6 md:gap-8">
 				<div class="space-y-4">
 					<h1 class="text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-6xl">
-						Indie hardware, open to all.
+						Hardware from India's independent makers.
 					</h1>
 					<p class="max-w-lg text-base leading-relaxed text-muted-foreground">
-						A maker-to-everyone marketplace for indie hardware. Makers build in the open; anyone
-						can source parts, buy finished products, and discover what's worth owning.
+						Buy finished products, find spares for the things you already own, or pick up surplus
+						parts from the flea market. If you build hardware, you can sell here too.
 					</p>
 				</div>
 
 				<div class="flex flex-wrap items-center gap-3">
-					<ScButton href="/crafts" arrow>Browse crafts</ScButton>
+					<ScButton href="/crafts" arrow>Browse the shop</ScButton>
 					<ScButton href="/crafting" variant="secondary">Start selling</ScButton>
 				</div>
 
-				<dl class="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-6 font-mono text-sm">
-					{#if isLoading}
+				{#if isLoading}
+					<div class="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-6">
 						{#each [...Array(3).keys()] as i (i)}
 							<Skeleton class="h-4 w-28 rounded-sm" />
 						{/each}
-					{:else}
+					</div>
+				{:else if stats}
+					<dl class="flex flex-wrap gap-x-8 gap-y-2 border-t border-border pt-6 font-mono text-sm">
 						<div>
 							<dt class="inline text-muted-foreground">makers:</dt>
-							<dd class="ml-1 inline text-foreground">{data.stats.makers}</dd>
+							<dd class="ml-1 inline text-foreground">{stats.makers}</dd>
 						</div>
 						<div>
 							<dt class="inline text-muted-foreground">listings:</dt>
-							<dd class="ml-1 inline text-foreground">{data.stats.listings}</dd>
+							<dd class="ml-1 inline text-foreground">{stats.listings}</dd>
 						</div>
 						<div>
-							<dt class="inline text-muted-foreground">users:</dt>
-							<dd class="ml-1 inline text-foreground">{data.stats.users}</dd>
+							<dt class="inline text-muted-foreground">members:</dt>
+							<dd class="ml-1 inline text-foreground">{stats.users}</dd>
 						</div>
-					{/if}
-				</dl>
+					</dl>
+				{/if}
 			</div>
 
 			{#if isLoading}
 				<FeaturedCarouselSkeleton />
 			{:else if featuredProducts.length > 0}
-				<FeaturedCarousel products={featuredProducts} {productHref} />
-			{:else}
-				<div
-					class="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-border bg-card p-8">
-					<p class="font-mono text-sm text-muted-foreground">no featured craft yet</p>
-				</div>
+				<FeaturedCarousel products={featuredProducts} {productHref} label={featuredLabel} />
 			{/if}
 		</div>
 	</DotGrid>
@@ -167,18 +170,27 @@
 				</div>
 
 				{#if isLoading}
-					<ProductCardList aria-busy="true" aria-label="Loading {section.title.toLowerCase()}">
+					<ProductCardList
+						class={HOME_GRID_CLASS}
+						aria-busy="true"
+						aria-label="Loading {section.title.toLowerCase()}">
 						{#each [...Array(4).keys()] as i (i)}
 							<ProductCardListItem>
 								<ProductCardSkeleton />
 							</ProductCardListItem>
 						{/each}
 					</ProductCardList>
+				{:else if data.apiError}
+					<div
+						class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-20 text-center"
+						role="status">
+						<p class="text-sm text-muted-foreground">Listings didn't load. Refresh to try again.</p>
+					</div>
 				{:else if section.items.length > 0}
-					<ProductCardList>
+					<ProductCardList class={HOME_GRID_CLASS}>
 						{#each section.items as product (product.id)}
 							<ProductCardListItem>
-								<ProductCard {product} href={productHref(product)} singleLineTitle />
+								<ProductCard {product} href={productHref(product)} singleLineTitle dimOutOfStock />
 							</ProductCardListItem>
 						{/each}
 					</ProductCardList>

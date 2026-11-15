@@ -22,3 +22,27 @@ export interface MakerApplicationRecord {
 	filaments?: Json | null;
 	approved_state?: string | null;
 }
+
+function plural(value: number, unit: string): string {
+	return `${value} ${unit}${value === 1 ? '' : 's'}`;
+}
+
+/**
+ * `avg_quote_time` is stored as a string of whole seconds (see api creator-stats).
+ * Returns "Usually quotes within 2 hours", or null when there is no usable value.
+ */
+export function formatQuoteTime(avgQuoteTime: number | string | null | undefined): string | null {
+	if (avgQuoteTime == null || avgQuoteTime === '') return null;
+	const seconds = typeof avgQuoteTime === 'number' ? avgQuoteTime : Number(avgQuoteTime);
+	if (!Number.isFinite(seconds) || seconds <= 0) return null;
+
+	let span: string;
+	if (seconds < 60 * 60) {
+		span = `${Math.max(1, Math.ceil(seconds / 60))} min`;
+	} else if (seconds < 24 * 60 * 60) {
+		span = plural(Math.ceil(seconds / (60 * 60)), 'hour');
+	} else {
+		span = plural(Math.ceil(seconds / (24 * 60 * 60)), 'day');
+	}
+	return `Usually quotes within ${span}`;
+}

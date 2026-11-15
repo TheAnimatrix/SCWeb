@@ -1,34 +1,19 @@
 import type { ListUserOrdersResponse, UserOrderView } from '@scweb/api/contracts';
 import { paiseToRupees } from '@scweb/api/contracts';
-import type { Orders } from '$lib/types/product';
 import type { PageServerLoad } from './$types';
+import { toProfileOrderStatus, type ProfileOrder } from './orderStatus';
 import { env } from '$env/dynamic/private';
 
 const API_ORIGIN = env.API_ORIGIN ?? 'http://localhost:3001';
 
 const PRINT_HISTORY_STAGES = ['paid', 'shipped', 'completed', 'paid_externally'] as const;
 
-function mapOrderStatus(status: string): string {
-	switch (status) {
-		case 'paid':
-		case 'fulfilled':
-		case 'shipped':
-			return 'completed';
-		case 'payment_pending':
-			return 'pending';
-		case 'failed':
-		case 'cancelled':
-		case 'refunded':
-			return 'failed';
-		default:
-			return status;
-	}
-}
-
-function mapApiOrderToProfile(order: UserOrderView): Orders[number] {
+function mapApiOrderToProfile(order: UserOrderView): ProfileOrder {
 	return {
+		status: toProfileOrderStatus('cart', order.status),
+		delivery_fee: paiseToRupees(order.deliveryFeePaise),
 		created_at: order.createdAt,
-		payment_status: mapOrderStatus(order.status),
+		payment_status: order.status,
 		payment_method: 'Razorpay',
 		payment_id: order.providerPaymentId,
 		billing_address: JSON.stringify(order.address.billing),
@@ -79,15 +64,17 @@ function mapPrintRequestToProfileOrder(row: {
 	request_stage: string | null;
 	events: unknown;
 	address: unknown;
-}): Orders[number] {
+}): ProfileOrder {
 	const address =
 		typeof row.address === 'object' && row.address !== null && !Array.isArray(row.address)
 			? (row.address as { shipping?: unknown; billing?: unknown })
 			: {};
 
 	return {
+		status: toProfileOrderStatus('print', row.request_stage),
+		delivery_fee: null,
 		created_at: row.created_at,
-		payment_status: 'completed',
+		payment_status: row.request_stage ?? '',
 		payment_method: 'razorpay:PrintRequest',
 		payment_id: null,
 		billing_address: JSON.stringify(address.billing ?? {}),
@@ -145,7 +132,7 @@ function parseLegacyCartList(list: unknown): LegacyCartLine[] {
 
 async function backfillItemsFromCartArchive(
 	supabase: App.Locals['supabase'],
-	orders: Orders
+	orders: ProfileOrder[]
 ): Promise<void> {
 	const ordersMissingItems = orders.filter(
 		(order) =>
@@ -181,11 +168,13 @@ async function backfillItemsFromCartArchive(
 	}
 }
 
-function mapArchivedPurchaseToProfile(row: ArchivedPurchaseRow, userId: string): Orders[number] {
+function mapArchivedPurchaseToProfile(row: ArchivedPurchaseRow, userId: string): ProfileOrder {
 	const items = Array.isArray(row.item_snapshot)
 		? row.item_snapshot
 				.filter(
-					(item): item is {
+					(
+						item
+					): item is {
 						product_id: string;
 						product_name: string;
 						qty: number;
@@ -211,8 +200,10 @@ function mapArchivedPurchaseToProfile(row: ArchivedPurchaseRow, userId: string):
 		: [];
 
 	return {
+		status: toProfileOrderStatus('legacy', row.payment_status),
+		delivery_fee: null,
 		created_at: row.created_at,
-		payment_status: mapOrderStatus(row.payment_status ?? 'failed'),
+		payment_status: row.payment_status ?? '',
 		payment_method: row.payment_method ?? 'Razorpay',
 		payment_id: row.payment_id_b,
 		billing_address: stringifyAddress(row.billing_address),
@@ -231,10 +222,12 @@ function mapArchivedPurchaseToProfile(row: ArchivedPurchaseRow, userId: string):
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user, session } = await safeGetSession();
 	if (!user) {
-		return { orders: [] as Orders };
+		return { orders: [] as ProfileOrder[], ordersError: false };
 	}
 
-	let cartOrders: Orders = [];
+	let cartOrders: ProfileOrder[] = [];
+	// Set whenever a source fails, so the page never shows "No orders yet." to someone who just paid.
+	let ordersError = !session?.access_token;
 
 	if (session?.access_token) {
 		try {
@@ -255,7 +248,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		}
 	}
 
-	const { data: printRequests } = await supabase
+	const { data: printRequests, error: printRequestsError } = await supabase
 		.from('printrequests')
 		.select('id, created_at, request_stage, events, address')
 		.eq('user_id', user.id)
@@ -264,13 +257,17 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
 	const printOrders = (printRequests ?? []).map(mapPrintRequestToProfileOrder);
 
-	const { data: archivedPurchases } = await supabase
+	if (printRequestsError) ordersError = true;
+
+	const { data: archivedPurchases, error: archivedPurchasesError } = await supabase
 		.from('purchases_archive')
 		.select(
 			'id, created_at, payment_status, payment_method, amount, cart_id, billing_address, shipping_address, trackingId, trackingCourier, trackingUrl, payment_id_b, item_snapshot'
 		)
 		.eq('uid', user.id)
 		.order('created_at', { ascending: false });
+
+	if (archivedPurchasesError) ordersError = true;
 
 	const cartOrderCartIds = new Set(
 		cartOrders.map((order) => order.cart_id).filter((cartId): cartId is string => Boolean(cartId))
@@ -300,16 +297,17 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
 		const productMeta = new Map<
 			string,
-			{ name: string | null; author: string | null; authorTier: string | null; imageUrl: string | null }
+			{
+				name: string | null;
+				author: string | null;
+				authorTier: string | null;
+				imageUrl: string | null;
+			}
 		>();
 
 		for (const product of products ?? []) {
-			const images = Array.isArray(product.images)
-				? (product.images as { url?: string }[])
-				: [];
-			const userRef = Array.isArray(product.users)
-				? product.users[0]
-				: product.users;
+			const images = Array.isArray(product.images) ? (product.images as { url?: string }[]) : [];
+			const userRef = Array.isArray(product.users) ? product.users[0] : product.users;
 			const authorTier =
 				typeof userRef === 'object' && userRef !== null && 'tier' in userRef
 					? ((userRef as { tier?: string | null }).tier ?? null)
@@ -336,5 +334,5 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		}
 	}
 
-	return { orders };
+	return { orders, ordersError };
 };

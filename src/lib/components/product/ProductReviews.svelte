@@ -1,9 +1,13 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
+	import { page } from '$app/state';
 
-				import { ReviewCard } from '$lib/components/sc';
+	import { ReviewCard } from '$lib/components/sc';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { cn } from '$lib/utils';
+	import { formatDate } from '$lib/utils/format';
+	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
 	import { formatTimeAgo } from './productSpecs';
 	import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -20,18 +24,24 @@
 		productId: string;
 		reviews?: Review[];
 		initialReviews?: Review[];
+		/** Set when the reviews call failed: shows "Reviews couldn't load." instead of "No reviews yet". */
+		loadError?: string | null;
 		supabase: SupabaseClient | null;
 		class?: string;
 		compact?: boolean;
+		/** Compact mode: opens the full reviews tab. */
+		onShowAll?: () => void;
 	}
 
 	let {
 		productId,
 		reviews = $bindable([]),
 		initialReviews = [],
+		loadError = null,
 		supabase,
 		class: className,
-		compact = false
+		compact = false,
+		onShowAll
 	}: Props = $props();
 
 	let showReviewModal = $state(false);
@@ -41,7 +51,19 @@
 	let reviewError = $state('');
 	let isEditingReview = $state(false);
 	let showDeleteConfirmation = $state(false);
-	let currentUserId = $state<string | null>(null);
+	let deleteError = $state('');
+
+	// The layout's session is known on the server too, so signed-out visitors see
+	// "Sign in to review" straight away instead of a form that fails on submit.
+	const currentUserId = $derived(
+		(page.data.session?.user?.id as string | undefined) ??
+			(page.data.user?.id as string | undefined) ??
+			null
+	);
+	const isSignedIn = $derived(currentUserId !== null);
+	const signInHref = $derived(
+		`/user/sign?postLogin=${encodeURIComponent(`${page.url.pathname}${page.url.search}`)}`
+	);
 
 	const userReview = $derived(
 		currentUserId ? (reviews.find((review) => review.user_id === currentUserId) ?? null) : null
@@ -51,13 +73,6 @@
 		if (initialReviews.length > 0 && reviews.length === 0) {
 			reviews = initialReviews;
 		}
-	});
-
-	$effect(() => {
-		if (!supabase) return;
-		void supabase.auth.getUser().then((result) => {
-			currentUserId = result.data.user?.id ?? null;
-		});
 	});
 
 	function openCreateModal() {
@@ -81,7 +96,7 @@
 	async function submitReview() {
 		if (!supabase) return;
 		if (!reviewComment.trim()) {
-			reviewError = 'Please enter a review comment';
+			reviewError = 'Write a few words about the product.';
 			return;
 		}
 
@@ -91,9 +106,11 @@
 		try {
 			const user = await supabase.auth.getUser();
 			if (!user.data?.user) {
-				throw new Error('You must be logged in to submit a review');
+				throw new Error('Sign in to write a review.');
 			}
 
+			// `user_id` is filled in by the database default (auth.uid()); the RLS policy
+			// only allows inserting rows for yourself.
 			const reviewData = {
 				product_id: productId,
 				rating: reviewRating,
@@ -129,16 +146,17 @@
 						...reviews.filter((review) => review.user_id !== updatedReview.user_id)
 					];
 				}
-
-				// Update userReview reference via reviews list refresh
 			}
 
 			reviewComment = '';
 			reviewRating = 5;
 			isEditingReview = false;
 		} catch (error) {
+			console.error('[reviews] submit failed:', error);
 			reviewError =
-				error instanceof Error ? error.message : 'Failed to submit review. Please try again.';
+				error instanceof Error && error.message.startsWith('Sign in')
+					? error.message
+					: "Your review didn't save. Try again.";
 		} finally {
 			isSubmittingReview = false;
 		}
@@ -146,6 +164,7 @@
 
 	async function deleteReview() {
 		if (!supabase || !userReview) return;
+		deleteError = '';
 
 		try {
 			const result = await supabase.from('reviews').delete().eq('id', userReview.id);
@@ -154,170 +173,187 @@
 			reviews = reviews.filter((review) => review.id !== userReview?.id);
 			showDeleteConfirmation = false;
 		} catch (error) {
-			reviewError =
-				error instanceof Error ? error.message : 'Failed to delete review. Please try again.';
+			console.error('[reviews] delete failed:', error);
+			deleteError = "Your review wasn't deleted. Try again.";
 		}
 	}
+
+	const buttonBase =
+		'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm transition-colors';
+	const primaryButton = cn(buttonBase, 'bg-foreground text-background hover:bg-foreground/90');
+	const secondaryButton = cn(buttonBase, 'bg-card text-foreground hover:bg-muted');
 </script>
 
-<div class={cn('space-y-4', className)}>
-	{#if !compact}
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<h3 class="font-mono text-sm text-foreground">reviews ({reviews.length})</h3>
-			<div class="flex flex-wrap gap-2">
-				{#if userReview}
-					<button
-						type="button"
-						class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:bg-muted"
-						onclick={editReview}>
-						<Icon icon={F.edit} class="h-3.5 w-3.5" />
-						edit_review
-					</button>
-					<button
-						type="button"
-						class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs text-destructive transition-colors hover:bg-muted"
-						onclick={() => (showDeleteConfirmation = true)}>
-						<Icon icon={F.delete} class="h-3.5 w-3.5" />
-						delete
-					</button>
-				{:else if supabase}
-					<button
-						type="button"
-						class="inline-flex items-center gap-1 rounded-md border border-border bg-foreground px-3 py-1.5 font-mono text-xs text-background transition-colors hover:bg-foreground/90"
-						onclick={openCreateModal}>
-						add_review
-					</button>
-				{/if}
-			</div>
-		</div>
+{#snippet writeAction()}
+	{#if !isSignedIn}
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- sign-in path with a postLogin query -->
+		<a href={signInHref} class={secondaryButton}>Sign in to review</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	{:else if supabase}
+		<button type="button" class={primaryButton} onclick={openCreateModal}>Write a review</button>
 	{/if}
+{/snippet}
 
-	{#if reviews.length > 0}
-		<div class="space-y-3">
-			{#each compact ? reviews.slice(0, 3) : reviews as review (review.id)}
-				<ReviewCard
-					rating={review.rating}
-					username={review.users?.username ?? 'anonymous'}
-					timeAgo={formatTimeAgo(review.created_at)}
-					comment={review.comment}
-					class={review.user_id === userReview?.user_id ? 'border-foreground/30' : undefined} />
-			{/each}
-		</div>
+<div class={cn('space-y-4', className)}>
+	{#if compact}
+		<h3 class="text-sm font-medium text-foreground">Reviews</h3>
 	{:else}
-		<div class="rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
-			<p class="font-mono text-sm text-muted-foreground">no_reviews_yet</p>
-			<p class="mt-1 text-sm text-foreground">Be the first to review this product.</p>
-			{#if !compact && supabase}
-				<button
-					type="button"
-					class="mt-4 inline-flex items-center rounded-md border border-border bg-foreground px-3 py-1.5 font-mono text-xs text-background"
-					onclick={openCreateModal}>
-					add_review
-				</button>
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<h3 class="text-base font-medium text-foreground">
+				{loadError ? 'Reviews' : `Reviews (${reviews.length})`}
+			</h3>
+			{#if !loadError}
+				<div class="flex flex-wrap gap-2">
+					{#if userReview}
+						<button type="button" class={secondaryButton} onclick={editReview}>
+							<Icon icon={F.edit} class="h-4 w-4" aria-hidden="true" />
+							Edit review
+						</button>
+						<button
+							type="button"
+							class={cn(secondaryButton, 'text-destructive')}
+							onclick={() => {
+								deleteError = '';
+								showDeleteConfirmation = true;
+							}}>
+							<Icon icon={F.delete} class="h-4 w-4" aria-hidden="true" />
+							Delete
+						</button>
+					{:else if reviews.length > 0}
+						{@render writeAction()}
+					{/if}
+				</div>
 			{/if}
 		</div>
 	{/if}
 
-	{#if compact && reviews.length > 3}
-		<p class="font-mono text-xs text-muted-foreground">+{reviews.length - 3} more in reviews tab</p>
+	{#if loadError}
+		<div class="rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
+			<p class="text-sm text-muted-foreground">Reviews couldn't load.</p>
+		</div>
+	{:else if reviews.length > 0}
+		<div class="space-y-3">
+			{#each compact ? reviews.slice(0, 3) : reviews as review (review.id)}
+				<ReviewCard
+					rating={review.rating}
+					username={formatUsernameDisplay(review.users?.username ?? 'Anonymous')}
+					timeAgo={formatTimeAgo(review.created_at)}
+					date={formatDate(review.created_at)}
+					comment={review.comment}
+					class={review.user_id === userReview?.user_id ? 'border-foreground/30' : undefined} />
+			{/each}
+		</div>
+		{#if compact && reviews.length > 3}
+			<button
+				type="button"
+				class="min-h-10 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+				onclick={() => onShowAll?.()}>
+				See all {reviews.length} reviews
+			</button>
+		{/if}
+	{:else}
+		<div class="rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
+			<p class="text-sm text-muted-foreground">No reviews yet.</p>
+			{#if !compact}
+				<div class="mt-4 flex justify-center">
+					{@render writeAction()}
+				</div>
+			{/if}
+		</div>
 	{/if}
 </div>
 
-{#if showReviewModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-		<div class="relative w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
-			<button
-				type="button"
-				class="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
-				onclick={() => (showReviewModal = false)}
-				aria-label="Close review modal">
-				<Icon icon={F.dismiss} class="h-5 w-5" />
-			</button>
+{#if !compact}
+	<Dialog.Root bind:open={showReviewModal}>
+		<Dialog.Content class="max-w-md">
+			<Dialog.Header>
+				<Dialog.Title>{isEditingReview ? 'Edit your review' : 'Write a review'}</Dialog.Title>
+			</Dialog.Header>
 
-			<h2 class="pr-8 text-lg font-semibold text-foreground">
-				{isEditingReview ? 'Edit your review' : 'Write a review'}
-			</h2>
-
-			<div class="mt-4 space-y-4">
-				<div>
-					<span class="mb-2 block font-mono text-xs text-muted-foreground">rating</span>
+			<div class="space-y-4">
+				<fieldset>
+					<legend class="mb-2 block text-sm font-medium text-foreground">Rating</legend>
 					<div class="flex gap-1">
 						{#each [...Array(5).keys()] as index (index)}
 							<button
 								type="button"
-								class="px-1 font-mono text-lg transition-colors"
+								class="inline-flex size-10 items-center justify-center rounded-md text-xl transition-colors hover:bg-muted"
 								onclick={() => (reviewRating = index + 1)}
-								aria-label="Rate {index + 1} stars">
-								<span class={index < reviewRating ? 'text-foreground' : 'text-muted-foreground/40'}>
+								aria-pressed={reviewRating === index + 1}
+								aria-label="{index + 1} star{index === 0 ? '' : 's'}">
+								<span
+									class={index < reviewRating ? 'text-amber-400' : 'text-muted-foreground/40'}
+									aria-hidden="true">
 									★
 								</span>
 							</button>
 						{/each}
 					</div>
-				</div>
+				</fieldset>
 
 				<div>
-					<label for="review-comment" class="mb-2 block font-mono text-xs text-muted-foreground">
-						comment
+					<label for="review-comment" class="mb-2 block text-sm font-medium text-foreground">
+						Your review
 					</label>
 					<textarea
 						id="review-comment"
 						bind:value={reviewComment}
 						class="min-h-32 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-foreground/30 focus:outline-none"
-						placeholder="Share your experience with this product..."></textarea>
+						placeholder="How was the product?"></textarea>
 				</div>
 
 				{#if reviewError}
-					<p class="font-mono text-xs text-destructive">{reviewError}</p>
+					<p class="text-sm text-destructive" role="alert">{reviewError}</p>
 				{/if}
 
 				<div class="flex gap-3">
 					<button
 						type="button"
-						class="flex-1 rounded-md border border-border bg-card px-4 py-2 font-mono text-sm text-foreground hover:bg-muted"
+						class={cn(secondaryButton, 'flex-1')}
 						onclick={() => (showReviewModal = false)}>
-						cancel
+						Cancel
 					</button>
 					<button
 						type="button"
-						class="flex flex-1 items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2 font-mono text-sm text-background hover:bg-foreground/90 disabled:opacity-50"
+						class={cn(primaryButton, 'flex-1 disabled:opacity-50')}
 						disabled={isSubmittingReview}
 						onclick={submitReview}>
-						{isSubmittingReview
-							? 'submitting…'
-							: isEditingReview
-								? 'update_review'
-								: 'submit_review'}
+						{isSubmittingReview ? 'Saving…' : isEditingReview ? 'Update review' : 'Submit review'}
 					</button>
 				</div>
 			</div>
-		</div>
-	</div>
-{/if}
+		</Dialog.Content>
+	</Dialog.Root>
 
-{#if showDeleteConfirmation}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-		<div class="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
-			<h2 class="text-lg font-semibold text-foreground">Delete your review</h2>
-			<p class="mt-2 text-sm text-muted-foreground">
-				Are you sure you want to delete your review? This action cannot be undone.
-			</p>
+	<Dialog.Root bind:open={showDeleteConfirmation}>
+		<Dialog.Content class="max-w-md">
+			<Dialog.Header>
+				<Dialog.Title>Delete your review</Dialog.Title>
+				<Dialog.Description>This can't be undone.</Dialog.Description>
+			</Dialog.Header>
 
-			<div class="mt-6 flex gap-3">
+			{#if deleteError}
+				<p class="text-sm text-destructive" role="alert">{deleteError}</p>
+			{/if}
+
+			<div class="flex gap-3">
 				<button
 					type="button"
-					class="flex-1 rounded-md border border-border bg-card px-4 py-2 font-mono text-sm text-foreground hover:bg-muted"
+					class={cn(secondaryButton, 'flex-1')}
 					onclick={() => (showDeleteConfirmation = false)}>
-					cancel
+					Cancel
 				</button>
 				<button
 					type="button"
-					class="flex flex-1 items-center justify-center gap-2 rounded-md bg-destructive px-4 py-2 font-mono text-sm text-white hover:bg-destructive/90"
+					class={cn(
+						buttonBase,
+						'flex-1 border-transparent bg-destructive text-white hover:bg-destructive/90'
+					)}
 					onclick={deleteReview}>
-					<Icon icon={F.delete} class="h-4 w-4" />
-					delete_review
+					<Icon icon={F.delete} class="h-4 w-4" aria-hidden="true" />
+					Delete review
 				</button>
 			</div>
-		</div>
-	</div>
+		</Dialog.Content>
+	</Dialog.Root>
 {/if}

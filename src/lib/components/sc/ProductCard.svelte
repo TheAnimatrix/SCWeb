@@ -6,8 +6,9 @@
 	import { getTierIcon, getTierStyle, getTierTextClass } from '$lib/types/tiers';
 	import { cn } from '$lib/utils';
 	import { isBrowseHierarchyTag } from '$lib/utils/browseTags';
-	import { formatTagDisplayLabel, formatUsernameDisplay } from '$lib/utils/formatUsername';
-	import { buildProductTags } from '$lib/utils/productTypeTag';
+	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
+	import { formatInr } from '$lib/utils/format';
+	import { buildProductTags, tagDisplayLabel } from '$lib/utils/productTypeTag';
 	import { isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import PlaceholderImage from './PlaceholderImage.svelte';
 	import MetaChip from './MetaChip.svelte';
@@ -45,9 +46,9 @@
 	const ratingValue = $derived(product.rating?.rating);
 	const ratingCount = $derived(product.rating?.count ?? 0);
 	const showRating = $derived(ratingValue != null && ratingValue > 0 && ratingCount > 0);
-	const formattedPrice = $derived(product.price.new.toLocaleString('en-IN'));
+	const formattedPrice = $derived(formatInr(product.price.new));
 	const formattedOldPrice = $derived(
-		product.price.old > 0 ? product.price.old.toLocaleString('en-IN') : null
+		product.price.old > product.price.new ? formatInr(product.price.old) : null
 	);
 	const showStock = $derived(product.stock.count > 0);
 	const imageUrl = $derived(product.images?.at(0)?.url ?? null);
@@ -74,14 +75,14 @@
 		{#if onDemand}
 			<div class="absolute bottom-2 right-2 z-10">
 				<MetaChip
-					class="border-amber-500/40 bg-amber-500/80 text-[10px] font-medium uppercase tracking-wide text-amber-950 backdrop-blur-sm">
+					class="border-amber-500/40 bg-amber-500/80 text-xs font-medium text-amber-950 backdrop-blur-sm">
 					On demand
 				</MetaChip>
 			</div>
 		{:else if unavailable}
 			<div class="absolute bottom-2 right-2 z-10">
 				<MetaChip
-					class="border-destructive/40 bg-destructive/80 text-[10px] font-medium uppercase tracking-wide text-destructive-foreground backdrop-blur-sm">
+					class="border-destructive/40 bg-destructive/80 text-xs font-medium text-destructive-foreground backdrop-blur-sm">
 					Out of stock
 				</MetaChip>
 			</div>
@@ -93,16 +94,16 @@
 			<h3
 				class={cn(
 					'min-w-0 flex-1 font-medium text-foreground',
-					singleLineTitle
-						? 'truncate text-sm leading-tight'
-						: 'line-clamp-2 text-base leading-snug'
+					singleLineTitle ? 'truncate text-sm leading-tight' : 'line-clamp-2 text-base leading-snug'
 				)}>
 				{product.name}
 			</h3>
 			{#if showRating}
 				<span
 					class="inline-flex shrink-0 items-center gap-0.5 text-xs tabular-nums leading-none text-muted-foreground"
-					aria-label="{ratingValue} out of 5 stars, {ratingCount} review{ratingCount === 1 ? '' : 's'}">
+					aria-label="{ratingValue} out of 5 stars, {ratingCount} review{ratingCount === 1
+						? ''
+						: 's'}">
 					<Icon
 						icon={F.star}
 						class="size-3 shrink-0 fill-amber-400 text-amber-400"
@@ -128,29 +129,28 @@
 			<div class="mt-1 flex flex-wrap gap-1">
 				{#each displayTags as tag (tag.label)}
 					<TagBadge
-						label={formatTagDisplayLabel(tag.label)}
+						label={tagDisplayLabel(tag.label)}
 						subtle
-						class="max-w-full px-1.5 py-px text-[10px] leading-tight" />
+						class="max-w-full px-1.5 py-px text-xs leading-tight" />
 				{/each}
 			</div>
 		{/if}
 
-		<div class="mt-auto flex items-center gap-2 pt-1">
+		<div class="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
 			{#if showStock}
-				<p
-					class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground"
-					aria-label="{product.stock.count} in stock">
+				<p class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
 					<Icon icon={F.box} class="size-3.5 shrink-0" aria-hidden="true" />
-					{product.stock.count}
+					{product.stock.count} in stock
 				</p>
 			{/if}
 			<div class="ml-auto flex shrink-0 items-baseline gap-2">
 				{#if formattedOldPrice}
-					<span class="text-xs tabular-nums text-muted-foreground line-through">
-						₹{formattedOldPrice}
+					<span class="text-sm tabular-nums text-muted-foreground line-through">
+						<span class="sr-only">Was </span>{formattedOldPrice}
 					</span>
 				{/if}
-				<span class="text-base font-semibold tabular-nums tracking-tight text-foreground">₹{formattedPrice}</span>
+				<span class="text-base font-semibold tabular-nums tracking-tight text-foreground"
+					>{formattedPrice}</span>
 			</div>
 		</div>
 	</div>

@@ -18,7 +18,8 @@ export const load: PageServerLoad = async (event) => {
 			const addressResult = await event.locals.supabase
 				.from('addresses')
 				.select('*')
-				.eq('uid', userId);
+				.eq('uid', userId)
+				.order('created_at', { ascending: false });
 
 			if (addressResult.error) {
 				addresses = undefined;

@@ -2,7 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
-		import { cn } from '$lib/utils';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		dragActive?: boolean;
@@ -68,7 +68,7 @@
 					>browse files</span>
 			</p>
 		{/if}
-		<p class="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+		<p class="text-xs text-muted-foreground">
 			STL · max 50MB
 		</p>
 	</div>

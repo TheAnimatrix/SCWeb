@@ -4,7 +4,7 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = async ({ locals, url }) => {
 	const { session } = await locals.safeGetSession();
 	if (!session) {
-		throw redirect(303, `/user/sign?redirectTo=${encodeURIComponent(url.pathname)}`);
+		throw redirect(303, `/user/sign?postLogin=${encodeURIComponent(url.pathname + url.search)}`);
 	}
 
 	const maker = await locals.getMaker();

@@ -47,6 +47,7 @@ export async function applyAsMaker(
 		display_name: string;
 		bio?: string;
 		city?: string;
+		links?: string;
 		capabilities: string[];
 	}
 ) {

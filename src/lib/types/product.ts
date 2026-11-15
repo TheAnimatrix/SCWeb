@@ -132,43 +132,97 @@ export const compareAddress = (a: Address, b: Address) => {
 
 export type Orders = Order[];
 
+export type AddressField =
+	'name' | 'line1' | 'line2' | 'pincode' | 'city' | 'state' | 'phone' | 'email';
+
+/** Display order, also the order fields are focused in when the form is checked. */
+export const ADDRESS_FIELD_ORDER: AddressField[] = [
+	'name',
+	'line1',
+	'line2',
+	'pincode',
+	'city',
+	'state',
+	'phone',
+	'email'
+];
+
+export type AddressFieldErrors = Partial<Record<AddressField, string>>;
+
+/**
+ * Accepts "98765 43210", "098765-43210", "+91 98765 43210", "919876543210" and returns
+ * "+919876543210". Returns null when the input is not a 10-digit Indian mobile number.
+ * Keep in sync with `normalizeIndianPhone` in api/src/contracts/address.ts.
+ */
+export function normalizeIndianPhone(raw: string | null | undefined): string | null {
+	if (!raw) return null;
+	let digits = raw.replace(/[\s\-().]/g, '');
+	if (digits.startsWith('+91')) digits = digits.slice(3);
+	else if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+	else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+	return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : null;
+}
+
+/** Trims text fields and normalises the phone to "+91XXXXXXXXXX" when it is valid. */
+export function normalizeAddressForSave(address: Address): Address {
+	const trim = (value: string | undefined) => (value ?? '').trim();
+	return {
+		...address,
+		name: trim(address.name),
+		line1: trim(address.line1),
+		line2: trim(address.line2),
+		city: trim(address.city),
+		pincode: trim(address.pincode),
+		state: trim(address.state),
+		email: trim(address.email),
+		phone: normalizeIndianPhone(address.phone) ?? trim(address.phone)
+	};
+}
+
+/**
+ * Per-field validation. Limits match `checkoutAddressSchema` in api/src/contracts/address.ts.
+ * `checkEmail` is for guests, who have no account e-mail.
+ */
+export function validateAddressFields(address: Address, checkEmail?: boolean): AddressFieldErrors {
+	const errors: AddressFieldErrors = {};
+	const name = (address.name ?? '').trim();
+	const line1 = (address.line1 ?? '').trim();
+	const line2 = (address.line2 ?? '').trim();
+	const city = (address.city ?? '').trim();
+	const state = (address.state ?? '').trim();
+	const pincode = (address.pincode ?? '').trim();
+	const email = (address.email ?? '').trim();
+
+	if (name.length < 2) errors.name = 'Enter your full name.';
+	else if (name.length > 80) errors.name = 'Keep the name under 80 characters.';
+
+	if (line1.length < 3) errors.line1 = 'Enter your house or flat number and street.';
+	else if (line1.length > 80) errors.line1 = 'Keep address line 1 under 80 characters.';
+
+	if (line2.length > 80) errors.line2 = 'Keep address line 2 under 80 characters.';
+
+	if (!/^\d{6}$/.test(pincode)) errors.pincode = 'Enter a 6-digit pincode.';
+
+	if (city.length < 2) errors.city = 'Enter your city.';
+
+	if (!state || getValidState(state).length <= 0) errors.state = 'Select your state.';
+
+	if (!normalizeIndianPhone(address.phone)) errors.phone = 'Enter a 10-digit mobile number.';
+
+	if (checkEmail === true && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+		errors.email = 'Enter a valid email address.';
+	}
+
+	return errors;
+}
+
+/** First problem with the address, or null when it can be used for checkout. */
 export function validateAddress(address: Address, checkEmail?: boolean): string | null {
-	if (checkEmail === true)
-		if (!address.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email)) {
-			return 'Please enter a valid email address.';
-		}
-
-	if (!address.name || address.name.length < 4 || address.name.length > 35) {
-		return 'Name should be between 4 and 35 characters long.';
+	const errors = validateAddressFields(address, checkEmail);
+	for (const field of ADDRESS_FIELD_ORDER) {
+		if (errors[field]) return errors[field]!;
 	}
-
-	if (!address.line1 || address.line1.length < 10 || address.line1.length > 80) {
-		return 'Address Line1 should be between 10 and 80 characters long.';
-	}
-
-	if (address.line2 && address.line2.length > 50) {
-		return 'Line2 should be at most 50 characters long.';
-	}
-
-	if (!address.pincode || !/^\d{6}$/.test(address.pincode)) {
-		return 'Pincode should be a valid Indian pincode.';
-	}
-
-	// Validation for state and city can be implemented using external libraries or data sources
-	// Assuming you have a function to validate state and city
-	if (!address.state || getValidState(address.state).length <= 0) {
-		return 'State should be a valid Indian state.';
-	}
-
-	if (!address.city || address.city.length < 2) {
-		return 'City should be a valid Indian city.';
-	}
-
-	if (!address.phone || !/^(\+91)?[6789]\d{9}$/.test(address.phone)) {
-		return 'Phone should be a valid Indian number.';
-	}
-
-	return null; // No validation errors found
+	return null;
 }
 
 export function getValidState(state: string): string[] {

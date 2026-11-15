@@ -38,7 +38,7 @@ export default defineConfig({
 			'three/addons/loaders/STLLoader.js',
 			'three/examples/jsm/loaders/3MFLoader.js',
 			'three/examples/jsm/loaders/STLLoader.js'
-		],
+		]
 		// Iconify loads icons on demand; no pre-bundling needed.
 	},
 	resolve: {
@@ -65,11 +65,14 @@ export default defineConfig({
 		sveltekit(),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
+			// SvelteKit builds with a relative base, which made the client register
+			// './sw.js' and request /blog/sw.js on nested pages. Pin both to the site root.
+			buildBase: '/',
+			scope: '/',
 			manifest: {
 				name: 'Selfcrafted India',
 				short_name: 'Selfcrafted',
-				description:
-					'Selfcrafted India is a platform for indie creators to sell their products directly to customers.',
+				description: 'Hardware, spares and 3D printing from independent makers in India.',
 				theme_color: '#000000',
 				background_color: '#000000',
 				display: 'standalone',

@@ -66,29 +66,24 @@ export function HSLToHex(hsl: { h: number; s: number; l: number }): string {
 	return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+/** Shown under every new-password field, before the user submits. */
+export const PASSWORD_RULES_TEXT =
+	'8 or more characters, with an uppercase letter, a lowercase letter and a number.';
+
 export function validatePassword(
 	newPass: string,
 	confirmPass: string
 ): { error: boolean; msg?: string } {
-	// Minimum length of the password
 	const minLength = 8;
-
-	// Regular expression to check for at least one uppercase letter, one lowercase letter, and one digit
+	// At least one uppercase letter, one lowercase letter and one digit.
 	const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
 	if (newPass !== confirmPass) {
-		return { error: true, msg: 'Passwords do not match' };
+		return { error: true, msg: "The passwords don't match." };
 	}
 
-	if (newPass.length < minLength) {
-		return { error: true, msg: 'Password should be at least 8 characters long' };
-	}
-
-	if (!strongRegex.test(newPass)) {
-		return {
-			error: true,
-			msg: 'Password should contain at least one uppercase letter, one lowercase letter, and one digit'
-		};
+	if (newPass.length < minLength || !strongRegex.test(newPass)) {
+		return { error: true, msg: `Your password needs ${PASSWORD_RULES_TEXT}` };
 	}
 
 	return { error: false };

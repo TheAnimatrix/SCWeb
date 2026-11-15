@@ -1,4 +1,3 @@
-import { getGithubStars } from '$lib/server/github';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({
@@ -6,10 +5,7 @@ export const load: LayoutServerLoad = async ({
 	locals: { getLayoutSession, clientId, supabase }
 }) => {
 	depends('supabase:auth');
-	const [{ session, user }, githubStars] = await Promise.all([
-		getLayoutSession(),
-		getGithubStars()
-	]);
+	const { session, user } = await getLayoutSession();
 
 	let username: string | null = null;
 	if (user?.id) {
@@ -30,7 +26,6 @@ export const load: LayoutServerLoad = async ({
 		session,
 		user,
 		username,
-		clientId,
-		githubStars
+		clientId
 	};
 };

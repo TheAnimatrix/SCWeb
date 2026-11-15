@@ -9,7 +9,7 @@
 	import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 	import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
 	import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-								import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 	import Skeleton from '$lib/components/sc/Skeleton.svelte';
 
 	// Material densities in g/cm³
@@ -39,12 +39,9 @@
 	let {
 		file = null,
 		modelColor = '#6366f1',
-		selectedMaterial = 'PLA',
+		// selectedMaterial, selectedInfill, selectedWalls, selectedQuality and quantity are
+		// accepted for callers but not used by the preview (weight estimate is disabled).
 		selectedScale = 1.0,
-		selectedInfill = 20,
-		selectedWalls = 4,
-		selectedQuality = 'Standard (0.20mm)',
-		quantity = 1,
 		modelInfo = $bindable({
 			dimensions: { x: 0, y: 0, z: 0 },
 			fileSize: '0 KB',
@@ -61,6 +58,8 @@
 	let renderer: THREE.WebGLRenderer;
 	let controls: OrbitControls;
 	let currentModel: THREE.Object3D | null = $state(null);
+	// Display-only shrink for huge files (> 1000 units); the reported size is never rescaled.
+	let baseDisplayScale = 1;
 	let isInitialized = $state(false);
 	let isModelLoading = $state(false);
 	let modelLoadError = $state<string | null>(null);
@@ -245,13 +244,12 @@
 
 	// }
 
+	// Keep the preview in step with the scale slider.
 	$effect(() => {
-		void selectedScale;
-		void selectedInfill;
-		void selectedMaterial;
-		void selectedWalls;
-		void selectedQuality;
-		void quantity;
+		const scaleValue = selectedScale;
+		if (currentModel) {
+			currentModel.scale.setScalar(baseDisplayScale * scaleValue);
+		}
 	});
 
 	// Initial model loading effect
@@ -363,6 +361,7 @@
 			}
 
 			// Reset the model info
+			baseDisplayScale = 1;
 			modelInfo.dimensions = { x: 0, y: 0, z: 0 };
 			modelInfo.triangleCount = 0;
 			modelInfo.vertexCount = 0;
@@ -464,6 +463,7 @@
 			if (maxDim > 1000) {
 				const scale = 100 / maxDim;
 				group.scale.set(scale, scale, scale);
+				baseDisplayScale = scale;
 			}
 
 			// Set camera position based on model size
@@ -509,14 +509,8 @@
 
 			const maxDim = Math.max(size.x, size.y, size.z);
 			const model = wrapWithOutline(mesh);
-			let scaleFactor = 1;
-
-			if (maxDim > 1000) {
-				scaleFactor = 100 / maxDim;
-				modelInfo.dimensions.x *= scaleFactor;
-				modelInfo.dimensions.y *= scaleFactor;
-				modelInfo.dimensions.z *= scaleFactor;
-			}
+			const scaleFactor = maxDim > 1000 ? 100 / maxDim : 1;
+			baseDisplayScale = scaleFactor;
 
 			model.scale.setScalar(scaleFactor * selectedScale);
 
@@ -689,7 +683,9 @@
 			'absolute',
 			'inset-0',
 			'size-full',
-			'touch-none',
+			// pan-y lets a vertical one-finger swipe scroll the page on phones;
+			// horizontal swipes still orbit and pinch still zooms.
+			'touch-pan-y',
 			'cursor-grab'
 		);
 		container.appendChild(renderer.domElement);

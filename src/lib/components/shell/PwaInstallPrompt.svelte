@@ -3,19 +3,24 @@
 	import { F } from '$lib/icons/fluent';
 
 	import { onMount } from 'svelte';
-			import { Button } from '$lib/components/ui/button';
+	import { page } from '$app/state';
+	import { Button } from '$lib/components/ui/button';
 	import { wasInstallPromptDismissed } from '$lib/client/pwaInstall';
 	import {
 		dismissInstallPrompt,
+		INSTALL_PROMPT_MIN_VISITS,
 		initPwaInstallState,
+		isInstallPromptAllowedOn,
 		installEvent,
 		installing,
 		isIosDevice,
 		isStandaloneDisplayMode,
-		promptPwaInstall
+		promptPwaInstall,
+		recordVisit
 	} from '$lib/client/pwaInstallState';
 
 	let open = $state(false);
+	const allowedHere = $derived(isInstallPromptAllowedOn(page.url.pathname));
 	let showIosInstructions = $state(false);
 
 	$effect(() => {
@@ -26,8 +31,14 @@
 
 	onMount(() => {
 		initPwaInstallState();
+		const visits = recordVisit();
 
-		if (isStandaloneDisplayMode() || wasInstallPromptDismissed()) {
+		// Never on a first visit: a new buyer should see the shop, not an install sheet.
+		if (
+			visits < INSTALL_PROMPT_MIN_VISITS ||
+			isStandaloneDisplayMode() ||
+			wasInstallPromptDismissed()
+		) {
 			return;
 		}
 
@@ -62,7 +73,7 @@
 	}
 </script>
 
-{#if open}
+{#if open && allowedHere && ($installEvent || showIosInstructions)}
 	<div
 		class="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 p-4 shadow-lg backdrop-blur-sm sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-sm sm:rounded-lg sm:border"
 		role="dialog"
@@ -77,13 +88,7 @@
 				<div>
 					<p id="pwa-install-title" class="font-semibold text-foreground">Install Selfcrafted</p>
 					<p id="pwa-install-description" class="mt-1 text-sm text-muted-foreground">
-						{#if showIosInstructions && !$installEvent}
-							Add this app to your home screen for quick access and a full-screen experience.
-						{:else if $installEvent}
-							Install the app for faster access, offline browsing, and a native-like experience.
-						{:else}
-							Install this app from your browser menu for quicker access and offline browsing.
-						{/if}
+						Add Selfcrafted to your home screen to get back to your orders faster.
 					</p>
 				</div>
 
@@ -106,9 +111,7 @@
 							{$installing ? 'Installing…' : 'Install app'}
 						</Button>
 					{/if}
-					<Button variant="outline" onclick={handleDismiss}>
-						{showIosInstructions && !$installEvent ? 'Not now' : 'Maybe later'}
-					</Button>
+					<Button variant="outline" onclick={handleDismiss}>Not now</Button>
 				</div>
 			</div>
 		</div>

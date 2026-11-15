@@ -1,7 +1,9 @@
 import type { TagGroup, TagOption } from '$lib/types/browse';
 import type { ProductsSelectQuery } from '$lib/types/database';
-import { isTypeDuplicateTag } from '$lib/utils/productTypeTag';
-import { formatTagDisplayLabel } from '$lib/utils/formatUsername';
+import {
+	isTypeDuplicateTag,
+	tagDisplayLabel as formatTagDisplayLabel
+} from '$lib/utils/productTypeTag';
 
 type ProductTagSource = {
 	tags: { tag: string }[] | null | undefined;
@@ -20,7 +22,9 @@ export const MIN_BROWSE_TAG_COUNT = 2;
 
 /** Parent browse filter tag — hidden on product cards; subcategory tags (hotend, probes, toolhead) still show. */
 export function isBrowseHierarchyTag(tag: string): boolean {
-	return Object.keys(BROWSE_TAG_TREE).some((parent) => normalizeTagKey(parent) === normalizeTagKey(tag));
+	return Object.keys(BROWSE_TAG_TREE).some(
+		(parent) => normalizeTagKey(parent) === normalizeTagKey(tag)
+	);
 }
 
 export function normalizeTagKey(value: string): string {

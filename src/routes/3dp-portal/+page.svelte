@@ -4,18 +4,18 @@
 
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-			import { toastStore } from '$lib/client/toastStore';
+	import { resolve } from '$app/paths';
+	import { toastStore } from '$lib/client/toastStore';
 	import { mapPrintFilesError, getPrintFilesQuota } from '$lib/client/printFilesApi';
 	import ModelViewer from '$lib/components/ModelViewer.svelte';
-	import { ScButton, TagBadge, Skeleton } from '$lib/components/sc';
+	import { ScButton, Skeleton } from '$lib/components/sc';
 	import {
 		PortalCard,
 		PortalSectionLabel,
 		PortalStepIndicator,
 		ConfigSummaryBar,
 		PortalModelPreview,
-		ParameterChip,
-		ReadinessChecklist
+		ParameterChip
 	} from '$lib/components/portal';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import { cn } from '$lib/utils';
@@ -47,11 +47,11 @@
 	let selectedMaterial: string = $state('PLA');
 	let selectedQuality = $state('Standard (0.20mm)');
 	let scale = $state(1.0);
-	let infill = $state(15); // Default to 40% (3 walls)
-	let walls = $state(3);
 	const DEFAULT_FILAMENT_COLOR = '#525252';
 
 	let selectedColor = $state(DEFAULT_FILAMENT_COLOR);
+	/** Name of the maker swatch the customer picked; empty until they pick one. */
+	let selectedColorName = $state('');
 
 	function previewModelColor(color: string): string {
 		const normalized = color.trim();
@@ -75,45 +75,88 @@
 	const materials = Array.isArray(data.filtypes)
 		? data.filtypes.filter((material): material is string => typeof material === 'string')
 		: [];
+	// These strings are sent to the maker as-is, so the layer heights here are the real ones.
 	const qualities = ['Draft (0.28mm)', 'Standard (0.20mm)', 'High (0.15mm)'];
 
-	// Strength levels with walls mapping
+	// Strength levels: infill percentage and wall count sent with the request.
 	const strengthLevels = [
-		{ label: 'Light', value: 15, walls: '2 walls' },
-		{ label: 'Basic', value: 20, walls: '3 walls' },
-		{ label: 'Medium', value: 30, walls: '3 walls' },
-		{ label: 'Strong', value: 40, walls: '4 walls' },
-		{ label: 'Stronger', value: 50, walls: '5 walls' },
-		{ label: 'Heavy', value: 80, walls: '5 walls' },
-		{ label: 'Solid', value: 100, walls: '10 walls' }
+		{ label: 'Light', value: 15, walls: 2 },
+		{ label: 'Basic', value: 20, walls: 3 },
+		{ label: 'Medium', value: 30, walls: 3 },
+		{ label: 'Strong', value: 40, walls: 4 },
+		{ label: 'Stronger', value: 50, walls: 5 },
+		{ label: 'Heavy', value: 80, walls: 5 },
+		{ label: 'Solid', value: 100, walls: 10 }
 	];
 
-	// Slider position to strength level mapping
-	let sliderPosition = $state(4); // Default to 'Strong' (40%)
+	const DEFAULT_STRENGTH_INDEX = strengthLevels.findIndex((level) => level.label === 'Basic');
 
-	// Map slider position to actual infill percentage
-	function updateInfillFromSlider() {
-		infill = strengthLevels[sliderPosition].value;
-		walls = parseInt(strengthLevels[sliderPosition].walls.split(' ')[0]);
+	// 0-based index into strengthLevels; infill and walls always follow it.
+	let sliderPosition = $state(DEFAULT_STRENGTH_INDEX);
+	const strength = $derived(
+		strengthLevels[sliderPosition] ?? strengthLevels[DEFAULT_STRENGTH_INDEX]
+	);
+	const infill = $derived(strength.value);
+	const walls = $derived(strength.walls);
+
+	// Settings chosen before signing in are kept in sessionStorage so they survive the
+	// sign-in round trip. The file itself can't be kept.
+	const SETTINGS_KEY = 'scweb:3dp-portal:settings';
+	let settingsRestored = $state(false);
+	let showReuploadHint = $state(false);
+
+	function restoreSettings() {
+		try {
+			const raw = sessionStorage.getItem(SETTINGS_KEY);
+			if (!raw) return;
+			const saved = JSON.parse(raw) as {
+				material?: string;
+				quality?: string;
+				scale?: number;
+				strengthIndex?: number;
+				hadModel?: boolean;
+			};
+			if (saved.material && materials.includes(saved.material)) selectedMaterial = saved.material;
+			if (saved.quality && qualities.includes(saved.quality)) selectedQuality = saved.quality;
+			if (typeof saved.scale === 'number' && saved.scale >= 0.5 && saved.scale <= 2) {
+				scale = saved.scale;
+			}
+			if (
+				typeof saved.strengthIndex === 'number' &&
+				saved.strengthIndex >= 0 &&
+				saved.strengthIndex < strengthLevels.length
+			) {
+				sliderPosition = saved.strengthIndex;
+			}
+			if (data.session) {
+				showReuploadHint = Boolean(saved.hadModel);
+				sessionStorage.removeItem(SETTINGS_KEY);
+			}
+		} catch {
+			// Ignore unreadable or blocked storage.
+		}
 	}
 
-	// Function to get position based on strength level (used for initial value)
-	function getPositionFromStrength(value: number) {
-		if (value === 15) return 1;
-		if (value === 20) return 2;
-		if (value === 30) return 3;
-		if (value === 40) return 4;
-		if (value === 50) return 5;
-		if (value === 80) return 6;
-		if (value === 100) return 7;
-		return 4; // Default to position 4 (Strong)
-	}
+	$effect(() => {
+		const snapshot = {
+			material: selectedMaterial,
+			quality: selectedQuality,
+			scale,
+			strengthIndex: sliderPosition,
+			hadModel: modelLoaded
+		};
+		if (!settingsRestored || data.session) return;
+		try {
+			sessionStorage.setItem(SETTINGS_KEY, JSON.stringify(snapshot));
+		} catch {
+			// Ignore blocked storage.
+		}
+	});
 
-	// Initialize slider and infill values on mount
 	onMount(() => {
 		fetchQuoteRequestStats();
-		// Initialize slider position based on initial infill value
-		sliderPosition = getPositionFromStrength(infill);
+		restoreSettings();
+		settingsRestored = true;
 
 		// Use a small delay to ensure DOM elements are fully rendered
 		setTimeout(() => {
@@ -162,22 +205,21 @@
 		isCalculating: false
 	});
 
+	// A colour counts as chosen only once the customer has picked a maker's swatch.
+	const colourChosen = $derived(
+		selectedColorName !== '' && selectedColor !== DEFAULT_FILAMENT_COLOR
+	);
+	let requestSent = $state(false);
+
 	const portalSteps = $derived([
-		{ id: 'upload', label: 'Upload', done: modelLoaded },
-		{ id: 'configure', label: 'Configure', done: modelLoaded },
-		{ id: 'quote', label: 'Request quote', done: false }
+		{ id: 'upload', label: 'Upload a model', done: modelLoaded },
+		{ id: 'maker', label: 'Pick a maker and colour', done: colourChosen },
+		{ id: 'quote', label: 'Request a quote', done: requestSent }
 	]);
 
-	const currentStep = $derived(modelLoaded ? 'configure' : 'upload');
-
-	const readinessItems = $derived([
-		{ label: 'Upload an STL model', done: modelLoaded },
-		{
-			label: 'Set material, quality & strength',
-			done: Boolean(selectedMaterial && selectedQuality)
-		},
-		{ label: 'Choose a maker and filament color below', done: false }
-	]);
+	const currentStep = $derived(
+		!modelLoaded ? 'upload' : !colourChosen ? 'maker' : requestSent ? '' : 'quote'
+	);
 
 	function replaceModel() {
 		browseFiles();
@@ -345,7 +387,7 @@
 		} else return false;
 
 		//
-		let maker = await supabase().from('PrintingCrafters').select().eq('maker_id', userid);
+		let maker = await supabase().from('PrintingCrafters').select('maker_id').eq('maker_id', userid);
 		if (!maker.error && maker.data && maker.data.length > 0) {
 			return true;
 		} else return false;
@@ -405,7 +447,7 @@
 		if (onProgress) onProgress(0);
 		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
-			toastStore.show('You must be logged in to request a quote', 'error');
+			toastStore.show('Sign in to request a quote.', 'error');
 			if (onProgress) onProgress(null);
 			return;
 		}
@@ -431,6 +473,7 @@
 		formData.append('quality', quality);
 		formData.append('scale', String(scale));
 		formData.append('infill', String(infill));
+		formData.append('walls', String(walls));
 		formData.append('model_file', model);
 
 		const previewDataUrl = modelViewer?.capturePreview?.();
@@ -485,10 +528,17 @@
 				if (onProgress) onProgress(null);
 				return;
 			}
-			toastStore.show('Quote request submitted!', 'success');
+			requestSent = true;
+			const newId = (json as { printRequest?: { id?: unknown } })?.printRequest?.id;
+			if (typeof newId === 'string' && newId) {
+				toastStore.show('Quote request sent to the maker.', 'success');
+				await goto(resolve('/3dp-portal/(authenticated)/user/[id]', { id: newId }));
+				return;
+			}
+			toastStore.show('Quote request sent. Find it under My print requests.', 'success');
 			await fetchQuoteRequestStats();
 		} catch {
-			toastStore.show('Unexpected error submitting quote request', 'error');
+			toastStore.show("Couldn't send your quote request. Try again.", 'error');
 		} finally {
 			if (onProgress) onProgress(null);
 		}
@@ -500,10 +550,9 @@
 <div class="min-h-screen bg-background text-foreground">
 	<div class="mx-auto max-w-7xl px-4 pb-16">
 		<header class="mb-8 border-b border-border pb-8">
-			<TagBadge label="3D Portal" class="mb-3" />
-			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">Community 3D Printing</h1>
+			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">3D printing</h1>
 			<p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-				Upload a model, tune your print settings, then request a quote from a maker near you.
+				Upload an STL, choose a material and print settings, then ask a maker for a quote.
 			</p>
 			<PortalStepIndicator steps={portalSteps} current={currentStep} class="mt-6" />
 		</header>
@@ -522,11 +571,31 @@
 						<span class="text-sm text-muted-foreground">of {quoteDailyLimit} left today</span>
 					</div>
 					<p class="mt-2 text-xs leading-relaxed text-muted-foreground">
-						Quote requests are limited while we're a small team — please use them thoughtfully.
+						Quote requests are limited while we're a small team, so please use them thoughtfully.
+						The limit resets daily.
 					</p>
 				{:else}
-					<p class="text-sm text-muted-foreground">Sign in to see your quote limit.</p>
+					<p class="text-sm text-muted-foreground">
+						Couldn't load your quote limit. Refresh to try again.
+					</p>
 				{/if}
+				{#if showReuploadHint && !modelLoaded}
+					<p class="mt-3 text-sm text-foreground">
+						Your settings were kept. Upload your model again to continue.
+					</p>
+				{/if}
+			</PortalCard>
+		{:else}
+			<PortalCard class="mb-4">
+				<p class="text-sm text-foreground">You need a Selfcrafted account to request a quote.</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					You can upload a model and try settings first. Your settings are kept when you sign in,
+					but you'll need to upload the model again.
+				</p>
+				<div class="mt-3">
+					<ScButton href="/user/sign?postLogin={encodeURIComponent('/3dp-portal')}"
+						>Sign in</ScButton>
+				</div>
 			</PortalCard>
 		{/if}
 
@@ -541,7 +610,7 @@
 					selectedScale={scale}
 					selectedInfill={infill}
 					{selectedQuality}
-					selectedWalls={parseInt(strengthLevels[sliderPosition].walls.split(' ')[0])}
+					selectedWalls={walls}
 					{dragActive}
 					bind:cubeContainer
 					bind:modelViewer
@@ -556,7 +625,7 @@
 					onReplace={replaceModel}
 					onFailedLoad={() => {
 						toastStore.show(
-							'Sorry, this STL is not compatible with our portal. Please try a different model.',
+							"We couldn't read this STL. Re-export it as a binary STL from your CAD or slicer, or check that it isn't empty or corrupted.",
 							'error'
 						);
 						modelFile = null;
@@ -577,30 +646,36 @@
 						material={selectedMaterial}
 						quality={selectedQuality}
 						{scale}
-						strengthLabel={strengthLevels[sliderPosition].label}
+						strengthLabel={strength.label}
 						{infill}
 						color={selectedColor}
+						colorName={colourChosen ? selectedColorName : ''}
 						class="mb-5" />
 
 					<div class="mb-5">
 						<PortalSectionLabel label="material" />
-						<div class="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+						<div class="grid grid-cols-3 gap-1.5 sm:grid-cols-5" role="group" aria-label="Material">
 							{#each materials as material (material)}
 								<ParameterChip
 									selected={selectedMaterial === material}
 									onclick={() => {
 										selectedMaterial = material;
 										selectedColor = DEFAULT_FILAMENT_COLOR;
+										selectedColorName = '';
 									}}>
 									{material}
 								</ParameterChip>
 							{/each}
 						</div>
+						<p class="mt-2 text-xs leading-relaxed text-muted-foreground">
+							PLA is easy to print and good for indoor parts. PETG is tougher and copes better with
+							heat and outdoor use. TPU is flexible.
+						</p>
 					</div>
 
 					<div class="mb-5">
 						<PortalSectionLabel label="quality" />
-						<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+						<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-3" role="group" aria-label="Quality">
 							{#each qualities as quality (quality)}
 								<ParameterChip
 									selected={selectedQuality === quality}
@@ -609,6 +684,10 @@
 								</ParameterChip>
 							{/each}
 						</div>
+						<p class="mt-2 text-xs leading-relaxed text-muted-foreground">
+							Thinner layers look smoother but take longer to print. Draft 0.28 mm, Standard 0.20
+							mm, High 0.15 mm.
+						</p>
 					</div>
 
 					<div class="mb-5">
@@ -635,47 +714,54 @@
 							min="0.5"
 							max="2"
 							step="0.05"
+							aria-label="Scale"
+							aria-valuetext="{scale.toFixed(2)} times"
 							bind:value={scale}
 							oninput={() => modelViewer?.notifySliderMoving?.()}
 							class="portal-range w-full" />
+						<p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+							Makes the whole model bigger or smaller. 1x prints it at the size in the file.
+						</p>
 					</div>
 
 					<div>
 						<div class="mb-2 flex items-center justify-between gap-2">
 							<PortalSectionLabel label="strength" class="mb-0" />
 							<span class="text-xs tabular-nums text-muted-foreground">
-								{strengthLevels[sliderPosition].label} · {infill}%
+								{strength.label} · {infill}% infill · {walls} walls
 							</span>
 						</div>
 						<input
 							type="range"
 							min="0"
-							max="6"
+							max={strengthLevels.length - 1}
 							step="1"
+							aria-label="Strength"
+							aria-valuetext="{strength.label}, {infill}% infill, {walls} walls"
 							bind:value={sliderPosition}
-							oninput={() => {
-								updateInfillFromSlider();
-								modelViewer?.notifySliderMoving?.();
-							}}
+							oninput={() => modelViewer?.notifySliderMoving?.()}
 							class="portal-range w-full" />
 						<div
-							class="pointer-events-none mt-2 flex justify-between text-[11px] text-muted-foreground">
-							{#each strengthLevels as level (level.label)}
-								<span class="truncate px-0.5">{level.label}</span>
-							{/each}
+							class="pointer-events-none mt-2 flex justify-between text-xs text-muted-foreground"
+							aria-hidden="true">
+							<span>{strengthLevels[0].label}</span>
+							<span>{strengthLevels[strengthLevels.length - 1].label}</span>
 						</div>
+						<p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+							How solid the inside is. Basic is fine for display parts. Pick Strong or higher for
+							parts that take load, like brackets.
+						</p>
 					</div>
 				</PortalCard>
 			</div>
 		</div>
 
 		<div class="mt-10 space-y-6">
-			<ReadinessChecklist items={readinessItems} />
-
 			<AvailableMakers
 				currentUserId={data.session?.user?.id ?? ''}
 				model={modelFile}
 				bind:color={selectedColor}
+				bind:colorName={selectedColorName}
 				bind:material={selectedMaterial}
 				quality={selectedQuality}
 				{scale}
@@ -693,13 +779,12 @@
 					<Accordion.Item value="disclaimer" class="border-b border-border pb-1">
 						<Accordion.Trigger
 							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80">
-							Disclaimer
+							What if I deal with a maker outside Selfcrafted?
 						</Accordion.Trigger>
 						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
 							<p>
-								If you choose to communicate with a crafter and decide to place an order outside of
-								this platform, please be aware that you assume full responsibility for that order.
-								Any ratings or reviews related to such transactions will also not be considered.
+								Then the order is between you and them. We can't help with refunds or disputes for
+								it, and it won't count towards the maker's ratings or reviews.
 							</p>
 						</Accordion.Content>
 					</Accordion.Item>
@@ -707,14 +792,13 @@
 					<Accordion.Item value="supports" class="border-b border-border pb-1">
 						<Accordion.Trigger
 							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80">
-							How about customization?
+							Can I ask for changes or a custom job?
 						</Accordion.Trigger>
 						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
 							<p>
-								For custom print requests, our Discord server is an excellent resource.
-								Additionally, you can utilize the basic chat feature available on the 3dp orders
-								page within your profile. After a thorough discussion, the crafter will be able to
-								revise the final quote, allowing you to proceed with your order.
+								Yes. Once you've requested a quote you can message the maker from the request page,
+								and they can change the quote before you pay. For bigger custom jobs, ask on our
+								Discord.
 							</p>
 						</Accordion.Content>
 					</Accordion.Item>
@@ -722,13 +806,12 @@
 					<Accordion.Item value="3mf" class="border-0 pb-1">
 						<Accordion.Trigger
 							class="w-full text-left text-sm font-medium text-foreground hover:text-foreground/80">
-							Why don't you support 3MF?
+							Why only STL?
 						</Accordion.Trigger>
 						<Accordion.Content class="mt-2 text-sm text-muted-foreground">
 							<p>
-								Currently, processing 3MF files in the browser is challenging and not fully
-								supported due to various bugs. As an alternative, you can use a slicer of your
-								choice to convert the 3MF file into a single STL format.
+								Our in-browser preview can't read 3MF files reliably yet. Export a single STL from
+								your slicer or CAD tool and upload that.
 							</p>
 						</Accordion.Content>
 					</Accordion.Item>
@@ -740,21 +823,20 @@
 					<PortalCard>
 						<div class="mb-4 flex items-center gap-2">
 							<Icon icon={F.wrench} class="size-4 text-muted-foreground" />
-							<span class="text-sm font-medium text-foreground">Join Fabbly</span>
+							<span class="text-sm font-medium text-foreground">Own a 3D printer?</span>
 						</div>
 
 						<div class="space-y-4">
 							<p class="text-sm leading-relaxed text-muted-foreground">
-								Are you passionate about 3D printing? Join our community of skilled makers and turn
-								your expertise into opportunities! Share your skills and connect with designers
-								worldwide.
+								Makers on Selfcrafted take print jobs through this page. You list the filament you
+								have in stock, buyers send you a model, and you quote a price.
 							</p>
 
 							<div class="rounded-md border border-border bg-muted/30 p-4">
-								<div class="mb-2 text-xs font-medium text-foreground">Requirements</div>
+								<div class="mb-2 text-xs font-medium text-foreground">What you need</div>
 								<ul class="space-y-2 text-sm text-muted-foreground">
-									<li>Active Selfcrafted Account</li>
-									<li>Verified ownership of operational 3D printer(s)</li>
+									<li>A Selfcrafted account</li>
+									<li>A working 3D printer</li>
 								</ul>
 							</div>
 
@@ -765,13 +847,13 @@
 									{:else}
 										<span></span>
 									{/if}
+									<!-- /portal/printing sends non-makers to the maker application and tells
+										approved makers without printing how to add it. -->
 									<ScButton
-										onclick={() => {
-											const isLoggedIn = data.session?.user.id;
-											if (!isLoggedIn) goto('/user/sign?postLogin=/3dp-portal/maker');
-											else goto('/3dp-portal/maker');
-										}}>
-										I want to be part of Fabbly!
+										href={data.session?.user.id
+											? '/portal/printing'
+											: `/user/sign?postLogin=${encodeURIComponent('/portal/printing')}`}>
+										Apply to offer 3D printing
 									</ScButton>
 								</div>
 							{/await}

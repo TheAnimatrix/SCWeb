@@ -20,7 +20,7 @@ describe('authValidation', () => {
 				password: 'Password1',
 				confirmPassword: 'Password2'
 			})
-		).toBe('Passwords do not match');
+		).toBe("The passwords don't match.");
 	});
 
 	it('accepts valid reset confirm payload', () => {

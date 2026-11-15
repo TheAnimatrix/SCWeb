@@ -3,8 +3,9 @@
 	import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
 	import { ProseSkeleton } from '$lib/components/sc';
 	import MobileExpandable from '$lib/components/sc/MobileExpandable.svelte';
-	import { renderCostingMarkdown } from '$lib/utils/markdown';
+	import { renderCostingMarkdown, renderUserContent } from '$lib/utils/markdown';
 	import * as Accordion from '$lib/components/ui/accordion';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import TabPanelTransition from '$lib/components/ui/TabPanelTransition.svelte';
 	import { cn } from '$lib/utils';
 	import ProductReviews from './ProductReviews.svelte';
@@ -20,8 +21,7 @@
 		});
 	}
 
-	type TabId = 'description' | 'docs' | 'reviews';
-	type DocSectionId = 'documentation' | 'faq' | 'costing' | 'shipping';
+	type TabId = 'description' | 'shipping' | 'docs' | 'reviews';
 
 	interface Review {
 		id: string;
@@ -36,6 +36,8 @@
 		product: Product;
 		reviews?: Review[];
 		initialReviews?: Review[];
+		/** Set when the reviews call failed, so "no reviews" isn't shown for an outage. */
+		reviewsError?: string | null;
 		supabase: SupabaseClient | null;
 		class?: string;
 	}
@@ -44,181 +46,196 @@
 		product,
 		reviews = $bindable([]),
 		initialReviews = [],
+		reviewsError = null,
 		supabase,
 		class: className
 	}: Props = $props();
 
+	// documentation layout: [0]=description, [1]=docs, [2]=price breakdown, [3]=shipping
+	const description = $derived(product.documentation?.at(0));
+	const docs = $derived(product.documentation?.at(1));
+	const costing = $derived(product.documentation?.at(2));
+	const shipping = $derived(product.documentation?.at(3));
+	const faq = $derived((product.faq ?? []).filter((item) => item.question?.trim()));
+
+	const hasDocs = $derived(Boolean(docs?.data?.trim() || costing?.data?.trim() || faq.length > 0));
+
 	let activeTab = $state<TabId>('description');
-	let activeDocSection = $state<DocSectionId>('documentation');
 
-	const tabs = $derived([
-		{ id: 'description' as const, label: 'description' },
-		{ id: 'docs' as const, label: 'docs & firmware' },
-		{ id: 'reviews' as const, label: `reviews (${reviews.length})` }
-	]);
+	const tabs = $derived(
+		[
+			{ id: 'description' as const, label: 'Description', show: true },
+			{ id: 'shipping' as const, label: 'Shipping', show: true },
+			{ id: 'docs' as const, label: 'Docs', show: hasDocs },
+			{
+				id: 'reviews' as const,
+				label: reviewsError ? 'Reviews' : `Reviews (${reviews.length})`,
+				show: true
+			}
+		].filter((tab) => tab.show)
+	);
 
-	const docSections = $derived([
-		{ id: 'documentation' as const, label: 'documentation' },
-		{ id: 'faq' as const, label: 'faq' },
-		{ id: 'costing' as const, label: 'costing' },
-		{ id: 'shipping' as const, label: 'shipping' }
-	]);
+	// A product without docs must not keep a hidden tab selected (e.g. after a variant switch).
+	$effect(() => {
+		if (!tabs.some((tab) => tab.id === activeTab)) activeTab = 'description';
+	});
 
-	const tagButtonClass = (isActive: boolean) =>
-		cn(
-			'rounded-md px-3 py-1.5 font-mono text-xs transition-all duration-200',
-			isActive
-				? 'bg-foreground text-background'
-				: 'text-muted-foreground hover:bg-muted hover:text-foreground'
-		);
+	const triggerClass =
+		'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground shadow-none transition-all duration-200 hover:bg-muted hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-none';
 </script>
 
-<section class={cn('space-y-4', className)}>
-	<div
-		class="flex flex-wrap gap-2 border-b border-border pb-3"
-		role="tablist"
-		aria-label="Product details">
-		{#each tabs as tab (tab.id)}
-			<button
-				type="button"
-				role="tab"
-				aria-selected={activeTab === tab.id}
-				class={tagButtonClass(activeTab === tab.id)}
-				onclick={() => (activeTab = tab.id)}>
-				{tab.label}
-			</button>
-		{/each}
-	</div>
-
-	<TabPanelTransition tabKey={activeTab}>
-		{#if activeTab === 'reviews'}
-			<ProductReviews productId={product.id} bind:reviews {initialReviews} {supabase} />
+{#snippet makerContent(
+	entry: { data: string; isMDUrl: boolean } | undefined,
+	emptyText: string,
+	errorText: string
+)}
+	{#if entry?.isMDUrl && entry.data}
+		{@const remote = loadRemoteHtml(entry.data)}
+		{#if remote}
+			{#await remote}
+				<ProseSkeleton class="py-4" lines={4} />
+			{:then text}
+				<HTMLWrapper html={renderUserContent(text)} />
+			{:catch}
+				<p class="text-sm text-muted-foreground">{errorText}</p>
+			{/await}
 		{:else}
-			<div class="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-				<div
-					class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6 [&_.html-table-scroll]:-mx-5 [&_.html-table-scroll]:w-[calc(100%+2.5rem)] md:[&_.html-table-scroll]:mx-0 md:[&_.html-table-scroll]:w-full">
-					<MobileExpandable resetKey={`${activeTab}-${activeDocSection}`}>
-					{#if activeTab === 'description'}
-						<div class="prose prose-sm max-w-none break-words text-foreground prose-a:break-all">
-							{#if product.documentation?.at(0)?.isMDUrl && product.documentation?.at(0)?.data}
-								{@const descriptionUrl = product.documentation.at(0)!.data}
-								{@const remoteDescription = loadRemoteHtml(descriptionUrl)}
-								{#if remoteDescription}
-									{#await remoteDescription}
-										<ProseSkeleton class="py-4" />
-									{:then text}
-										<HTMLWrapper html={text} />
-									{:catch}
-										<p class="text-center text-sm text-muted-foreground">
-											Oops! There was an error retrieving the description.
-										</p>
-									{/await}
-								{:else}
-									<ProseSkeleton class="py-4" />
-								{/if}
-							{:else if product.documentation?.at(0)?.data}
-								<HTMLWrapper html={product.documentation.at(0)?.data ?? ''} />
-							{:else}
-								<p class="text-center text-sm text-muted-foreground">
-									No description available yet.
-								</p>
-							{/if}
-						</div>
-					{:else}
-						<div class="space-y-4 text-sm text-foreground">
-							<div
-								class="flex flex-wrap gap-2 border-b border-border pb-3"
-								role="tablist"
-								aria-label="Documentation sections">
-								{#each docSections as section (section.id)}
-									<button
-										type="button"
-										role="tab"
-										aria-selected={activeDocSection === section.id}
-										class={tagButtonClass(activeDocSection === section.id)}
-										onclick={() => (activeDocSection = section.id)}>
-										{section.label}
-									</button>
-								{/each}
-							</div>
-
-							<TabPanelTransition tabKey={activeDocSection}>
-								{#if activeDocSection === 'documentation'}
-									{#if product.documentation?.at(1)?.data}
-										<div class="whitespace-pre-wrap">{product.documentation.at(1)?.data}</div>
-									{:else}
-										<p class="text-muted-foreground">No documentation available.</p>
-									{/if}
-								{:else if activeDocSection === 'faq'}
-									{#if product.faq && product.faq.length > 0}
-										<Accordion.Root class="w-full" type="multiple">
-											{#each product.faq as faq, index (faq.question + index)}
-												<Accordion.Item
-													value="faq-{index}"
-													class="border-b border-border last:border-0">
-													<Accordion.Trigger
-														class="items-start gap-3 py-4 text-left text-sm font-medium hover:no-underline">
-														<span class="min-w-0 flex-1 text-left">{faq.question}</span>
-													</Accordion.Trigger>
-													<Accordion.Content class="text-sm text-muted-foreground">
-														{faq.answer}
-													</Accordion.Content>
-												</Accordion.Item>
-											{/each}
-										</Accordion.Root>
-									{:else}
-										<p class="text-muted-foreground">No FAQ available.</p>
-									{/if}
-								{:else if activeDocSection === 'costing'}
-									{#if product.documentation?.at(2)?.data && product.documentation?.at(2)?.isMDUrl}
-										{@const costingUrl = product.documentation.at(2)!.data}
-										{@const remoteCosting = loadRemoteHtml(costingUrl)}
-										{#if remoteCosting}
-											{#await remoteCosting}
-												<ProseSkeleton lines={4} />
-											{:then text}
-												<HTMLWrapper html={text} />
-											{:catch}
-												<p class="text-muted-foreground">No costing details available.</p>
-											{/await}
-										{:else}
-											<ProseSkeleton lines={4} />
-										{/if}
-									{:else if product.documentation?.at(2)?.data}
-										<HTMLWrapper
-											html={renderCostingMarkdown(product.documentation.at(2)?.data ?? '')} />
-									{:else}
-										<p class="text-muted-foreground">No costing details available.</p>
-									{/if}
-								{:else if product.documentation?.at(3)?.data && product.documentation?.at(3)?.isMDUrl}
-									{@const shippingUrl = product.documentation.at(3)!.data}
-									{@const remoteShipping = loadRemoteHtml(shippingUrl)}
-									{#if remoteShipping}
-										{#await remoteShipping}
-											<ProseSkeleton lines={4} />
-										{:then text}
-											<HTMLWrapper html={text} />
-										{:catch}
-											<p class="text-muted-foreground">No shipping details available.</p>
-										{/await}
-									{:else}
-										<ProseSkeleton lines={4} />
-									{/if}
-								{:else if product.documentation?.at(3)?.data}
-									<HTMLWrapper html={product.documentation.at(3)?.data ?? ''} />
-								{:else}
-									<p class="text-muted-foreground">No shipping details available.</p>
-								{/if}
-							</TabPanelTransition>
-						</div>
-					{/if}
-					</MobileExpandable>
-				</div>
-
-				<div class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6">
-					<ProductReviews productId={product.id} bind:reviews {initialReviews} {supabase} compact />
-				</div>
-			</div>
+			<ProseSkeleton class="py-4" lines={4} />
 		{/if}
-	</TabPanelTransition>
+	{:else if entry?.data?.trim()}
+		<HTMLWrapper html={renderUserContent(entry.data)} />
+	{:else if emptyText}
+		<p class="text-sm text-muted-foreground">{emptyText}</p>
+	{/if}
+{/snippet}
+
+<section class={cn('space-y-4', className)}>
+	<Tabs.Root bind:value={activeTab}>
+		<Tabs.List
+			class="flex h-auto w-full flex-wrap justify-start gap-2 rounded-none border-b border-border bg-transparent p-0 pb-3"
+			aria-label="Product details">
+			{#each tabs as tab (tab.id)}
+				<Tabs.Trigger value={tab.id} class={triggerClass}>{tab.label}</Tabs.Trigger>
+			{/each}
+		</Tabs.List>
+
+		<TabPanelTransition tabKey={activeTab} class="mt-4">
+			<Tabs.Content value={activeTab} class="mt-0">
+				{#if activeTab === 'reviews'}
+					<ProductReviews
+						productId={product.id}
+						bind:reviews
+						{initialReviews}
+						loadError={reviewsError}
+						{supabase} />
+				{:else}
+					<div class="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+						<div
+							class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6 [&_.html-table-scroll]:-mx-5 [&_.html-table-scroll]:w-[calc(100%+2.5rem)] md:[&_.html-table-scroll]:mx-0 md:[&_.html-table-scroll]:w-full">
+							<MobileExpandable resetKey={activeTab}>
+								<div
+									class="prose prose-sm max-w-none break-words text-foreground prose-a:break-all">
+									{#if activeTab === 'description'}
+										{@render makerContent(
+											description,
+											"The maker hasn't added a description yet.",
+											"Couldn't load the description. Refresh to try again."
+										)}
+									{:else if activeTab === 'shipping'}
+										<ul class="not-prose mb-4 space-y-1 text-sm text-foreground">
+											<li>Flat ₹99 delivery anywhere in India</li>
+											<li>Ships in 3 to 14 days</li>
+										</ul>
+										{@render makerContent(
+											shipping,
+											'',
+											"Couldn't load the shipping notes. Refresh to try again."
+										)}
+										<p class="not-prose mt-4 text-sm text-muted-foreground">
+											Read the
+											<!-- eslint-disable svelte/no-navigation-without-resolve -- static policy anchor -->
+											<a
+												href="/policy#shipping"
+												class="text-foreground underline underline-offset-2">
+												shipping policy
+											</a>
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
+											and
+											<!-- eslint-disable svelte/no-navigation-without-resolve -- static policy anchor -->
+											<a
+												href="/policy#cancellation"
+												class="text-foreground underline underline-offset-2">
+												cancellation and refunds
+											</a>.
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
+										</p>
+									{:else if activeTab === 'docs'}
+										<div class="space-y-6">
+											{#if docs?.data?.trim()}
+												<section>
+													<h3>Documentation</h3>
+													{@render makerContent(
+														docs,
+														'',
+														"Couldn't load the documentation. Refresh to try again."
+													)}
+												</section>
+											{/if}
+
+											{#if faq.length > 0}
+												<section>
+													<h3>FAQ</h3>
+													<Accordion.Root class="not-prose w-full" type="multiple">
+														{#each faq as item, index (item.question + index)}
+															<Accordion.Item
+																value="faq-{index}"
+																class="border-b border-border last:border-0">
+																<Accordion.Trigger
+																	class="items-start gap-3 py-4 text-left text-sm font-medium hover:no-underline">
+																	<span class="min-w-0 flex-1 text-left">{item.question}</span>
+																</Accordion.Trigger>
+																<Accordion.Content class="text-sm text-muted-foreground">
+																	<HTMLWrapper html={renderUserContent(item.answer ?? '')} />
+																</Accordion.Content>
+															</Accordion.Item>
+														{/each}
+													</Accordion.Root>
+												</section>
+											{/if}
+
+											{#if costing?.data?.trim()}
+												<section>
+													<h3>Price breakdown</h3>
+													{#if costing.isMDUrl}
+														{@render makerContent(
+															costing,
+															'',
+															"Couldn't load the price breakdown. Refresh to try again."
+														)}
+													{:else}
+														<HTMLWrapper html={renderCostingMarkdown(costing.data)} />
+													{/if}
+												</section>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							</MobileExpandable>
+						</div>
+
+						<div class="min-w-0 rounded-lg border border-border bg-card p-5 md:p-6">
+							<ProductReviews
+								productId={product.id}
+								bind:reviews
+								{initialReviews}
+								loadError={reviewsError}
+								{supabase}
+								compact
+								onShowAll={() => (activeTab = 'reviews')} />
+						</div>
+					</div>
+				{/if}
+			</Tabs.Content>
+		</TabPanelTransition>
+	</Tabs.Root>
 </section>

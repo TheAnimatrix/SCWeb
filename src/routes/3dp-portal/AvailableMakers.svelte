@@ -7,6 +7,7 @@
 	import { ScButton, MakerRowSkeleton, TierBadge } from '$lib/components/sc';
 	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
 	import { getTierStyle } from '$lib/types/tiers';
+	import { formatQuoteTime } from '$lib/types/maker';
 	import { cn } from '$lib/utils';
 	import type { AvailableMaker } from '@scweb/api/contracts';
 	import { onMount } from 'svelte';
@@ -17,6 +18,7 @@
 		currentUserId = '',
 		model,
 		color = $bindable('#525252'),
+		colorName = $bindable(''),
 		material = $bindable(null),
 		quality,
 		scale,
@@ -27,6 +29,7 @@
 		currentUserId?: string;
 		model: File | null;
 		color: string;
+		colorName?: string;
 		material: string | null;
 		quality: string;
 		scale: number;
@@ -45,16 +48,28 @@
 		) => Promise<void>;
 	} = $props();
 
+	type MakerFilamentOption = {
+		color: string;
+		material_type: string;
+		name?: string | null;
+	};
+
 	type Maker = Omit<AvailableMaker, 'filaments' | 'tier'> & {
-		filaments: Record<
-			string,
-			Array<{
-				color: string;
-				material_type: string;
-			}>
-		>;
+		filaments: Record<string, MakerFilamentOption[]>;
 		tier: string;
 	};
+
+	const signedIn = $derived(Boolean(currentUserId));
+
+	function filamentLabel(filament: MakerFilamentOption): string {
+		return filament.name ? `${filament.material_type} · ${filament.name}` : filament.material_type;
+	}
+
+	function selectFilament(filament: MakerFilamentOption, mat: string) {
+		color = filament.color;
+		material = mat;
+		colorName = filamentLabel(filament);
+	}
 
 	let makers: Maker[] = $state([]);
 	let loading = $state(true);
@@ -64,9 +79,10 @@
 	let uploadProgress = $state<Record<string, number | null>>({});
 
 	const hasModel = $derived(Boolean(model));
-	const visibleMakers = $derived(
-		material ? makers.filter((maker) => material in maker.filaments) : makers
-	);
+	const visibleMakers = $derived.by(() => {
+		const selected = material;
+		return selected ? makers.filter((maker) => selected in maker.filaments) : makers;
+	});
 
 	let previousMaterial = $state<string | null>(null);
 
@@ -83,18 +99,6 @@
 		}
 	});
 
-	function formatResponseTime(avgQuoteTime: number | null | string) {
-		if (!avgQuoteTime) return null;
-		const parts = avgQuoteTime.toString().split(':');
-		const hh = parseInt(parts[0] ?? '0');
-		const mm = parseInt(parts[1] ?? '0');
-		const ss = parseInt(parts[2] ?? '0');
-		if (hh > 24) return `~${Math.ceil(hh / 24)} days`;
-		if (hh > 1) return `~${hh}.${(mm / 60).toFixed(1).split('.')[1]} hours`;
-		if (mm > 15) return `~${mm}.${(ss / 60).toFixed(1).split('.')[1]} min`;
-		return '~15 min';
-	}
-
 	async function requestQuote(
 		maker_id: string,
 		model: File | null,
@@ -109,37 +113,30 @@
 			toastStore.show('Upload a model first', 'error');
 			return;
 		}
-		if (!color) {
-			toastStore.show('Please select a color', 'error');
-			return;
-		}
 		if (!material) {
-			toastStore.show('Please select a material', 'error');
+			toastStore.show('Choose a material first.', 'error');
 			return;
 		}
 		if (!quality) {
-			toastStore.show('Please select a quality level', 'error');
+			toastStore.show('Choose a print quality first.', 'error');
 			return;
 		}
 		if (!scale || scale <= 0) {
-			toastStore.show('Please set a valid scale', 'error');
+			toastStore.show('Set a scale above zero.', 'error');
 			return;
 		}
 		if (!infill || infill < 0 || infill > 100) {
-			toastStore.show('Please set a valid infill percentage', 'error');
+			toastStore.show('Choose a strength first.', 'error');
 			return;
 		}
 
+		// The colour must be one of this maker's swatches; the default colour or another
+		// maker's colour means the customer hasn't picked one here yet.
 		const selectedMaker = makers.find((maker) => maker.maker_id === maker_id);
-		let validateCombo = selectedMaker != null;
-		validateCombo = validateCombo && Object.keys(selectedMaker?.filaments ?? {}).length > 0;
-		validateCombo = validateCombo && Object.keys(selectedMaker?.filaments ?? {}).includes(material);
-		validateCombo =
-			validateCombo &&
-			selectedMaker?.filaments[material]?.find((filament) => filament.color === color) != null;
-
-		if (!validateCombo) {
-			toastStore.show('This maker does not support this color/material combination', 'error');
+		const makerHasColor =
+			selectedMaker?.filaments[material]?.some((filament) => filament.color === color) ?? false;
+		if (!color || !makerHasColor) {
+			toastStore.show('Pick a filament colour from this maker first.', 'error');
 			return;
 		}
 
@@ -165,7 +162,7 @@
 			const response = await listAvailableMakers(fetch);
 
 			if (!response.ok) {
-				error = response.error.message || 'Failed to load makers.';
+				error = response.error.message || "Couldn't load makers. Refresh to try again.";
 				loading = false;
 				return;
 			}
@@ -180,15 +177,14 @@
 				}))
 				.filter(isMakerRow);
 
-			const visible = material
-				? makers.filter((maker) => material in maker.filaments)
-				: makers;
+			const selected = material;
+			const visible = selected ? makers.filter((maker) => selected in maker.filaments) : makers;
 			if (visible.length === 1) {
 				expandedMaker = visible[0].maker_id;
 			}
 		} catch (e) {
 			console.error(e);
-			error = 'Error loading makers.';
+			error = "Couldn't load makers. Refresh to try again.";
 		} finally {
 			loading = false;
 		}
@@ -203,10 +199,8 @@
 		return (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1);
 	}
 
-	function groupFilaments(
-		filaments: AvailableMaker['filaments']
-	): Maker['filaments'] {
-		const filamentObj: Record<string, Array<{ color: string; material_type: string }>> = {};
+	function groupFilaments(filaments: AvailableMaker['filaments']): Maker['filaments'] {
+		const filamentObj: Record<string, MakerFilamentOption[]> = {};
 		for (const filament of filaments) {
 			if (!filamentObj[filament.material_type]) {
 				filamentObj[filament.material_type] = [];
@@ -221,8 +215,6 @@
 			typeof row.maker_id === 'string' &&
 			typeof row.crafter_name === 'string' &&
 			typeof row.tier === 'string' &&
-			typeof row.price_rank === 'number' &&
-			typeof row.delivery_rank === 'number' &&
 			Object.keys(row.filaments).length > 0 &&
 			Array.isArray(row.reviews)
 		);
@@ -242,9 +234,9 @@
 				</div>
 				<p class="text-sm text-muted-foreground">
 					{#if material}
-						Makers stocked in {material}. Expand one, pick a color, then request your quote.
+						Makers with {material} in stock. Open one, pick a colour, then request a quote.
 					{:else}
-						Expand a maker, pick a filament color, then request your quote.
+						Open a maker, pick a filament colour, then request a quote.
 					{/if}
 				</p>
 			</div>
@@ -255,15 +247,13 @@
 				class="mt-4 flex items-start gap-3 rounded-md border border-dashed border-border bg-muted/20 px-4 py-3">
 				<Icon icon={F.errorCircle} class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
 				<p class="text-sm text-muted-foreground">
-					Upload a model above to unlock maker selection and quote requests.
+					Upload a model above before you request a quote.
 				</p>
 			</div>
 		{/if}
 
 		{#if loading}
-			<div
-				class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
-				aria-hidden="true">
+			<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
 				<MakerRowSkeleton count={3} />
 			</div>
 		{:else if error}
@@ -274,7 +264,7 @@
 			</div>
 		{:else if visibleMakers.length === 0}
 			<div class="mt-6 py-8 text-center text-sm text-muted-foreground">
-				No makers stock {material} right now. Try a different material above.
+				No makers have {material} in stock right now. Try a different material above.
 			</div>
 		{:else}
 			<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -286,16 +276,16 @@
 					<div
 						class={cn(
 							'flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-colors',
-							isExpanded ? cn('shadow-sm sm:col-span-2 xl:col-span-3', tierStyle.cardExpanded) : tierStyle.card,
+							isExpanded
+								? cn('shadow-sm sm:col-span-2 xl:col-span-3', tierStyle.cardExpanded)
+								: tierStyle.card,
 							isSelf && 'opacity-60'
 						)}>
 						<button
 							type="button"
 							class={cn(
 								'flex w-full gap-3 p-4 text-left transition-colors',
-								isExpanded
-									? 'items-center justify-between'
-									: 'flex-col items-stretch',
+								isExpanded ? 'items-center justify-between' : 'flex-col items-stretch',
 								tierStyle.buttonHover
 							)}
 							onclick={() => toggleMaker(maker.maker_id)}
@@ -306,23 +296,27 @@
 									<div class="truncate font-medium text-foreground">{maker.crafter_name}</div>
 									<div
 										class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-										<span
-											>{maker.number_of_printers ?? 0} printer{maker.number_of_printers === 1
-												? ''
-												: 's'}</span>
-										<span>{maker.completed_orders ?? 0} orders</span>
+										{#if maker.completed_orders}
+											<span
+												>{maker.completed_orders} order{maker.completed_orders === 1 ? '' : 's'} completed</span>
+										{:else}
+											<span>New maker</span>
+										{/if}
+										{#if maker.number_of_printers}
+											<span
+												>{maker.number_of_printers} printer{maker.number_of_printers === 1
+													? ''
+													: 's'}</span>
+										{/if}
 										{#if maker.max_printer_size}
-											<span>{maker.max_printer_size} max</span>
+											<span>Bed up to {maker.max_printer_size}</span>
 										{/if}
 									</div>
 								</div>
 							</div>
 
 							<div
-								class={cn(
-									'flex items-center gap-3',
-									isExpanded ? 'shrink-0' : 'justify-between'
-								)}>
+								class={cn('flex items-center gap-3', isExpanded ? 'shrink-0' : 'justify-between')}>
 								{#if rating}
 									<div class="flex items-center gap-1 text-sm text-foreground">
 										<Icon icon={F.star} class="size-3.5 fill-foreground text-foreground" />
@@ -348,30 +342,22 @@
 						{/if}
 
 						{#if isExpanded}
+							{@const quoteTime = formatQuoteTime(maker.avg_quote_time)}
 							<div
-								class={cn('border-t border-border px-4 pb-4 pt-3', isSelf && 'pointer-events-none')}
+								class="border-t border-border px-4 pb-4 pt-3"
 								in:slide={{ duration: 200, easing: cubicOut }}
 								out:slide={{ duration: 200, easing: cubicOut }}>
-								<div class="mb-4 flex flex-wrap gap-2">
-									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
-										Affordability {maker.price_rank}/5
-									</span>
-									<span class="rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
-										Delivery {maker.delivery_rank}/5
-									</span>
-									{#if maker.avg_quote_time}
-										{@const response = formatResponseTime(maker.avg_quote_time)}
-										{#if response}
-											<span
-												class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
-												<Icon icon={F.timer} class="size-3" />
-												Response {response}
-											</span>
-										{/if}
-									{/if}
-								</div>
+								{#if quoteTime}
+									<div class="mb-4 flex flex-wrap gap-2">
+										<span
+											class="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs">
+											<Icon icon={F.timer} class="size-3" aria-hidden="true" />
+											{quoteTime}
+										</span>
+									</div>
+								{/if}
 
-								<PortalSectionLabel label="Filament color" />
+								<PortalSectionLabel label="Filament colour" />
 								<div class="mt-2">
 									{#if material}
 										{@const materialFilaments = maker.filaments[material] ?? []}
@@ -385,11 +371,12 @@
 															? 'scale-110 border-primary ring-2 ring-primary/10'
 															: 'border-border hover:scale-105 hover:border-foreground/40'
 													)}
-													onclick={() => {
-														color = filament.color;
-													}}
-													aria-label="Select {material} {filament.color}"
-													title="{material} · {filament.color}">
+													onclick={() =>
+														selectFilament(filament, material ?? filament.material_type)}
+													aria-label="Choose {filamentLabel(filament)}, colour {filament.color}"
+													aria-pressed={color === filament.color}
+													disabled={isSelf}
+													title={filamentLabel(filament)}>
 													<span
 														class="block size-full rounded-[4px]"
 														style="background-color: {filament.color};"></span>
@@ -414,12 +401,13 @@
 																		? 'scale-110 border-primary ring-2 ring-primary/10'
 																		: 'border-border hover:scale-105 hover:border-foreground/40'
 																)}
-																onclick={() => {
-																	color = filament.color;
-																	material = mat;
-																}}
-																aria-label="Select {mat} {filament.color}"
-																title="{mat} · {filament.color}">
+																onclick={() => selectFilament(filament, mat)}
+																aria-label="Choose {filamentLabel(
+																	filament
+																)}, colour {filament.color}"
+																aria-pressed={color === filament.color && material === mat}
+																disabled={isSelf}
+																title={filamentLabel(filament)}>
 																<span
 																	class="block size-full rounded-[4px]"
 																	style="background-color: {filament.color};"></span>
@@ -432,35 +420,54 @@
 									{/if}
 								</div>
 
+								{#if material && maker.filaments[material]?.some((f) => f.color === color)}
+									<p class="mt-3 text-sm text-foreground">Selected: {colorName || material}</p>
+								{/if}
+
 								<div class="mt-5">
-									<ScButton
-										class="w-full"
-										disabled={!hasModel || loadingQuote === maker.maker_id}
-										onclick={() => {
-											if (loadingQuote === maker.maker_id) return;
-											requestQuote(
-												maker.maker_id,
-												model,
-												color ?? '',
-												material ?? '',
-												quality,
-												scale,
-												infill,
-												walls
-											);
-										}}>
-										{#if loadingQuote === maker.maker_id}
-											{#if uploadProgress[maker.maker_id] != null}
-												Requesting quote… {uploadProgress[maker.maker_id]}%
+									{#if !signedIn}
+										<ScButton
+											class="w-full"
+											href="/user/sign?postLogin={encodeURIComponent('/3dp-portal')}">
+											Sign in to request a quote
+										</ScButton>
+										<p class="mt-2 text-xs text-muted-foreground">
+											Your settings are kept. You'll need to upload your model again after you sign
+											in.
+										</p>
+									{:else}
+										<ScButton
+											class="w-full"
+											disabled={isSelf || !hasModel || loadingQuote === maker.maker_id}
+											onclick={() => {
+												if (loadingQuote === maker.maker_id) return;
+												requestQuote(
+													maker.maker_id,
+													model,
+													color ?? '',
+													material ?? '',
+													quality,
+													scale,
+													infill,
+													walls
+												);
+											}}>
+											{#if loadingQuote === maker.maker_id}
+												{#if uploadProgress[maker.maker_id] != null}
+													Requesting quote… {uploadProgress[maker.maker_id]}%
+												{:else}
+													Requesting quote…
+												{/if}
+											{:else if !hasModel}
+												Upload a model first
 											{:else}
-												Requesting quote…
+												Request a quote
 											{/if}
-										{:else if !hasModel}
-											Upload a model first
-										{:else}
-											Request quote →
-										{/if}
-									</ScButton>
+										</ScButton>
+										<p class="mt-2 text-xs text-muted-foreground">
+											The maker replies with a price. You pay only if you accept it.
+										</p>
+									{/if}
 
 									{#if loadingQuote === maker.maker_id && uploadProgress[maker.maker_id] != null}
 										<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">

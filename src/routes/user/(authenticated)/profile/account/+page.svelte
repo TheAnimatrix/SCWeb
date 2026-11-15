@@ -1,14 +1,20 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
 	import { navigating, page } from '$app/state';
-	import { validatePassword } from '$lib/types/helper.js';
+	import { PASSWORD_RULES_TEXT, validatePassword } from '$lib/types/helper.js';
 	import { FormSectionSkeleton, ScButton, ScInput, TierBadge } from '$lib/components/sc';
 	import { Button } from '$lib/components/ui/button';
-			
-	import { checkUsernameAvailable } from '$lib/client/authApi';
+	import {
+		checkUsernameAvailable,
+		friendlySupabaseAuthError,
+		USERNAME_TAKEN_MESSAGE
+	} from '$lib/client/authApi';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
+	import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
+	import PasswordField from '../../../PasswordField.svelte';
 
 	let { data } = $props();
 	const supabase = requireBrowserSupabase(data.supabase);
@@ -17,6 +23,8 @@
 	const username = $derived(usernameOverride ?? data.username ?? '');
 	let email = $derived(data.email ?? '');
 	let tier = $derived(data.tier ?? '');
+	const isApprovedMaker = $derived(data.maker?.approved_state === 'approved');
+	const hasMakerRecord = $derived(Boolean(data.maker?.approved_state));
 
 	$effect(() => {
 		void data.username;
@@ -26,6 +34,7 @@
 	let newPass = $state('');
 	let confirmPass = $state('');
 	let error_msg = $state<string | undefined>();
+	let password_success = $state<string | undefined>();
 	let isUpdatingPassword = $state(false);
 	let isEditingUsername = $state(false);
 	let newUsername = $state('');
@@ -36,11 +45,12 @@
 		page.url.pathname.startsWith('/user/profile/account') && !!navigating.to
 	);
 
-	const labelClass = 'font-mono text-xs text-muted-foreground';
+	const labelClass = 'text-sm text-muted-foreground';
 
 	async function changePassword() {
 		if (isUpdatingPassword) return;
 		isUpdatingPassword = true;
+		password_success = undefined;
 
 		const k = validatePassword(newPass, confirmPass);
 		if (k.error) {
@@ -51,11 +61,17 @@
 		error_msg = undefined;
 
 		try {
-			await supabase.auth.updateUser({ password: newPass });
+			// updateUser reports failures in `error`; it does not throw.
+			const { error } = await supabase.auth.updateUser({ password: newPass });
+			if (error) {
+				error_msg = friendlySupabaseAuthError(error);
+				return;
+			}
 			newPass = '';
 			confirmPass = '';
-		} catch {
-			error_msg = 'Failed to update password.';
+			password_success = 'Password updated.';
+		} catch (err) {
+			error_msg = friendlySupabaseAuthError(err instanceof Error ? { message: err.message } : null);
 		} finally {
 			isUpdatingPassword = false;
 		}
@@ -64,16 +80,13 @@
 	async function logout() {
 		const { error } = await supabase.auth.signOut();
 		if (error) {
-			error_msg = 'Failed to sign out.';
+			error_msg = "We couldn't sign you out. Try again.";
 		}
 	}
 
 	function validateUsername(value: string): { error: boolean; msg?: string } {
-		if (!value || value.length < 3 || value.length > 20) {
-			return { error: true, msg: '3–20 characters' };
-		}
-		if (!/^\w+$/.test(value)) {
-			return { error: true, msg: 'Letters, numbers, underscores only' };
+		if (!/^[a-zA-Z0-9_]{3,30}$/.test(value)) {
+			return { error: true, msg: 'Usernames are 3 to 30 letters, numbers or underscores.' };
 		}
 		return { error: false };
 	}
@@ -101,7 +114,7 @@
 			return;
 		}
 		if (!data.user?.id) {
-			username_error = 'User not found.';
+			username_error = 'Your session has expired. Sign in again and retry.';
 			isUpdatingUsername = false;
 			return;
 		}
@@ -113,7 +126,7 @@
 				return;
 			}
 			if (!usernameCheck.data.available) {
-				username_error = 'Username not available';
+				username_error = USERNAME_TAKEN_MESSAGE;
 				return;
 			}
 			const { error } = await supabase
@@ -121,14 +134,17 @@
 				.update({ username: newUsername })
 				.eq('id', data.user.id);
 			if (error) {
-				username_error = error.message || 'Failed to update.';
+				username_error =
+					error.code === '23505'
+						? USERNAME_TAKEN_MESSAGE
+						: "We couldn't save your username. Try again in a moment.";
 			} else {
 				usernameOverride = newUsername;
 				isEditingUsername = false;
 				username_error = undefined;
 			}
 		} catch {
-			username_error = 'Failed to update username.';
+			username_error = "We couldn't save your username. Try again in a moment.";
 		} finally {
 			isUpdatingUsername = false;
 		}
@@ -142,14 +158,22 @@
 		<section class="rounded-md border border-border bg-card p-4">
 			<dl class="space-y-3">
 				<div>
-					<dt class={labelClass}>username</dt>
+					<dt class={labelClass}>
+						{#if isEditingUsername}
+							<label for="account-username">Username</label>
+						{:else}
+							Username
+						{/if}
+					</dt>
 					<dd class="mt-1">
 						{#if isEditingUsername}
 							<div class="flex items-center gap-2">
 								<ScInput
+									id="account-username"
 									type="text"
 									bind:value={newUsername}
-									maxlength={20}
+									maxlength={30}
+									autocomplete="username"
 									size="sm"
 									class="flex-1" />
 								<Button
@@ -176,7 +200,15 @@
 						{:else}
 							<div class="flex items-center justify-between gap-2">
 								<span class="text-sm">
-									<span class="text-muted-foreground">/crafts/</span>{username}
+									@{username}
+									{#if isApprovedMaker && username}
+										<!-- eslint-disable svelte/no-navigation-without-resolve -- dynamic storefront path -->
+										<a
+											href={makerStorefrontPath(username)}
+											class="ml-2 text-muted-foreground underline underline-offset-4 hover:text-foreground"
+											>View your shop page</a>
+										<!-- eslint-enable svelte/no-navigation-without-resolve -->
+									{/if}
 								</span>
 								<Button
 									variant="ghost"
@@ -192,23 +224,35 @@
 				</div>
 
 				<div>
-					<dt class={labelClass}>email</dt>
+					<dt class={labelClass}>E-mail</dt>
 					<dd class="mt-1 text-sm">{email}</dd>
 				</div>
 
-				<div>
-					<dt class={labelClass}>tier</dt>
-					<dd class="mt-1">
-						{#if tier}
+				{#if tier}
+					<div>
+						<dt class={labelClass}>Tier</dt>
+						<dd class="mt-1">
 							<TierBadge {tier} />
-						{/if}
-					</dd>
-				</div>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Tiers show how established a maker is. Everyone starts as Bee.
+							</p>
+						</dd>
+					</div>
+				{/if}
 			</dl>
 		</section>
 
+		{#if !hasMakerRecord}
+			<section class="rounded-md border border-border bg-card p-4 text-sm">
+				<p>Sell products or offer printing on Selfcrafted.</p>
+				<a
+					href="{resolve('/maker/apply')}?source=profile"
+					class="mt-2 inline-block underline underline-offset-4">Apply to become a maker</a>
+			</section>
+		{/if}
+
 		<section class="rounded-md border border-border bg-card p-4">
-			<p class={labelClass}>password</p>
+			<h2 class="text-sm font-medium">Change password</h2>
 
 			{#if error_msg}
 				<p
@@ -217,27 +261,44 @@
 					{error_msg}
 				</p>
 			{/if}
+			{#if password_success}
+				<p class="mt-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm" role="status">
+					{password_success}
+				</p>
+			{/if}
 
-			<div class="mt-3 space-y-3">
-				<ScInput type="password" bind:value={newPass} placeholder="New password" size="sm" />
-				<ScInput
-					type="password"
+			<form
+				class="mt-3 space-y-3"
+				onsubmit={(e) => {
+					e.preventDefault();
+					changePassword();
+				}}>
+				<PasswordField
+					id="account-new-password"
+					label="New password"
+					bind:value={newPass}
+					autocomplete="new-password"
+					hint={PASSWORD_RULES_TEXT}
+					size="sm" />
+				<PasswordField
+					id="account-confirm-password"
+					label="Confirm new password"
 					bind:value={confirmPass}
-					placeholder="Confirm password"
+					autocomplete="new-password"
 					size="sm" />
 				<ScButton
+					type="submit"
 					class="w-full justify-center"
 					variant="secondary"
-					onclick={changePassword}
 					disabled={isUpdatingPassword || !newPass}>
-					Update password
+					{isUpdatingPassword ? 'Updating…' : 'Update password'}
 				</ScButton>
-			</div>
+			</form>
 		</section>
 
 		<Button
 			variant="outline"
-			class="w-full font-mono text-xs text-destructive hover:text-destructive"
+			class="w-full text-destructive hover:text-destructive"
 			onclick={logout}>
 			Sign out
 		</Button>

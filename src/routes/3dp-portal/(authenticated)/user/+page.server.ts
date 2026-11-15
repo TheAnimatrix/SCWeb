@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, supabaseAdmin }
 		error: userError
 	} = await supabase.auth.getUser();
 	if (userError || !user) {
-		return { printRequests: [] };
+		return { printRequests: [], makerNames: {}, error: null };
 	}
 
 	// Fetch print requests for this user, including maker info

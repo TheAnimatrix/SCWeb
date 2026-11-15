@@ -1,15 +1,15 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
+	import { resolve } from '$app/paths';
 
-					import HTMLWrapper from '$lib/components/fundamental/HTMLWrapper.svelte';
-	import { TagBadge, MetaChip, ScButton, TrustSignals, Skeleton } from '$lib/components/sc';
+	import { TagBadge, MetaChip, ScButton, Skeleton } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
-	import { buildProductTags } from '$lib/utils/productTypeTag';
-	import { formatTagDisplayLabel } from '$lib/utils/formatUsername';
+	import { buildProductTags, tagDisplayLabel } from '$lib/utils/productTypeTag';
+	import { formatInr } from '$lib/utils/format';
 	import { getPurchasableLimit, isOnDemand, isOutOfStock } from '$lib/utils/stock';
+	import { stripMarkup } from '$lib/seo/product';
 	import type { Product } from '$lib/types/product';
-	import { productUserRef } from '$lib/types/product';
 
 	interface VariantOption {
 		id: string;
@@ -19,12 +19,20 @@
 
 	interface Props {
 		product: Product;
+		/** Formatted maker name and where it links (storefront when live, otherwise a search). */
+		makerName?: string | null;
+		makerHref?: string | null;
+		/** Maker's location, shown as "Ships from …" when set. */
+		shipsFrom?: string | null;
 		cartQty?: number;
 		addToCartSuccess?: boolean | null;
 		addToCartMsg?: string;
+		/** Quantity that was added, for the success message. */
+		addedQty?: number;
 		variants?: VariantOption[];
 		variantsLoading?: boolean;
 		isRefreshing?: boolean;
+		isAdding?: boolean;
 		onIncrement?: () => void;
 		onDecrement?: () => void;
 		onAddToCart?: () => void;
@@ -34,12 +42,17 @@
 
 	let {
 		product,
+		makerName = null,
+		makerHref = null,
+		shipsFrom = null,
 		cartQty = $bindable(1),
 		addToCartSuccess = null,
 		addToCartMsg = '',
+		addedQty = 1,
 		variants = [],
 		variantsLoading = false,
 		isRefreshing = false,
+		isAdding = false,
 		onIncrement,
 		onDecrement,
 		onAddToCart,
@@ -47,40 +60,35 @@
 		class: className
 	}: Props = $props();
 
-	let favorited = $state(false);
+	const SUPPORT_EMAIL = 'support@selfcrafted.in';
+	const SHORT_DESCRIPTION_MAX = 220;
 
 	const unavailable = $derived(isOutOfStock(product.stock));
 	const onDemand = $derived(isOnDemand(product.stock));
 	const isLowStock = $derived(!unavailable && !onDemand && product.stock.count <= 5);
 	const purchasableLimit = $derived(getPurchasableLimit(product.stock));
 	const displayTags = $derived(buildProductTags(product.type, product.tags));
-	const hasRating = $derived(product.rating?.rating != null && product.rating.rating > 0);
-	const makerName = $derived(product.author ?? productUserRef(product.users)?.username);
-	const shopHref = $derived(makerName ? `/crafts?q=${encodeURIComponent(makerName)}` : null);
+	// The API only sends a rating when the product has at least one review.
+	const rating = $derived(
+		product.rating && product.rating.count > 0 && product.rating.rating > 0 ? product.rating : null
+	);
+	const hasOldPrice = $derived(product.price.old > product.price.new);
 
-	const trustItems = $derived([
-		'Ships from verified maker',
-		'Replacement support on eligible orders'
-	]);
-
-	const shortDescription = $derived.by(() => {
+	/**
+	 * Plain-text summary of the maker's description. Markup is stripped before
+	 * truncating so a cut never lands inside a tag or shows raw "##".
+	 * Null when the description lives at a URL (it renders in the Description tab).
+	 */
+	const shortDescription = $derived.by((): string | null => {
 		const docEntry = product.documentation?.at(0);
-		const doc = docEntry?.data;
+		const doc = docEntry?.data?.trim() ?? '';
+		if (docEntry?.isMDUrl || /^https?:\/\//i.test(doc)) return null;
 
-		if (docEntry?.isMDUrl || (doc && /^https?:\/\//i.test(doc))) {
-			const faqAnswer = product.faq?.at(0)?.answer;
-			if (faqAnswer) {
-				return faqAnswer.length > 220 ? `${faqAnswer.slice(0, 217)}...` : faqAnswer;
-			}
-			return 'Handcrafted hardware from an independent maker on SelfCrafted.';
-		}
-
-		if (!doc || doc.length > 220) {
-			return doc
-				? `${doc.slice(0, 217)}...`
-				: 'Handcrafted hardware from an independent maker on SelfCrafted.';
-		}
-		return doc;
+		const plain = stripMarkup(doc);
+		if (!plain) return '';
+		return plain.length > SHORT_DESCRIPTION_MAX
+			? `${plain.slice(0, SHORT_DESCRIPTION_MAX - 1).trimEnd()}…`
+			: plain;
 	});
 
 	function handleVariantChange(event: Event) {
@@ -120,7 +128,6 @@
 			<div class="flex gap-2">
 				<Skeleton class="h-10 w-28 rounded-md" />
 				<Skeleton class="h-10 flex-1 rounded-md" />
-				<Skeleton class="h-10 w-10 rounded-md" />
 			</div>
 		</div>
 	{:else}
@@ -132,30 +139,35 @@
 			{#if makerName}
 				<p class="text-sm text-muted-foreground">
 					by
-					{#if shopHref}
+					{#if makerHref}
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- storefront path or a search URL built by the page -->
 						<a
-							href={shopHref}
-							class="text-foreground/70 transition-colors hover:text-foreground hover:underline">
+							href={makerHref}
+							class="text-foreground/80 transition-colors hover:text-foreground hover:underline">
 							{makerName}
 						</a>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					{:else}
-						<span class="text-foreground/70">{makerName}</span>
+						<span class="text-foreground/80">{makerName}</span>
 					{/if}
 				</p>
 			{/if}
 
 			<div class="flex flex-wrap items-center gap-2">
 				{#each displayTags as tag (tag.label)}
-					<TagBadge label={formatTagDisplayLabel(tag.label)} emphasized={tag.emphasized} />
+					<TagBadge label={tagDisplayLabel(tag.label)} emphasized={tag.emphasized} />
 				{/each}
 			</div>
 
 			<div class="flex flex-wrap items-center gap-2">
-				{#if hasRating}
+				{#if rating}
 					<MetaChip>
-						<Icon icon={F.star} class="size-3" aria-hidden="true" />
-						{product.rating!.rating}
-						<span class="text-muted-foreground">({product.rating!.count ?? 0})</span>
+						<Icon icon={F.star} class="size-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+						<span class="sr-only">Rated</span>
+						{rating.rating}
+						<span class="text-muted-foreground">
+							({rating.count} review{rating.count === 1 ? '' : 's'})
+						</span>
 					</MetaChip>
 				{/if}
 
@@ -163,16 +175,12 @@
 					<MetaChip tone="destructive">Out of stock</MetaChip>
 				{:else if onDemand}
 					<MetaChip class="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-						On demand
+						Made to order
 					</MetaChip>
 				{:else if isLowStock}
 					<MetaChip>Only {product.stock.count} left</MetaChip>
 				{:else}
 					<MetaChip tone="muted">{product.stock.count} in stock</MetaChip>
-				{/if}
-
-				{#if product.stock.status && !onDemand}
-					<MetaChip tone="muted">{product.stock.status}</MetaChip>
 				{/if}
 
 				{#if product.guarantee}
@@ -181,10 +189,11 @@
 			</div>
 		</div>
 
-		<div
-			class="prose prose-sm max-w-none break-words text-sm leading-relaxed text-muted-foreground prose-a:break-all">
-			<HTMLWrapper html={shortDescription} />
-		</div>
+		{#if shortDescription !== null}
+			<p class="break-words text-sm leading-relaxed text-muted-foreground">
+				{shortDescription || "The maker hasn't added a description yet."}
+			</p>
+		{/if}
 
 		{#if variantsLoading}
 			<div class="space-y-2" aria-hidden="true">
@@ -208,32 +217,37 @@
 		{/if}
 
 		<div class="space-y-1">
-			{#if product.price.old > 0}
+			{#if hasOldPrice}
 				<p class="text-sm text-muted-foreground line-through">
-					₹{product.price.old.toLocaleString('en-IN')}
+					<span class="sr-only">Was </span>{formatInr(product.price.old)}
 				</p>
 			{/if}
 			<p class="text-3xl font-semibold tracking-tight text-foreground">
-				₹{product.price.new.toLocaleString('en-IN')}
+				{formatInr(product.price.new)}
 			</p>
 		</div>
 
 		<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-			<div class="flex w-fit items-center rounded-md border border-border bg-card">
+			<div
+				class="flex w-fit items-center rounded-md border border-border bg-card"
+				role="group"
+				aria-label="Quantity">
 				<button
 					type="button"
-					class="flex h-10 w-10 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
-					disabled={unavailable || cartQty <= 0}
+					class="flex h-11 w-11 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+					disabled={unavailable || cartQty <= 1}
 					onclick={onDecrement}
 					aria-label="Decrease quantity">
 					<Icon icon={F.subtract} class="h-4 w-4" />
 				</button>
-				<span class="min-w-10 border-x border-border px-3 text-center text-sm">
+				<span
+					class="min-w-10 border-x border-border px-3 text-center text-sm tabular-nums"
+					aria-live="polite">
 					{cartQty}
 				</span>
 				<button
 					type="button"
-					class="flex h-10 w-10 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+					class="flex h-11 w-11 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
 					disabled={unavailable || cartQty >= purchasableLimit}
 					onclick={onIncrement}
 					aria-label="Increase quantity">
@@ -241,44 +255,55 @@
 				</button>
 			</div>
 
-			<div class="flex min-w-0 gap-2">
-				<ScButton
-					class="min-h-10 min-w-0 flex-1 whitespace-normal font-mono text-sm disabled:pointer-events-none disabled:opacity-50"
-					onclick={unavailable ? undefined : onAddToCart}
-					arrow>
-					{unavailable ? 'out_of_stock' : 'add_to_cart'}
-				</ScButton>
-
-				<button
-					type="button"
-					class={cn(
-						'flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card transition-colors hover:bg-muted',
-						favorited && 'border-foreground text-foreground'
-					)}
-					aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
-					aria-pressed={favorited}
-					onclick={() => (favorited = !favorited)}>
-					<Icon icon={F.heart} class={cn('h-4 w-4', favorited && 'fill-current')} />
-				</button>
-			</div>
+			<ScButton
+				class="min-h-11 min-w-0 flex-1 whitespace-normal text-sm disabled:pointer-events-none disabled:opacity-50"
+				disabled={unavailable || isAdding}
+				onclick={onAddToCart}
+				arrow={!unavailable}>
+				{unavailable ? 'Out of stock' : isAdding ? 'Adding…' : 'Add to cart'}
+			</ScButton>
 		</div>
 
-		<div
-			class="overflow-hidden transition-all duration-300"
-			style:height={addToCartSuccess === null ? '0' : 'auto'}>
+		<div role="status" aria-live="polite">
 			{#if addToCartSuccess === true}
 				<div
-					class="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs text-foreground">
-					"{product.name}" x {addToCartMsg} — added to cart
+					class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+					<span>Added {addedQty} to your cart.</span>
+					<a
+						href={resolve('/cart')}
+						class="font-medium underline underline-offset-2 hover:decoration-2">
+						View cart
+					</a>
 				</div>
 			{:else if addToCartSuccess === false}
 				<div
-					class="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-xs text-destructive">
-					Error — {addToCartMsg}
+					class="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+					{addToCartMsg}
 				</div>
 			{/if}
 		</div>
 
-		<TrustSignals items={trustItems} />
+		<ul class="space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
+			<li class="flex items-start gap-2">
+				<Icon icon={F.truck} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+				<span>Flat ₹99 delivery anywhere in India</span>
+			</li>
+			<li class="flex items-start gap-2">
+				<Icon icon={F.box} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+				<span
+					>{shipsFrom ? `Ships in 3 to 14 days from ${shipsFrom}` : 'Ships in 3 to 14 days'}</span>
+			</li>
+			<li class="flex items-start gap-2">
+				<Icon icon={F.mail} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+				<span>
+					Questions?
+					<a
+						href="mailto:{SUPPORT_EMAIL}"
+						class="text-foreground underline underline-offset-2 hover:decoration-2">
+						{SUPPORT_EMAIL}
+					</a>
+				</span>
+			</li>
+		</ul>
 	{/if}
 </div>

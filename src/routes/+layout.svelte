@@ -18,7 +18,7 @@
 	import { removePostLoginURL, readPostLoginURL } from '$lib/client/postLogin';
 	import { initAuthSync } from '$lib/client/authSync';
 	import { initTheme } from '$lib/client/theme';
-	import { SystemStatusBar, SiteHeader, SiteFooter, PwaInstallPrompt } from '$lib/components/shell';
+	import { SiteHeader, SiteFooter, PwaInstallPrompt } from '$lib/components/shell';
 	import { SeoHead } from '$lib/components/seo';
 	import { isNoIndexPath } from '$lib/seo/site';
 	import { env } from '$env/dynamic/public';
@@ -77,8 +77,10 @@
 	onMount(() => {
 		initTheme();
 
+		// Only follow the saved return path once someone has actually signed in. Otherwise a visitor
+		// who opened the sign-in page and left would be bounced there on their next page load.
 		const postLoginUrl = readPostLoginURL();
-		if (postLoginUrl) {
+		if (postLoginUrl && data.session) {
 			goto(postLoginUrl, { replaceState: true });
 			removePostLoginURL();
 		}
@@ -122,8 +124,9 @@
 		});
 	});
 
-	afterNavigate(({ from, to }) => {
-		if (!browser || !from || from.route.id === to?.route.id) return;
+	afterNavigate(({ from, to, type }) => {
+		// Back/forward must restore the buyer's place (SvelteKit does that itself).
+		if (!browser || !from || type === 'popstate' || from.route.id === to?.route.id) return;
 		document.body.scrollTop = 0;
 		document.documentElement.scrollTop = 0;
 	});
@@ -143,7 +146,6 @@
 
 <div class="flex min-h-screen w-full max-w-full flex-col bg-background text-foreground">
 	<div bind:this={topBar} class="fixed inset-x-0 top-0 z-40 w-full max-w-full bg-background">
-		<SystemStatusBar />
 		<SiteHeader {cartCount} {userRoute} {userProfile} {currentPath} />
 	</div>
 
@@ -151,7 +153,7 @@
 		{@render children?.()}
 	</main>
 
-	<SiteFooter githubStars={data.githubStars} />
+	<SiteFooter />
 	<Toast />
 	<PwaInstallPrompt />
 </div>

@@ -7,7 +7,19 @@ import type {
 	ProductReviewsResponse,
 	ProductVariantsResponse
 } from '@scweb/api/contracts';
-import { mapApiError, type CartApiError, type CartApiResult } from '$lib/client/cartApi';
+import { mapApiError, type CartApiError } from '$lib/client/cartApi';
+
+/**
+ * Like `CartApiResult`, but failures carry the HTTP status (0 for a network error)
+ * so pages can tell "not found" (404) from "the API is down" (5xx / network).
+ */
+export type CatalogApiResult<T> =
+	{ ok: true; data: T } | { ok: false; error: CartApiError; status: number };
+
+/** True when a failed catalog call means the thing really doesn't exist. */
+export function isNotFoundStatus(status: number): boolean {
+	return status === 404 || status === 400;
+}
 
 async function readJson(response: Response): Promise<unknown> {
 	const text = await response.text();
@@ -24,17 +36,21 @@ async function apiRequest<T>(
 	path: string,
 	init?: RequestInit,
 	apiPrefix = '/api'
-): Promise<CartApiResult<T>> {
+): Promise<CatalogApiResult<T>> {
 	let response: Response;
 	try {
 		response = await fetchFn(`${apiPrefix}${path}`, init);
 	} catch {
-		return { ok: false, error: { kind: 'network', message: 'Network error. Please try again.' } };
+		return {
+			ok: false,
+			error: { kind: 'network', message: 'Network error. Please try again.' },
+			status: 0
+		};
 	}
 
 	const body = await readJson(response);
 	if (!response.ok) {
-		return { ok: false, error: mapApiError(response.status, body) };
+		return { ok: false, error: mapApiError(response.status, body), status: response.status };
 	}
 
 	return { ok: true, data: body as T };
@@ -44,7 +60,7 @@ export async function getConstant(
 	fetchFn: typeof fetch,
 	key: string,
 	apiPrefix?: string
-): Promise<CartApiResult<GetConstantResponse>> {
+): Promise<CatalogApiResult<GetConstantResponse>> {
 	return apiRequest<GetConstantResponse>(
 		fetchFn,
 		`/constants/${encodeURIComponent(key)}`,
@@ -56,7 +72,7 @@ export async function getConstant(
 export async function getHomeCatalog(
 	fetchFn: typeof fetch,
 	apiPrefix?: string
-): Promise<CartApiResult<HomeCatalogResponse>> {
+): Promise<CatalogApiResult<HomeCatalogResponse>> {
 	return apiRequest<HomeCatalogResponse>(fetchFn, '/catalog/home', undefined, apiPrefix);
 }
 
@@ -64,7 +80,7 @@ export async function getBrowseCatalog(
 	fetchFn: typeof fetch,
 	searchParams: URLSearchParams,
 	apiPrefix?: string
-): Promise<CartApiResult<BrowseCatalogResponse>> {
+): Promise<CatalogApiResult<BrowseCatalogResponse>> {
 	const query = searchParams.toString();
 	return apiRequest<BrowseCatalogResponse>(
 		fetchFn,
@@ -78,7 +94,7 @@ export async function getProduct(
 	fetchFn: typeof fetch,
 	productId: string,
 	apiPrefix?: string
-): Promise<CartApiResult<ProductDetailResponse>> {
+): Promise<CatalogApiResult<ProductDetailResponse>> {
 	return apiRequest<ProductDetailResponse>(fetchFn, `/products/${productId}`, undefined, apiPrefix);
 }
 
@@ -86,7 +102,7 @@ export async function getProductReviews(
 	fetchFn: typeof fetch,
 	productId: string,
 	apiPrefix?: string
-): Promise<CartApiResult<ProductReviewsResponse>> {
+): Promise<CatalogApiResult<ProductReviewsResponse>> {
 	return apiRequest<ProductReviewsResponse>(
 		fetchFn,
 		`/products/${productId}/reviews`,
@@ -99,7 +115,7 @@ export async function getProductVariants(
 	fetchFn: typeof fetch,
 	productId: string,
 	apiPrefix?: string
-): Promise<CartApiResult<ProductVariantsResponse>> {
+): Promise<CatalogApiResult<ProductVariantsResponse>> {
 	return apiRequest<ProductVariantsResponse>(
 		fetchFn,
 		`/products/${productId}/variants`,
@@ -112,7 +128,7 @@ export async function getRelatedProducts(
 	fetchFn: typeof fetch,
 	productId: string,
 	apiPrefix?: string
-): Promise<CartApiResult<ProductRelatedResponse>> {
+): Promise<CatalogApiResult<ProductRelatedResponse>> {
 	return apiRequest<ProductRelatedResponse>(
 		fetchFn,
 		`/products/${productId}/related`,

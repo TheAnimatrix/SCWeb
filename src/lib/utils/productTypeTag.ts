@@ -1,3 +1,5 @@
+import { formatTagDisplayLabel } from '$lib/utils/formatUsername';
+
 export interface DisplayTag {
 	label: string;
 	emphasized: boolean;
@@ -11,7 +13,7 @@ export function getProductTypeLabel(type?: string | null): string {
 			return 'Spare';
 		case 'flea-market':
 		case 'flea':
-			return 'Flea-Market';
+			return 'Flea market';
 		default:
 			return type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Product';
 	}
@@ -48,4 +50,17 @@ export function buildProductTags(
 		.map((tag) => ({ label: tag.tag, emphasized: false }));
 
 	return [typeTag, ...rest];
+}
+
+/**
+ * Display text for a product tag. Same as `formatTagDisplayLabel`, except the
+ * made-in-India tag reads "Made in India": the flag emoji renders as "IN" on Windows.
+ */
+export function tagDisplayLabel(tag: string): string {
+	const key = tag
+		.trim()
+		.toLowerCase()
+		.replace(/[\s-]+/g, '_');
+	if (key === 'made_in_india') return 'Made in India';
+	return formatTagDisplayLabel(tag);
 }

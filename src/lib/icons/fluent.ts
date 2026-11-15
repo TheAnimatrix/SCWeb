@@ -26,6 +26,8 @@ export const F = {
 	dismissCircle: 'fluent:dismiss-circle-24-regular',
 	download: 'fluent:arrow-download-24-regular',
 	edit: 'fluent:edit-24-regular',
+	eye: 'fluent:eye-24-regular',
+	eyeOff: 'fluent:eye-off-24-regular',
 	errorCircle: 'fluent:error-circle-24-regular',
 	hammer: 'fluent:hand-draw-24-regular',
 	heart: 'fluent:heart-24-regular',

@@ -8,9 +8,19 @@
 		open?: boolean;
 		src: string | null;
 		alt: string;
+		/** Gallery position, e.g. "2 of 5". Prev/next buttons show when the handlers are set. */
+		positionLabel?: string;
+		onPrev?: () => void;
+		onNext?: () => void;
 	}
 
-	let { open = $bindable(false), src, alt }: Props = $props();
+	let { open = $bindable(false), src, alt, positionLabel, onPrev, onNext }: Props = $props();
+
+	// A new image starts un-zoomed.
+	$effect(() => {
+		void src;
+		resetView();
+	});
 
 	const MIN_SCALE = 1;
 	const MAX_SCALE = 4;
@@ -253,7 +263,17 @@
 				{/if}
 			</div>
 
-			<div class="flex shrink-0 items-center justify-center gap-3 border-t border-white/10 px-4 py-4">
+			<div
+				class="flex shrink-0 items-center justify-center gap-3 border-t border-white/10 px-4 py-4">
+				{#if onPrev}
+					<button
+						type="button"
+						class={controlButtonClass}
+						aria-label="Previous photo"
+						onclick={onPrev}>
+						<Icon icon={F.chevronLeft} class="size-5" />
+					</button>
+				{/if}
 				<button
 					type="button"
 					class={controlButtonClass}
@@ -273,6 +293,14 @@
 					onclick={zoomIn}>
 					<Icon icon={F.zoomIn} class="size-5" />
 				</button>
+				{#if onNext}
+					<button type="button" class={controlButtonClass} aria-label="Next photo" onclick={onNext}>
+						<Icon icon={F.chevronRight} class="size-5" />
+					</button>
+				{/if}
+				{#if positionLabel}
+					<span class="text-sm text-white/80">{positionLabel}</span>
+				{/if}
 			</div>
 		</div>
 	</Dialog.Content>

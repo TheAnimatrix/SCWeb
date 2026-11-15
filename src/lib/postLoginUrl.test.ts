@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizePostLoginUrl } from './postLoginUrl';
+import {
+	oauthCallbackUrl,
+	postLoginFromSearchParams,
+	resolveAuthCallbackNext,
+	sanitizePostLoginUrl,
+	signInPath
+} from './postLoginUrl';
 
 describe('sanitizePostLoginUrl', () => {
 	it('accepts a normal relative path', () => {
@@ -69,5 +75,82 @@ describe('sanitizePostLoginUrl', () => {
 
 	it('rejects encoded backslash open redirects', () => {
 		expect(sanitizePostLoginUrl('/%5c%5cevil.com')).toBeNull();
+	});
+});
+
+describe('postLoginFromSearchParams', () => {
+	it('prefers postLogin', () => {
+		const params = new URLSearchParams('postLogin=/cart&redirectTo=/portal');
+		expect(postLoginFromSearchParams(params)).toBe('/cart');
+	});
+
+	it('accepts the legacy redirectTo alias', () => {
+		expect(postLoginFromSearchParams(new URLSearchParams('redirectTo=%2Fportal'))).toBe('/portal');
+	});
+
+	it('falls back to redirectTo when postLogin is unsafe', () => {
+		const params = new URLSearchParams('postLogin=//evil.com&redirectTo=/portal');
+		expect(postLoginFromSearchParams(params)).toBe('/portal');
+	});
+
+	it('returns null when neither is safe', () => {
+		expect(
+			postLoginFromSearchParams(new URLSearchParams('redirectTo=https://evil.com'))
+		).toBeNull();
+		expect(postLoginFromSearchParams(new URLSearchParams(''))).toBeNull();
+	});
+});
+
+describe('signInPath', () => {
+	it('encodes a safe path', () => {
+		expect(signInPath('/user/profile/orders?x=1')).toBe(
+			'/user/sign?postLogin=%2Fuser%2Fprofile%2Forders%3Fx%3D1'
+		);
+	});
+
+	it('drops unsafe or empty targets', () => {
+		expect(signInPath('//evil.com')).toBe('/user/sign');
+		expect(signInPath(null)).toBe('/user/sign');
+	});
+});
+
+describe('oauthCallbackUrl', () => {
+	it('builds the callback from the origin', () => {
+		expect(oauthCallbackUrl('https://selfcrafted.in', null)).toBe(
+			'https://selfcrafted.in/auth/callback'
+		);
+		expect(oauthCallbackUrl('https://selfcrafted.in/', null)).toBe(
+			'https://selfcrafted.in/auth/callback'
+		);
+	});
+
+	it('carries a safe next path', () => {
+		expect(oauthCallbackUrl('https://selfcrafted.in', '/cart')).toBe(
+			'https://selfcrafted.in/auth/callback?next=%2Fcart'
+		);
+	});
+
+	it('drops an unsafe next path', () => {
+		expect(oauthCallbackUrl('https://selfcrafted.in', 'https://evil.com')).toBe(
+			'https://selfcrafted.in/auth/callback'
+		);
+		expect(oauthCallbackUrl('https://selfcrafted.in', '/%2f%2fevil.com')).toBe(
+			'https://selfcrafted.in/auth/callback'
+		);
+	});
+});
+
+describe('resolveAuthCallbackNext', () => {
+	it('returns a safe path', () => {
+		expect(resolveAuthCallbackNext('/user/profile/orders')).toBe('/user/profile/orders');
+	});
+
+	it('falls back to / for unsafe, missing or looping targets', () => {
+		expect(resolveAuthCallbackNext(null)).toBe('/');
+		expect(resolveAuthCallbackNext('//evil.com')).toBe('/');
+		expect(resolveAuthCallbackNext('/\\evil.com')).toBe('/');
+		expect(resolveAuthCallbackNext('https://evil.com')).toBe('/');
+		expect(resolveAuthCallbackNext('/auth/callback?code=x')).toBe('/');
+		expect(resolveAuthCallbackNext('/user/sign')).toBe('/');
 	});
 });

@@ -3,6 +3,7 @@ import {
 	absoluteUrl,
 	DEFAULT_DESCRIPTION,
 	DEFAULT_OG_IMAGE,
+	DEFAULT_OG_IMAGE_ALT,
 	formatTitle,
 	getSiteUrl,
 	SITE_NAME,
@@ -42,39 +43,38 @@ export const homeSeo: SeoMeta = {
 		'indie hardware',
 		'maker marketplace India',
 		'electronics makers',
-		'local sourcing',
 		'3D printing India',
 		'Selfcrafted'
 	]
 };
 
 export const craftsSeo: SeoMeta = {
-	title: 'Browse Crafts',
+	title: 'Shop',
 	description:
-		'Explore indie hardware products, spares, and flea-market finds from makers across India. Filter by category, price, and tags.',
+		'Hardware, spare parts and flea-market finds from independent makers in India. Filter by category, price and tag.',
 	type: 'website',
-	keywords: ['maker products', 'hardware marketplace', 'indie crafts', 'spares', 'components']
+	keywords: ['maker products', 'hardware marketplace', 'spares', 'components']
 };
 
 export const craftingSeo: SeoMeta = {
-	title: 'Start Crafting',
+	title: 'Sell on Selfcrafted',
 	description:
-		'Launch your indie hardware product on Selfcrafted. Prototype, connect with the maker community, list on the marketplace, and scale with local sourcing support.',
+		'Sell your hardware on Selfcrafted India. Apply as a maker, set up a shop page, and list products, spares or surplus parts.',
 	type: 'website'
 };
 
 export const portalSeo: SeoMeta = {
-	title: '3D Print Portal',
+	title: '3D printing',
 	description:
-		'Upload a 3D model, choose material and print settings, and connect with verified makers near you for on-demand 3D printing in India.',
+		'Upload an STL, choose a material and print settings, and ask a maker in India for a quote.',
 	type: 'website',
-	keywords: ['3D printing India', 'on-demand printing', 'maker portal', 'STL printing']
+	keywords: ['3D printing India', 'on-demand printing', 'STL printing']
 };
 
 export const policySeo: SeoMeta = {
-	title: 'Policies & Contact',
+	title: 'Policies',
 	description:
-		'Privacy policy, terms, shipping, refunds, and contact information for Selfcrafted India.',
+		'Shipping, refunds, buyer protection, privacy, terms and contact details for Selfcrafted India.',
 	type: 'website',
 	noindex: false
 };
@@ -107,7 +107,7 @@ export function resolveSeo(
 		description,
 		canonical,
 		image,
-		imageAlt: meta.imageAlt ?? SITE_TAGLINE,
+		imageAlt: meta.imageAlt ?? (meta.image ? SITE_TAGLINE : DEFAULT_OG_IMAGE_ALT),
 		imageWidth: meta.imageWidth ?? 1200,
 		imageHeight: meta.imageHeight ?? 630,
 		type: meta.type ?? 'website',
@@ -210,9 +210,9 @@ export function organizationJsonLd(origin?: string) {
 		'@type': 'Organization',
 		name: SITE_NAME,
 		url: siteUrl,
-		logo: absoluteUrl(DEFAULT_OG_IMAGE, siteUrl),
+		logo: absoluteUrl('/pwa/pwa-512.png', siteUrl),
 		email: 'support@selfcrafted.in',
-		sameAs: ['https://github.com/selfcrafted']
+		sameAs: ['https://github.com/TheAnimatrix/SCWeb']
 	};
 }
 

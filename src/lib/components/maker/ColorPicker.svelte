@@ -70,7 +70,7 @@
 			name: 'Specials',
 			colors: [
 				{ name: 'Transparent', hex: '#e0e0e0' },
-				{ name: 'Gold Metallic', hex: '#ffd700' },
+				{ name: 'Gold Metallic', hex: '#d4af37' },
 				{ name: 'Copper', hex: '#b87333' },
 				{ name: 'Glow Green', hex: '#39ff14' }
 			]
@@ -323,7 +323,7 @@
 	<div class="space-y-4">
 		{#each colorCategories as category (category.name)}
 			<div>
-				<p class="mb-2 font-mono text-xs text-muted-foreground">{category.name}</p>
+				<p class="mb-2 text-sm text-muted-foreground">{category.name}</p>
 				<div class="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
 					{#each category.colors as color (color.hex)}
 						<button
@@ -336,6 +336,8 @@
 							)}
 							style="background-color: {color.hex}"
 							onclick={() => selectColor(color.hex, color.name)}
+							aria-label={color.name}
+							aria-pressed={customHex === color.hex}
 							title={color.name}>
 							{#if customHex === color.hex}
 								<svg
@@ -359,6 +361,10 @@
 				height={canvasHeight}
 				class="touch-none cursor-crosshair rounded-md border border-border"
 				onmousedown={handleCanvasInteraction}
+				onmousemove={(e) => {
+					// Drag with the main mouse button held to pick continuously.
+					if (e.buttons === 1) handleCanvasInteraction(e);
+				}}
 				ontouchstart={handleCanvasInteraction}
 				ontouchmove={handleTouchMove}></canvas>
 
@@ -371,7 +377,7 @@
 					value={hue}
 					oninput={handleHueChange}
 					class="hue-slider w-full" />
-				<span class="mt-2 block text-center font-mono text-xs text-muted-foreground">hue</span>
+				<span class="mt-2 block text-center text-xs text-muted-foreground">Hue</span>
 			</div>
 		</div>
 
@@ -402,7 +408,7 @@
 	<Drawer.Root bind:open={isOpen} onOpenChange={handleOpenChange}>
 		<Drawer.Content class="max-h-[92vh] border-border bg-background">
 			<Drawer.Header class="border-b border-border pb-4 text-left">
-				<Drawer.Title class="font-mono text-sm text-foreground">choose_color</Drawer.Title>
+				<Drawer.Title class="text-base font-semibold text-foreground">Choose colour</Drawer.Title>
 			</Drawer.Header>
 			<div class="overflow-y-auto px-4 py-4">
 				{@render pickerBody()}
@@ -417,7 +423,7 @@
 		<Dialog.Content
 			class="max-h-[90vh] w-[95vw] overflow-hidden border-border bg-card p-0 sm:max-w-md">
 			<Dialog.Header class="border-b border-border px-6 py-4">
-				<Dialog.Title class="font-mono text-sm text-foreground">choose_color</Dialog.Title>
+				<Dialog.Title class="text-base font-semibold text-foreground">Choose colour</Dialog.Title>
 			</Dialog.Header>
 			<div class="max-h-[calc(90vh-8rem)] overflow-y-auto px-6 py-4">
 				{@render pickerBody()}

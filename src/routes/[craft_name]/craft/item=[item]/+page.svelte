@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import { getContext } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import type { Writable } from 'svelte/store';
 	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
-	import { getProductVariants } from '$lib/client/catalogApi';
 	import { Breadcrumbs } from '$lib/components/shell';
-	import { MakerCard, ProseSkeleton, Skeleton } from '$lib/components/sc';
+	import { MakerCard, ProseSkeleton, ScButton, Skeleton } from '$lib/components/sc';
 	import {
 		ProductGallery,
 		ProductPurchasePanel,
@@ -16,16 +14,13 @@
 	} from '$lib/components/product';
 	import type { Product } from '$lib/types/product';
 	import { productUserRef } from '$lib/types/product';
-	import { getPurchasableLimit } from '$lib/utils/stock';
+	import { getPurchasableLimit, isOutOfStock } from '$lib/utils/stock';
 	import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
+	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
+	import { formatInr, formatMonthYear } from '$lib/utils/format';
+	import { productPath } from '$lib/seo/product';
 	import { SeoHead, JsonLd } from '$lib/components/seo';
 	import { productBreadcrumbJsonLd, productJsonLd, productSeo } from '$lib/seo/meta';
-
-	interface VariantOption {
-		id: string;
-		label: string;
-		href: string;
-	}
 
 	let { data } = $props();
 
@@ -34,6 +29,8 @@
 	let cartQty = $state(1);
 	let addToCartSuccess: boolean | null = $state(null);
 	let addToCartMsg = $state('');
+	let addedQty = $state(1);
+	let isAdding = $state(false);
 	interface PageReview {
 		id: string;
 		user_id: string;
@@ -44,10 +41,9 @@
 	}
 
 	let reviews = $state<PageReview[]>([]);
-	let variants = $state<VariantOption[]>([]);
-	let variantsLoading = $state(true);
+	// Variants come from the server load, so the panel never jumps when they arrive.
+	const variants = $derived(data.variants ?? []);
 	let variantNavigating = $state(false);
-	let loadedVariantsForId = $state<string | null>(null);
 
 	const isRefreshing = $derived(
 		variantNavigating ||
@@ -58,29 +54,13 @@
 	const cartQtyMax = $derived(productItem ? getPurchasableLimit(productItem.stock) : 0);
 	const cartStore = getContext<Writable<CartG>>('userCartStatus');
 
-	function productHref(item: Product): string {
-		return `/${item.name.replaceAll(' ', '_')}/craft/item=${item.id}`;
-	}
-
 	async function handleVariantNavigate(href: string) {
-		if (!productItem || href === productHref(productItem)) return;
+		if (!productItem || href === productPath(productItem)) return;
 		variantNavigating = true;
 		try {
 			await goto(href, { keepFocus: true, noScroll: true });
 		} finally {
 			variantNavigating = false;
-		}
-	}
-
-	async function loadVariants(productId: string) {
-		if (!browser) return;
-		variantsLoading = true;
-		try {
-			const result = await getProductVariants(fetch, productId);
-			variants = result.ok ? result.data.variants : [];
-			loadedVariantsForId = productId;
-		} finally {
-			variantsLoading = false;
 		}
 	}
 
@@ -118,13 +98,6 @@
 	});
 
 	$effect(() => {
-		const product = productItem;
-		if (!browser || !product) return;
-		if (loadedVariantsForId === product.id) return;
-		void loadVariants(product.id);
-	});
-
-	$effect(() => {
 		const productId = productItem?.id;
 		if (!productId) return;
 		indicatorCur = 0;
@@ -132,24 +105,39 @@
 		addToCartSuccess = null;
 	});
 
-	const slug = $derived(productItem?.name.replaceAll(' ', '_').toLowerCase() ?? '');
 	const productUser = $derived(productUserRef(productItem?.users ?? null));
-	const makerName = $derived(productItem?.author ?? productUser?.username ?? 'unknown');
-	const makerLocation = $derived(productUser?.city ?? '—');
+	const makerRawName = $derived(productItem?.author ?? productUser?.username ?? '');
+	const makerName = $derived(makerRawName ? formatUsernameDisplay(makerRawName) : 'Unknown maker');
+	const makerInfo = $derived(data.maker ?? null);
+	const makerLocation = $derived(makerInfo?.location ?? null);
 	const craftCount = $derived(data.makerCraftCount ?? 0);
-	const memberSince = $derived(
-		productItem
-			? new Date(productItem.created_at).toLocaleDateString('en-US', {
-					month: 'short',
-					year: 'numeric'
-				})
-			: ''
+	// The maker's own date (storefront published / approved), never the product's.
+	const sellingSince = $derived(
+		makerInfo?.sellingSince ? formatMonthYear(makerInfo.sellingSince) : null
 	);
+	// Storefronts only exist once approved and live; otherwise search for the maker's listings.
+	const storefrontLive = $derived(Boolean(makerInfo?.storefrontLive && productUser?.username));
 	const shopHref = $derived(
-		productUser?.username
+		storefrontLive && productUser?.username
 			? makerStorefrontPath(productUser.username)
-			: `/crafts?q=${encodeURIComponent(makerName)}`
+			: `/crafts?q=${encodeURIComponent(makerRawName)}`
 	);
+	const shopLabel = $derived(storefrontLive ? 'View shop' : 'See listings');
+	const unavailable = $derived(productItem ? isOutOfStock(productItem.stock) : true);
+
+	// Mobile: a bottom bar with price and "Add to cart" once the purchase panel scrolls away.
+	let panelEl = $state<HTMLElement | null>(null);
+	let panelScrolledPast = $state(false);
+
+	$effect(() => {
+		const el = panelEl;
+		if (!el || typeof IntersectionObserver === 'undefined') return;
+		const observer = new IntersectionObserver(([entry]) => {
+			panelScrolledPast = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+		});
+		observer.observe(el);
+		return () => observer.disconnect();
+	});
 
 	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -160,7 +148,7 @@
 	}
 
 	function decCart() {
-		if (cartQty > 0) {
+		if (cartQty > 1) {
 			cartQty -= 1;
 		}
 	}
@@ -176,40 +164,45 @@
 
 	async function cartSubmit() {
 		const product = productItem;
-		if (!product) return;
-		if (cartQty <= 0) {
-			showCartFeedback(false, 'Quantity must be at least 1');
-			return;
+		if (!product || isAdding || isOutOfStock(product.stock)) return;
+		if (cartQty < 1) cartQty = 1;
+
+		const qty = cartQty;
+		isAdding = true;
+		try {
+			const result = await setCartItem(fetch, product.id, qty, 'add');
+
+			if (result.ok) {
+				syncCartStore(cartStore, result.data.cart);
+				addedQty = qty;
+				showCartFeedback(true, '');
+				// Reset only after a successful add; on failure the buyer keeps their quantity.
+				cartQty = 1;
+				await invalidate('cart:change');
+			} else {
+				showCartFeedback(false, result.error.message);
+			}
+		} finally {
+			isAdding = false;
 		}
-
-		addToCartMsg = `${cartQty}`;
-
-		const result = await setCartItem(fetch, product.id, cartQty, 'add');
-
-		if (result.ok) {
-			syncCartStore(cartStore, result.data.cart);
-			showCartFeedback(true, addToCartMsg);
-			await invalidate('cart:change');
-		} else {
-			showCartFeedback(false, result.error.message);
-		}
-
-		cartQty = 1;
 	}
 </script>
 
 {#if productItem}
 	<SeoHead meta={productSeo(productItem, page.url.origin)} />
-	<JsonLd data={[productJsonLd(productItem, page.url.origin), productBreadcrumbJsonLd(productItem, page.url.origin)]} />
+	<JsonLd
+		data={[
+			productJsonLd(productItem, page.url.origin),
+			productBreadcrumbJsonLd(productItem, page.url.origin)
+		]} />
 {/if}
 
 <div class="mx-auto w-full min-w-0 max-w-7xl px-4 py-8 md:py-12">
 	<Breadcrumbs
 		items={[
-			{ label: 'home', href: '/' },
-			{ label: 'crafts', href: '/crafts' },
-			{ label: 'products', href: '/crafts' },
-			{ label: slug }
+			{ label: 'Home', href: '/' },
+			{ label: 'Shop', href: '/crafts' },
+			{ label: productItem?.name ?? 'Product' }
 		]} />
 
 	<div class="mt-6 grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-start">
@@ -228,27 +221,45 @@
 					<ProductGallery product={productItem} bind:indicatorCur />
 				{/if}
 
+				<!-- Desktop: maker card under the gallery. Mobile shows it after the purchase panel. -->
 				<MakerCard
+					class="hidden md:block"
 					name={makerName}
 					location={makerLocation}
 					{craftCount}
-					{memberSince}
-					{shopHref} />
+					{sellingSince}
+					{shopHref}
+					{shopLabel} />
 			</div>
 
-			<ProductPurchasePanel
-				class="min-w-0"
-				product={productItem}
-				bind:cartQty
-				{addToCartSuccess}
-				{addToCartMsg}
-				{variants}
-				{variantsLoading}
-				{isRefreshing}
-				onVariantNavigate={handleVariantNavigate}
-				onIncrement={incCart}
-				onDecrement={decCart}
-				onAddToCart={cartSubmit} />
+			<div class="min-w-0 space-y-4" bind:this={panelEl}>
+				<ProductPurchasePanel
+					class="min-w-0"
+					product={productItem}
+					{makerName}
+					makerHref={shopHref}
+					shipsFrom={makerLocation}
+					bind:cartQty
+					{addToCartSuccess}
+					{addToCartMsg}
+					{addedQty}
+					{isAdding}
+					{variants}
+					{isRefreshing}
+					onVariantNavigate={handleVariantNavigate}
+					onIncrement={incCart}
+					onDecrement={decCart}
+					onAddToCart={cartSubmit} />
+
+				<MakerCard
+					class="md:hidden"
+					name={makerName}
+					location={makerLocation}
+					{craftCount}
+					{sellingSince}
+					{shopHref}
+					{shopLabel} />
+			</div>
 		{/if}
 	</div>
 
@@ -268,12 +279,27 @@
 					product={productItem}
 					bind:reviews
 					initialReviews={mappedReviews}
+					reviewsError={data.reviewsError}
 					supabase={data.supabase} />
 			{/if}
 		</div>
 
-		<div class="mt-12">
-			<RelatedProducts product={productItem} />
-		</div>
+		<RelatedProducts product={productItem} class="mt-12" />
 	{/if}
 </div>
+
+{#if productItem && panelScrolledPast && !isRefreshing}
+	<div
+		class="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm md:hidden">
+		<div class="min-w-0 flex-1">
+			<p class="truncate text-sm text-muted-foreground">{productItem.name}</p>
+			<p class="text-base font-semibold text-foreground">{formatInr(productItem.price.new)}</p>
+		</div>
+		<ScButton
+			class="min-h-11 shrink-0 text-sm disabled:opacity-50"
+			disabled={unavailable || isAdding}
+			onclick={cartSubmit}>
+			{unavailable ? 'Out of stock' : isAdding ? 'Adding…' : 'Add to cart'}
+		</ScButton>
+	</div>
+{/if}

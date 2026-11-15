@@ -2,12 +2,12 @@
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
-	import { validateAddress, type Address } from '$lib/types/product.js';
+	import { normalizeAddressForSave, validateAddress, type Address } from '$lib/types/product.js';
 	import AddressInput from '$lib/components/fundamental/AddressInput.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import { tick } from 'svelte';
 	import { ScButton } from '$lib/components/sc';
-			
+
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 
 	let { data } = $props();
@@ -35,6 +35,34 @@
 		errorMsg = message;
 		errorShow = true;
 		window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
+	/** Maps a Supabase/PostgREST error to a plain sentence; never shows raw database text. */
+	function friendlyAddressError(
+		action: 'save' | 'update' | 'delete',
+		error: { code?: string; message?: string } | null
+	): string {
+		const verb = action === 'delete' ? 'delete' : 'save';
+		switch (error?.code) {
+			case '42501':
+			case 'PGRST301':
+				return `We couldn't ${verb} this address because your session has expired. Sign in again and retry.`;
+			case '23502':
+				return 'Fill in the name, address, city, state and pincode.';
+			case '23514':
+			case '22001':
+			case '22P02':
+				return 'Check the address details and try again.';
+			case '23503':
+				return "This address is used by an order, so it can't be deleted.";
+		}
+		return `We couldn't ${verb} this address. Try again in a moment.`;
+	}
+
+	async function currentUserId(): Promise<string | null> {
+		if (data.user?.id) return data.user.id;
+		const { data: userData } = await supabase().auth.getUser();
+		return userData.user?.id ?? null;
 	}
 
 	function isEditingAny(): boolean {
@@ -112,7 +140,7 @@
 		try {
 			const { error } = await supabase().from('addresses').delete().eq('id', addrToDelete.id);
 			if (error) {
-				showError(`Error deleting address: ${error.message}`);
+				showError(friendlyAddressError('delete', error));
 			} else {
 				addresses.splice(index, 1);
 				editing.splice(index, 1);
@@ -120,7 +148,7 @@
 				editing = [...editing];
 			}
 		} catch {
-			showError('An unexpected error occurred while deleting.');
+			showError(friendlyAddressError('delete', null));
 		} finally {
 			isLoading = false;
 		}
@@ -133,13 +161,24 @@
 	): Promise<boolean> {
 		errorShow = false;
 
-		const finalAddress = { ...addressToSave, phone: addressToSave.phone || undefined };
-		const validationError = validateAddress(finalAddress);
+		const validationError = validateAddress({
+			...addressToSave,
+			phone: addressToSave.phone || undefined
+		});
 		if (validationError) {
 			showError(validationError);
 			return false;
 		}
 
+		// Same stored form as checkout: trimmed text and a +91XXXXXXXXXX phone. The addresses
+		// table has no email column, so that field is dropped here.
+		const { email: _email, ...normalized } = normalizeAddressForSave(addressToSave);
+		void _email;
+		const finalAddress = {
+			...normalized,
+			line2: normalized.line2 || undefined,
+			phone: normalized.phone || undefined
+		};
 		const isUpdate = !!finalAddress.id;
 
 		if (isUpdate) {
@@ -162,7 +201,7 @@
 					.single();
 
 				if (error) {
-					showError(`Error updating address: ${error.message}`);
+					showError(friendlyAddressError('update', error));
 					return false;
 				}
 
@@ -172,11 +211,11 @@
 					return true;
 				}
 
-				showError('Failed to update address.');
+				showError(friendlyAddressError('update', null));
 				editing = editing.with(index, false);
 				return true;
 			} catch {
-				showError('An unexpected error occurred while updating.');
+				showError(friendlyAddressError('update', null));
 				return false;
 			} finally {
 				isLoading = false;
@@ -190,13 +229,19 @@
 			!finalAddress.pincode ||
 			!finalAddress.state
 		) {
-			showError('Please fill in all required fields.');
+			showError('Fill in the name, address, city, state and pincode.');
 			return false;
 		}
 
 		isLoading = true;
 		try {
-			const insertData = { ...finalAddress };
+			const uid = await currentUserId();
+			if (!uid) {
+				showError(friendlyAddressError('save', { code: '42501' }));
+				return false;
+			}
+			// RLS requires uid = auth.uid(); send it explicitly rather than relying on a column default.
+			const insertData = { ...finalAddress, uid };
 			delete insertData.id;
 			const { data: dbData, error } = await supabase()
 				.from('addresses')
@@ -205,7 +250,7 @@
 				.single();
 
 			if (error) {
-				showError(`Error saving address: ${error.message}`);
+				showError(friendlyAddressError('save', error));
 				return false;
 			}
 
@@ -215,10 +260,10 @@
 				return true;
 			}
 
-			showError('Failed to save address.');
+			showError(friendlyAddressError('save', null));
 			return false;
 		} catch {
-			showError('An unexpected error occurred while saving.');
+			showError(friendlyAddressError('save', null));
 			return false;
 		} finally {
 			isLoading = false;

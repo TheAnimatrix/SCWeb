@@ -160,11 +160,25 @@ function watchRazorpayInitFailure(onInitFailed: () => void): () => void {
 }
 
 export type OpenRazorpayOptions = RazorpayCheckoutOptions & {
+	/**
+	 * Called on every failed attempt (wrong UPI PIN, declined card). Razorpay keeps its modal
+	 * open after this so the buyer can retry or pick another method, so do not navigate here.
+	 * If the buyer then closes the modal, the promise resolves to 'failed' (not 'dismissed').
+	 */
 	onPaymentFailed?: (response: RazorpayPaymentFailedResponse) => void;
 };
 
-/** Opens Razorpay checkout and resolves when the user completes, dismisses, or checkout fails to start. */
-export async function openRazorpayCheckout(options: OpenRazorpayOptions): Promise<OpenRazorpayResult> {
+/**
+ * Opens Razorpay checkout and resolves when the user completes, closes the modal, or checkout
+ * fails to start. Resolves:
+ * - 'success' after `handler` finishes, 'failed' if `handler` throws;
+ * - 'dismissed' when the modal is closed with no failed attempt;
+ * - 'failed' when the modal is closed after at least one failed attempt;
+ * - 'init_failed' when checkout could not start or Razorpay reports a stale order id.
+ */
+export async function openRazorpayCheckout(
+	options: OpenRazorpayOptions
+): Promise<OpenRazorpayResult> {
 	const { onPaymentFailed, ...razorpayOptions } = options;
 	const RazorpayConstructor = await loadRazorpay();
 
@@ -180,6 +194,7 @@ export async function openRazorpayCheckout(options: OpenRazorpayOptions): Promis
 
 	return new Promise<OpenRazorpayResult>((resolve) => {
 		let settled = false;
+		let attemptFailed = false;
 		const finish = (result: OpenRazorpayResult) => {
 			if (settled) return;
 			settled = true;
@@ -209,19 +224,20 @@ export async function openRazorpayCheckout(options: OpenRazorpayOptions): Promis
 				ondismiss: () => {
 					unlock();
 					razorpayOptions.modal?.ondismiss?.();
-					finish('dismissed');
+					finish(attemptFailed ? 'failed' : 'dismissed');
 				}
 			}
 		});
 
 		instance.on('payment.failed', (response) => {
-			unlock();
 			if (isStaleRazorpayOrderError(response.error?.description)) {
+				unlock();
 				finish('init_failed');
 				return;
 			}
+			// Keep the modal (and the page lock) open: Razorpay shows its own retry screen.
+			attemptFailed = true;
 			onPaymentFailed?.(response);
-			finish('failed');
 		});
 
 		instance.open();

@@ -12,8 +12,12 @@ export function formatUsernameDisplay(username: string): string {
 
 /** Turns stored tag keys like `made_in_india` into readable display text. */
 export function formatTagDisplayLabel(tag: string): string {
-	const key = tag.trim().toLowerCase().replace(/[\s-]+/g, '_');
-	if (key === 'made_in_india') return 'made in 🇮🇳';
+	const key = tag
+		.trim()
+		.toLowerCase()
+		.replace(/[\s-]+/g, '_');
+	// Spelled out: Windows has no flag emoji and shows the letters "IN" instead.
+	if (key === 'made_in_india') return 'Made in India';
 	return formatSnakeCaseDisplay(tag);
 }
 

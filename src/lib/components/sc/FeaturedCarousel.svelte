@@ -7,22 +7,68 @@
 	import { getTierIcon, getTierStyle, getTierTextClass } from '$lib/types/tiers';
 	import { cn } from '$lib/utils';
 	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
+	import { formatInr } from '$lib/utils/format';
+	import { isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import PlaceholderImage from './PlaceholderImage.svelte';
 
 	interface Props {
 		products: Product[];
 		productHref: (product: Product) => string;
 		interval?: number;
+		/** Header label. "Featured" for curated picks, "Newest" for the fallback. */
+		label?: string;
 	}
 
-	let { products, productHref, interval = 5000 }: Props = $props();
+	let { products, productHref, interval = 5000, label = 'Featured' }: Props = $props();
 
 	let activeIndex = $state(0);
 	let paused = $state(false);
 	let prefersReducedMotion = $state(false);
+	/** Autoplay only on wide screens; stops for good once the buyer touches the carousel. */
+	let isWideScreen = $state(false);
+	let touched = $state(false);
 
 	const hasMultiple = $derived(products.length > 1);
-	const autoPlayEnabled = $derived(hasMultiple && interval > 0 && !paused && !prefersReducedMotion);
+	const autoPlayEnabled = $derived(
+		hasMultiple && interval > 0 && !paused && !prefersReducedMotion && isWideScreen && !touched
+	);
+
+	const SWIPE_THRESHOLD_PX = 40;
+	let swipeStartX: number | null = null;
+	let swipeStartY = 0;
+	let swiped = false;
+
+	function handlePointerDown(event: PointerEvent) {
+		if (event.pointerType === 'mouse') return;
+		touched = true;
+		swipeStartX = event.clientX;
+		swipeStartY = event.clientY;
+		swiped = false;
+	}
+
+	function handlePointerUp(event: PointerEvent) {
+		if (swipeStartX === null) return;
+		const dx = event.clientX - swipeStartX;
+		const dy = event.clientY - swipeStartY;
+		swipeStartX = null;
+		if (!hasMultiple || Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) < Math.abs(dy)) return;
+		swiped = true;
+		goTo(activeIndex + (dx < 0 ? 1 : -1));
+	}
+
+	/** A swipe must not also open the product. */
+	function handleSlideClick(event: MouseEvent) {
+		if (swiped) {
+			event.preventDefault();
+			swiped = false;
+		}
+	}
+
+	function stockLabel(product: Product): string | null {
+		if (isOnDemand(product.stock)) return 'Made to order';
+		if (isOutOfStock(product.stock)) return 'Out of stock';
+		return `${product.stock.count} in stock`;
+	}
 	const activeProduct = $derived(products[activeIndex]);
 
 	function makerName(product: Product) {
@@ -43,11 +89,11 @@
 	}
 
 	function formatPrice(product: Product) {
-		return product.price.new.toLocaleString('en-IN');
+		return formatInr(product.price.new);
 	}
 
 	function formatOldPrice(product: Product) {
-		return product.price.old > 0 ? product.price.old.toLocaleString('en-IN') : null;
+		return product.price.old > product.price.new ? formatInr(product.price.old) : null;
 	}
 
 	function goTo(index: number) {
@@ -79,6 +125,18 @@
 	$effect(() => {
 		void products;
 		activeIndex = 0;
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+
+		const wide = window.matchMedia('(min-width: 768px)');
+		isWideScreen = wide.matches;
+		const onWideChange = (event: MediaQueryListEvent) => {
+			isWideScreen = event.matches;
+		};
+		wide.addEventListener('change', onWideChange);
+		return () => wide.removeEventListener('change', onWideChange);
 	});
 
 	$effect(() => {
@@ -120,13 +178,20 @@
 			class="@container overflow-hidden rounded-lg border border-border bg-card"
 			role="region"
 			aria-roledescription="carousel"
-			aria-label="Featured crafts">
+			aria-label="Featured listings">
 			<div
 				class="border-b border-border bg-muted/40 px-4 py-2 text-xs uppercase tracking-wide text-muted-foreground">
-				<span class="glow-text">Featured</span>
+				<span class="glow-text">{label}</span>
 			</div>
 
-			<div class="overflow-hidden">
+			<div
+				class="overflow-hidden"
+				role="group"
+				aria-label="Slides"
+				style:touch-action="pan-y"
+				onpointerdown={handlePointerDown}
+				onpointerup={handlePointerUp}
+				onpointercancel={() => (swipeStartX = null)}>
 				<div
 					class="flex transition-transform duration-300 ease-out"
 					style:transform="translateX(-{activeIndex * 100}%)">
@@ -148,7 +213,8 @@
 									paused = false;
 								}
 							}}
-							onkeydown={handleKeydown}>
+							onkeydown={handleKeydown}
+							onclick={handleSlideClick}>
 							<div
 								class="grid grid-cols-[minmax(0,36%)_1fr] @min-[400px]:grid-cols-[minmax(0,42%)_1fr] @min-[520px]:grid-cols-[minmax(0,200px)_1fr] @min-[640px]:grid-cols-[minmax(0,240px)_1fr]">
 								<div class="aspect-[4/5] overflow-hidden @min-[520px]:min-h-full">
@@ -158,61 +224,60 @@
 										class="transition-transform duration-500 group-hover:scale-105" />
 								</div>
 
-								<div class="flex min-w-0 flex-col justify-between gap-3 p-4 @min-[520px]:gap-4 @min-[520px]:p-6">
-										<div class="space-y-2 @min-[520px]:space-y-3">
-											<h2
-												class="text-base font-medium leading-tight text-foreground @min-[520px]:text-xl">
-												{product.name}
-											</h2>
+								<div
+									class="flex min-w-0 flex-col justify-between gap-3 p-4 @min-[520px]:gap-4 @min-[520px]:p-6">
+									<div class="space-y-2 @min-[520px]:space-y-3">
+										<h2
+											class="text-base font-medium leading-tight text-foreground @min-[520px]:text-xl">
+											{product.name}
+										</h2>
 
-											<div class="space-y-2 text-sm">
-												<div class="flex min-w-0 items-center gap-1.5">
-													{#if tierIcon}
-														<span
-															class="inline-flex size-4 shrink-0"
-															style:filter={tierStyle.iconFilter ?? undefined}
-															aria-hidden="true">
-															<Icon icon={tierIcon} class="size-full" />
-														</span>
-													{/if}
-													<span class={cn('truncate font-medium', tierTextClass)}>
-														{makerDisplayName(product)}
+										<div class="space-y-2 text-sm">
+											<div class="flex min-w-0 items-center gap-1.5">
+												{#if tierIcon}
+													<span
+														class="inline-flex size-4 shrink-0"
+														style:filter={tierStyle.iconFilter ?? undefined}
+														aria-hidden="true">
+														<Icon icon={tierIcon} class="size-full" />
 													</span>
-												</div>
-
-												<p
-													class="flex items-center gap-1.5 text-muted-foreground"
-													aria-label="{product.stock.count} in stock">
-													<Icon icon={F.box} class="size-3.5 shrink-0" aria-hidden="true" />
-													{product.stock.count}
-												</p>
-
-												{#if showRating(product)}
-													<p class="flex items-center gap-1.5 text-muted-foreground">
-														<Icon
-															icon={F.star}
-															class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
-															aria-hidden="true" />
-														<span>{product.rating?.rating}</span>
-														<span class="text-muted-foreground/80">
-															({product.rating?.count} review{product.rating?.count === 1
-																? ''
-																: 's'})
-														</span>
-													</p>
 												{/if}
+												<span class={cn('truncate font-medium', tierTextClass)}>
+													{makerDisplayName(product)}
+												</span>
 											</div>
+
+											{#if stockLabel(product)}
+												<p class="flex items-center gap-1.5 text-muted-foreground">
+													<Icon icon={F.box} class="size-3.5 shrink-0" aria-hidden="true" />
+													{stockLabel(product)}
+												</p>
+											{/if}
+
+											{#if showRating(product)}
+												<p class="flex items-center gap-1.5 text-muted-foreground">
+													<Icon
+														icon={F.star}
+														class="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+														aria-hidden="true" />
+													<span>{product.rating?.rating}</span>
+													<span class="text-muted-foreground/80">
+														({product.rating?.count} review{product.rating?.count === 1 ? '' : 's'})
+													</span>
+												</p>
+											{/if}
 										</div>
+									</div>
 
 									<div class="text-right">
 										{#if formatOldPrice(product)}
 											<p class="text-sm font-medium text-muted-foreground line-through">
-												₹{formatOldPrice(product)}
+												<span class="sr-only">Was </span>{formatOldPrice(product)}
 											</p>
 										{/if}
 										<p
 											class="text-xl font-bold tracking-tight text-foreground @min-[520px]:text-3xl">
-											₹{formatPrice(product)}
+											{formatPrice(product)}
 										</p>
 									</div>
 								</div>
@@ -223,10 +288,10 @@
 			</div>
 
 			{#if hasMultiple}
-				<div class="flex items-center justify-center gap-3 border-t border-border px-4 py-3">
+				<div class="flex items-center justify-center gap-2 border-t border-border px-4 py-1">
 					<button
 						type="button"
-						class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+						class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
 						aria-label="Previous featured craft"
 						onmouseenter={() => (paused = true)}
 						onmouseleave={() => (paused = false)}
@@ -237,13 +302,11 @@
 						<Icon icon={F.chevronLeft} class="size-4" />
 					</button>
 
-					<div class="flex items-center gap-1.5">
+					<div class="flex items-center">
 						{#each products as product, index (product.id)}
 							<button
 								type="button"
-								class="h-1.5 rounded-full transition-all {index === activeIndex
-									? 'w-5 bg-foreground'
-									: 'w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'}"
+								class="group/dot inline-flex h-11 min-w-6 items-center justify-center px-1"
 								aria-label="Go to featured craft {index + 1}"
 								aria-current={index === activeIndex ? 'true' : undefined}
 								onmouseenter={() => (paused = true)}
@@ -251,13 +314,19 @@
 								onfocus={() => (paused = true)}
 								onblur={() => (paused = false)}
 								onkeydown={handleKeydown}
-								onclick={() => goTo(index)}></button>
+								onclick={() => goTo(index)}>
+								<span
+									class="block h-1.5 rounded-full transition-all {index === activeIndex
+										? 'w-5 bg-foreground'
+										: 'w-1.5 bg-muted-foreground/40 group-hover/dot:bg-muted-foreground/70'}"
+									aria-hidden="true"></span>
+							</button>
 						{/each}
 					</div>
 
 					<button
 						type="button"
-						class="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+						class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
 						aria-label="Next featured craft"
 						onmouseenter={() => (paused = true)}
 						onmouseleave={() => (paused = false)}

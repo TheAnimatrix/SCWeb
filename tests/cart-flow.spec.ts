@@ -7,25 +7,23 @@ test.describe('cart flow (requires DB + API)', () => {
 	test('guest add-to-cart, quantity change, remove, and checkout guard', async ({ page }) => {
 		await page.goto('/');
 
-		const featured = page.getByRole('region', { name: 'Featured crafts' });
+		const featured = page.getByRole('region', { name: 'Featured listings' });
 		await expect(featured).toBeVisible();
 		await featured.getByRole('link').first().click();
 		await page.waitForURL(/\/craft\/item=/);
 
-		await page.getByRole('button', { name: 'add_to_cart' }).click();
-		await expect(page.getByText(/added to cart/)).toBeVisible({ timeout: 10_000 });
+		await page.getByRole('button', { name: 'Add to cart' }).first().click();
+		await expect(page.getByText(/Added \d+ to your cart/)).toBeVisible({ timeout: 10_000 });
 
 		await page.goto('/cart');
 		await expect(page.getByRole('heading', { name: 'Your cart' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Increase quantity' })).toBeVisible();
+		await expect(page.getByRole('button', { name: /^Increase quantity/ })).toBeVisible();
 
-		await page.getByRole('button', { name: 'Increase quantity' }).click();
+		await page.getByRole('button', { name: /^Increase quantity/ }).click();
 		await page.waitForTimeout(600);
 
-		await page.getByRole('button', { name: 'Remove item' }).click();
-		await expect(page.getByRole('heading', { name: 'Nothing here yet' })).toBeVisible({
-			timeout: 10_000
-		});
+		await page.getByRole('button', { name: /^Remove / }).click();
+		await expect(page.getByText('Your cart is empty.')).toBeVisible({ timeout: 10_000 });
 
 		await page.goto('/checkout');
 		await expect(page).toHaveURL(/\/cart$/);
@@ -34,10 +32,10 @@ test.describe('cart flow (requires DB + API)', () => {
 	test('checkout guard passes when cart has items', async ({ page }) => {
 		await page.goto('/');
 
-		const featured = page.getByRole('region', { name: 'Featured crafts' });
+		const featured = page.getByRole('region', { name: 'Featured listings' });
 		await featured.getByRole('link').first().click();
-		await page.getByRole('button', { name: 'add_to_cart' }).click();
-		await expect(page.getByText(/added to cart/)).toBeVisible({ timeout: 10_000 });
+		await page.getByRole('button', { name: 'Add to cart' }).first().click();
+		await expect(page.getByText(/Added \d+ to your cart/)).toBeVisible({ timeout: 10_000 });
 
 		await page.goto('/checkout');
 		await expect(page).not.toHaveURL(/\/cart$/);

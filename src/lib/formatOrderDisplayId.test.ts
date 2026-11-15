@@ -3,7 +3,8 @@ import { formatOrderDisplayId } from './formatOrderDisplayId';
 
 describe('formatOrderDisplayId', () => {
 	it('uses the first UUID segment as the display ref', () => {
-		expect(formatOrderDisplayId('70ec41d8-f86f-461e-9e43-14b180231d48')).toBe('70ec41d8');
+		expect(formatOrderDisplayId('70ec41d8-f86f-461e-9e43-14b180231d48')).toBe('70EC41D8');
+		expect(formatOrderDisplayId('70EC41D8-F86F-461E-9E43-14B180231D48')).toBe('70EC41D8');
 	});
 
 	it('uses numeric legacy purchase ids as-is', () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { FullAutoFill } from 'svelte/elements';
 	import Icon from '@iconify/svelte';
 	import { F } from '$lib/icons/fluent';
 
@@ -16,6 +17,12 @@
 		labelClass?: string;
 		size?: 'default' | 'sm';
 		class?: string;
+		/** Per-field messages shown under each input (checkout address form). */
+		errors?: { pincode?: string; city?: string; state?: string };
+		/** Called when a field loses focus, so the parent can start showing its error. */
+		onFieldBlur?: (field: 'pincode' | 'city' | 'state') => void;
+		/** "shipping" / "billing" autocomplete section, so browsers fill the right address. */
+		autocompleteSection?: 'shipping' | 'billing';
 	}
 
 	let {
@@ -25,8 +32,14 @@
 		idPrefix,
 		labelClass = 'text-sm font-medium text-foreground',
 		size = 'default',
-		class: className = ''
+		class: className = '',
+		errors = {},
+		onFieldBlur,
+		autocompleteSection
 	}: Props = $props();
+
+	const autocompletePrefix = $derived(autocompleteSection ? `${autocompleteSection} ` : '');
+	const autofill = (token: string) => `${autocompletePrefix}${token}` as FullAutoFill;
 
 	const stateItems = indianStates.map((name) => ({ value: name, label: name }));
 
@@ -64,7 +77,7 @@
 			if (!result.cities.includes(city)) {
 				city = '';
 			}
-			pincodeHint = `${result.cities.length} cities found — pick yours`;
+			pincodeHint = `${result.cities.length} cities found. Pick yours.`;
 			return;
 		}
 
@@ -84,7 +97,9 @@
 		if (!result.ok) {
 			cityOptions = [];
 			pincodeHint =
-				result.error === 'not_found' ? 'Pincode not found' : 'Could not look up pincode';
+				result.error === 'not_found'
+					? 'We could not find this pincode. Check it, or enter the city and state yourself.'
+					: 'Could not look up the pincode. Enter the city and state yourself.';
 			return;
 		}
 
@@ -129,7 +144,10 @@
 				bind:value={pincode}
 				maxlength={6}
 				inputmode="numeric"
-				autocomplete="postal-code"
+				autocomplete={autofill('postal-code')}
+				aria-invalid={errors.pincode ? 'true' : undefined}
+				aria-describedby={errors.pincode ? `${idPrefix}-pincode-error` : undefined}
+				onblur={() => onFieldBlur?.('pincode')}
 				oninput={handlePincodeInput} />
 			{#if pincodeLoading}
 				<Icon
@@ -138,7 +156,9 @@
 					aria-hidden="true" />
 			{/if}
 		</div>
-		{#if pincodeHint}
+		{#if errors.pincode}
+			<p id="{idPrefix}-pincode-error" class="text-xs text-destructive">{errors.pincode}</p>
+		{:else if pincodeHint}
 			<p class="text-xs text-muted-foreground">{pincodeHint}</p>
 		{/if}
 	</div>
@@ -148,7 +168,11 @@
 			<label for="{idPrefix}-city" class={labelClass}>City</label>
 			{#if cityOptions.length > 0}
 				<Select.Root type="single" items={cityItems} bind:value={city}>
-					<Select.Trigger id="{idPrefix}-city" class={selectTriggerClass}>
+					<Select.Trigger
+						id="{idPrefix}-city"
+						class={selectTriggerClass}
+						aria-invalid={errors.city ? 'true' : undefined}
+						aria-describedby={errors.city ? `${idPrefix}-city-error` : undefined}>
 						<span class:truncate={true} class:text-muted-foreground={!city}>{cityLabel}</span>
 					</Select.Trigger>
 					<Select.Content>
@@ -167,15 +191,26 @@
 					glow={false}
 					placeholder="City / district"
 					bind:value={city}
-					autocomplete="address-level2" />
+					autocomplete={autofill('address-level2')}
+					aria-invalid={errors.city ? 'true' : undefined}
+					aria-describedby={errors.city ? `${idPrefix}-city-error` : undefined}
+					onblur={() => onFieldBlur?.('city')} />
+			{/if}
+			{#if errors.city}
+				<p id="{idPrefix}-city-error" class="text-xs text-destructive">{errors.city}</p>
 			{/if}
 		</div>
 
 		<div class="space-y-1.5">
 			<label for="{idPrefix}-state" class={labelClass}>State</label>
 			<Select.Root type="single" items={stateItems} bind:value={selectedState}>
-				<Select.Trigger id="{idPrefix}-state" class={selectTriggerClass}>
-					<span class:truncate={true} class:text-muted-foreground={!selectedState}>{stateLabel}</span>
+				<Select.Trigger
+					id="{idPrefix}-state"
+					class={selectTriggerClass}
+					aria-invalid={errors.state ? 'true' : undefined}
+					aria-describedby={errors.state ? `${idPrefix}-state-error` : undefined}>
+					<span class:truncate={true} class:text-muted-foreground={!selectedState}
+						>{stateLabel}</span>
 				</Select.Trigger>
 				<Select.Content class="max-h-60">
 					<Select.Group>
@@ -185,6 +220,9 @@
 					</Select.Group>
 				</Select.Content>
 			</Select.Root>
+			{#if errors.state}
+				<p id="{idPrefix}-state-error" class="text-xs text-destructive">{errors.state}</p>
+			{/if}
 		</div>
 	</div>
 </div>

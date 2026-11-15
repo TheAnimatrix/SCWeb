@@ -2,12 +2,17 @@
 	import { F } from '$lib/icons/fluent';
 
 	import Icon from '@iconify/svelte';
-	import { fade } from 'svelte/transition';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Button } from '$lib/components/ui/button';
 
+	/**
+	 * Confirmation dialog built on the bits-ui Dialog (focus trap, Escape, overlay click,
+	 * theme tokens). Props are unchanged from the earlier hand-rolled version.
+	 */
 	let {
 		open = $bindable(false),
-		title = 'Confirm Action',
-		message = 'Are you sure you want to proceed?',
+		title = 'Are you sure?',
+		message = 'This cannot be undone.',
 		confirmText = 'Confirm',
 		cancelText = 'Cancel',
 		onConfirm = () => {},
@@ -32,57 +37,30 @@
 		open = false;
 	}
 
-	function handleKeydown(event: KeyboardEvent) {
-		if (open && event.key === 'Escape') {
-			handleCancel();
-		}
+	// Fires for Escape, overlay clicks and the close button. Programmatic `open = false`
+	// from the buttons above does not trigger it, so onCancel runs exactly once.
+	function handleOpenChange(next: boolean) {
+		if (!next) onCancel();
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if open}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-		onclick={handleCancel}
-		transition:fade={{ duration: 150 }}>
-		<div
-			class="bg-[#1a1a1a] rounded-xl shadow-2xl w-full max-w-md m-4 border border-[#333]"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="dialog-title">
-			<div class="p-6">
-				<div class="flex items-start gap-4">
-					<div class="bg-red-900/30 rounded-full p-2 flex items-center justify-center shrink-0">
-						<Icon icon={F.warning} class="text-xl text-red-400" />
-					</div>
-					<div class="flex-grow">
-						<div id="dialog-title" class="text-lg font-semibold text-gray-100">{title}</div>
-						<p class="mt-1 text-sm text-gray-400">{message}</p>
-					</div>
-					<button
-						onclick={handleCancel}
-						class="p-1 text-gray-400 hover:text-gray-200 hover:bg-card/10 rounded-full"
-						aria-label="Close dialog">
-						<Icon icon={F.dismiss} class="text-lg" />
-					</button>
-				</div>
+<Dialog.Root bind:open onOpenChange={handleOpenChange}>
+	<Dialog.Content class="max-w-md border-border bg-card text-card-foreground">
+		<div class="flex items-start gap-4 pr-6">
+			<div
+				class="flex shrink-0 items-center justify-center rounded-full bg-destructive/10 p-2"
+				aria-hidden="true">
+				<Icon icon={F.warning} class="size-5 text-destructive" />
 			</div>
-
-			<div class="bg-[#222] px-6 py-4 flex justify-end gap-3 rounded-b-xl border-t border-[#333]">
-				<button
-					onclick={handleCancel}
-					class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 bg-card/5 hover:bg-card/10 transition-colors">
-					{cancelText}
-				</button>
-				<button
-					onclick={handleConfirm}
-					class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
-					{confirmText}
-				</button>
-			</div>
+			<Dialog.Header class="text-left">
+				<Dialog.Title class="text-lg font-semibold text-foreground">{title}</Dialog.Title>
+				<Dialog.Description class="text-sm text-muted-foreground">{message}</Dialog.Description>
+			</Dialog.Header>
 		</div>
-	</div>
-{/if}
+
+		<Dialog.Footer class="gap-2 sm:gap-0">
+			<Button variant="outline" onclick={handleCancel}>{cancelText}</Button>
+			<Button variant="destructive" onclick={handleConfirm}>{confirmText}</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

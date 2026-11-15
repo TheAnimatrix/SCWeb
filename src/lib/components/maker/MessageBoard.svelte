@@ -2,7 +2,7 @@
 	import { F } from '$lib/icons/fluent';
 
 	import Icon from '@iconify/svelte';
-		import type { RealtimeChannel } from '@supabase/supabase-js';
+	import type { RealtimeChannel } from '@supabase/supabase-js';
 	import type { TypedSupabaseClient } from '$lib/types/database';
 	import type { ChatMessage } from '$lib/types/chat';
 	import { onMount, tick } from 'svelte';
@@ -12,6 +12,7 @@
 	import { PortalSectionLabel } from '$lib/components/portal';
 	import { MessageBubbleSkeleton, ScButton } from '$lib/components/sc';
 	import { cn } from '$lib/utils';
+	import { formatInr } from '$lib/utils/format';
 
 	let {
 		orderId,
@@ -23,7 +24,7 @@
 	}: {
 		orderId: string;
 		supabase: TypedSupabaseClient;
-		session: { data: { user: { id: string } } } | null;
+		session: { data: { user: { id: string } | null } } | null;
 		receiverId: string;
 		disabled: boolean;
 		paynow?: () => void;
@@ -31,6 +32,7 @@
 
 	let messages = $state<ChatMessage[]>([]);
 	let newMessage = $state('');
+	let sending = $state(false);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let subscription: RealtimeChannel | null = null;
@@ -44,6 +46,7 @@
 	let prevMessageCount = $state(0);
 	let initialLoadCompleted = $state(false);
 
+	/* eslint-disable svelte/prefer-svelte-reactivity -- local, non-reactive date maths */
 	function getDateLabel(dateStr: string) {
 		const date = new Date(dateStr);
 		const today = new Date();
@@ -54,6 +57,7 @@
 		msgDate.setHours(0, 0, 0, 0);
 		if (msgDate.getTime() === today.getTime()) return 'Today';
 		if (msgDate.getTime() === yesterday.getTime()) return 'Yesterday';
+		/* eslint-enable svelte/prefer-svelte-reactivity */
 		return date.toLocaleDateString();
 	}
 
@@ -207,12 +211,13 @@
 	onMount(() => {
 		fetchMessages(true);
 		subscribeToMessages();
-		if (session?.data?.user?.id) {
+		const viewerId = session?.data?.user?.id;
+		if (viewerId) {
 			supabase
 				.from('Chat')
 				.update({ status: 'read' })
 				.eq('relationship_id', orderId)
-				.eq('recipient_id', session.data.user.id)
+				.eq('recipient_id', viewerId)
 				.eq('status', 'sent')
 				.then(() => {});
 		}
@@ -221,35 +226,51 @@
 		};
 	});
 
-	async function sendMessage(e: Event) {
-		e.preventDefault();
-		if (!newMessage.trim() || !session?.data?.user?.id) return;
-		const result = await sendChatMessage(fetch, {
-			relationship_id: orderId,
-			recipient_id: receiverId,
-			message: newMessage,
-			message_type: 'text',
-			status: 'sent'
-		});
-		if (result.ok) {
-			newMessage = '';
-		} else {
-			toastStore.show(`Unable to send message: ${result.error.message}`, 'error');
+	async function sendMessage(e?: Event) {
+		e?.preventDefault();
+		if (sending || !newMessage.trim() || !session?.data?.user?.id) return;
+		sending = true;
+		try {
+			const result = await sendChatMessage(fetch, {
+				relationship_id: orderId,
+				recipient_id: receiverId,
+				message: newMessage,
+				message_type: 'text',
+				status: 'sent'
+			});
+			if (result.ok) {
+				newMessage = '';
+			} else {
+				toastStore.show(`Couldn't send your message. ${result.error.message}`, 'error');
+			}
+		} finally {
+			sending = false;
+		}
+	}
+
+	// Enter sends; Shift+Enter adds a new line.
+	function handleComposerKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+			e.preventDefault();
+			void sendMessage();
 		}
 	}
 
 	$effect(() => {
-		if (session?.data?.user?.id && messages.length > 0) {
+		const viewerId = session?.data?.user?.id;
+		if (viewerId && messages.length > 0) {
 			const unread = messages.filter(
-				(msg) => msg.recipient_id === session.data.user.id && msg.status === 'sent'
+				(msg) => msg.recipient_id === viewerId && msg.status === 'sent'
 			);
 			if (unread.length > 0) {
-				supabase
+				// The query builder only runs once it is awaited or then'd.
+				void supabase
 					.from('Chat')
 					.update({ status: 'read' })
 					.eq('relationship_id', orderId)
-					.eq('recipient_id', session.data.user.id)
-					.eq('status', 'sent');
+					.eq('recipient_id', viewerId)
+					.eq('status', 'sent')
+					.then(() => {});
 			}
 		}
 	});
@@ -273,12 +294,13 @@
 	{#if disabled}
 		<div
 			class="absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center rounded-md bg-background/80 backdrop-blur-sm">
-			<span class="font-mono text-sm text-muted-foreground">chat_disabled</span>
+			<span class="px-6 text-center text-sm text-muted-foreground"
+				>Chat is closed because this request was cancelled or completed.</span>
 		</div>
 	{/if}
 
 	<div class="border-b border-border px-4 py-3">
-		<PortalSectionLabel label="message_board" class="mb-0" />
+		<PortalSectionLabel label="Messages" class="mb-0" />
 	</div>
 
 	<div class="relative flex flex-1">
@@ -288,9 +310,9 @@
 			onscroll={handleScroll}>
 			<div
 				class="mb-3 flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2">
-				<Icon icon={F.info} class="mt-0.5 shrink-0 text-muted-foreground" />
-				<span class="text-xs leading-relaxed text-muted-foreground">
-					File sharing is not available due to hosting costs. We apologize for any inconvenience.
+				<Icon icon={F.info} class="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+				<span class="text-sm leading-relaxed text-muted-foreground">
+					You can't attach files here yet. Share a link to photos instead.
 				</span>
 			</div>
 
@@ -304,14 +326,16 @@
 			{:else if error}
 				<div class="py-8 text-center text-sm text-destructive">{error}</div>
 			{:else if messages.length === 0}
-				<div class="py-8 text-center text-sm text-muted-foreground">No messages yet.</div>
+				<div class="py-8 text-center text-sm text-muted-foreground">
+					No messages yet. Ask a question or share details about your print.
+				</div>
 			{:else}
 				<div class="flex-1 space-y-4">
 					{#each messages as msg, i (msg.chat_id)}
 						{#if i === 0 || getDateLabel(msg.created_at) !== getDateLabel(messages[i - 1].created_at)}
 							<div class="my-2 flex justify-center">
 								<span
-									class="rounded-md border border-border bg-muted/40 px-3 py-1 font-mono text-xs text-muted-foreground">
+									class="rounded-md border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
 									{getDateLabel(msg.created_at)}
 								</span>
 							</div>
@@ -335,11 +359,12 @@
 										{#if shippedObj.tracking_id}
 											<div
 												class="mt-2 w-full rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs">
-												<span class="font-mono text-muted-foreground">tracking_id:</span>
+												<span class="text-muted-foreground">Tracking ID:</span>
 												<span class="ml-1">{shippedObj.tracking_id}</span>
 											</div>
 										{/if}
 										{#if shippedObj.tracking_link}
+											<!-- eslint-disable svelte/no-navigation-without-resolve -- courier's external tracking page -->
 											<a
 												href={shippedObj.tracking_link}
 												target="_blank"
@@ -347,8 +372,8 @@
 												class="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-border bg-card px-3 py-2 text-xs transition-colors hover:bg-muted">
 												<Icon icon={F.box} class="text-base" />
 												Track package
-												<Icon icon={F.chevronUp} class="text-xs" />
 											</a>
+											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										{/if}
 										{#if shippedObj.reason}
 											<div class="mt-2 w-full text-xs text-muted-foreground">
@@ -357,20 +382,32 @@
 										{/if}
 									</div>
 								{:else}
+									{@const isCancel =
+										actionObj?.action === 'cancel' ||
+										actionObj?.action === 'cancelled' ||
+										actionObj?.action === 'decline' ||
+										actionObj?.action === 'declined'}
 									<div
 										class={cn(
-											'flex max-w-xs flex-col break-words rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive',
+											'flex max-w-xs flex-col break-words rounded-md border px-3 py-2 text-sm',
+											isCancel
+												? 'border-destructive/30 bg-destructive/5 text-destructive'
+												: 'border-border bg-card text-foreground',
 											isOwn ? 'self-end' : 'self-start'
 										)}>
 										<div class="flex w-full items-start gap-1 font-medium">
-											<Icon icon={F.warning} class="text-base" />
+											{#if isCancel}
+												<Icon icon={F.warning} class="text-base" aria-hidden="true" />
+											{/if}
 											{actionObj?.action
-												? actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
-												: 'Action'}
+												? (
+														actionObj.action.charAt(0).toUpperCase() + actionObj.action.slice(1)
+													).replace(/_/g, ' ')
+												: 'Update'}
 										</div>
 										{#if actionObj?.reason}
-											<div class="mt-1 text-xs">
-												<span class="text-muted-foreground">reason:</span>
+											<div class="mt-1 text-sm">
+												<span class="text-muted-foreground">Reason:</span>
 												<span class="ml-1">{actionObj.reason}</span>
 											</div>
 										{/if}
@@ -383,15 +420,15 @@
 										'flex max-w-xs flex-col break-words rounded-md border border-border bg-card px-3 py-2 text-sm',
 										isOwn ? 'self-end' : 'self-start'
 									)}>
-									<div class="flex items-center gap-1 font-mono text-xs text-muted-foreground">
-										<Icon icon={F.money} class="text-base" />
-										{isOwn ? 'quote_sent' : 'quote_received'}
+									<div class="flex items-center gap-1 text-xs text-muted-foreground">
+										<Icon icon={F.money} class="text-base" aria-hidden="true" />
+										{isOwn ? 'Quote sent' : 'Quote received'}
 									</div>
 									{#if quoteObj.reason}
 										<div class="mt-1 text-foreground">{quoteObj.reason}</div>
 									{/if}
 									<div class="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-										{quoteObj.quote}₹
+										{formatInr(quoteObj.quote)}
 									</div>
 									{#if msg.recipient_id === session?.data?.user?.id && isLatestQuote(i)}
 										<ScButton
@@ -400,7 +437,7 @@
 												? () => paynow()
 												: () =>
 														toastStore.show(
-															'Close the chat, select address and click pay now',
+															'Close the chat, choose an address, then select Pay.',
 															'info'
 														)}>
 											Pay now
@@ -422,12 +459,10 @@
 							<div class="mt-1 flex gap-0.5">
 								{#if isOwn}
 									<span class={msg.status === 'read' ? 'text-foreground' : 'text-muted-foreground'}>
-										<Icon
-											icon={msg.status === 'read' ? F.checkAll : F.check}
-											class="size-3" />
+										<Icon icon={msg.status === 'read' ? F.checkAll : F.check} class="size-3" />
 									</span>
 								{/if}
-								<div class="font-mono text-[10px] text-muted-foreground">
+								<div class="text-xs text-muted-foreground">
 									{new Date(msg.created_at).toLocaleTimeString([], {
 										hour: '2-digit',
 										minute: '2-digit'
@@ -443,20 +478,22 @@
 
 	<div class="border-t border-border p-4">
 		<form
-			class="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
+			class="flex items-end gap-2 rounded-md border border-border bg-card px-3 py-2"
 			onsubmit={sendMessage}>
-			<input
-				type="text"
-				class="flex-1 border-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-				placeholder="Type your message…"
+			<textarea
+				rows="2"
+				class="max-h-40 min-h-10 flex-1 resize-y border-none bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+				placeholder="Write a message. Enter sends, Shift+Enter adds a line."
+				aria-label="Message"
 				bind:value={newMessage}
-				{disabled} />
+				onkeydown={handleComposerKeydown}
+				{disabled}></textarea>
 			<button
 				type="submit"
-				class="text-foreground transition-colors hover:text-foreground/70 disabled:cursor-not-allowed disabled:opacity-50"
-				{disabled}
-				aria-label="Send message">
-				<Icon icon={F.send} class="size-4" />
+				class="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+				disabled={disabled || sending || !newMessage.trim()}
+				aria-label={sending ? 'Sending message' : 'Send message'}>
+				<Icon icon={F.send} class="size-5" aria-hidden="true" />
 			</button>
 		</form>
 	</div>

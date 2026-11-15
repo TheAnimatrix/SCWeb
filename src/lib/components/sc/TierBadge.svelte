@@ -34,5 +34,8 @@
 	{/if}
 	{#if displayLabel}
 		<span>{tier}</span>
+	{:else}
+		<!-- Icon-only badges still need a name for screen readers. -->
+		<span class="sr-only">{tier} tier</span>
 	{/if}
 </span>

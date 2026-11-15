@@ -6,8 +6,12 @@ export interface RazorpayCheckoutSuccessResponse {
 
 export interface RazorpayPaymentFailedResponse {
 	error?: {
-		metadata?: { order_id?: string };
+		code?: string;
 		description?: string;
+		reason?: string;
+		source?: string;
+		step?: string;
+		metadata?: { order_id?: string; payment_id?: string };
 	};
 }
 

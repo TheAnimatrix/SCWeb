@@ -34,16 +34,22 @@
 	$effect(() => {
 		if (!browser || !contentEl) return;
 
+		// Clamp on phones only: on wider screens the full text fits beside the reviews.
+		const mobile = window.matchMedia('(max-width: 767px)');
 		const measure = () => {
 			if (!contentEl) return;
-			isOverflowing = contentEl.scrollHeight > collapsedMaxHeight + 1;
+			isOverflowing = mobile.matches && contentEl.scrollHeight > collapsedMaxHeight + 1;
 		};
 
 		measure();
 		const ro = new ResizeObserver(measure);
 		ro.observe(contentEl);
+		mobile.addEventListener('change', measure);
 
-		return () => ro.disconnect();
+		return () => {
+			ro.disconnect();
+			mobile.removeEventListener('change', measure);
+		};
 	});
 
 	const showCollapsed = $derived(isOverflowing && !expanded);
@@ -65,16 +71,18 @@
 					'pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t to-transparent',
 					fadeFromClass
 				)}
-				aria-hidden="true"></div>
+				aria-hidden="true">
+			</div>
 		{/if}
 	</div>
 
 	{#if isOverflowing}
 		<button
 			type="button"
-			class="mt-3 w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
+			class="mt-3 min-h-11 w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
+			aria-expanded={expanded}
 			onclick={() => (expanded = !expanded)}>
-			{expanded ? 'Show less' : 'See more'}
+			{expanded ? 'Show less' : 'Show more'}
 		</button>
 	{/if}
 </div>

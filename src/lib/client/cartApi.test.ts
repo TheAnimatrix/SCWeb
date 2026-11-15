@@ -1,13 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { mapApiError, stripCheckoutAddress } from '$lib/client/cartApi';
+import { mapApiError, stockLimitMessage, stripCheckoutAddress } from '$lib/client/cartApi';
 import type { Address } from '$lib/types/product';
 
 describe('mapApiError', () => {
 	it('maps insufficient_stock with limit', () => {
-		expect(mapApiError(409, { error: 'insufficient_stock', limit: 3 })).toEqual({
+		expect(mapApiError(409, { error: 'insufficient_stock', limit: 3, productId: 'p1' })).toEqual({
 			kind: 'insufficient_stock',
 			limit: 3,
-			message: 'Sorry! we only have 3 units at the moment.'
+			productId: 'p1',
+			message: 'Only 3 left. Lower the quantity to continue.'
+		});
+	});
+
+	it('says out of stock instead of "0 units"', () => {
+		expect(mapApiError(409, { error: 'insufficient_stock', limit: 0 }).message).toBe(
+			'This item is now out of stock. Remove it to check out.'
+		);
+		expect(stockLimitMessage(0, 'Clay mug')).toBe(
+			'Clay mug is now out of stock. Remove it to check out.'
+		);
+		expect(stockLimitMessage(2, 'Clay mug')).toBe(
+			'Only 2 left of Clay mug. Lower the quantity to continue.'
+		);
+	});
+
+	it('maps listing_not_available with the product id', () => {
+		expect(mapApiError(409, { error: 'listing_not_available', productId: 'p2' })).toMatchObject({
+			kind: 'listing_not_available',
+			productId: 'p2'
+		});
+	});
+
+	it('maps a bare 401 to unauthorized', () => {
+		expect(mapApiError(401, {}).kind).toBe('unauthorized');
+	});
+
+	it('keeps the paid order id on stock_conflict', () => {
+		expect(mapApiError(409, { error: 'stock_conflict', orderId: 'o1' })).toMatchObject({
+			kind: 'stock_conflict',
+			orderId: 'o1'
 		});
 	});
 
@@ -21,21 +52,21 @@ describe('mapApiError', () => {
 	it('maps payments_unconfigured', () => {
 		expect(mapApiError(503, { error: 'payments_unconfigured' })).toEqual({
 			kind: 'payments_unconfigured',
-			message: 'Payments are temporarily unavailable. Please try again later.'
+			message: 'Payments are not available right now. Nothing was charged. Try again later.'
 		});
 	});
 
 	it('maps rate_limited by status when error code missing', () => {
 		expect(mapApiError(429, {})).toEqual({
 			kind: 'rate_limited',
-			message: 'Too many requests. Please wait and try again.'
+			message: 'Too many attempts. Wait a minute and try again.'
 		});
 	});
 
 	it('maps unknown server errors', () => {
 		expect(mapApiError(500, { error: 'internal_error' })).toEqual({
 			kind: 'unknown',
-			message: 'Server error. Please try again.'
+			message: 'Something went wrong. Try again.'
 		});
 	});
 });

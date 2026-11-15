@@ -3,6 +3,7 @@
 	import { F } from '$lib/icons/fluent';
 
 	import { afterNavigate } from '$app/navigation';
+	import { page } from '$app/state';
 	import ScLogo from './ScLogo.svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 	import { theme } from '$lib/client/theme';
@@ -37,13 +38,27 @@
 	let mobileMenuScrollLocked = $state(false);
 
 	const navLinks: NavLink[] = [
-		{ label: 'Crafts', href: '/crafts', icon: F.box },
-		{ label: 'Start crafting', href: '/crafting', icon: F.hammer },
-		{ label: '3D Print', href: '/3dp-portal', icon: F.print },
+		{ label: 'Shop', href: '/crafts', icon: F.box },
+		{ label: 'Sell', href: '/crafting', icon: F.hammer },
+		{ label: '3D printing', href: '/3dp-portal', icon: F.print },
 		{ label: 'Blog', href: '/blog', icon: F.edit }
 	];
 
+	const ORDERS_PATH = '/user/profile/orders';
+	const SEARCH_HREF = '/crafts#search';
+
 	const isSignedIn = $derived(userProfile !== null);
+
+	/** Sign-in links send the buyer back to the page they were on. */
+	function signInHref(returnTo: string): string {
+		if (!returnTo || returnTo === '/' || returnTo.startsWith('/user/sign')) return '/user/sign';
+		return `/user/sign?postLogin=${encodeURIComponent(returnTo)}`;
+	}
+
+	const accountHref = $derived(
+		isSignedIn ? userRoute : signInHref(`${page.url.pathname}${page.url.search}`)
+	);
+	const ordersHref = $derived(isSignedIn ? ORDERS_PATH : signInHref(ORDERS_PATH));
 	const hideSignInLink = $derived(currentPath === '/user/sign' && !isSignedIn);
 	const logoVariant = $derived($theme === 'light' ? 'light' : 'dark');
 	const profileInitial = $derived(userProfile?.displayName?.charAt(0).toUpperCase() ?? '?');
@@ -153,11 +168,19 @@
 		</nav>
 
 		<div class="hidden items-center gap-4 md:flex">
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- static path with a hash -->
+			<a
+				href={SEARCH_HREF}
+				class="inline-flex size-9 items-center justify-center rounded-md text-foreground/75 transition-colors hover:bg-muted hover:text-foreground"
+				aria-label="Search the shop">
+				<Icon icon={F.search} class="size-4 shrink-0" aria-hidden="true" />
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			<ThemeToggle />
 
 			{#if !hideSignInLink}
 				<a
-					href={userRoute}
+					href={accountHref}
 					class={profileLinkClass()}
 					aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}>
 					{#if isSignedIn && userProfile}
@@ -193,9 +216,14 @@
 		</div>
 
 		<div class="flex items-center gap-1 md:hidden">
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- static path with a hash -->
+			<a href={SEARCH_HREF} class={mobileCartLinkClass()} aria-label="Search the shop">
+				<Icon icon={F.search} class="size-5 shrink-0" aria-hidden="true" />
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			{#if !hideSignInLink}
 				<a
-					href={userRoute}
+					href={accountHref}
 					class={mobileCartLinkClass()}
 					aria-label={isSignedIn && userProfile ? 'Account' : 'Sign in'}>
 					{#if isSignedIn && userProfile}
@@ -209,7 +237,7 @@
 									class="size-full object-cover"
 									referrerpolicy="no-referrer" />
 							{:else}
-								<span class="font-mono text-[10px] font-medium uppercase text-foreground">
+								<span class="text-xs font-medium uppercase text-foreground">
 									{profileInitial}
 								</span>
 							{/if}
@@ -288,6 +316,20 @@
 						</a>
 					</li>
 				{/each}
+				<li>
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- orders path or sign-in with a postLogin query -->
+					<a
+						href={ordersHref}
+						class={navLinkClass(ORDERS_PATH, true)}
+						aria-current={isActive(ORDERS_PATH) ? 'page' : undefined}
+						onclick={closeMobileMenu}>
+						<span aria-hidden="true">
+							<Icon icon={F.receipt} class="size-4 shrink-0" />
+						</span>
+						My orders
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				</li>
 			</ul>
 		</nav>
 

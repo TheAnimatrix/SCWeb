@@ -6,11 +6,17 @@
 	import { productPath } from '$lib/seo/product';
 	import { absoluteUrl } from '$lib/seo/site';
 	import { cn } from '$lib/utils';
+	import { formatMonthYear } from '$lib/utils/format';
+	import { ProductCard, ProductCardList, ProductCardListItem } from '$lib/components/sc';
+	import type { Product } from '$lib/types/product';
 
 	let { data } = $props();
 
 	type Storefront = {
+		maker_id: string;
 		handle: string;
+		tier: string | null;
+		published_at: string | null;
 		display_name: string | null;
 		tagline: string | null;
 		bio: string | null;
@@ -24,6 +30,8 @@
 			price: { new: number; old: number } | null;
 			images: { url: string }[] | null;
 			type: string | null;
+			stock: { count: number; status: string } | null;
+			author: string | null;
 		}>;
 		printing: {
 			max_printer_size: string | null;
@@ -37,15 +45,45 @@
 	const title = $derived(storefront.display_name || formatUsernameDisplay(storefront.handle));
 	const canonical = $derived(absoluteUrl(makerStorefrontPath(storefront.handle), page.url.origin));
 
-	function productHref(name: string, id: string) {
-		return productPath({ id, name });
+	const CAPABILITY_LABELS: Record<string, string> = {
+		physical_goods: 'Physical goods',
+		printing_3d: '3D printing',
+		digital_goods: 'Digital goods'
+	};
+
+	function capabilityLabel(key: string): string {
+		const label = CAPABILITY_LABELS[key] ?? key.replaceAll('_', ' ');
+		return label.charAt(0).toUpperCase() + label.slice(1);
 	}
+
+	const sellingSince = $derived(formatMonthYear(storefront.published_at));
+	const listingCount = $derived(storefront.products.length);
+
+	/** Storefront rows carry fewer fields than the catalog; fill the rest for ProductCard. */
+	const products = $derived(
+		storefront.products.map((item): Product => ({
+			id: item.id,
+			name: item.name,
+			images: item.images ?? [],
+			tags: [],
+			stock: item.stock ?? { count: 0, status: 'unknown' },
+			price: item.price ?? { old: 0, new: 0 },
+			type: item.type ?? '',
+			author: item.author ?? undefined,
+			users: { username: storefront.handle, tier: storefront.tier },
+			uid: storefront.maker_id,
+			created_at: '',
+			guarantee: '',
+			rel: ''
+		}))
+	);
 </script>
 
 <SeoHead
 	meta={{
 		title: `${title} · Maker`,
-		description: storefront.tagline || storefront.bio || `Shop products from ${title} on Selfcrafted.`,
+		description:
+			storefront.tagline || storefront.bio || `Shop products from ${title} on Selfcrafted.`,
 		canonical,
 		image: storefront.banner_url || storefront.avatar_url || undefined,
 		imageAlt: `${title} storefront`
@@ -81,15 +119,20 @@
 				{#if storefront.tagline}
 					<p class="mt-1 max-w-2xl text-sm text-muted-foreground">{storefront.tagline}</p>
 				{/if}
-				{#if storefront.location}
-					<p class="mt-1 text-xs text-muted-foreground">{storefront.location}</p>
-				{/if}
+				<p class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+					{#if storefront.location}
+						<span>Ships from {storefront.location}</span>
+					{/if}
+					{#if sellingSince}
+						<span>Selling since {sellingSince}</span>
+					{/if}
+					<span>{listingCount} listing{listingCount === 1 ? '' : 's'}</span>
+				</p>
 				{#if storefront.capabilities?.length}
 					<div class="mt-2 flex flex-wrap gap-1.5">
 						{#each storefront.capabilities as cap (cap)}
-							<span
-								class="rounded border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-								{cap.replaceAll('_', ' ')}
+							<span class="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground">
+								{capabilityLabel(cap)}
 							</span>
 						{/each}
 					</div>
@@ -101,67 +144,60 @@
 			<a
 				href="?tab=store"
 				class={cn(
-					'border-b-2 px-3 py-2 font-mono text-xs uppercase tracking-wide',
+					'inline-flex min-h-11 items-center border-b-2 px-3 py-2 text-sm font-medium',
 					tab === 'store'
 						? 'border-foreground text-foreground'
 						: 'border-transparent text-muted-foreground hover:text-foreground'
 				)}>
-				Main Store
+				Shop
 			</a>
 			<a
 				href="?tab=details"
 				class={cn(
-					'border-b-2 px-3 py-2 font-mono text-xs uppercase tracking-wide',
+					'inline-flex min-h-11 items-center border-b-2 px-3 py-2 text-sm font-medium',
 					tab === 'details'
 						? 'border-foreground text-foreground'
 						: 'border-transparent text-muted-foreground hover:text-foreground'
 				)}>
-				Details
+				About
 			</a>
 		</nav>
 
 		{#if tab === 'store'}
-			<section class="py-8">
-				{#if storefront.products.length === 0}
+			<section class="space-y-6 py-8">
+				{#if storefront.bio}
+					<div class="max-w-3xl">
+						<p class="line-clamp-2 whitespace-pre-line text-sm leading-relaxed text-foreground">
+							{storefront.bio}
+						</p>
+						<a
+							href="?tab=details"
+							class="mt-1 inline-block text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">
+							More about {title}
+						</a>
+					</div>
+				{/if}
+
+				{#if products.length === 0}
 					<p class="text-sm text-muted-foreground">No live listings yet.</p>
 				{:else}
-					<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{#each storefront.products as product (product.id)}
-							<a
-								href={productHref(product.name, product.id)}
-								class="group block overflow-hidden rounded-md border border-border bg-card transition hover:border-foreground/30">
-								<div class="aspect-[4/3] bg-muted">
-									{#if product.images?.[0]?.url}
-										<img
-											src={product.images[0].url}
-											alt={product.name}
-											class="h-full w-full object-cover transition group-hover:scale-[1.02]" />
-									{/if}
-								</div>
-								<div class="p-3">
-									<h2 class="truncate text-sm font-medium">{product.name}</h2>
-									{#if product.price}
-										<p class="mt-1 font-mono text-sm">
-											{#if product.price.old > 0 && product.price.old > product.price.new}
-												<span class="mr-2 text-muted-foreground line-through"
-													>₹{product.price.old}</span
-												>
-											{/if}
-											₹{product.price.new}
-										</p>
-									{/if}
-								</div>
-							</a>
+					<ProductCardList>
+						{#each products as product (product.id)}
+							<ProductCardListItem>
+								<ProductCard {product} href={productPath(product)} dimOutOfStock />
+							</ProductCardListItem>
 						{/each}
-					</div>
+					</ProductCardList>
 				{/if}
 			</section>
 		{:else}
 			<section class="space-y-6 py-8">
 				{#if storefront.bio}
 					<div>
-						<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">About</h2>
-						<p class="mt-2 max-w-3xl whitespace-pre-wrap text-sm leading-relaxed">{storefront.bio}</p>
+						<h2 class="text-base font-medium text-foreground">About</h2>
+						<p class="mt-2 max-w-3xl whitespace-pre-wrap text-sm leading-relaxed">
+							{storefront.bio}
+						</p>
 					</div>
 				{:else}
 					<p class="text-sm text-muted-foreground">No details published yet.</p>
@@ -169,9 +205,7 @@
 
 				{#if storefront.printing}
 					<div>
-						<h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-							3D printing
-						</h2>
+						<h2 class="text-base font-medium text-foreground">3D printing</h2>
 						<ul class="mt-2 space-y-1 text-sm text-muted-foreground">
 							{#if storefront.printing.max_printer_size}
 								<li>Build volume: {storefront.printing.max_printer_size}</li>

@@ -3,8 +3,10 @@ import { env } from '$env/dynamic/public';
 export const SITE_NAME = 'Selfcrafted India';
 export const SITE_TAGLINE = 'Marketplace for indie hardware makers in India';
 export const DEFAULT_DESCRIPTION =
-	'Selfcrafted India connects indie hardware makers with buyers. Discover locally made products, spares, and components — or sell your own crafts on a platform built for the maker community.';
-export const DEFAULT_OG_IMAGE = '/pwa/pwa-512.png';
+	'Buy hardware made by independent makers in India: finished products, spare parts and flea-market finds. Or get a model 3D printed by a maker with a printer.';
+export const DEFAULT_OG_IMAGE = '/images/og-default.jpg';
+export const DEFAULT_OG_IMAGE_ALT =
+	'Line drawing of a small electronics board with an antenna next to an open shipping box.';
 export const TWITTER_HANDLE = '@selfcrafted_in';
 export const SUPPORT_EMAIL = 'support@selfcrafted.in';
 

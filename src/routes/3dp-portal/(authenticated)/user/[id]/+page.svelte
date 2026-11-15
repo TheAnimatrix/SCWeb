@@ -3,7 +3,7 @@
 	import { F } from '$lib/icons/fluent';
 
 	import MessageBoard from '$lib/components/maker/MessageBoard.svelte';
-						import { env } from '$env/dynamic/public';
+	import { env } from '$env/dynamic/public';
 	import { performPrintRequestAction } from '$lib/client/portalApi';
 	import { toastStore } from '$lib/client/toastStore';
 	import { getModelDownloadUrl, triggerSignedUrlDownload } from '$lib/client/printFilesApi';
@@ -16,16 +16,27 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { goto, invalidate } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import AddressInputSelector from '$lib/components/fundamental/AddressInputSelector.svelte';
-	import { PortalCard, PortalSectionLabel } from '$lib/components/portal';
-	import { MetaChip, ReviewCardSkeleton, ScButton, TagBadge } from '$lib/components/sc';
+	import {
+		PortalCard,
+		PortalSectionLabel,
+		PrintEventHistory,
+		PrintRequestSupport
+	} from '$lib/components/portal';
+	import { MetaChip, ReviewCardSkeleton, ScButton } from '$lib/components/sc';
 	import { newAddress, validateAddress, type Address } from '$lib/types/product';
 	import { cn } from '$lib/utils';
 	import { requireBrowserSupabase } from '$lib/client/requireBrowserSupabase';
 	import { loadRazorpay, openRazorpayCheckout } from '$lib/client/razorpay';
-	import { asPrintRequest, getPrintRequestDisplayName } from '$lib/types/printRequest';
-	import { formatPrintEventAmountInr } from '$lib/types/printEventMoney';
+	import {
+		asPrintRequest,
+		getPrintRequestDisplayName,
+		isPaidStage,
+		printStageLabel
+	} from '$lib/types/printRequest';
+	import { formatDateTime, formatInr } from '$lib/utils/format';
 	import type { CreatorReview } from '$lib/types/database';
 	let { data } = $props();
 
@@ -33,10 +44,7 @@
 		return requireBrowserSupabase(data.supabase);
 	}
 
-	let req = $state(asPrintRequest(data.printRequest));
-	$effect(() => {
-		req = asPrintRequest(data.printRequest);
-	});
+	const req = $derived(asPrintRequest(data.printRequest));
 
 	let sortedEvents = $derived(
 		req?.events
@@ -103,23 +111,33 @@
 		return STAGE_STYLES[String(stage)] ?? STAGE_STYLES.default;
 	}
 
-	const STAGE_DESCRIPTIONS: { [key: string]: string } = {
-		cancelled: 'The request has been cancelled.',
-		requested: 'You have requested a quote for a 3D print. Please wait for the maker to quote you.',
-		quoted: 'A maker has quoted you. Please review the quote and accept or reject it.',
-		actionable: 'Maker has requested an action from you. Please take action on the request.',
-		shipped:
-			'The maker has shipped the 3D print. Please wait for it to be delivered and then mark it as delivered. We kindly request you to leave a review for the maker after the delivery.',
-		paid: 'You have paid for the 3D print. Please wait for the maker to complete the print.',
-		paid_externally:
-			'You have paid for the 3D print externally. Please wait for the maker to complete the print.',
-		completed:
-			'You have acknowledged the receipt of the 3D print. Please leave a review for the maker.',
-		'in dispute': 'The request is in dispute. Our Team will intervene to resolve the dispute.',
-		default: 'The request is in default.'
-	};
+	const stageDescription = $derived.by(() => {
+		switch (req?.request_stage) {
+			case 'cancelled':
+				return 'This request was cancelled.';
+			case 'requested':
+				return 'Your request was sent. The maker will reply with a price. You can message them below.';
+			case 'quoted':
+				return latestQuoteAmount != null
+					? `The maker quoted ${formatInr(latestQuoteAmount)}. Pay below to start printing, or cancel the request.`
+					: 'The maker sent a price. Pay below to start printing, or cancel the request.';
+			case 'paid':
+			case 'paid_externally':
+				return "You've paid. The maker will print your part and ship it to your address.";
+			case 'shipped':
+				return 'The maker has shipped your print. When it arrives, mark it as delivered.';
+			case 'completed':
+				return 'You confirmed delivery. You can leave a review for the maker.';
+			case 'in dispute':
+				return 'Selfcrafted is looking into this request.';
+			default:
+				return "We can't show the status of this request. Contact support.";
+		}
+	});
 
 	let payLoading = $state(false);
+	/** Set when Razorpay took the payment but we couldn't confirm it. Pay stays disabled. */
+	let unconfirmedPaymentId = $state<string | null>(null);
 
 	async function payQuote() {
 		if (payLoading) return;
@@ -136,7 +154,7 @@
 
 		const razorpayKey = env.PUBLIC_RAZORPAY_ID;
 		if (!razorpayKey) {
-			toastStore.show('Payment is not configured. Please contact support.', 'error');
+			toastStore.show("Payments aren't available right now. Contact support.", 'error');
 			payLoading = false;
 			return;
 		}
@@ -149,37 +167,49 @@
 				return;
 			}
 
-			await openRazorpayCheckout({
+			const requestId = order.id;
+			const razorpayOrderId = orderResult.data.razorpayOrderId;
+			// Razorpay said the money moved. From then on, never offer Pay again.
+			let captured = false;
+			let failedRazorpayOrderId: string | null = null;
+
+			const outcome = await openRazorpayCheckout({
 				key: razorpayKey,
 				amount: orderResult.data.amountPaise,
 				currency: 'INR',
-				name: 'SelfCrafted',
-				image:
-					'https://pfeewicqoxkuwnbuxnoz.supabase.co/storage/v1/object/public/images/favicon.png',
-				order_id: orderResult.data.razorpayOrderId,
+				name: 'Selfcrafted',
+				image: new URL('/favicon.png', window.location.origin).href,
+				order_id: razorpayOrderId,
 				handler: async function (response) {
-					if (!req) {
-						console.error('Print request data became unavailable during payment processing.');
-						payLoading = false;
-						return;
-					}
-					const confirmResult = await confirmPrintPayment(fetch, req.id, {
+					captured = true;
+					const payload = {
 						razorpayOrderId: response.razorpay_order_id,
 						razorpayPaymentId: response.razorpay_payment_id,
 						razorpaySignature: response.razorpay_signature
-					});
-					if (!confirmResult.ok) {
-						toastStore.show(confirmResult.error.message, 'error');
-						payLoading = false;
-						return;
+					};
+					try {
+						let confirmResult = await confirmPrintPayment(fetch, requestId, payload);
+						for (let attempt = 0; attempt < 2 && !confirmResult.ok; attempt++) {
+							await new Promise((done) => setTimeout(done, 1500));
+							confirmResult = await confirmPrintPayment(fetch, requestId, payload);
+						}
+						if (confirmResult.ok) {
+							// eslint-disable-next-line svelte/no-navigation-without-resolve -- result page built from Razorpay ids
+							await goto(`/summary/success/${requestId}/${response.razorpay_payment_id}`);
+							return;
+						}
+					} catch {
+						// Fall through: the payment exists, we just couldn't confirm it from here.
 					}
-					goto(`/summary/success/${req.id}/${response.razorpay_payment_id}`);
+					// Keep Pay disabled. The Razorpay webhook marks the request paid on its own.
+					unconfirmedPaymentId = response.razorpay_payment_id;
 				},
 				modal: {
 					ondismiss: async function () {
+						if (captured || failedRazorpayOrderId) return;
 						payLoading = false;
 						invalidate('3dp-portal:printrequest');
-						toastStore.show('Payment cancelled by User', 'warning');
+						toastStore.show('Payment cancelled. You can try again.', 'warning');
 					}
 				},
 				prefill: {},
@@ -187,22 +217,29 @@
 					color: '#2084fe'
 				},
 				onPaymentFailed: function (failedResponse) {
-					payLoading = false;
-					toastStore.show('Payment failed, please try again', 'error');
-					const orderId = req?.id;
-					const razorpayOrderId = failedResponse.error?.metadata?.order_id;
-					if (orderId && razorpayOrderId) {
-						void failPrintPayment(fetch, orderId, razorpayOrderId, failedResponse.error?.description);
-						window.location.href = `/summary/failure/${orderId}/${razorpayOrderId}`;
-					}
+					// Razorpay keeps its own "Retry" screen open, so only record the failure here.
+					failedRazorpayOrderId = failedResponse.error?.metadata?.order_id ?? razorpayOrderId;
+					void failPrintPayment(
+						fetch,
+						requestId,
+						failedRazorpayOrderId,
+						failedResponse.error?.description
+					);
 				}
 			});
+
+			if (captured) return;
+			if (outcome === 'failed' && failedRazorpayOrderId) {
+				window.location.href = `/summary/failure/${requestId}/${failedRazorpayOrderId}`;
+				return;
+			}
+			payLoading = false;
 		} catch (e) {
 			console.error('Error during payment process:', e);
 			const message =
 				e instanceof Error && e.message.includes('Razorpay')
-					? 'Payment provider is unavailable. Please try again.'
-					: `An unexpected error occurred during payment: ${e instanceof Error ? e.message : 'Unknown error'}`;
+					? "Couldn't reach the payment provider. Try again."
+					: 'Something went wrong with the payment. Try again or contact support.';
 			toastStore.show(message, 'error');
 			payLoading = false;
 		}
@@ -212,7 +249,7 @@
 		if (!req?.model || !req?.id) return;
 		const { data: userRes, error: userErr } = await supabase().auth.getSession();
 		if (userErr || !userRes?.session?.access_token) {
-			toastStore.show('You must be logged in to request a quote', 'error');
+			toastStore.show('Sign in to download this model.', 'error');
 			return;
 		}
 		downloading = true;
@@ -236,7 +273,7 @@
 				onError: (message) => toastStore.show(message, 'error')
 			});
 		} catch {
-			toastStore.show('Error downloading model', 'error');
+			toastStore.show("Couldn't download the model. Try again.", 'error');
 			downloading = false;
 			downloadProgress = 0;
 		}
@@ -395,7 +432,7 @@
 		userReview = review || null;
 		reviewLoading = false;
 		if (userReview) {
-			reviewRating = userReview.rating;
+			reviewRating = userReview.rating ?? 5;
 			reviewComment = userReview.comment ?? '';
 		}
 	}
@@ -408,7 +445,7 @@
 		reviewError = '';
 		reviewDialogOpen = true;
 		if (userReview) {
-			reviewRating = userReview.rating;
+			reviewRating = userReview.rating ?? 5;
 			reviewComment = userReview.comment ?? '';
 		} else {
 			reviewRating = 5;
@@ -420,16 +457,21 @@
 		const order = req;
 		if (!order) return;
 		if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
-			reviewError = 'Please select a rating.';
+			reviewError = 'Choose a rating.';
 			return;
 		}
 		if (!reviewComment.trim()) {
-			reviewError = 'Please enter a review.';
+			reviewError = 'Write a few words about the print.';
+			return;
+		}
+		const userId = data.session?.data?.user?.id;
+		if (!userId) {
+			reviewError = 'Sign in again to leave a review.';
 			return;
 		}
 		reviewLoading = true;
 		const payload = {
-			user_id: data.session.data.user.id,
+			user_id: userId,
 			maker_id: order.creator_id,
 			print_request_id: order.id,
 			rating: reviewRating,
@@ -453,7 +495,7 @@
 		userReview = result.data?.[0] || userReview;
 		reviewDialogOpen = false;
 		reviewLoading = false;
-		toastStore.show(userReview ? 'Review updated!' : 'Review added!', 'success');
+		toastStore.show('Review saved.', 'success');
 	}
 
 	async function deleteReview() {
@@ -476,13 +518,12 @@
 </script>
 
 <div class="mx-auto max-w-7xl px-4 pb-16">
-	<button
-		type="button"
-		onclick={() => goto('/3dp-portal/user')}
-		class="mb-6 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
-		<Icon icon={F.arrowLeft} class="size-3.5" />
-		back_to_requests
-	</button>
+	<a
+		href={resolve('/3dp-portal/(authenticated)/user')}
+		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+		<Icon icon={F.arrowLeft} class="size-3.5" aria-hidden="true" />
+		My print requests
+	</a>
 
 	{#if !req}
 		<PortalCard class="py-16 text-center">
@@ -490,75 +531,82 @@
 		</PortalCard>
 	{:else}
 		<header class="mb-8 border-b border-border pb-8">
-			<TagBadge label="print_request" class="mb-3" />
 			<h1 class="text-3xl font-semibold tracking-tight md:text-4xl">{displayModelName}</h1>
-			<p class="mt-2 font-mono text-xs text-muted-foreground">
-				{new Date(req.created_at).toLocaleString()}
+			<p class="mt-2 text-sm text-muted-foreground">
+				Requested {formatDateTime(req.created_at)}
 			</p>
 		</header>
 
 		<div class="grid gap-4">
 			{#if maker}
 				<PortalCard>
-					<PortalSectionLabel label="maker" />
+					<PortalSectionLabel label="Maker" />
 					<div class="mt-2 space-y-1">
-						<p class="font-medium text-foreground">{maker.name}</p>
-						<p class="font-mono text-xs text-muted-foreground">
-							{maker.email} · {maker.contact_number}
-						</p>
+						<p class="font-medium text-foreground">{maker.name ?? 'Maker'}</p>
+						{#if maker.email || maker.contact_number}
+							<p class="text-sm text-muted-foreground">
+								{[maker.email, maker.contact_number].filter(Boolean).join(' · ')}
+							</p>
+						{:else}
+							<p class="text-sm text-muted-foreground">Use Message below to talk to the maker.</p>
+						{/if}
 					</div>
 				</PortalCard>
 			{/if}
 
 			<PortalCard>
-				<PortalSectionLabel label="model_details" />
+				<PortalSectionLabel label="Print settings" />
 				<div class="mt-2 flex flex-wrap gap-1.5">
 					<MetaChip>
 						<span class="inline-flex items-center gap-1.5">
-							color:
+							Colour
 							<span
 								class="inline-block size-3 rounded-sm border border-border"
 								style={`background-color:${req.model_data.color}`}></span>
 						</span>
 					</MetaChip>
-					<MetaChip>material: {req.model_data.material}</MetaChip>
-					<MetaChip tone="muted">quality: {req.model_data.quality}</MetaChip>
-					<MetaChip tone="muted">scale: {req.model_data.scale}x</MetaChip>
-					<MetaChip tone="muted">infill: {req.model_data.infill}%</MetaChip>
-					<MetaChip tone="muted">walls: {req.model_data.walls}</MetaChip>
+					<MetaChip>Material: {req.model_data.material}</MetaChip>
+					<MetaChip tone="muted">Quality: {req.model_data.quality}</MetaChip>
+					<MetaChip tone="muted">Scale: {req.model_data.scale}x</MetaChip>
+					<MetaChip tone="muted">Infill: {req.model_data.infill}%</MetaChip>
+					{#if req.model_data.walls != null}
+						<MetaChip tone="muted">Walls: {req.model_data.walls}</MetaChip>
+					{/if}
 				</div>
 			</PortalCard>
 
 			<PortalCard>
-				<PortalSectionLabel label="stage" />
+				<PortalSectionLabel label="Status" />
 				<div class="mt-2 space-y-2">
 					<span
 						class={cn(
-							'inline-flex items-center rounded-md border px-2.5 py-1 font-mono text-xs capitalize',
+							'inline-flex items-center rounded-md border px-2.5 py-1 text-xs',
 							stageStyle(req.request_stage)
 						)}>
-						{req.request_stage?.replaceAll('_', ' ') ?? 'pending'}
+						{printStageLabel(req.request_stage)}
 					</span>
-					<p class="text-sm leading-relaxed text-muted-foreground">
-						{STAGE_DESCRIPTIONS[String(req.request_stage)] || 'No description available'}
-					</p>
+					<p class="text-sm leading-relaxed text-muted-foreground">{stageDescription}</p>
 				</div>
 			</PortalCard>
 
 			{#if req.request_stage === 'completed'}
 				<PortalCard>
-					<PortalSectionLabel label="review_maker" />
+					<PortalSectionLabel label="Your review" />
 					{#if reviewLoading}
 						<ReviewCardSkeleton />
 					{:else if userReview}
 						<div class="mt-2 space-y-3">
-							<div class="flex items-center gap-1">
+							<div
+								class="flex items-center gap-1"
+								role="img"
+								aria-label="Rated {userReview.rating} out of 5">
 								{#each [...Array(5).keys()] as i (i)}
 									<Icon
+										aria-hidden="true"
 										icon={F.star}
 										class={cn(
 											'size-4',
-											i < userReview.rating
+											i < (userReview.rating ?? 0)
 												? 'fill-foreground text-foreground'
 												: 'text-muted-foreground/40'
 										)} />
@@ -581,7 +629,7 @@
 			{/if}
 
 			<PortalCard>
-				<PortalSectionLabel label="actions" />
+				<PortalSectionLabel label="Actions" />
 				<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
 					<button
 						type="button"
@@ -591,7 +639,8 @@
 						Message
 						{#if unreadCount > 0}
 							<span
-								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 font-mono text-[10px] text-destructive-foreground">
+								class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-destructive/30 bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground"
+								aria-label="{unreadCount} unread">
 								{unreadCount}
 							</span>
 						{/if}
@@ -653,17 +702,22 @@
 						</ScButton>
 					{/if}
 				</div>
+				{#if isPaidStage(req.request_stage)}
+					<div class="mt-4">
+						<PrintRequestSupport requestId={req.id} />
+					</div>
+				{/if}
 			</PortalCard>
 
 			{#if req.request_stage === 'quoted'}
 				<PortalCard>
-					<PortalSectionLabel label="payment" />
+					<PortalSectionLabel label="Payment" />
 					<div
 						bind:this={addressSelectorRef}
 						class="mt-2 rounded-md"
 						class:highlight-animation={highlightAddress}>
 						<AddressInputSelector
-							email={data.session.data.user.email}
+							email={data.session.data.user?.email}
 							userExists={true}
 							addresses={data.addresses}
 							bind:address={validAddress}
@@ -680,76 +734,34 @@
 						onclick={() => {
 							void payQuote();
 						}}>
-						{payLoading ? 'Processing…' : `Pay ${latestQuoteAmount ?? latestQuote}₹`}
+						{payLoading
+							? 'Processing…'
+							: latestQuoteAmount != null
+								? `Pay ${formatInr(latestQuoteAmount)}`
+								: 'Pay'}
 					</button>
+					{#if unconfirmedPaymentId}
+						<p class="mt-3 rounded-md border border-border p-3 text-sm" role="alert">
+							Your payment went through, but we couldn't confirm it from this page.
+							<strong>Don't pay again.</strong>
+							Reload in a minute. If the request still shows as unpaid, write to
+							<a
+								class="underline underline-offset-2"
+								href="mailto:support@selfcrafted.in?subject={encodeURIComponent(
+									`Print payment ${unconfirmedPaymentId}`
+								)}">support@selfcrafted.in</a>
+							with payment ref {unconfirmedPaymentId}.
+						</p>
+					{/if}
+					<p class="mt-2 text-sm text-muted-foreground">This is the maker's quoted price.</p>
+					<p class="mt-1 text-sm">
+						<a class="text-foreground underline underline-offset-2" href={resolve('/policy')}
+							>Cancellation and refunds</a>
+					</p>
 				</PortalCard>
 			{/if}
 
-			<PortalCard>
-				<PortalSectionLabel label="event_history" />
-				{#if sortedEvents && sortedEvents.length > 0}
-					<div class="mt-3 flex flex-col gap-2">
-						{#each sortedEvents as event (event.timestamp + event.type)}
-							<div
-								class={cn(
-									'rounded-md border px-4 py-3 text-sm',
-									event.type === 'cancelled'
-										? 'border-destructive/30 bg-destructive/5'
-										: event.type === 'paid'
-											? 'border-border bg-muted/30'
-											: 'border-border bg-card'
-								)}>
-								<div class="flex items-center justify-between gap-3">
-									<span class="font-mono text-xs text-foreground capitalize">
-										{event.type.replaceAll('_', ' ')}
-									</span>
-									<span class="font-mono text-[10px] text-muted-foreground">
-										{new Date(event.timestamp).toLocaleString(undefined, {
-											hour: '2-digit',
-											minute: '2-digit',
-											year: 'numeric',
-											month: 'short',
-											day: 'numeric'
-										})}
-									</span>
-								</div>
-								{#if event.reason}
-									<p class="mt-1 text-xs text-muted-foreground">{event.reason}</p>
-								{/if}
-								{#if event.extra}
-									{#if event.extra.quote}
-										<p class="mt-1 font-mono text-xs text-foreground">
-											quote: {event.extra.quote}₹
-										</p>
-									{/if}
-									{#if event.extra.payment_id_a}
-										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											order_id: {event.extra.payment_id_a}
-										</p>
-									{/if}
-									{#if event.extra.payment_id_b}
-										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											payment_id: {event.extra.payment_id_b}
-										</p>
-									{/if}
-									{#if formatPrintEventAmountInr(event.extra)}
-										<p class="mt-1 font-mono text-xs text-muted-foreground">
-											amount: {formatPrintEventAmountInr(event.extra)}₹
-										</p>
-									{/if}
-								{/if}
-								<p class="mt-1 font-mono text-[10px] text-muted-foreground">
-									by {event.by === 'user' ? 'you' : event.by}
-								</p>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<p class="mt-3 text-sm italic text-muted-foreground">
-						No notable events yet. Quotes, cancellations, and payments will appear here.
-					</p>
-				{/if}
-			</PortalCard>
+			<PrintEventHistory events={sortedEvents} viewer="customer" />
 		</div>
 	{/if}
 </div>
@@ -768,7 +780,7 @@
 				paynow={() => {
 					messageBoardOpen = false;
 					highlightPayButton();
-					toastStore.show('Select address and click pay now', 'info');
+					toastStore.show('Choose an address, then select Pay.', 'info');
 				}} />
 		</Drawer.Content>
 	</Drawer.Root>
@@ -777,20 +789,22 @@
 <Dialog.Root bind:open={cancelDialogOpen}>
 	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Cancel order</Dialog.Title>
-			<Dialog.Description>
-				Please provide a reason for cancellation. This action cannot be undone.
-			</Dialog.Description>
+			<Dialog.Title>Cancel this request?</Dialog.Title>
+			<Dialog.Description>Tell the maker why. You can't undo this.</Dialog.Description>
 		</Dialog.Header>
-		<Textarea bind:value={cancelReason} class="mt-4 w-full" placeholder="Enter reason…" />
+		<Textarea
+			bind:value={cancelReason}
+			class="mt-4 w-full"
+			aria-label="Reason for cancelling"
+			placeholder="For example: I found another way to make it." />
 		<Dialog.Footer class="gap-2">
-			<ScButton variant="secondary" onclick={onCancelCancel}>Cancel</ScButton>
+			<ScButton variant="secondary" onclick={onCancelCancel}>Keep request</ScButton>
 			<button
 				type="button"
 				class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
 				onclick={onConfirmCancel}
 				disabled={!cancelReason.trim()}>
-				Confirm
+				Cancel request
 			</button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -801,16 +815,17 @@
 		<Dialog.Header>
 			<Dialog.Title>Mark as delivered</Dialog.Title>
 			<Dialog.Description>
-				Are you sure you want to mark this order as completed? This action cannot be undone.
+				Confirm you've received the print? This closes the order and lets you leave a review.
 			</Dialog.Description>
 		</Dialog.Header>
 		<Textarea
 			bind:value={completeReason}
 			class="mt-4 w-full"
-			placeholder="(Optional) Add a note…" />
+			aria-label="Note for the maker (optional)"
+			placeholder="Note for the maker (optional)" />
 		<Dialog.Footer class="gap-2">
-			<ScButton variant="secondary" onclick={onCancelComplete}>Cancel</ScButton>
-			<ScButton onclick={onConfirmComplete}>Confirm</ScButton>
+			<ScButton variant="secondary" onclick={onCancelComplete}>Not yet</ScButton>
+			<ScButton onclick={onConfirmComplete}>Yes, I've received it</ScButton>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
@@ -822,11 +837,17 @@
 		</Dialog.Header>
 		<div class="space-y-4 py-2">
 			<div>
-				<p class="mb-2 font-mono text-xs text-muted-foreground">rating</p>
-				<div class="flex gap-1">
+				<p id="review-rating-label" class="mb-2 text-sm font-medium text-foreground">Rating</p>
+				<div class="flex gap-1" role="group" aria-labelledby="review-rating-label">
 					{#each [...Array(5).keys()] as i (i)}
-						<button type="button" onclick={() => (reviewRating = i + 1)} class="p-1">
+						<button
+							type="button"
+							onclick={() => (reviewRating = i + 1)}
+							class="p-1"
+							aria-label="Rate {i + 1} out of 5"
+							aria-pressed={reviewRating === i + 1}>
 							<Icon
+								aria-hidden="true"
 								icon={F.star}
 								class={cn(
 									'size-5',
@@ -837,14 +858,16 @@
 				</div>
 			</div>
 			<div>
-				<p class="mb-2 font-mono text-xs text-muted-foreground">your_review</p>
+				<label for="review-comment" class="mb-2 block text-sm font-medium text-foreground"
+					>Your review</label>
 				<Textarea
+					id="review-comment"
 					bind:value={reviewComment}
 					class="min-h-24 w-full"
 					placeholder="Share your experience…" />
 			</div>
 			{#if reviewError}
-				<p class="text-sm text-destructive">{reviewError}</p>
+				<p class="text-sm text-destructive" role="alert">{reviewError}</p>
 			{/if}
 		</div>
 		<Dialog.Footer class="gap-2">
@@ -859,14 +882,12 @@
 <Dialog.Root bind:open={reviewDeleteDialogOpen}>
 	<Dialog.Content class="z-[1050] border-border bg-card">
 		<Dialog.Header>
-			<Dialog.Title>Delete your review</Dialog.Title>
-			<Dialog.Description>
-				Are you sure you want to delete your review? This action cannot be undone.
-			</Dialog.Description>
+			<Dialog.Title>Delete your review?</Dialog.Title>
+			<Dialog.Description>You can't undo this.</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer class="gap-2">
 			<ScButton variant="secondary" onclick={() => (reviewDeleteDialogOpen = false)}>
-				Cancel
+				Keep review
 			</ScButton>
 			<button
 				type="button"

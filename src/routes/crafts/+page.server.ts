@@ -1,39 +1,43 @@
 import { getBrowseCatalog } from '$lib/client/catalogApi';
-import type { TagGroup, TagOption } from '$lib/types/browse';
+import type { BrowseCategory, BrowseSort, TagGroup, TagOption } from '$lib/types/browse';
 import type { Product } from '$lib/types/product';
 import type { PageServerLoad } from './$types';
-
-const emptyResult = {
-	products: [] as Product[],
-	totalCount: 0,
-	currentPage: 1,
-	totalPages: 0,
-	filters: {
-		filter: 'all' as const,
-		q: '',
-		tag: null,
-		minPrice: null,
-		maxPrice: null,
-		inStock: false,
-		sort: 'newest' as const,
-		page: 1
-	},
-	categoryCounts: { all: 0, products: 0, spares: 0, flea_market: 0 },
-	tagOptions: [] as TagOption[],
-	tagGroups: [] as TagGroup[],
-	standaloneTags: [] as TagOption[],
-	allTagOptions: [] as TagOption[]
-};
+import { sanitizeBrowseParams } from './browseParams';
 
 export const load: PageServerLoad = async ({ fetch, url }) => {
-	const result = await getBrowseCatalog(fetch, url.searchParams);
+	const params = sanitizeBrowseParams(url.searchParams);
+	const result = await getBrowseCatalog(fetch, params);
 
 	if (!result.ok) {
-		console.error('[catalog] browse load failed:', result.error.message);
-		return emptyResult;
+		console.error('[catalog] browse load failed:', result.status, result.error.message);
+		const sort = params.get('sort') as BrowseSort | null;
+		return {
+			apiError: true,
+			products: [] as Product[],
+			totalCount: 0,
+			currentPage: 1,
+			totalPages: 0,
+			// Keep what the buyer asked for, so the search box and chips don't empty out.
+			filters: {
+				filter: (params.get('filter') as BrowseCategory | null) ?? 'all',
+				q: params.get('q') ?? '',
+				tag: params.get('tag'),
+				minPrice: params.has('minPrice') ? Number(params.get('minPrice')) : null,
+				maxPrice: params.has('maxPrice') ? Number(params.get('maxPrice')) : null,
+				inStock: params.get('inStock') === 'true',
+				sort: sort ?? 'newest',
+				page: Number(params.get('page') ?? 1)
+			},
+			categoryCounts: null,
+			tagOptions: [] as TagOption[],
+			tagGroups: [] as TagGroup[],
+			standaloneTags: [] as TagOption[],
+			allTagOptions: [] as TagOption[]
+		};
 	}
 
 	return {
+		apiError: false,
 		products: result.data.products,
 		totalCount: result.data.totalCount,
 		currentPage: result.data.currentPage,
