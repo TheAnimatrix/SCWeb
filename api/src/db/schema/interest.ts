@@ -5,6 +5,7 @@ import {
 	integer,
 	jsonb,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	unique,
@@ -33,6 +34,10 @@ export const interestCampaigns = pgTable(
 		launchedAt: timestamp('launched_at', { withTimezone: true, mode: 'string' }),
 		closedAt: timestamp('closed_at', { withTimezone: true, mode: 'string' }),
 		launchMessage: text('launch_message'),
+		/** Set the first time anyone joins; from then on the commitment cannot change. */
+		commitmentLockedAt: timestamp('commitment_locked_at', { withTimezone: true, mode: 'string' }),
+		/** People e-mailed the launch or closure notice (closure deletes their row afterwards). */
+		notifiedCount: integer('notified_count').notNull().default(0),
 		createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
 			.notNull()
 			.defaultNow(),
@@ -80,11 +85,31 @@ export const productInterests = pgTable(
 		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
 			.notNull()
 			.defaultNow(),
+		/** Unused since leaving deletes the row; kept so the previous release keeps working. */
 		withdrawnAt: timestamp('withdrawn_at', { withTimezone: true, mode: 'string' }),
 		notifiedAt: timestamp('notified_at', { withTimezone: true, mode: 'string' })
 	},
 	(table) => [
 		unique('product_interests_product_id_user_id_key').on(table.productId, table.userId),
-		index('product_interests_product_id_idx').on(table.productId)
+		index('product_interests_product_id_idx').on(table.productId),
+		index('product_interests_user_id_idx').on(table.userId)
+	]
+);
+
+/**
+ * When each person was last sent the "you're on the list" e-mail for a listing, so leaving and
+ * re-joining cannot be used to generate e-mail. No personal details. Service-role only.
+ */
+export const interestJoinNotices = pgTable(
+	'interest_join_notices',
+	{
+		productId: uuid('product_id')
+			.notNull()
+			.references(() => products.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id').notNull(),
+		sentAt: timestamp('sent_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow()
+	},
+	(table) => [
+		primaryKey({ name: 'interest_join_notices_pkey', columns: [table.productId, table.userId] })
 	]
 );

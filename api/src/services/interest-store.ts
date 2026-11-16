@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { CheckoutAddress } from '../contracts/address.js';
 import { DELIVERY_FLAT_FEE } from '../contracts/cart.js';
 import {
+	INTEREST_SMALL_GROUP,
 	INTEREST_STATUS,
 	type AdminInterestCampaigns,
 	type AdminInterestList,
@@ -13,11 +14,15 @@ import {
 	type MakerInterestSummary,
 	type MakerListingInterest,
 	type MyInterestResponse,
+	type MyInterestsResponse,
 	type ProductInterest
 } from '../contracts/interest.js';
 import type { Database, DbExecutor } from '../db/index.js';
-import { interestCampaigns, productInterests } from '../db/schema/interest.js';
+import { cartItems } from '../db/schema/cartItems.js';
+import { interestCampaigns, interestJoinNotices, productInterests } from '../db/schema/interest.js';
+import { listingReviews } from '../db/schema/makerApplications.js';
 import { makers } from '../db/schema/makers.js';
+import { orderItems } from '../db/schema/orderItems.js';
 import { products } from '../db/schema/products.js';
 import { users } from '../db/schema/users.js';
 import { storeLog } from '../middleware/logging.js';
@@ -34,9 +39,19 @@ import type { RenderedEmail } from './mail.js';
  * Interest checks (see contracts/interest.ts).
  *
  * Locking order, shared with listing edits, cart and checkout: the product row first, then the
- * campaign row. Joining takes a share lock on the campaign so a launch or close (which takes
- * an update lock) never misses someone who joined while it was running.
+ * campaign row. Joining takes a share lock on the product (so the listing cannot leave `live`
+ * while someone joins) and an update lock on the campaign (so a launch or close never misses
+ * someone who joined while it was running, and the commitment lock is set exactly once).
+ *
+ * Personal details are kept only while needed: leaving deletes the row, a launch notice blanks
+ * the phone and address, and a closure notice deletes the row.
  */
+
+export const INTEREST_NOT_ALLOWED_MESSAGE =
+	"This listing has already been on sale, so it can't become an interest check. Create a new listing for it.";
+
+/** "Joined" e-mails to one person for one listing are at most this often. */
+export const JOINED_EMAIL_MIN_INTERVAL_MS = 10 * 60 * 1000;
 
 export const INTEREST_LOCKED_MESSAGE =
 	'People have already shown interest, so the target and shipping time are fixed. Write to support@selfcrafted.in to change them.';
@@ -85,8 +100,8 @@ function nowIso(): string {
 type Selectable = Pick<Database, 'select'>;
 
 /**
- * One row per campaign with its live count of non-withdrawn interests. Join it on
- * `product_id` the same way review stats are joined.
+ * One row per campaign with its count of people on the list. Join it on `product_id` the same
+ * way review stats are joined.
  */
 export function interestStatsSubquery(db: Selectable) {
 	return db
@@ -98,16 +113,15 @@ export function interestStatsSubquery(db: Selectable) {
 			note: interestCampaigns.note,
 			launchedAt: interestCampaigns.launchedAt,
 			closedAt: interestCampaigns.closedAt,
-			interestedCount: sql<number>`count(${productInterests.id})::int`.as('interested_count')
+			commitmentLockedAt: interestCampaigns.commitmentLockedAt,
+			interestedCount: sql<number>`count(${productInterests.id})::int`.as('interested_count'),
+			unnotifiedCount:
+				sql<number>`count(${productInterests.id}) filter (where ${productInterests.notifiedAt} is null)::int`.as(
+					'unnotified_count'
+				)
 		})
 		.from(interestCampaigns)
-		.leftJoin(
-			productInterests,
-			and(
-				eq(productInterests.productId, interestCampaigns.productId),
-				isNull(productInterests.withdrawnAt)
-			)
-		)
+		.leftJoin(productInterests, eq(productInterests.productId, interestCampaigns.productId))
 		.groupBy(interestCampaigns.productId)
 		.as('interest_stats');
 }
@@ -171,6 +185,8 @@ export async function loadMakerListingInterests(
 				ships_within_days: row.shipsWithinDays,
 				note: row.note ?? null,
 				interested_count: Number(row.interestedCount ?? 0),
+				pending_count: row.status === INTEREST_STATUS.OPEN ? 0 : Number(row.unnotifiedCount ?? 0),
+				locked: row.commitmentLockedAt != null,
 				launched_at: toIso(row.launchedAt),
 				closed_at: toIso(row.closedAt)
 			}
@@ -203,8 +219,41 @@ async function countActiveInterests(db: Selectable, productId: string): Promise<
 	const [row] = await db
 		.select({ value: sql<number>`count(*)::int` })
 		.from(productInterests)
-		.where(and(eq(productInterests.productId, productId), isNull(productInterests.withdrawnAt)));
+		.where(eq(productInterests.productId, productId));
 	return Number(row?.value ?? 0);
+}
+
+/**
+ * True when the product has never been on sale: no approval on record (it was never `live` or
+ * `paused`), and nobody has ever ordered it or put it in a cart.
+ */
+async function hasNeverBeenOnSale(executor: Selectable, productId: string): Promise<boolean> {
+	const [reviewed, ordered, carted] = await Promise.all([
+		executor
+			.select({ id: listingReviews.id })
+			.from(listingReviews)
+			.where(
+				and(
+					eq(listingReviews.productId, productId),
+					or(
+						inArray(listingReviews.toState, ['live', 'paused']),
+						inArray(listingReviews.fromState, ['live', 'paused'])
+					)
+				)
+			)
+			.limit(1),
+		executor
+			.select({ productId: orderItems.productId })
+			.from(orderItems)
+			.where(eq(orderItems.productId, productId))
+			.limit(1),
+		executor
+			.select({ productId: cartItems.productId })
+			.from(cartItems)
+			.where(eq(cartItems.productId, productId))
+			.limit(1)
+	]);
+	return reviewed.length === 0 && ordered.length === 0 && carted.length === 0;
 }
 
 /** States in which an ordinary listing may still become an interest check (never sold). */
@@ -247,9 +296,11 @@ export async function createListingCampaign(
  *
  * - `interest` omitted: no change.
  * - A launched or closed campaign is history and is left alone.
- * - Once someone has joined, the target and shipping time are fixed and the check cannot be
- *   turned off (409 `interest_locked`). The note can still change.
- * - Only a listing that has never been live (draft, rejected, pending review) can become one.
+ * - Once anyone has ever joined (`commitment_locked_at`), the target and shipping time are fixed
+ *   and the check cannot be turned off (409 `interest_locked`), even if everyone has since
+ *   left. The note can still change.
+ * - Only a listing that has never been on sale can become one: its state is draft, rejected or
+ *   pending review, no approval is on record, and no order or cart line refers to it.
  */
 export async function applyListingInterestUpdate(
 	tx: DbExecutor,
@@ -272,7 +323,7 @@ export async function applyListingInterestUpdate(
 
 	if (!input.enabled) {
 		if (!campaign) return { changed: false };
-		if ((await countActiveInterests(tx, productId)) > 0) {
+		if (campaign.commitmentLockedAt != null) {
 			throw new InterestRuleError('interest_locked', 409, INTEREST_LOCKED_MESSAGE);
 		}
 		await tx.delete(interestCampaigns).where(eq(interestCampaigns.productId, productId));
@@ -283,12 +334,8 @@ export async function applyListingInterestUpdate(
 	const note = input.note === undefined ? (campaign?.note ?? null) : settings.note;
 
 	if (!campaign) {
-		if (!INTEREST_ENABLE_STATES.has(listingState)) {
-			throw new InterestRuleError(
-				'interest_not_allowed',
-				409,
-				'Only a listing that has not gone live yet can become an interest check.'
-			);
+		if (!INTEREST_ENABLE_STATES.has(listingState) || !(await hasNeverBeenOnSale(tx, productId))) {
+			throw new InterestRuleError('interest_not_allowed', 409, INTEREST_NOT_ALLOWED_MESSAGE);
 		}
 		await tx.insert(interestCampaigns).values({ productId, ...settings, note });
 		return { changed: true };
@@ -297,7 +344,7 @@ export async function applyListingInterestUpdate(
 	const commitmentChanged =
 		campaign.targetCount !== settings.targetCount ||
 		campaign.shipsWithinDays !== settings.shipsWithinDays;
-	if (commitmentChanged && (await countActiveInterests(tx, productId)) > 0) {
+	if (commitmentChanged && campaign.commitmentLockedAt != null) {
 		throw new InterestRuleError('interest_locked', 409, INTEREST_LOCKED_MESSAGE);
 	}
 	if (!commitmentChanged && (campaign.note ?? null) === note) {
@@ -316,6 +363,58 @@ export async function applyListingInterestUpdate(
 	return { changed: true };
 }
 
+/**
+ * Merges small places for the maker summary. A state is listed only with at least
+ * INTEREST_SMALL_GROUP people; a city only with at least that many AND only if the people of
+ * its state not covered by its listed cities number 0 or at least INTEREST_SMALL_GROUP (else the
+ * smallest listed cities of that state are folded in too). Everything not listed goes into one
+ * "other" row, so no count below the threshold can be read off or recovered by subtraction.
+ */
+export function groupSmallPlaces(places: { city: string; state: string; count: number }[]): {
+	total: number;
+	byState: MakerInterestSummary['byState'];
+	byCity: MakerInterestSummary['byCity'];
+} {
+	const small = INTEREST_SMALL_GROUP;
+	const total = places.reduce((sum, place) => sum + place.count, 0);
+	const byDesc = <T extends { count: number }>(a: T & { name: string }, b: T & { name: string }) =>
+		b.count - a.count || a.name.localeCompare(b.name);
+
+	const stateTotals = new Map<string, number>();
+	for (const place of places) {
+		stateTotals.set(place.state, (stateTotals.get(place.state) ?? 0) + place.count);
+	}
+	const shownStates = [...stateTotals]
+		.map(([name, count]) => ({ name, count }))
+		.filter((state) => state.count >= small)
+		.sort(byDesc);
+
+	const shownCities: { city: string; state: string; count: number }[] = [];
+	for (const state of shownStates) {
+		const cities = places
+			.filter((place) => place.state === state.name && place.count >= small)
+			.map((place) => ({ ...place, name: place.city }))
+			.sort(byDesc);
+		let rest = state.count - cities.reduce((sum, city) => sum + city.count, 0);
+		while (cities.length > 0 && rest > 0 && rest < small) {
+			rest += cities.pop()!.count;
+		}
+		shownCities.push(...cities.map(({ city, count }) => ({ city, state: state.name, count })));
+	}
+	shownCities.sort((a, b) => b.count - a.count || a.city.localeCompare(b.city));
+
+	const stateOther = total - shownStates.reduce((sum, state) => sum + state.count, 0);
+	const cityOther = total - shownCities.reduce((sum, city) => sum + city.count, 0);
+	return {
+		total,
+		byState: [
+			...shownStates.map((state) => ({ state: state.name, count: state.count })),
+			...(stateOther > 0 ? [{ state: '', count: stateOther }] : [])
+		],
+		byCity: [...shownCities, ...(cityOther > 0 ? [{ city: '', state: '', count: cityOther }] : [])]
+	};
+}
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -324,6 +423,11 @@ export type InterestStoreDeps = {
 	siteUrl: string;
 	/** Sends one e-mail and resolves only once it has been accepted for delivery. */
 	deliver(to: string, email: RenderedEmail): Promise<void>;
+	/**
+	 * Wait before sending the "joined" e-mail, so someone who leaves straight away is not
+	 * e-mailed. Default 0.
+	 */
+	joinedEmailDelayMs?: number;
 };
 
 export type BuyerInterestError =
@@ -335,6 +439,9 @@ export type MakerInterestError =
 export type InterestStore = ReturnType<typeof createInterestStore>;
 
 export function createInterestStore(db: Database, deps: InterestStoreDeps) {
+	/** Sending loops running in this process, one per campaign at most. */
+	const sending = new Map<string, Promise<void>>();
+
 	function errorMessage(error: unknown): string {
 		return error instanceof Error ? error.message : String(error);
 	}
@@ -375,67 +482,61 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 		return product ?? null;
 	}
 
-	async function countPending(productId: string): Promise<number> {
-		const [row] = await db
+	async function countPending(executor: Selectable, productId: string): Promise<number> {
+		const [row] = await executor
 			.select({ value: sql<number>`count(*)::int` })
 			.from(productInterests)
-			.where(
-				and(
-					eq(productInterests.productId, productId),
-					isNull(productInterests.withdrawnAt),
-					isNull(productInterests.notifiedAt)
-				)
-			);
+			.where(and(eq(productInterests.productId, productId), isNull(productInterests.notifiedAt)));
 		return Number(row?.value ?? 0);
 	}
 
 	/**
 	 * E-mails everyone on the list who has not been e-mailed yet, one at a time. Each person's
-	 * row is locked while their e-mail is sent (SKIP LOCKED), so two concurrent calls never
-	 * e-mail the same person, and `notified_at` is stamped only once the send succeeded.
+	 * row is locked while their e-mail is sent (SKIP LOCKED), so two loops never e-mail the same
+	 * person. Once the send succeeded, in the same statement that records it, a launch notice
+	 * blanks the phone and address (name and e-mail stay for the count and the staff view) and
+	 * a closure notice deletes the row.
 	 */
 	async function notifyPending(
 		productId: string,
 		kind: 'launched' | 'closed',
 		email: RenderedEmail
-	): Promise<{ notified: number; pending: number }> {
+	): Promise<void> {
 		const candidates = await db
 			.select({ id: productInterests.id })
 			.from(productInterests)
-			.where(
-				and(
-					eq(productInterests.productId, productId),
-					isNull(productInterests.withdrawnAt),
-					isNull(productInterests.notifiedAt)
-				)
-			)
+			.where(and(eq(productInterests.productId, productId), isNull(productInterests.notifiedAt)))
 			.orderBy(asc(productInterests.createdAt));
 
-		let notified = 0;
 		for (const candidate of candidates) {
 			try {
-				const sent = await db.transaction(async (tx) => {
+				await db.transaction(async (tx) => {
 					const [row] = await tx
 						.select({ id: productInterests.id, email: productInterests.email })
 						.from(productInterests)
-						.where(
-							and(
-								eq(productInterests.id, candidate.id),
-								isNull(productInterests.withdrawnAt),
-								isNull(productInterests.notifiedAt)
-							)
-						)
+						.where(and(eq(productInterests.id, candidate.id), isNull(productInterests.notifiedAt)))
 						.for('update', { skipLocked: true })
 						.limit(1);
-					if (!row || !row.email) return false;
+					if (!row || !row.email) return;
 					await deps.deliver(row.email, email);
+					if (kind === 'launched') {
+						await tx
+							.update(productInterests)
+							.set({
+								notifiedAt: nowIso(),
+								updatedAt: nowIso(),
+								phone: '',
+								address: {} as CheckoutAddress
+							})
+							.where(eq(productInterests.id, row.id));
+					} else {
+						await tx.delete(productInterests).where(eq(productInterests.id, row.id));
+					}
 					await tx
-						.update(productInterests)
-						.set({ notifiedAt: nowIso(), updatedAt: nowIso() })
-						.where(eq(productInterests.id, row.id));
-					return true;
+						.update(interestCampaigns)
+						.set({ notifiedCount: sql`${interestCampaigns.notifiedCount} + 1` })
+						.where(eq(interestCampaigns.productId, productId));
 				});
-				if (sent) notified += 1;
 			} catch (error) {
 				storeLog('warn', 'interest.notify_failed', {
 					productId,
@@ -445,24 +546,161 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 				});
 			}
 		}
+	}
 
-		return { notified, pending: await countPending(productId) };
+	/**
+	 * Starts the sending loop in the background unless one is already running for this campaign
+	 * in this process. Not awaited by the request. If the process stops mid-loop, the people not
+	 * yet e-mailed stay pending until the maker calls launch or close again.
+	 */
+	function startSending(
+		productId: string,
+		kind: 'launched' | 'closed',
+		renderEmail: () => Promise<RenderedEmail>
+	) {
+		if (sending.has(productId)) return;
+		const loop = (async () => {
+			try {
+				await notifyPending(productId, kind, await renderEmail());
+			} catch (error) {
+				storeLog('error', 'interest.notify_loop_failed', {
+					productId,
+					kind,
+					error: errorMessage(error)
+				});
+			} finally {
+				sending.delete(productId);
+			}
+		})();
+		sending.set(productId, loop);
+	}
+
+	async function notifyCounts(productId: string): Promise<{ notified: number; pending: number }> {
+		const [campaign] = await db
+			.select({ notifiedCount: interestCampaigns.notifiedCount })
+			.from(interestCampaigns)
+			.where(eq(interestCampaigns.productId, productId))
+			.limit(1);
+		return {
+			notified: Number(campaign?.notifiedCount ?? 0),
+			pending: await countPending(db, productId)
+		};
+	}
+
+	/**
+	 * Sends the "joined" e-mail unless the person has left in the meantime, or was sent one for
+	 * this listing in the last 10 minutes.
+	 */
+	async function sendJoinedEmail(userId: string, productId: string) {
+		const delay = deps.joinedEmailDelayMs ?? 0;
+		if (delay > 0) {
+			await new Promise<void>((resolve) => setTimeout(resolve, delay).unref?.());
+		}
+		await db.transaction(async (tx) => {
+			const [row] = await tx
+				.select({ email: productInterests.email })
+				.from(productInterests)
+				.where(and(eq(productInterests.productId, productId), eq(productInterests.userId, userId)))
+				.limit(1);
+			if (!row?.email) return;
+
+			const now = nowIso();
+			const cutoff = new Date(Date.now() - JOINED_EMAIL_MIN_INTERVAL_MS).toISOString();
+			const claimed = await tx
+				.insert(interestJoinNotices)
+				.values({ productId, userId, sentAt: now })
+				.onConflictDoUpdate({
+					target: [interestJoinNotices.productId, interestJoinNotices.userId],
+					set: { sentAt: now },
+					setWhere: sql`${interestJoinNotices.sentAt} < ${cutoff}`
+				})
+				.returning({ productId: interestJoinNotices.productId });
+			if (claimed.length === 0) return;
+
+			const [product] = await tx.select().from(products).where(eq(products.id, productId)).limit(1);
+			const [campaign] = await tx
+				.select()
+				.from(interestCampaigns)
+				.where(eq(interestCampaigns.productId, productId))
+				.limit(1);
+			if (!product || !campaign) return;
+			const makerName = await loadMakerName(tx, product);
+			// If this send fails, the claim is rolled back with the transaction.
+			await deps.deliver(
+				row.email,
+				renderInterestJoinedEmail({
+					siteUrl: deps.siteUrl,
+					productName: product.name ?? 'this listing',
+					makerName,
+					targetCount: campaign.targetCount,
+					interestedCount: await countActiveInterests(tx, productId),
+					shipsWithinDays: campaign.shipsWithinDays,
+					listingUrl: listingUrl(product)
+				})
+			);
+		});
 	}
 
 	return {
+		/** Resolves once every background sending loop of this store has finished (tests, shutdown). */
+		async drainNotifications(): Promise<void> {
+			while (sending.size > 0) {
+				await Promise.all([...sending.values()]);
+			}
+		},
+
 		async getMyInterest(userId: string, productId: string): Promise<MyInterestResponse> {
-			const [row] = await db
-				.select({ createdAt: productInterests.createdAt })
-				.from(productInterests)
-				.where(
-					and(
-						eq(productInterests.productId, productId),
-						eq(productInterests.userId, userId),
-						isNull(productInterests.withdrawnAt)
+			const [[row], [product]] = await Promise.all([
+				db
+					.select({ createdAt: productInterests.createdAt })
+					.from(productInterests)
+					.where(
+						and(eq(productInterests.productId, productId), eq(productInterests.userId, userId))
 					)
-				)
-				.limit(1);
-			return { interested: Boolean(row), since: toIso(row?.createdAt) };
+					.limit(1),
+				db
+					.select({ uid: products.uid, makerId: products.makerId })
+					.from(products)
+					.where(eq(products.id, productId))
+					.limit(1)
+			]);
+			return {
+				interested: Boolean(row),
+				since: toIso(row?.createdAt),
+				ownListing: Boolean(product && (product.uid === userId || product.makerId === userId))
+			};
+		},
+
+		/** Every interest check the user is on, whatever its status or the listing's state. */
+		async listMyInterests(userId: string): Promise<MyInterestsResponse> {
+			const stats = interestStatsSubquery(db);
+			const rows = await db
+				.select({
+					productId: productInterests.productId,
+					createdAt: productInterests.createdAt,
+					productName: products.name,
+					listingState: products.listingState,
+					status: stats.status,
+					targetCount: stats.targetCount,
+					interestedCount: stats.interestedCount
+				})
+				.from(productInterests)
+				.innerJoin(products, eq(products.id, productInterests.productId))
+				.innerJoin(stats, eq(stats.productId, productInterests.productId))
+				.where(eq(productInterests.userId, userId))
+				.orderBy(desc(productInterests.createdAt));
+			return {
+				interests: rows.map((row) => ({
+					productId: row.productId,
+					productName: row.productName ?? '',
+					productPath:
+						row.listingState === 'live' ? productHref(row.productName ?? '', row.productId) : null,
+					status: row.status as MyInterestsResponse['interests'][number]['status'],
+					targetCount: row.targetCount,
+					interestedCount: Number(row.interestedCount ?? 0),
+					since: toIso(row.createdAt) ?? ''
+				}))
+			};
 		},
 
 		async showInterest(input: {
@@ -476,10 +714,12 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 			const email = input.email?.trim() ?? '';
 
 			const outcome = await db.transaction(async (tx) => {
+				// Share lock: the listing cannot leave `live` until this join has committed.
 				const [product] = await tx
 					.select()
 					.from(products)
 					.where(eq(products.id, productId))
+					.for('share')
 					.limit(1);
 				if (!product || product.listingState !== 'live') {
 					return fail<BuyerInterestError>(404, 'product_not_found', 'Listing not found.');
@@ -496,7 +736,7 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 					.select()
 					.from(interestCampaigns)
 					.where(eq(interestCampaigns.productId, productId))
-					.for('share')
+					.for('update')
 					.limit(1);
 				if (!campaign || campaign.status !== INTEREST_STATUS.OPEN) {
 					return fail<BuyerInterestError>(409, 'interest_closed', 'This interest check has ended.');
@@ -516,54 +756,31 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 					})
 					.returning({ id: productInterests.id });
 
-				let joined = inserted.length > 0;
+				const joined = inserted.length > 0;
 				if (!joined) {
-					const [existing] = await tx
-						.select({ withdrawnAt: productInterests.withdrawnAt })
-						.from(productInterests)
-						.where(
-							and(eq(productInterests.productId, productId), eq(productInterests.userId, userId))
-						)
-						.for('update')
-						.limit(1);
-					const reviving = existing?.withdrawnAt != null;
-					const now = nowIso();
 					await tx
 						.update(productInterests)
-						.set({
-							...values,
-							updatedAt: now,
-							...(reviving ? { withdrawnAt: null, notifiedAt: null, createdAt: now } : {})
-						})
+						.set({ ...values, updatedAt: nowIso() })
 						.where(
 							and(eq(productInterests.productId, productId), eq(productInterests.userId, userId))
 						);
-					joined = reviving;
+				}
+				if (joined && campaign.commitmentLockedAt == null) {
+					const now = nowIso();
+					await tx
+						.update(interestCampaigns)
+						.set({ commitmentLockedAt: now, updatedAt: now })
+						.where(eq(interestCampaigns.productId, productId));
 				}
 
 				const interestedCount = await countActiveInterests(tx, productId);
-				return { ok: true as const, joined, interestedCount, product, campaign };
+				return { ok: true as const, joined, interestedCount };
 			});
 
 			if (!outcome.ok) return outcome;
 
 			if (outcome.joined && email) {
-				const { product, campaign, interestedCount } = outcome;
-				void (async () => {
-					const makerName = await loadMakerName(db, product);
-					await deps.deliver(
-						email,
-						renderInterestJoinedEmail({
-							siteUrl: deps.siteUrl,
-							productName: product.name ?? 'this listing',
-							makerName,
-							targetCount: campaign.targetCount,
-							interestedCount,
-							shipsWithinDays: campaign.shipsWithinDays,
-							listingUrl: listingUrl(product)
-						})
-					);
-				})().catch((error) => {
+				sendJoinedEmail(userId, productId).catch((error) => {
 					storeLog('warn', 'interest.joined_email_failed', {
 						productId,
 						userId,
@@ -578,6 +795,10 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 			};
 		},
 
+		/**
+		 * Leaving deletes the person's row, whatever the campaign status and whether or not the
+		 * listing is public. Safe to repeat.
+		 */
 		async withdrawInterest(
 			userId: string,
 			productId: string
@@ -590,17 +811,9 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 			if (!product) {
 				return fail(404, 'product_not_found', 'Listing not found.');
 			}
-			const now = nowIso();
 			await db
-				.update(productInterests)
-				.set({ withdrawnAt: now, updatedAt: now })
-				.where(
-					and(
-						eq(productInterests.productId, productId),
-						eq(productInterests.userId, userId),
-						isNull(productInterests.withdrawnAt)
-					)
-				);
+				.delete(productInterests)
+				.where(and(eq(productInterests.productId, productId), eq(productInterests.userId, userId)));
 			return {
 				ok: true,
 				response: {
@@ -626,35 +839,21 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 				return fail(409, 'not_an_interest_listing', 'This listing is not an interest check.');
 			}
 
-			const active = and(
-				eq(productInterests.productId, productId),
-				isNull(productInterests.withdrawnAt)
-			);
 			const stateExpr = sql<string>`coalesce(nullif(trim(${productInterests.address}->>'state'), ''), 'Unknown')`;
 			const cityExpr = sql<string>`coalesce(nullif(trim(${productInterests.address}->>'city'), ''), 'Unknown')`;
 
 			// Counts only: no names, phone numbers, e-mail addresses or street addresses.
-			const [totals, byState, byCity] = await Promise.all([
-				db
-					.select({
-						interested: sql<number>`count(*)::int`,
-						notified: sql<number>`count(${productInterests.notifiedAt})::int`
-					})
-					.from(productInterests)
-					.where(active),
-				db
-					.select({ state: stateExpr, count: sql<number>`count(*)::int` })
-					.from(productInterests)
-					.where(active)
-					.groupBy(stateExpr)
-					.orderBy(desc(sql`count(*)`), asc(stateExpr)),
+			const [places, pending] = await Promise.all([
 				db
 					.select({ city: cityExpr, state: stateExpr, count: sql<number>`count(*)::int` })
 					.from(productInterests)
-					.where(active)
-					.groupBy(cityExpr, stateExpr)
-					.orderBy(desc(sql`count(*)`), asc(cityExpr))
+					.where(eq(productInterests.productId, productId))
+					.groupBy(cityExpr, stateExpr),
+				countPending(db, productId)
 			]);
+			const groups = groupSmallPlaces(
+				places.map((row) => ({ city: row.city, state: row.state, count: Number(row.count) }))
+			);
 
 			return {
 				ok: true,
@@ -662,21 +861,19 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 					status: campaign.status as MakerInterestSummary['status'],
 					targetCount: campaign.targetCount,
 					shipsWithinDays: campaign.shipsWithinDays,
-					interestedCount: Number(totals[0]?.interested ?? 0),
-					notifiedCount: Number(totals[0]?.notified ?? 0),
-					byState: byState.map((row) => ({ state: row.state, count: Number(row.count) })),
-					byCity: byCity.map((row) => ({
-						city: row.city,
-						state: row.state,
-						count: Number(row.count)
-					}))
+					interestedCount: groups.total,
+					notifiedCount: campaign.notifiedCount,
+					pendingCount: campaign.status === INTEREST_STATUS.OPEN ? 0 : pending,
+					byState: groups.byState,
+					byCity: groups.byCity
 				}
 			};
 		},
 
 		/**
 		 * Launch: the listing becomes an ordinary one with `stock_count` units and everyone on the
-		 * list is e-mailed. Calling it again only retries people who were not e-mailed.
+		 * list is e-mailed in the background. Returns at once. Calling it again never resets the
+		 * stock and resumes sending to whoever is still pending.
 		 */
 		async launch(
 			makerId: string,
@@ -729,7 +926,7 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 					}
 					const now = nowIso();
 					const message = body.message?.trim() ? body.message.trim() : null;
-					const updated = await tx
+					await tx
 						.update(interestCampaigns)
 						.set({
 							status: INTEREST_STATUS.LAUNCHED,
@@ -737,32 +934,24 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 							launchMessage: message,
 							updatedAt: now
 						})
-						.where(
-							and(
-								eq(interestCampaigns.productId, productId),
-								eq(interestCampaigns.status, INTEREST_STATUS.OPEN)
-							)
-						)
-						.returning({ productId: interestCampaigns.productId });
-					if (updated.length > 0) {
-						await tx
-							.update(products)
-							.set({ stock: { count: body.stock_count, status: 'in-stock' } })
-							.where(eq(products.id, productId));
-						await writeAudit(tx, {
-							actorUserId: makerId,
-							entityType: 'product',
-							entityId: productId,
-							action: 'interest.launched',
-							fromState: INTEREST_STATUS.OPEN,
-							toState: INTEREST_STATUS.LAUNCHED,
-							meta: {
-								stockCount: body.stock_count,
-								interestedCount: await countActiveInterests(tx, productId)
-							}
-						});
-						campaign.launchMessage = message;
-					}
+						.where(eq(interestCampaigns.productId, productId));
+					await tx
+						.update(products)
+						.set({ stock: { count: body.stock_count, status: 'in-stock' } })
+						.where(eq(products.id, productId));
+					await writeAudit(tx, {
+						actorUserId: makerId,
+						entityType: 'product',
+						entityId: productId,
+						action: 'interest.launched',
+						fromState: INTEREST_STATUS.OPEN,
+						toState: INTEREST_STATUS.LAUNCHED,
+						meta: {
+							stockCount: body.stock_count,
+							interestedCount: await countActiveInterests(tx, productId)
+						}
+					});
+					campaign.launchMessage = message;
 				}
 
 				return { ok: true as const, product, message: campaign.launchMessage };
@@ -770,22 +959,25 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 
 			if (!outcome.ok) return outcome;
 
-			const { product } = outcome;
-			const makerName = await loadMakerName(db, product);
-			const email = renderInterestLaunchedEmail({
-				siteUrl: deps.siteUrl,
-				productName: product.name ?? 'Your listing',
-				makerName,
-				priceInr: product.price?.new ?? 0,
-				deliveryFeeInr: DELIVERY_FLAT_FEE,
-				message: outcome.message,
-				buyUrl: listingUrl(product)
-			});
-			const result = await notifyPending(productId, 'launched', email);
-			return { ok: true, response: { status: INTEREST_STATUS.LAUNCHED, ...result } };
+			const counts = await notifyCounts(productId);
+			if (counts.pending > 0) {
+				const { product, message } = outcome;
+				startSending(productId, 'launched', async () =>
+					renderInterestLaunchedEmail({
+						siteUrl: deps.siteUrl,
+						productName: product.name ?? 'Your listing',
+						makerName: await loadMakerName(db, product),
+						priceInr: product.price?.new ?? 0,
+						deliveryFeeInr: DELIVERY_FLAT_FEE,
+						message,
+						buyUrl: listingUrl(product)
+					})
+				);
+			}
+			return { ok: true, response: { status: INTEREST_STATUS.LAUNCHED, ...counts } };
 		},
 
-		/** Close: the maker is not going ahead. Same retry rules as launch. */
+		/** Close: the maker is not going ahead. Same background sending and resume rules as launch. */
 		async close(
 			makerId: string,
 			productId: string,
@@ -830,7 +1022,7 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 				if (campaign.status === INTEREST_STATUS.OPEN) {
 					const now = nowIso();
 					const message = body.message?.trim() ? body.message.trim() : null;
-					const updated = await tx
+					await tx
 						.update(interestCampaigns)
 						.set({
 							status: INTEREST_STATUS.CLOSED,
@@ -838,25 +1030,17 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 							launchMessage: message,
 							updatedAt: now
 						})
-						.where(
-							and(
-								eq(interestCampaigns.productId, productId),
-								eq(interestCampaigns.status, INTEREST_STATUS.OPEN)
-							)
-						)
-						.returning({ productId: interestCampaigns.productId });
-					if (updated.length > 0) {
-						await writeAudit(tx, {
-							actorUserId: makerId,
-							entityType: 'product',
-							entityId: productId,
-							action: 'interest.closed',
-							fromState: INTEREST_STATUS.OPEN,
-							toState: INTEREST_STATUS.CLOSED,
-							meta: { interestedCount: await countActiveInterests(tx, productId) }
-						});
-						campaign.launchMessage = message;
-					}
+						.where(eq(interestCampaigns.productId, productId));
+					await writeAudit(tx, {
+						actorUserId: makerId,
+						entityType: 'product',
+						entityId: productId,
+						action: 'interest.closed',
+						fromState: INTEREST_STATUS.OPEN,
+						toState: INTEREST_STATUS.CLOSED,
+						meta: { interestedCount: await countActiveInterests(tx, productId) }
+					});
+					campaign.launchMessage = message;
 				}
 
 				return { ok: true as const, product, message: campaign.launchMessage };
@@ -864,16 +1048,19 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 
 			if (!outcome.ok) return outcome;
 
-			const { product } = outcome;
-			const makerName = await loadMakerName(db, product);
-			const email = renderInterestClosedEmail({
-				siteUrl: deps.siteUrl,
-				productName: product.name ?? 'This listing',
-				makerName,
-				message: outcome.message
-			});
-			const result = await notifyPending(productId, 'closed', email);
-			return { ok: true, response: { status: INTEREST_STATUS.CLOSED, ...result } };
+			const counts = await notifyCounts(productId);
+			if (counts.pending > 0) {
+				const { product, message } = outcome;
+				startSending(productId, 'closed', async () =>
+					renderInterestClosedEmail({
+						siteUrl: deps.siteUrl,
+						productName: product.name ?? 'This listing',
+						makerName: await loadMakerName(db, product),
+						message
+					})
+				);
+			}
+			return { ok: true, response: { status: INTEREST_STATUS.CLOSED, ...counts } };
 		},
 
 		/** Staff: every interest check with its counts. */
@@ -916,7 +1103,10 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 			};
 		},
 
-		/** Staff: the full list for one interest check, withdrawn people included. */
+		/**
+		 * Staff: the full list for one interest check. People who left are gone; after a launch
+		 * notice their phone is '' and their address is {}.
+		 */
 		async adminGetCampaign(productId: string): Promise<AdminInterestList | null> {
 			const [product] = await db
 				.select({ id: products.id, name: products.name })
@@ -945,7 +1135,7 @@ export function createInterestStore(db: Database, deps: InterestStoreDeps) {
 					phone: entry.phone,
 					address: entry.address,
 					createdAt: toIso(entry.createdAt) ?? '',
-					withdrawnAt: toIso(entry.withdrawnAt),
+					withdrawnAt: null,
 					notifiedAt: toIso(entry.notifiedAt)
 				}))
 			};

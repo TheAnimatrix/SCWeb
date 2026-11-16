@@ -1347,6 +1347,47 @@ describe('CheckoutStore (PGlite)', () => {
 			]);
 		});
 
+		it('sends a paid order containing an open interest-check product to support, taking no stock', async () => {
+			await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+			await seedProduct(testDb.db, PRODUCT_2, 5, 'Widget B');
+			const cart = await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+			await testDb.db.insert(cartItems).values({ cartId: cart.id, productId: PRODUCT_2, qty: 2 });
+			const { mail } = fakeMail();
+			const store = createCheckoutStore(testDb.db, uniqueOrderRazorpay(), { mail });
+
+			const created = await store.createOrder(guest, orderAddresses());
+			if (!created.ok) throw new Error('order failed');
+			// The product became an open interest check after the order was created.
+			await testDb.db
+				.insert(schema.interestCampaigns)
+				.values({ productId: PRODUCT_2, targetCount: 10, shipsWithinDays: 30 });
+
+			const result = await store.confirmOrder(guest, created.response.razorpayOrderId, 'pay_ic');
+
+			expect(result).toEqual({
+				ok: false,
+				status: 409,
+				body: { error: 'stock_conflict', orderId: created.response.orderId }
+			});
+			expect(await orderStatus(created.response.orderId)).toBe(CART_ORDER_STATUS.PAID);
+			expect(await stockOf(PRODUCT_1)).toBe(5);
+			expect(await stockOf(PRODUCT_2)).toBe(5);
+			const conflicts = await testDb.db
+				.select()
+				.from(auditLog)
+				.where(eq(auditLog.action, 'paid_stock_conflict'));
+			expect(conflicts).toEqual([
+				expect.objectContaining({
+					meta: expect.objectContaining({ productId: PRODUCT_2, cause: 'interest_check' })
+				})
+			]);
+			expect(await attentionRows()).toEqual([
+				expect.objectContaining({
+					meta: expect.objectContaining({ reason: 'stock_conflict', detectedBy: 'confirm' })
+				})
+			]);
+		});
+
 		it('treats a stale read of the same payment as already paid, not as a duplicate', async () => {
 			await seedProduct(testDb.db, PRODUCT_1, 5);
 			await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);

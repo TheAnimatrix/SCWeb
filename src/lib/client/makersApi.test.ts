@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	INTEREST_LOCKED_MESSAGE,
+	INTEREST_NOT_ALLOWED_MESSAGE,
 	closeMyListingInterest,
 	getMyListingInterest,
 	launchMyListingInterest,
@@ -39,6 +40,7 @@ describe('maker interest calls', () => {
 			shipsWithinDays: 30,
 			interestedCount: 2,
 			notifiedCount: 0,
+			pendingCount: 0,
 			byState: [],
 			byCity: []
 		};
@@ -71,6 +73,18 @@ describe('maker interest calls', () => {
 		const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
 		expect(url).toBe('/api/makers/me/listings/p1/interest/close');
 		expect(init.method).toBe('POST');
+	});
+
+	it('maps interest_not_allowed from a listing save to the copy', async () => {
+		const fetchFn = vi.fn(async () => jsonResponse(409, { error: 'interest_not_allowed' }));
+		const result = await upsertMyListing(fetchFn as typeof fetch, {
+			interest: { enabled: true, target_count: 5, ships_within_days: 30 }
+		});
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('interest_not_allowed');
+			expect(result.error.message).toBe(INTEREST_NOT_ALLOWED_MESSAGE);
+		}
 	});
 
 	it('surfaces interest_locked from a listing save', async () => {

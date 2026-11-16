@@ -4,6 +4,7 @@
 	import { navigating, page } from '$app/state';
 	import type { Writable } from 'svelte/store';
 	import { setCartItem, syncCartStore, type CartG } from '$lib/client/cartApi';
+	import { getMyInterest } from '$lib/client/interestApi';
 	import { Breadcrumbs } from '$lib/components/shell';
 	import { MakerCard, ProseSkeleton, ScButton, Skeleton } from '$lib/components/sc';
 	import {
@@ -162,6 +163,22 @@
 	});
 	const interestClosed = $derived(productItem?.interest?.status === 'closed');
 
+	// After a launch or closure, someone still on the list gets a link to where they can leave it.
+	let stillOnEndedList = $state(false);
+	$effect(() => {
+		const productId = productItem?.id;
+		const status = productItem?.interest?.status;
+		stillOnEndedList = false;
+		if (!productId || !viewerId || (status !== 'launched' && status !== 'closed')) return;
+		let cancelled = false;
+		void getMyInterest(fetch, productId).then((result) => {
+			if (!cancelled) stillOnEndedList = result.ok && result.data.interested;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	// Mobile: a bottom bar with price and "Add to cart" once the purchase panel scrolls away.
 	let panelEl = $state<HTMLElement | null>(null);
 	let panelScrolledPast = $state(false);
@@ -284,6 +301,7 @@
 					{isRefreshing}
 					onVariantNavigate={handleVariantNavigate}
 					{interestState}
+					{stillOnEndedList}
 					onIncrement={incCart}
 					onDecrement={decCart}
 					onAddToCart={cartSubmit} />
@@ -333,7 +351,7 @@
 			<p class="text-base font-semibold text-foreground">{formatInr(productItem.price.new)}</p>
 		</div>
 		{#if interestState}
-			{#if interestState.viewer.isOwner || interestState.onList}
+			{#if interestState.ownListing || interestState.onList}
 				<!-- Nothing to do from here: the panel above shows their state. -->
 			{:else if !interestState.signedIn}
 				<ScButton class="min-h-11 shrink-0 text-sm" href={interestState.viewer.signInHref}>

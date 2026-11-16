@@ -40,6 +40,10 @@ export function createInterestRoutes(getStore: StoreGetter) {
 		}
 	);
 
+	routes.get('/me/interests', requireAuth(), async (c) => {
+		return c.json(await getStore(c).listMyInterests(c.get('actor').userId!));
+	});
+
 	routes.post(
 		'/products/:productId/interest',
 		requireAuth(),

@@ -134,9 +134,7 @@
 	/** Launched or closed checks are ordinary listings now; only new or open ones show the section. */
 	const showInterestSection = $derived(!editingInterest || editingInterest.status === 'open');
 	/** Once people have joined, the target and shipping time are a commitment. */
-	const interestLocked = $derived(
-		editingInterest?.status === 'open' && editingInterest.interested_count > 0
-	);
+	const interestLocked = $derived(editingInterest?.status === 'open' && editingInterest.locked);
 	const interestOn = $derived(showInterestSection && interestEnabled);
 	const editingState = $derived(editing?.listing_state ?? null);
 	const editingVisible = $derived(editingState === 'live' || editingState === 'paused');
@@ -463,7 +461,6 @@
 	let summaryLoading = $state(false);
 	let dialogBusy = $state(false);
 	let dialogError = $state('');
-	let dialogNotice = $state('');
 	let launchStock = $state('');
 	let interestMessage = $state('');
 	let summaryRequest = 0;
@@ -489,7 +486,6 @@
 		};
 		dialogBusy = false;
 		dialogError = '';
-		dialogNotice = '';
 		launchStock = '';
 		interestMessage = '';
 		summary = null;
@@ -518,15 +514,58 @@
 		summary = result.data;
 	}
 
+	/** The e-mails go out in the background; `pending` is who is still to be e-mailed. */
 	function notifyResultText(kind: 'launch' | 'close', data: InterestNotifyResponse): string {
-		if (data.pending > 0) {
-			return kind === 'launch'
-				? `${data.notified} emailed, ${data.pending} still to send. Press Launch again to retry.`
-				: `${data.notified} emailed, ${data.pending} still to send. Press Close again to retry.`;
+		const done = kind === 'launch' ? 'Launched.' : 'Closed.';
+		return data.pending > 0 ? `${done} We're emailing ${data.pending} people now.` : done;
+	}
+
+	/** Row label for a merged small-places group (`city: ''` / `state: ''`). */
+	function placeLabel(value: string): string {
+		return value === '' ? 'Other places' : value;
+	}
+
+	// After a launch or closure, refresh the rows while e-mails are still going out: every
+	// 5 seconds, at most 12 times per launch, close or resend (and once per visit otherwise).
+	const POLL_INTERVAL_MS = 5000;
+	const POLL_MAX = 12;
+	let pollsLeft = POLL_MAX;
+	let resendBusyId = $state('');
+
+	function hasPending(listing: Listing): boolean {
+		const interest = listing.interest;
+		return !!interest && interest.status !== 'open' && interest.pending_count > 0;
+	}
+
+	$effect(() => {
+		// Re-runs whenever the rows reload, so each refresh schedules the next one.
+		if (!listings.some(hasPending) || pollsLeft <= 0) return;
+		const timer = setTimeout(() => {
+			pollsLeft -= 1;
+			void invalidateAll();
+		}, POLL_INTERVAL_MS);
+		return () => clearTimeout(timer);
+	});
+
+	async function resendEmails(listing: Listing) {
+		const interest = listing.interest;
+		if (!interest || resendBusyId) return;
+		resendBusyId = listing.id;
+		// Launching again only e-mails whoever is still pending; the API ignores the stock then.
+		const result =
+			interest.status === 'launched'
+				? await launchMyListingInterest(fetch, listing.id, {
+						stock_count: Math.max(1, listing.stock?.count ?? 1)
+					})
+				: await closeMyListingInterest(fetch, listing.id, {});
+		resendBusyId = '';
+		if (!result.ok) {
+			setRowFeedback(listing.id, result.error.message, true);
+			return;
 		}
-		return kind === 'launch'
-			? `Launched. ${data.notified} people emailed.`
-			: `Closed. ${data.notified} people emailed.`;
+		setRowFeedback(listing.id, `Sending to ${result.data.pending} people now.`);
+		pollsLeft = POLL_MAX;
+		await invalidateAll();
 	}
 
 	async function submitLaunch(e: SubmitEvent) {
@@ -564,21 +603,15 @@
 	) {
 		dialogBusy = true;
 		dialogError = '';
-		dialogNotice = '';
 		const result = await call();
 		dialogBusy = false;
 		if (!result.ok) {
 			dialogError = result.error.message;
 			return;
 		}
-		const message = notifyResultText(kind, result.data);
-		setRowFeedback(target.id, message);
-		if (result.data.pending > 0) {
-			// Keep the dialog open so the maker can press the button again to retry.
-			dialogNotice = message;
-		} else {
-			interestDialogOpen = false;
-		}
+		setRowFeedback(target.id, notifyResultText(kind, result.data));
+		interestDialogOpen = false;
+		pollsLeft = POLL_MAX;
 		await invalidateAll();
 	}
 </script>
@@ -989,6 +1022,20 @@
 											Closed {formatDate(interest.closed_at)}
 										</p>
 									{/if}
+									{#if interest && hasPending(listing)}
+										<div class="mt-1 flex flex-wrap items-center gap-2">
+											<p class="text-sm tabular-nums">
+												{interest.interested_count - interest.pending_count} of {interest.interested_count}
+												emailed
+											</p>
+											<ScButton
+												variant="secondary"
+												disabled={resendBusyId === listing.id}
+												onclick={() => resendEmails(listing)}>
+												Send remaining emails
+											</ScButton>
+										</div>
+									{/if}
 								</div>
 							</div>
 							{#if state === 'rejected'}
@@ -1138,8 +1185,8 @@
 									<tbody>
 										{#each summary.byCity as row (`${row.city}|${row.state}`)}
 											<tr class="border-b border-border last:border-b-0">
-												<td class="px-3 py-2">{row.city}</td>
-												<td class="px-3 py-2">{row.state}</td>
+												<td class="px-3 py-2">{placeLabel(row.city)}</td>
+												<td class="px-3 py-2">{row.city === '' ? '' : row.state}</td>
 												<td class="px-3 py-2 text-right tabular-nums">{row.count}</td>
 											</tr>
 										{/each}
@@ -1152,8 +1199,8 @@
 					{/if}
 				{/if}
 				<p class="text-xs text-muted-foreground">
-					You see counts only. Selfcrafted holds the names, addresses and phone numbers, and sends
-					the emails.
+					You see counts only, and places with fewer than 3 people are grouped together. Selfcrafted
+					holds the names, addresses and phone numbers, and sends the emails.
 				</p>
 			{:else if interestDialog?.kind === 'launch'}
 				<form class="space-y-4" onsubmit={submitLaunch}>
@@ -1190,16 +1237,13 @@
 					{#if dialogError}
 						<p class="text-sm text-destructive" role="alert">{dialogError}</p>
 					{/if}
-					{#if dialogNotice}
-						<p class="text-sm" role="status">{dialogNotice}</p>
-					{/if}
 					<Dialog.Footer class="gap-2">
 						<ScButton variant="secondary" onclick={() => (interestDialogOpen = false)}
 							>Not yet</ScButton>
 						<ScButton type="submit" disabled={dialogBusy}>
 							{dialogBusy
 								? 'Launching…'
-								: interestDialog.count > 0 && !dialogNotice
+								: interestDialog.count > 0
 									? `Launch and email ${interestDialog.count} people`
 									: 'Launch'}
 						</ScButton>
@@ -1228,16 +1272,13 @@
 					{#if dialogError}
 						<p class="text-sm text-destructive" role="alert">{dialogError}</p>
 					{/if}
-					{#if dialogNotice}
-						<p class="text-sm" role="status">{dialogNotice}</p>
-					{/if}
 					<Dialog.Footer class="gap-2">
 						<ScButton variant="secondary" onclick={() => (interestDialogOpen = false)}
 							>Keep it open</ScButton>
 						<ScButton type="submit" disabled={dialogBusy}>
 							{dialogBusy
 								? 'Closing…'
-								: interestDialog.count > 0 && !dialogNotice
+								: interestDialog.count > 0
 									? `Close and email ${interestDialog.count} people`
 									: 'Close'}
 						</ScButton>

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	getMyInterest,
+	getMyInterests,
+	INTEREST_LIST_LOAD_FAILED,
 	INTEREST_JOIN_FAILED,
 	INTEREST_LEAVE_FAILED,
 	mapInterestError,
@@ -119,5 +121,34 @@ describe('interest requests', () => {
 		const result = await showInterest(fetchFn as unknown as typeof fetch, 'p1', address);
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.kind).toBe('network');
+	});
+
+	it('getMyInterests calls GET /api/me/interests', async () => {
+		const body = {
+			interests: [
+				{
+					productId: '00000000-0000-4000-8000-000000000001',
+					productName: 'Lamp',
+					productPath: null,
+					status: 'launched',
+					targetCount: 10,
+					interestedCount: 12,
+					since: '2026-11-01T00:00:00.000Z'
+				}
+			]
+		};
+		const fetchFn = vi.fn(async () => jsonResponse(200, body));
+		const result = await getMyInterests(fetchFn as unknown as typeof fetch);
+		expect(fetchFn).toHaveBeenCalledWith('/api/me/interests', expect.anything());
+		expect(result).toEqual({ ok: true, data: body });
+	});
+
+	it('getMyInterests maps failures to the load sentence', async () => {
+		const fetchFn = vi.fn(async () => jsonResponse(500, {}));
+		const result = await getMyInterests(fetchFn as unknown as typeof fetch);
+		expect(result).toEqual({
+			ok: false,
+			error: { kind: 'unknown', message: INTEREST_LIST_LOAD_FAILED }
+		});
 	});
 });

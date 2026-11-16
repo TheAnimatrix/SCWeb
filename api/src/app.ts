@@ -154,6 +154,8 @@ export function createApp({
 		interestStore ??
 		createInterestStore(db, {
 			siteUrl: getSiteUrl(env),
+			// Someone who leaves straight after joining is not sent the "joined" e-mail.
+			joinedEmailDelayMs: 15_000,
 			async deliver(to, email) {
 				// Without SMTP nothing is sent, so leave the person pending instead of marking
 				// them notified.
@@ -213,7 +215,10 @@ export function createApp({
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
 	app.route('/', razorpayWebhookRoutes);
-	app.route('/', createOrdersRoutes((c) => c.get('ordersStore')));
+	app.route(
+		'/',
+		createOrdersRoutes((c) => c.get('ordersStore'))
+	);
 	app.route('/', printFilesRoutes);
 	app.route('/', printPaymentsRoutes);
 	app.route(

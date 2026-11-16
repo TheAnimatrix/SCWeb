@@ -6,7 +6,7 @@
 		/** Signed-in user id, or null for guests. */
 		userId: string | null;
 		email: string | null;
-		/** True when the signed-in user made this listing. */
+		/** First guess (by `uid`) that the signed-in user made this listing; the API confirms it. */
 		isOwner: boolean;
 		/** Where "Sign in to show interest" goes. */
 		signInHref: string;
@@ -27,6 +27,8 @@
 		interestedCount = $state(0);
 		/** null until the API has said whether this buyer is on the list. */
 		onList = $state<boolean | null>(null);
+		/** Whether this is the viewer's own listing: `ownListing` from the API once it answers. */
+		ownListing = $state(false);
 		joinOpen = $state(false);
 		leaveOpen = $state(false);
 
@@ -45,8 +47,9 @@
 			this.viewer = options.viewer;
 			this.loadAddresses = options.loadAddresses;
 			this.interestedCount = options.interest.interestedCount;
-			// Guests and the maker are never on the list; nothing to ask the API.
-			if (!options.viewer.userId || options.viewer.isOwner) this.onList = false;
+			this.ownListing = options.viewer.isOwner;
+			// Guests are never on the list; nothing to ask the API.
+			if (!options.viewer.userId) this.onList = false;
 		}
 
 		get isOpen() {
@@ -70,7 +73,7 @@
 
 		/** Opens the join dialog (signed-in buyers who aren't on the list yet). */
 		startJoin() {
-			if (!this.signedIn || this.viewer.isOwner || this.onList) return;
+			if (!this.signedIn || this.ownListing || this.onList) return;
 			this.joinOpen = true;
 		}
 	}
@@ -108,6 +111,7 @@
 		void getMyInterest(fetch, current.productId).then((result) => {
 			if (cancelled) return;
 			// If the check fails, offer the button: posting again only updates the address.
+			if (result.ok) current.ownListing = result.data.ownListing;
 			current.onList = result.ok ? result.data.interested : false;
 		});
 		return () => {
@@ -253,7 +257,7 @@
 	</div>
 
 	<div class="space-y-2" bind:this={actionsEl}>
-		{#if interest.viewer.isOwner}
+		{#if interest.ownListing}
 			<p class="text-sm text-muted-foreground">
 				This is your listing. Manage it in the
 				<a
@@ -285,6 +289,10 @@
 						We'll email {interest.viewer.email} when it launches.
 					</p>
 				{/if}
+				<a
+					href={resolve('/user/profile/interest')}
+					class="block text-sm text-foreground underline underline-offset-2 hover:decoration-2"
+					>Manage this in your account</a>
 				<button
 					type="button"
 					class="min-h-11 text-sm text-foreground underline underline-offset-2 hover:decoration-2 md:min-h-0"
@@ -335,7 +343,8 @@
 
 		<p class="text-xs leading-relaxed text-muted-foreground">
 			Selfcrafted keeps your address and phone number for this interest check. The maker sees only
-			how many people are interested and which cities they are in.
+			how many people are interested and roughly where they are. We delete your address and phone
+			number when you leave the list, when it launches, or if it is called off.
 		</p>
 
 		{#if joinError}

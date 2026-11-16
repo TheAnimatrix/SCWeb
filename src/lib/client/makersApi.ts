@@ -17,6 +17,10 @@ export const INTEREST_LOCKED_MESSAGE =
 
 const INTEREST_NOT_OPEN_MESSAGE = 'This interest check is no longer open.';
 
+/** 409 `interest_not_allowed`: only a listing that has never been on sale can become one. */
+export const INTEREST_NOT_ALLOWED_MESSAGE =
+	"This listing has already been on sale, so it can't become an interest check. Create a new listing for it.";
+
 function errorCode(body: unknown): string | undefined {
 	if (typeof body !== 'object' || body === null) return undefined;
 	const code = (body as Record<string, unknown>).error;
@@ -27,6 +31,9 @@ export function mapMakersApiError(status: number, body: unknown): MakersApiError
 	const code = errorCode(body);
 	if (code === 'interest_locked') {
 		return { kind: 'unknown', code, message: INTEREST_LOCKED_MESSAGE };
+	}
+	if (code === 'interest_not_allowed') {
+		return { kind: 'unknown', code, message: INTEREST_NOT_ALLOWED_MESSAGE };
 	}
 	if (code === 'interest_not_open') {
 		return { kind: 'unknown', code, message: INTEREST_NOT_OPEN_MESSAGE };

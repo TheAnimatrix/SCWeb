@@ -45,6 +45,7 @@ export { userFilament } from './userFilament.js';
 export { users } from './users.js';
 export {
 	interestCampaigns,
+	interestJoinNotices,
 	productInterests,
 	INTEREST_CAMPAIGN_STATUS_VALUES
 } from './interest.js';

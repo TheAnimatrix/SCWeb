@@ -404,7 +404,9 @@ async function orderMatchesSnapshot(
 class StockConflictError extends Error {
 	constructor(
 		readonly productId: string,
-		readonly qty: number
+		readonly qty: number,
+		/** Why the line could not be fulfilled, when it is not plain lack of stock. */
+		readonly cause?: 'interest_check'
 	) {
 		super('stock_conflict');
 	}
@@ -585,6 +587,16 @@ export async function settleCartPayment(
 	// All or nothing: if one line cannot be reserved, none of the decrements stay.
 	let stockConflict: StockConflictError | null = null;
 	try {
+		// A product whose interest check is open or closed was never for sale: fulfil nothing
+		// and send the order to support, exactly like a stock conflict.
+		const unbuyable = await findUnbuyableInterestProductIds(
+			tx,
+			lines.map((line) => line.productId)
+		);
+		const interestLine = lines.find((line) => unbuyable.has(line.productId));
+		if (interestLine) {
+			throw new StockConflictError(interestLine.productId, interestLine.qty, 'interest_check');
+		}
 		await tx.transaction(async (sp) => {
 			for (const line of lines) {
 				if (!shouldDecrementStock(line.stock)) continue;
@@ -630,6 +642,7 @@ export async function settleCartPayment(
 				productId: stockConflict.productId,
 				qty: stockConflict.qty,
 				requiresManualSupport: true,
+				...(stockConflict.cause ? { cause: stockConflict.cause } : {}),
 				...(input.conflictMeta ?? {})
 			}
 		});
@@ -819,7 +832,6 @@ function shippingFromStoredAddress(stored: unknown): StoredAddress | null {
 	if (!shipping || typeof shipping !== 'object') return null;
 	return shipping as StoredAddress;
 }
-
 
 function needsSupportForAttention(reason: PaymentAttentionReason): CheckoutNeedsSupport {
 	switch (reason) {
@@ -1506,11 +1518,7 @@ export function createCheckoutStore(
 				}
 
 				// Only a pending attempt becomes failed; a paid or superseded one is left alone.
-				const attemptFailed = await failPendingAttempt(
-					tx,
-					found.id,
-					externalFailureReason(reason)
-				);
+				const attemptFailed = await failPendingAttempt(tx, found.id, externalFailureReason(reason));
 
 				// The order fails only when this was its live payment window. A paid or fulfilled
 				// order, or one already paying through a newer Razorpay order, is never downgraded.

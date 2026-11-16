@@ -38,6 +38,8 @@
 		onVariantNavigate?: (href: string) => void;
 		/** Set for an interest-check listing; shared with the page's sticky bar. */
 		interestState?: InterestState | null;
+		/** The viewer is still on the list of a launched or closed interest check. */
+		stillOnEndedList?: boolean;
 		class?: string;
 	}
 
@@ -58,6 +60,7 @@
 		onAddToCart,
 		onVariantNavigate,
 		interestState = null,
+		stillOnEndedList = false,
 		class: className
 	}: Props = $props();
 
@@ -244,6 +247,15 @@
 			{#if interestLaunched && product.interest}
 				<p class="text-sm text-muted-foreground">
 					Launched after {product.interest.interestedCount} people showed interest.
+				</p>
+			{/if}
+
+			{#if stillOnEndedList && (interestLaunched || interestClosed)}
+				<p class="text-sm">
+					<a
+						href={resolve('/user/profile/interest')}
+						class="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+						>Manage this in your account</a>
 				</p>
 			{/if}
 

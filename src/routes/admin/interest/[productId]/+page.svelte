@@ -12,6 +12,11 @@
 	const entries = $derived(list?.entries ?? []);
 	let copyError = $state('');
 
+	/** The API blanks phone and address after a launch or closure. */
+	function cell(value: string | null | undefined): string {
+		return value ? value : '—';
+	}
+
 	async function copyCsv() {
 		copyError = '';
 		try {
@@ -61,26 +66,22 @@
 							<th scope="col" class="px-3 py-2 font-medium">State</th>
 							<th scope="col" class="px-3 py-2 font-medium">Pincode</th>
 							<th scope="col" class="px-3 py-2 font-medium">Joined</th>
-							<th scope="col" class="px-3 py-2 font-medium">Left</th>
 							<th scope="col" class="px-3 py-2 font-medium">Emailed</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each entries as entry (entry.id)}
-							<tr
-								class="border-b border-border align-top last:border-b-0 {entry.withdrawnAt
-									? 'text-muted-foreground opacity-60'
-									: ''}">
-								<td class="px-3 py-2">{entry.name}</td>
-								<td class="px-3 py-2">{entry.email}</td>
-								<td class="whitespace-nowrap px-3 py-2">{entry.phone}</td>
-								<td class="px-3 py-2">{entryAddressLine(entry)}</td>
-								<td class="px-3 py-2">{entry.address.city}</td>
-								<td class="px-3 py-2">{entry.address.state}</td>
-								<td class="px-3 py-2">{entry.address.pincode}</td>
+							<tr class="border-b border-border align-top last:border-b-0">
+								<td class="px-3 py-2">{cell(entry.name)}</td>
+								<td class="px-3 py-2">{cell(entry.email)}</td>
+								<td class="whitespace-nowrap px-3 py-2">{cell(entry.phone)}</td>
+								<td class="px-3 py-2">{cell(entryAddressLine(entry))}</td>
+								<td class="px-3 py-2">{cell(entry.address?.city)}</td>
+								<td class="px-3 py-2">{cell(entry.address?.state)}</td>
+								<td class="px-3 py-2">{cell(entry.address?.pincode)}</td>
 								<td class="whitespace-nowrap px-3 py-2">{formatDateTime(entry.createdAt)}</td>
-								<td class="whitespace-nowrap px-3 py-2">{formatDateTime(entry.withdrawnAt)}</td>
-								<td class="whitespace-nowrap px-3 py-2">{formatDateTime(entry.notifiedAt)}</td>
+								<td class="whitespace-nowrap px-3 py-2"
+									>{cell(formatDateTime(entry.notifiedAt))}</td>
 							</tr>
 						{/each}
 					</tbody>

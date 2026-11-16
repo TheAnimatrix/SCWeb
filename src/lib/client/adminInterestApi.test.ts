@@ -50,6 +50,11 @@ describe('csvPhoneField', () => {
 		expect(csvPhoneField('+919876543210')).toBe('"=""+919876543210"""');
 	});
 
+	it('writes an empty cell for an empty phone number', () => {
+		expect(csvPhoneField('')).toBe('""');
+		expect(csvPhoneField('abc')).toBe('""');
+	});
+
 	it('drops anything that is not a phone character', () => {
 		expect(csvPhoneField('98"7)+x')).toBe('"=""987)+"""');
 	});
@@ -60,11 +65,21 @@ describe('buildInterestCsv', () => {
 		const csv = buildInterestCsv([entry()]);
 		const [header, row] = csv.split('\r\n');
 		expect(header).toBe(
-			'"Name","Email","Phone","Address","City","State","Pincode","Joined","Left","Emailed"'
+			'"Name","Email","Phone","Address","City","State","Pincode","Joined","Emailed"'
 		);
 		expect(row).toBe(
-			'"Asha Rao","asha@example.com","=""+919876543210""","12, MG Road, Flat ""B""","Bengaluru","Karnataka","560001","2026-11-10T10:00:00.000Z","",""'
+			'"Asha Rao","asha@example.com","=""+919876543210""","12, MG Road, Flat ""B""","Bengaluru","Karnataka","560001","2026-11-10T10:00:00.000Z",""'
 		);
+	});
+
+	it('writes empty cells for a blanked phone and address', () => {
+		const blank = entry({
+			phone: '',
+			address: { name: '', line1: '', line2: '', city: '', state: '', pincode: '', phone: '' }
+		});
+		const [, row] = buildInterestCsv([blank]).split('\r\n');
+		expect(row).toBe('"Asha Rao","asha@example.com","","","","","","2026-11-10T10:00:00.000Z",""');
+		expect(row).not.toContain('=""');
 	});
 });
 

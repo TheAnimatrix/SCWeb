@@ -1,4 +1,8 @@
-import type { InterestChangeResponse, MyInterestResponse } from '@scweb/api/contracts';
+import type {
+	InterestChangeResponse,
+	MyInterestResponse,
+	MyInterestsResponse
+} from '@scweb/api/contracts';
 import { stripCheckoutAddress } from '$lib/client/cartApi';
 import type { Address } from '$lib/types/product';
 
@@ -17,6 +21,8 @@ export type InterestApiResult<T> = { ok: true; data: T } | { ok: false; error: I
 
 export const INTEREST_JOIN_FAILED = "Couldn't add you to the list. Try again.";
 export const INTEREST_LEAVE_FAILED = "Couldn't take you off the list. Try again.";
+export const INTEREST_LIST_LOAD_FAILED =
+	"Couldn't load your interest checks. Refresh to try again.";
 const OWN_LISTING = "This is your own listing, so you can't add yourself.";
 const INTEREST_CLOSED = 'This interest check has ended.';
 const SESSION_ENDED = 'Your session has ended. Sign in again to continue.';
@@ -138,4 +144,11 @@ export function withdrawInterest(
 	return request<InterestChangeResponse>(fetchFn, interestPath(productId), INTEREST_LEAVE_FAILED, {
 		method: 'DELETE'
 	});
+}
+
+/** GET /me/interests — every interest check the signed-in user is on, whatever its status. */
+export function getMyInterests(
+	fetchFn: typeof fetch
+): Promise<InterestApiResult<MyInterestsResponse>> {
+	return request<MyInterestsResponse>(fetchFn, '/me/interests', INTEREST_LIST_LOAD_FAILED);
 }

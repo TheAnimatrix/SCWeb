@@ -58,7 +58,7 @@ We ship these ourselves, so we guarantee that what you ordered reaches you. If i
 
 Some listings are for products that haven't been made yet. They show a Show interest button where Add to cart would be.
 
-Showing interest is free and isn't an order. You pay nothing, and you can take yourself off the list at any time.
+Showing interest is free and isn't an order. You pay nothing, and you can take yourself off the list at any time from the Interest checks page in your account.
 
 The listing says how many people the maker needs and how soon they'll ship once that number is reached. When the maker launches, we email everyone on the list a link to buy. Being on the list doesn't reserve a unit, and you only pay if you choose to buy then.
 
@@ -80,7 +80,7 @@ This is what Selfcrafted stores about you and why. If it changes, we'll update t
 
 * Running your account and delivering your orders. We pack and ship product orders ourselves. For a 3D printing order, the maker who prints your part ships it, and sees your delivery details once you have paid.
 * Emailing you about your account, your orders and your print requests. We don't send marketing email unless you ask for it.
-* Planning a batch of a product you showed interest in, and emailing you when it launches or is called off. The maker sees how many people are interested and which cities they are in. They don't see your name, address, phone number or email.
+* Planning a batch of a product you showed interest in, and emailing you when it launches or is called off. The maker sees how many people are interested and roughly where they are. They don't see your name, address, phone number or email. We delete the address and phone number you gave when you take yourself off the list, when the product launches, or if the maker calls it off.
 * Keeping our own records.
 
 **Payments**

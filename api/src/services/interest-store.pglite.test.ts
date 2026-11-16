@@ -11,6 +11,7 @@ import { applyInterestMigration } from '../test/interest-tables.js';
 import { createCatalogStore } from './catalog-store.js';
 import {
 	createInterestStore,
+	groupSmallPlaces,
 	InterestRuleError,
 	type InterestStoreDeps
 } from './interest-store.js';
@@ -92,6 +93,8 @@ CREATE TABLE "products" (
 	"listing_state" text NOT NULL DEFAULT 'draft',
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
+CREATE TABLE "order_items" ("order_id" uuid NOT NULL, "product_id" uuid NOT NULL, "qty" integer);
+CREATE TABLE "cart_items" ("cart_id" uuid NOT NULL, "product_id" uuid NOT NULL, "qty" integer);
 `;
 
 const auditMigrationSql = readFileSync(
@@ -113,13 +116,21 @@ function address(overrides: Partial<CheckoutAddress> = {}): CheckoutAddress {
 
 type Sent = { to: string; email: RenderedEmail };
 
-function fakeDeps(options: { failFor?: Set<string> } = {}) {
+function fakeDeps(
+	options: { failFor?: Set<string>; gate?: Promise<void>; joinedEmailDelayMs?: number } = {}
+) {
 	const sent: Sent[] = [];
 	const deliver = vi.fn(async (to: string, email: RenderedEmail) => {
+		// The gate holds back launch and closure notices only.
+		if (options.gate && !email.subject.startsWith("You're on the list")) await options.gate;
 		if (options.failFor?.has(to)) throw new Error('smtp down');
 		sent.push({ to, email });
 	});
-	const deps: InterestStoreDeps = { siteUrl: 'https://selfcrafted.test', deliver };
+	const deps: InterestStoreDeps = {
+		siteUrl: 'https://selfcrafted.test',
+		deliver,
+		joinedEmailDelayMs: options.joinedEmailDelayMs
+	};
 	return { deps, sent, deliver };
 }
 
@@ -273,7 +284,7 @@ describe('interest store (PGlite)', () => {
 			expect(row?.phone).toBe('+919999988888');
 		});
 
-		it('withdraws idempotently and re-joins with a fresh e-mail', async () => {
+		it('withdraws idempotently and re-joins without a second "joined" e-mail', async () => {
 			const { deps, sent } = fakeDeps();
 			const store = createInterestStore(db, deps);
 
@@ -286,14 +297,16 @@ describe('interest store (PGlite)', () => {
 			expect(offAgain).toEqual({ ok: true, response: { interested: false, interestedCount: 1 } });
 			await expect(store.getMyInterest(BUYER_A, PRODUCT)).resolves.toEqual({
 				interested: false,
-				since: null
+				since: null,
+				ownListing: false
 			});
 
 			const back = await join(store, BUYER_A, 'a@example.test');
 			expect(back).toEqual({ ok: true, response: { interested: true, interestedCount: 2 } });
 			await settle();
-			expect(sent.filter((mail) => mail.to === 'a@example.test')).toHaveLength(2);
-			expect((await interestRow(BUYER_A))?.withdrawnAt).toBeNull();
+			// Within 10 minutes of the last one, re-joining sends nothing.
+			expect(sent.filter((mail) => mail.to === 'a@example.test')).toHaveLength(1);
+			expect(await interestRow(BUYER_A)).toBeDefined();
 		});
 
 		it('refuses the maker of the listing, by uid or maker_id', async () => {
@@ -537,8 +550,9 @@ describe('interest store (PGlite)', () => {
 			});
 			expect(first).toEqual({
 				ok: true,
-				response: { status: 'launched', notified: 2, pending: 0 }
+				response: { status: 'launched', notified: 0, pending: 2 }
 			});
+			await store.drainNotifications();
 			expect(sent.map((mail) => mail.to).sort()).toEqual(['a@example.test', 'b@example.test']);
 			expect(sent[0]?.email.subject).toBe('Moon Lamp is ready to order');
 			expect(sent[0]?.email.text).toContain('Price: ₹1,499, plus ₹99 delivery.');
@@ -559,8 +573,9 @@ describe('interest store (PGlite)', () => {
 			const again = await store.launch(MAKER, PRODUCT, { stock_count: 99 });
 			expect(again).toEqual({
 				ok: true,
-				response: { status: 'launched', notified: 0, pending: 0 }
+				response: { status: 'launched', notified: 2, pending: 0 }
 			});
+			await store.drainNotifications();
 			expect(sent).toHaveLength(2);
 			const [after] = await db
 				.select()
@@ -594,6 +609,11 @@ describe('interest store (PGlite)', () => {
 				store.launch(MAKER, PRODUCT, { stock_count: 3 })
 			]);
 			expect(results.every((result) => result.ok)).toBe(true);
+			await store.drainNotifications();
+			// Two separate stores (two API processes) racing: still one e-mail each.
+			const other = createInterestStore(db, deps);
+			await other.launch(MAKER, PRODUCT, { stock_count: 3 });
+			await other.drainNotifications();
 			expect(sent.map((mail) => mail.to).sort()).toEqual(['a@example.test', 'b@example.test']);
 			expect(await db.select().from(schema.auditLog)).toHaveLength(1);
 		});
@@ -611,8 +631,9 @@ describe('interest store (PGlite)', () => {
 			const first = await store.launch(MAKER, PRODUCT, { stock_count: 3 });
 			expect(first).toEqual({
 				ok: true,
-				response: { status: 'launched', notified: 1, pending: 1 }
+				response: { status: 'launched', notified: 0, pending: 2 }
 			});
+			await store.drainNotifications();
 			expect((await interestRow(BUYER_A))?.notifiedAt).not.toBeNull();
 			expect((await interestRow(BUYER_B))?.notifiedAt).toBeNull();
 
@@ -621,8 +642,9 @@ describe('interest store (PGlite)', () => {
 			const retry = await store.launch(MAKER, PRODUCT, { stock_count: 3 });
 			expect(retry).toEqual({
 				ok: true,
-				response: { status: 'launched', notified: 1, pending: 0 }
+				response: { status: 'launched', notified: 1, pending: 1 }
 			});
+			await store.drainNotifications();
 			expect(deliver).toHaveBeenCalledTimes(1);
 			expect(deliver.mock.calls[0]?.[0]).toBe('b@example.test');
 		});
@@ -659,13 +681,14 @@ describe('interest store (PGlite)', () => {
 			sent.length = 0;
 
 			const closed = await store.close(MAKER, PRODUCT, { message: 'The glaze failed.' });
-			expect(closed).toEqual({ ok: true, response: { status: 'closed', notified: 1, pending: 0 } });
+			expect(closed).toEqual({ ok: true, response: { status: 'closed', notified: 0, pending: 1 } });
+			await store.drainNotifications();
 			expect(sent[0]?.email.subject).toBe("Moon Lamp won't be produced");
 			expect(sent[0]?.email.text).toContain('Clay Studio has decided not to produce Moon Lamp.');
 			expect(sent[0]?.email.text).toContain('The glaze failed.');
 
 			const again = await store.close(MAKER, PRODUCT, {});
-			expect(again).toEqual({ ok: true, response: { status: 'closed', notified: 0, pending: 0 } });
+			expect(again).toEqual({ ok: true, response: { status: 'closed', notified: 1, pending: 0 } });
 
 			const rejoin = await join(store, BUYER_B, 'b@example.test');
 			expect(rejoin).toMatchObject({ ok: false, body: { error: 'interest_closed' } });
@@ -709,11 +732,10 @@ describe('interest store (PGlite)', () => {
 					shipsWithinDays: 21,
 					interestedCount: 2,
 					notifiedCount: 0,
-					byState: [{ state: 'Karnataka', count: 2 }],
-					byCity: [
-						{ city: 'Bengaluru', state: 'Karnataka', count: 1 },
-						{ city: 'Mysuru', state: 'Karnataka', count: 1 }
-					]
+					pendingCount: 0,
+					// Fewer than three people anywhere: all merged into "other".
+					byState: [{ state: '', count: 2 }],
+					byCity: [{ city: '', state: '', count: 2 }]
 				}
 			});
 
@@ -740,7 +762,7 @@ describe('interest store (PGlite)', () => {
 			expect(notMine).toMatchObject({ ok: false, status: 404 });
 		});
 
-		it('gives staff the full list, withdrawn people included', async () => {
+		it('gives staff the full list; people who left are gone', async () => {
 			const store = createInterestStore(db, fakeDeps().deps);
 			await join(store, BUYER_A, 'a@example.test');
 			await join(store, BUYER_B, 'b@example.test');
@@ -757,7 +779,7 @@ describe('interest store (PGlite)', () => {
 			]);
 
 			const list = await store.adminGetCampaign(PRODUCT);
-			expect(list?.entries).toHaveLength(2);
+			expect(list?.entries).toHaveLength(1);
 			expect(list?.entries[0]).toMatchObject({
 				userId: BUYER_A,
 				name: 'Asha Rao',
@@ -767,8 +789,366 @@ describe('interest store (PGlite)', () => {
 				withdrawnAt: null,
 				notifiedAt: null
 			});
-			expect(list?.entries[1]?.withdrawnAt).toEqual(expect.any(String));
 			expect(await store.adminGetCampaign(ORDINARY)).toBeNull();
+		});
+	});
+
+	describe('privacy and abuse review fixes', () => {
+		const baseListing = {
+			makerId: MAKER,
+			username: 'clay_maker',
+			name: 'Moon Lamp',
+			priceNew: 1499,
+			stockCount: 0
+		};
+
+		it('1. the commitment stays locked after everyone has left', async () => {
+			const makersStore = createMakersStore(db);
+			const store = createInterestStore(db, fakeDeps().deps);
+			await join(store, BUYER_A, 'a@example.test');
+			await store.withdrawInterest(BUYER_A, PRODUCT);
+			expect(await db.select().from(schema.productInterests)).toHaveLength(0);
+
+			await expect(
+				makersStore.upsertListing({
+					...baseListing,
+					productId: PRODUCT,
+					interest: { enabled: true, target_count: 1, ships_within_days: 21 }
+				})
+			).rejects.toMatchObject({ code: 'interest_locked' });
+			await expect(
+				makersStore.upsertListing({
+					...baseListing,
+					productId: PRODUCT,
+					interest: { enabled: false }
+				})
+			).rejects.toMatchObject({ code: 'interest_locked' });
+
+			const rows = await makersStore.listMakerListings(MAKER);
+			expect(rows.find((row) => row.id === PRODUCT)?.interest).toMatchObject({
+				locked: true,
+				interested_count: 0,
+				pending_count: 0
+			});
+		});
+
+		it('2. a listing that was ever approved, ordered or carted cannot become one', async () => {
+			const makersStore = createMakersStore(db);
+			const enable = { enabled: true, target_count: 5, ships_within_days: 10 };
+			const draft = async (name: string) =>
+				makersStore.upsertListing({ ...baseListing, name, stockCount: 1 });
+
+			const approvedOnce = await draft('Approved Once');
+			await db.insert(schema.listingReviews).values({
+				productId: approvedOnce.id,
+				makerId: MAKER,
+				fromState: 'pending_review',
+				toState: 'live'
+			});
+			await db
+				.update(schema.products)
+				.set({ listingState: 'rejected' })
+				.where(eq(schema.products.id, approvedOnce.id));
+
+			const ordered = await draft('Ordered Once');
+			await client.query(`INSERT INTO order_items (order_id, product_id) VALUES ($1, $2)`, [
+				BUYER_C,
+				ordered.id
+			]);
+			const carted = await draft('Carted Once');
+			await client.query(`INSERT INTO cart_items (cart_id, product_id) VALUES ($1, $2)`, [
+				BUYER_C,
+				carted.id
+			]);
+
+			for (const listing of [approvedOnce, ordered, carted]) {
+				await expect(
+					makersStore.upsertListing({
+						...baseListing,
+						name: listing.name ?? '',
+						productId: listing.id,
+						interest: enable
+					})
+				).rejects.toMatchObject({
+					code: 'interest_not_allowed',
+					status: 409,
+					message:
+						"This listing has already been on sale, so it can't become an interest check. Create a new listing for it."
+				});
+			}
+
+			const fresh = await draft('Fresh Draft');
+			const converted = await makersStore.upsertListing({
+				...baseListing,
+				name: 'Fresh Draft',
+				productId: fresh.id,
+				interest: enable
+			});
+			expect(converted.interest?.status).toBe('open');
+		});
+
+		it('3. leaving deletes the row; re-joining creates a fresh one', async () => {
+			const store = createInterestStore(db, fakeDeps().deps);
+			await join(store, BUYER_A, 'a@example.test');
+			const before = await interestRow(BUYER_A);
+			await store.withdrawInterest(BUYER_A, PRODUCT);
+			expect(await interestRow(BUYER_A)).toBeUndefined();
+
+			await join(store, BUYER_A, 'a@example.test');
+			const after = await interestRow(BUYER_A);
+			expect(after?.id).not.toBe(before?.id);
+			expect(after?.phone).toBe('+919876543210');
+		});
+
+		it('3. a launch blanks phone and address only for people actually e-mailed', async () => {
+			const { deps } = fakeDeps({ failFor: new Set(['b@example.test']) });
+			const store = createInterestStore(db, deps);
+			await join(store, BUYER_A, 'a@example.test');
+			await join(store, BUYER_B, 'b@example.test');
+			await settle();
+			await store.launch(MAKER, PRODUCT, { stock_count: 2 });
+			await store.drainNotifications();
+
+			expect(await interestRow(BUYER_A)).toMatchObject({
+				name: 'Asha Rao',
+				email: 'a@example.test',
+				phone: '',
+				address: {},
+				notifiedAt: expect.any(String)
+			});
+			expect(await interestRow(BUYER_B)).toMatchObject({
+				phone: '+919876543210',
+				address: expect.objectContaining({ line1: '12 Lake Road' }),
+				notifiedAt: null
+			});
+
+			// The count of people it launched after, and the staff list, still work.
+			const catalog = createCatalogStore(db);
+			expect((await catalog.getProduct(PRODUCT))?.product.interest?.interestedCount).toBe(2);
+			const list = await store.adminGetCampaign(PRODUCT);
+			expect(list?.entries.find((entry) => entry.userId === BUYER_A)).toMatchObject({
+				phone: '',
+				address: {},
+				withdrawnAt: null
+			});
+		});
+
+		it('3. a closure deletes the rows of people e-mailed, and keeps the failed ones', async () => {
+			const { deps } = fakeDeps({ failFor: new Set(['b@example.test']) });
+			const store = createInterestStore(db, deps);
+			await join(store, BUYER_A, 'a@example.test');
+			await join(store, BUYER_B, 'b@example.test');
+			await settle();
+			await store.close(MAKER, PRODUCT, {});
+			await store.drainNotifications();
+
+			expect(await interestRow(BUYER_A)).toBeUndefined();
+			expect(await interestRow(BUYER_B)).toBeDefined();
+			const summary = await store.getMakerSummary(MAKER, PRODUCT);
+			expect(summary).toMatchObject({
+				ok: true,
+				response: { status: 'closed', notifiedCount: 1, pendingCount: 1 }
+			});
+		});
+
+		it('4. leaving works on a launched, closed or non-public listing', async () => {
+			const store = createInterestStore(db, fakeDeps().deps);
+			const setStatus = (status: string) =>
+				db
+					.update(schema.interestCampaigns)
+					.set({ status })
+					.where(eq(schema.interestCampaigns.productId, PRODUCT));
+
+			for (const step of ['launched', 'closed', 'paused', 'archived']) {
+				await setStatus('open');
+				await db
+					.update(schema.products)
+					.set({ listingState: 'live' })
+					.where(eq(schema.products.id, PRODUCT));
+				await join(store, BUYER_A, 'a@example.test');
+				if (step === 'launched' || step === 'closed') await setStatus(step);
+				else {
+					await db
+						.update(schema.products)
+						.set({ listingState: step })
+						.where(eq(schema.products.id, PRODUCT));
+				}
+				const off = await store.withdrawInterest(BUYER_A, PRODUCT);
+				expect(off).toEqual({ ok: true, response: { interested: false, interestedCount: 0 } });
+				expect(await interestRow(BUYER_A)).toBeUndefined();
+			}
+		});
+
+		it('4. /me/interests lists every interest, with a null path when not public', async () => {
+			const store = createInterestStore(db, fakeDeps().deps);
+			await join(store, BUYER_A, 'a@example.test');
+			expect(await store.listMyInterests(BUYER_A)).toEqual({
+				interests: [
+					{
+						productId: PRODUCT,
+						productName: 'Moon Lamp',
+						productPath: '/Moon_Lamp/craft/item=' + PRODUCT,
+						status: 'open',
+						targetCount: 3,
+						interestedCount: 1,
+						since: expect.any(String)
+					}
+				]
+			});
+
+			await db
+				.update(schema.products)
+				.set({ listingState: 'paused' })
+				.where(eq(schema.products.id, PRODUCT));
+			const hidden = await store.listMyInterests(BUYER_A);
+			expect(hidden.interests[0]?.productPath).toBeNull();
+			expect(await store.listMyInterests(BUYER_B)).toEqual({ interests: [] });
+		});
+
+		it('4. ownListing is true for the maker by maker_id or uid', async () => {
+			const store = createInterestStore(db, fakeDeps().deps);
+			await db
+				.update(schema.products)
+				.set({ uid: BUYER_C, makerId: MAKER })
+				.where(eq(schema.products.id, PRODUCT));
+			expect((await store.getMyInterest(MAKER, PRODUCT)).ownListing).toBe(true);
+			expect((await store.getMyInterest(BUYER_C, PRODUCT)).ownListing).toBe(true);
+			expect((await store.getMyInterest(BUYER_A, PRODUCT)).ownListing).toBe(false);
+		});
+
+		it('5. no "joined" e-mail after an immediate leave, none twice in 10 minutes', async () => {
+			const { deps, sent } = fakeDeps({ joinedEmailDelayMs: 30 });
+			const store = createInterestStore(db, deps);
+
+			await join(store, BUYER_A, 'a@example.test');
+			await store.withdrawInterest(BUYER_A, PRODUCT);
+			await new Promise((resolve) => setTimeout(resolve, 80));
+			expect(sent).toHaveLength(0);
+
+			await join(store, BUYER_B, 'b@example.test');
+			await new Promise((resolve) => setTimeout(resolve, 80));
+			await store.withdrawInterest(BUYER_B, PRODUCT);
+			await join(store, BUYER_B, 'b@example.test');
+			await new Promise((resolve) => setTimeout(resolve, 80));
+			expect(sent.map((mail) => mail.to)).toEqual(['b@example.test']);
+			expect(sent[0]?.email.text).toContain(
+				'Changed your mind? Take yourself off the list any time from your account.'
+			);
+			expect(sent[0]?.email.text).toContain(
+				'Your interest checks: https://selfcrafted.test/user/profile/interest'
+			);
+			expect(sent[0]?.email.html).toContain(
+				'href="https://selfcrafted.test/user/profile/interest"'
+			);
+
+			// After 10 minutes, a fresh join is e-mailed again.
+			await db
+				.update(schema.interestJoinNotices)
+				.set({ sentAt: '2026-01-01T00:00:00Z' })
+				.where(eq(schema.interestJoinNotices.userId, BUYER_B));
+			await store.withdrawInterest(BUYER_B, PRODUCT);
+			await join(store, BUYER_B, 'b@example.test');
+			await new Promise((resolve) => setTimeout(resolve, 80));
+			expect(sent).toHaveLength(2);
+		});
+
+		it('6. launch returns before e-mails are sent; a later call resumes pending people', async () => {
+			let open!: () => void;
+			const gate = new Promise<void>((resolve) => (open = resolve));
+			const failFor = new Set(['b@example.test']);
+			const { deps, sent } = fakeDeps({ gate, failFor });
+			const store = createInterestStore(db, deps);
+			await join(store, BUYER_A, 'a@example.test');
+			await join(store, BUYER_B, 'b@example.test');
+
+			const first = await store.launch(MAKER, PRODUCT, { stock_count: 2 });
+			expect(first).toEqual({
+				ok: true,
+				response: { status: 'launched', notified: 0, pending: 2 }
+			});
+			expect(sent.filter((mail) => mail.email.subject.includes('ready to order'))).toHaveLength(0);
+
+			open();
+			await store.drainNotifications();
+			expect(sent.filter((mail) => mail.email.subject.includes('ready to order'))).toHaveLength(1);
+			const summary = await store.getMakerSummary(MAKER, PRODUCT);
+			expect(summary).toMatchObject({ response: { notifiedCount: 1, pendingCount: 1 } });
+			expect(
+				(await createMakersStore(db).listMakerListings(MAKER)).find((row) => row.id === PRODUCT)
+					?.interest
+			).toMatchObject({ pending_count: 1, locked: true });
+
+			failFor.clear();
+			const resumed = await store.launch(MAKER, PRODUCT, { stock_count: 2 });
+			expect(resumed).toEqual({
+				ok: true,
+				response: { status: 'launched', notified: 1, pending: 1 }
+			});
+			await store.drainNotifications();
+			expect(
+				sent.filter((mail) => mail.email.subject.includes('ready to order')).map((m) => m.to)
+			).toEqual(['a@example.test', 'b@example.test']);
+		});
+
+		it('7. a join that waits behind a state change sees the new state and is refused', async () => {
+			const store = createInterestStore(db, fakeDeps().deps);
+			let joining: Promise<unknown> | undefined;
+			await db.transaction(async (tx) => {
+				await tx
+					.select()
+					.from(schema.products)
+					.where(eq(schema.products.id, PRODUCT))
+					.for('update');
+				joining = join(store, BUYER_A, 'a@example.test');
+				await tx
+					.update(schema.products)
+					.set({ listingState: 'paused' })
+					.where(eq(schema.products.id, PRODUCT));
+			});
+			await expect(joining).resolves.toMatchObject({
+				ok: false,
+				body: { error: 'product_not_found' }
+			});
+			expect(await db.select().from(schema.productInterests)).toHaveLength(0);
+		});
+
+		it('8. small places are merged so no small count can be recovered', () => {
+			const place = (city: string, state: string, count: number) => ({ city, state, count });
+			// Karnataka 4 = Bengaluru 3 + Mysuru 1: listing Bengaluru would reveal "1 elsewhere in
+			// Karnataka", so Bengaluru is folded into "other" as well. Goa (2) is merged.
+			expect(
+				groupSmallPlaces([
+					place('Bengaluru', 'Karnataka', 3),
+					place('Mysuru', 'Karnataka', 1),
+					place('Pune', 'Maharashtra', 5),
+					place('Mumbai', 'Maharashtra', 3),
+					place('Panaji', 'Goa', 2)
+				])
+			).toEqual({
+				total: 14,
+				byState: [
+					{ state: 'Maharashtra', count: 8 },
+					{ state: 'Karnataka', count: 4 },
+					{ state: '', count: 2 }
+				],
+				byCity: [
+					{ city: 'Pune', state: 'Maharashtra', count: 5 },
+					{ city: 'Mumbai', state: 'Maharashtra', count: 3 },
+					{ city: '', state: '', count: 6 }
+				]
+			});
+
+			// A remainder of 3 or more inside a state is fine to show.
+			expect(
+				groupSmallPlaces([
+					place('Bengaluru', 'Karnataka', 4),
+					place('Mysuru', 'Karnataka', 2),
+					place('Hubli', 'Karnataka', 1)
+				]).byCity
+			).toEqual([
+				{ city: 'Bengaluru', state: 'Karnataka', count: 4 },
+				{ city: '', state: '', count: 3 }
+			]);
 		});
 	});
 });

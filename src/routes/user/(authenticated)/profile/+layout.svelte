@@ -12,6 +12,7 @@
 		{ href: '/user/profile/account', label: 'account' },
 		{ href: '/user/profile/orders', label: 'orders' },
 		{ href: '/user/profile/addresses', label: 'addresses' },
+		{ href: '/user/profile/interest', label: 'interest checks' },
 		{ href: '/user/profile/crafts', label: 'crafts' }
 	];
 

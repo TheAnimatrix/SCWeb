@@ -85,6 +85,13 @@
       "when": 1784455601374,
       "tag": "0012_interest_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784542001374,
+      "tag": "0013_interest_checks_privacy",
+      "breakpoints": true
     }
   ]
 }

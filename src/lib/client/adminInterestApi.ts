@@ -56,7 +56,6 @@ export const INTEREST_CSV_COLUMNS = [
 	'State',
 	'Pincode',
 	'Joined',
-	'Left',
 	'Emailed'
 ] as const;
 
@@ -68,14 +67,18 @@ export function csvField(value: string | null | undefined): string {
 	return `"${text.replace(/"/g, '""')}"`;
 }
 
-/** Phone numbers stay text (leading + and 0 kept) when the CSV is opened in a spreadsheet. */
-export function csvPhoneField(phone: string): string {
-	const safe = phone.replace(/[^0-9+\-() ]/g, '');
-	return `"=""${safe}"""`;
+/**
+ * Phone numbers stay text (leading + and 0 kept) when the CSV is opened in a spreadsheet.
+ * The API blanks the phone number after a launch or closure; that is an empty cell.
+ */
+export function csvPhoneField(phone: string | null | undefined): string {
+	const safe = (phone ?? '').replace(/[^0-9+\-() ]/g, '');
+	return safe ? `"=""${safe}"""` : '""';
 }
 
+/** Street lines; empty once the API has blanked the address after a launch or closure. */
 export function entryAddressLine(entry: AdminInterestEntry): string {
-	return [entry.address.line1, entry.address.line2].filter(Boolean).join(', ');
+	return [entry.address?.line1, entry.address?.line2].filter(Boolean).join(', ');
 }
 
 export function buildInterestCsv(entries: AdminInterestEntry[]): string {
@@ -85,11 +88,10 @@ export function buildInterestCsv(entries: AdminInterestEntry[]): string {
 			csvField(entry.email),
 			csvPhoneField(entry.phone),
 			csvField(entryAddressLine(entry)),
-			csvField(entry.address.city),
-			csvField(entry.address.state),
-			csvField(entry.address.pincode),
+			csvField(entry.address?.city),
+			csvField(entry.address?.state),
+			csvField(entry.address?.pincode),
 			csvField(entry.createdAt),
-			csvField(entry.withdrawnAt),
 			csvField(entry.notifiedAt)
 		].join(',')
 	);

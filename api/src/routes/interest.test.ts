@@ -23,7 +23,8 @@ const ADDRESS = {
 
 function fakeStore(overrides: Partial<InterestStore> = {}): InterestStore {
 	return {
-		getMyInterest: vi.fn(async () => ({ interested: false, since: null })),
+		getMyInterest: vi.fn(async () => ({ interested: false, since: null, ownListing: false })),
+		listMyInterests: vi.fn(async () => ({ interests: [] })),
 		showInterest: vi.fn(async () => ({
 			ok: true as const,
 			response: { interested: true, interestedCount: 1 }
@@ -74,6 +75,18 @@ function postJson(body: unknown) {
 }
 
 describe('interest routes', () => {
+	it('lists the signed-in user interests and requires sign-in', async () => {
+		const store = fakeStore();
+		const guestApp = createTestApp({ userId: null, clientId: 'guest' }, store);
+		expect((await guestApp.request('/me/interests')).status).toBe(401);
+
+		const app = createTestApp({ userId: BUYER, clientId: null }, store);
+		const response = await app.request('/me/interests');
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ interests: [] });
+		expect(store.listMyInterests).toHaveBeenCalledWith(BUYER);
+	});
+
 	it('requires sign-in to show interest', async () => {
 		const store = fakeStore();
 		const app = createTestApp({ userId: null, clientId: 'guest' }, store);

@@ -40,6 +40,7 @@ export type InterestJoinedEmailInput = {
 
 export function renderInterestJoinedEmail(input: InterestJoinedEmailInput) {
 	const title = `You're on the list for ${input.productName}`;
+	const manageUrl = `${input.siteUrl}/user/profile/interest`;
 	const bodyHtml = [
 		renderParagraph(`Thanks for showing interest in ${input.productName} by ${input.makerName}.`),
 		renderParagraph(`This isn't an order and you haven't paid anything.`),
@@ -47,7 +48,8 @@ export function renderInterestJoinedEmail(input: InterestJoinedEmailInput) {
 			`${input.makerName} will produce it once ${input.targetCount} people show interest (${input.interestedCount} so far), and plans to ship within ${input.shipsWithinDays} days of reaching that number.`
 		),
 		renderParagraph(`We'll email you a link to buy when it launches.`),
-		renderParagraph(`Changed your mind? Open the listing and choose "Take me off the list".`)
+		renderParagraph(`Changed your mind? Take yourself off the list any time from your account.`),
+		`<p style="margin:0 0 12px;"><a href="${escapeHtml(manageUrl)}" style="color:${BRAND.accent};">Your interest checks</a></p>`
 	].join('');
 
 	const { html, text } = renderEmailLayout({
@@ -57,7 +59,12 @@ export function renderInterestJoinedEmail(input: InterestJoinedEmailInput) {
 		bodyHtml,
 		cta: { label: 'View the listing', href: input.listingUrl }
 	});
-	return { subject: title, html, text };
+	// The plain-text part loses the link's address, so spell it out there.
+	return {
+		subject: title,
+		html,
+		text: text.replace('Your interest checks', `Your interest checks: ${manageUrl}`)
+	};
 }
 
 export type InterestLaunchedEmailInput = {
