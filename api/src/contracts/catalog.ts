@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { productInterestSchema } from './interest.js';
 
 export const productUserRefSchema = z.object({
 	username: z.string().nullable().optional(),
@@ -28,7 +29,9 @@ export const productViewSchema = z.object({
 	type: z.string(),
 	guarantee: z.string(),
 	rel: z.string(),
-	users: productUserRefSchema.nullable()
+	users: productUserRefSchema.nullable(),
+	/** Set when the listing is (or was) an interest check; see contracts/interest.ts. */
+	interest: productInterestSchema.nullable().optional()
 });
 
 export const reviewViewSchema = z.object({

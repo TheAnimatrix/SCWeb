@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listingInterestInputSchema } from './interest.js';
 
 export const makerApprovalStateSchema = z.enum(['pending', 'approved', 'rejected']);
 export const storefrontStateSchema = z.enum(['draft', 'live', 'paused', 'suspended']);
@@ -70,7 +71,9 @@ export const upsertListingBodySchema = z.object({
 	shipping: z.string().max(20000).optional(),
 	documentation: z.array(z.object({ data: z.string(), isMDUrl: z.boolean() })).optional(),
 	faq: z.array(z.object({ question: z.string(), answer: z.string() })).optional(),
-	submit_for_review: z.boolean().optional()
+	submit_for_review: z.boolean().optional(),
+	/** Interest check settings; see contracts/interest.ts. Omit for an ordinary listing. */
+	interest: listingInterestInputSchema.optional()
 });
 
 export const updateStockBodySchema = z.object({
