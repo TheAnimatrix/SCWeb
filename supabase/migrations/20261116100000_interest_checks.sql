@@ -48,3 +48,9 @@ CREATE INDEX IF NOT EXISTS "product_interests_product_id_idx" ON "product_intere
 ALTER TABLE "interest_campaigns" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 ALTER TABLE "product_interests" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+-- Belt and braces on Supabase: RLS with no policies already blocks browser roles, and they
+-- have no reason to hold any privilege on tables that carry addresses and phone numbers.
+REVOKE ALL ON "interest_campaigns" FROM anon, authenticated;
+--> statement-breakpoint
+REVOKE ALL ON "product_interests" FROM anon, authenticated;
