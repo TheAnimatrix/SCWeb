@@ -26,6 +26,8 @@ export const INTEREST_SHIP_DAYS_MIN = 1;
 export const INTEREST_SHIP_DAYS_MAX = 365;
 export const INTEREST_NOTE_MAX = 500;
 export const INTEREST_LAUNCH_MESSAGE_MAX = 1000;
+/** Smallest group a maker is shown by place; smaller ones are merged into "other". */
+export const INTEREST_SMALL_GROUP = 3;
 
 /** What every product response carries: `interest` is null for an ordinary listing. */
 export const productInterestSchema = z.object({
@@ -44,7 +46,29 @@ export const productInterestSchema = z.object({
 export const myInterestResponseSchema = z.object({
 	interested: z.boolean(),
 	/** ISO timestamp of when they joined, or null. */
-	since: z.string().nullable()
+	since: z.string().nullable(),
+	/** True when the signed-in user is the listing's maker (by `uid` or `maker_id`). */
+	ownListing: z.boolean()
+});
+
+/**
+ * GET /me/interests (signed in): every interest check the user is on, whatever its status and
+ * whether or not the listing is still public. This is where someone can always take themselves
+ * off a list, including after the listing was launched, closed, paused or rejected.
+ */
+export const myInterestItemSchema = z.object({
+	productId: z.string().uuid(),
+	productName: z.string(),
+	/** Path of the listing page, or null when the listing is not public right now. */
+	productPath: z.string().nullable(),
+	status: interestStatusSchema,
+	targetCount: z.number().int(),
+	interestedCount: z.number().int(),
+	since: z.string()
+});
+
+export const myInterestsResponseSchema = z.object({
+	interests: z.array(myInterestItemSchema)
 });
 
 /** POST /products/:productId/interest (signed in). Posting again updates the address. */
@@ -106,6 +130,10 @@ export const makerListingInterestSchema = z.object({
 	ships_within_days: z.number().int(),
 	note: z.string().nullable(),
 	interested_count: z.number().int(),
+	/** People still to be e-mailed after a launch or closure (0 while open). */
+	pending_count: z.number().int(),
+	/** True once anyone has ever joined: target and days can no longer be changed. */
+	locked: z.boolean(),
 	launched_at: z.string().nullable(),
 	closed_at: z.string().nullable()
 });
@@ -121,6 +149,13 @@ export const makerInterestSummarySchema = z.object({
 	interestedCount: z.number().int(),
 	/** How many of them have been e-mailed the launch (or closure) notice. */
 	notifiedCount: z.number().int(),
+	/** People who should have been e-mailed and have not been yet. */
+	pendingCount: z.number().int(),
+	/**
+	 * Places with fewer than INTEREST_SMALL_GROUP people are merged into one "other" row
+	 * (`state: ''` in byState; `city: ''`, `state: ''` in byCity) so that a maker cannot work out
+	 * who a single person in a small town is.
+	 */
 	byState: z.array(z.object({ state: z.string(), count: z.number().int() })),
 	byCity: z.array(z.object({ city: z.string(), state: z.string(), count: z.number().int() }))
 });
@@ -144,12 +179,15 @@ export const closeInterestBodySchema = z.object({
 	message: z.string().trim().max(INTEREST_LAUNCH_MESSAGE_MAX).optional()
 });
 
-/** Response of launch and close. */
+/**
+ * Response of launch and close. Both return as soon as the status has changed; the e-mails are
+ * sent in the background, a few per second. `notified` is how many have been e-mailed so far
+ * and `pending` how many are still queued or failed. Calling the endpoint again resumes
+ * sending to whoever is still pending, and never e-mails anyone twice in normal operation.
+ */
 export const interestNotifyResponseSchema = z.object({
 	status: interestStatusSchema,
-	/** E-mails sent by this call. */
 	notified: z.number().int(),
-	/** People still waiting for an e-mail because sending failed; call again to retry. */
 	pending: z.number().int()
 });
 
@@ -195,6 +233,8 @@ export const adminInterestCampaignsSchema = z.object({
 export type InterestStatus = z.infer<typeof interestStatusSchema>;
 export type ProductInterest = z.infer<typeof productInterestSchema>;
 export type MyInterestResponse = z.infer<typeof myInterestResponseSchema>;
+export type MyInterestItem = z.infer<typeof myInterestItemSchema>;
+export type MyInterestsResponse = z.infer<typeof myInterestsResponseSchema>;
 export type ShowInterestBody = z.infer<typeof showInterestBodySchema>;
 export type InterestChangeResponse = z.infer<typeof interestChangeResponseSchema>;
 export type ListingInterestInput = z.infer<typeof listingInterestInputSchema>;
