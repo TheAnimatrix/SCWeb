@@ -32,16 +32,16 @@
 		"test:smtp": "tsx src/scripts/test-smtp.ts"
 	},
 	"dependencies": {
-		"@hono/node-server": "^1.14.1",
+		"@hono/node-server": "^1.19.19",
 		"@hono/zod-validator": "^0.5.0",
 		"@sentry/node": "^10.64.0",
 		"@supabase/supabase-js": "^2.49.1",
 		"dotenv": "^16.4.7",
 		"drizzle-orm": "^0.45.2",
-		"hono": "^4.7.6",
-		"nodemailer": "^9.0.3",
+		"hono": "^4.13.18",
+		"nodemailer": "^10.6.0",
 		"postgres": "^3.4.5",
-		"razorpay": "^2.9.6",
+		"razorpay": "^2.9.8",
 		"zod": "^3.24.2"
 	},
 	"devDependencies": {
@@ -51,6 +51,6 @@
 		"drizzle-kit": "^0.31.0",
 		"tsx": "^4.19.3",
 		"typescript": "^5.8.2",
-		"vitest": "^3.0.9"
+		"vitest": "^4.1.12"
 	}
 }
