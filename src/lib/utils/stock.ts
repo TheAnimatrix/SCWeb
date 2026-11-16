@@ -41,3 +41,15 @@ export function canFulfillQuantity(stock: ProductStock, qty: number): boolean {
 	if (isOnDemand(stock)) return qty <= ON_DEMAND_PURCHASE_LIMIT;
 	return qty <= stock.count;
 }
+
+type InterestLike = { interest?: { status: string } | null };
+
+/** True while the listing collects interest instead of orders (no cart, no stock badge). */
+export function isOpenInterest(product: InterestLike): boolean {
+	return product.interest?.status === 'open';
+}
+
+/** A closed interest check is never produced; treat it like an unavailable listing. */
+export function isClosedInterest(product: InterestLike): boolean {
+	return product.interest?.status === 'closed';
+}

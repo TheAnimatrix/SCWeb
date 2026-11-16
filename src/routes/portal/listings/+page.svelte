@@ -3,16 +3,32 @@
 	import { tick } from 'svelte';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import {
+		INTEREST_LAUNCH_MESSAGE_MAX,
+		INTEREST_NOTE_MAX,
+		INTEREST_SHIP_DAYS_MAX,
+		INTEREST_SHIP_DAYS_MIN,
+		INTEREST_TARGET_MAX,
+		INTEREST_TARGET_MIN,
+		type InterestNotifyResponse,
+		type MakerInterestSummary,
+		type MakerListingInterest
+	} from '@scweb/api/contracts';
+	import {
+		closeMyListingInterest,
+		getMyListingInterest,
+		launchMyListingInterest,
 		setMyListingState,
 		updateListingStock,
 		uploadMakerAsset,
-		upsertMyListing
+		upsertMyListing,
+		INTEREST_LOCKED_MESSAGE
 	} from '$lib/client/makersApi';
 	import { ScButton, ScInput } from '$lib/components/sc';
 	import { SeoHead } from '$lib/components/seo';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { F } from '$lib/icons/fluent';
 	import { productPath } from '$lib/seo/product';
-	import { formatInr } from '$lib/utils/format';
+	import { formatDate, formatInr } from '$lib/utils/format';
 
 	let { data } = $props();
 
@@ -50,6 +66,7 @@
 		shipping: string;
 		listing_state: string;
 		review_notes?: string | null;
+		interest?: MakerListingInterest | null;
 	};
 
 	type RowFeedback = { text: string; error: boolean };
@@ -69,6 +86,10 @@
 	let costing = $state('');
 	let shipping = $state('');
 	let images = $state<{ url: string }[]>([]);
+	let interestEnabled = $state(false);
+	let interestTarget = $state('');
+	let interestDays = $state('');
+	let interestNote = $state('');
 	let busy = $state(false);
 	let uploadStatus = $state('');
 	let stateBusyId = $state('');
@@ -98,13 +119,25 @@
 			docs,
 			costing,
 			shipping,
-			images
+			images,
+			interestEnabled,
+			interestTarget: text(interestTarget),
+			interestDays: text(interestDays),
+			interestNote
 		});
 	}
 
 	baseline = snapshot();
 
 	const dirty = $derived(snapshot() !== baseline);
+	const editingInterest = $derived(editing?.interest ?? null);
+	/** Launched or closed checks are ordinary listings now; only new or open ones show the section. */
+	const showInterestSection = $derived(!editingInterest || editingInterest.status === 'open');
+	/** Once people have joined, the target and shipping time are a commitment. */
+	const interestLocked = $derived(
+		editingInterest?.status === 'open' && editingInterest.interested_count > 0
+	);
+	const interestOn = $derived(showInterestSection && interestEnabled);
 	const editingState = $derived(editing?.listing_state ?? null);
 	const editingVisible = $derived(editingState === 'live' || editingState === 'paused');
 	const canSubmitForReview = $derived(
@@ -147,6 +180,10 @@
 		costing = '';
 		shipping = '';
 		images = [];
+		interestEnabled = false;
+		interestTarget = '';
+		interestDays = '';
+		interestNote = '';
 		formError = '';
 		baseline = snapshot();
 	}
@@ -172,6 +209,11 @@
 		costing = listing.costing ?? '';
 		shipping = listing.shipping ?? '';
 		images = [...(listing.images ?? [])];
+		const interest = listing.interest ?? null;
+		interestEnabled = interest?.status === 'open';
+		interestTarget = interest ? String(interest.target_count) : '';
+		interestDays = interest ? String(interest.ships_within_days) : '';
+		interestNote = interest?.note ?? '';
 		formMessage = '';
 		formError = '';
 		baseline = snapshot();
@@ -197,9 +239,30 @@
 			const old = Number(text(priceOld));
 			if (!Number.isInteger(old) || old < 0) return 'Original price must be in whole rupees.';
 		}
-		const count = Number(text(stock));
-		if (!text(stock) || !Number.isInteger(count) || count < 0)
-			return 'Stock must be a whole number, 0 or more.';
+		if (interestOn) {
+			const target = Number(text(interestTarget));
+			if (
+				!text(interestTarget) ||
+				!Number.isInteger(target) ||
+				target < INTEREST_TARGET_MIN ||
+				target > INTEREST_TARGET_MAX
+			)
+				return `People you need must be a whole number from ${INTEREST_TARGET_MIN} to ${INTEREST_TARGET_MAX}.`;
+			const days = Number(text(interestDays));
+			if (
+				!text(interestDays) ||
+				!Number.isInteger(days) ||
+				days < INTEREST_SHIP_DAYS_MIN ||
+				days > INTEREST_SHIP_DAYS_MAX
+			)
+				return `Ships within must be a whole number of days from ${INTEREST_SHIP_DAYS_MIN} to ${INTEREST_SHIP_DAYS_MAX}.`;
+			if (interestNote.trim().length > INTEREST_NOTE_MAX)
+				return `Note for buyers must be ${INTEREST_NOTE_MAX} characters or fewer.`;
+		} else {
+			const count = Number(text(stock));
+			if (!text(stock) || !Number.isInteger(count) || count < 0)
+				return 'Stock must be a whole number, 0 or more.';
+		}
 		if (images.length > MAX_IMAGES) return `You can add up to ${MAX_IMAGES} images.`;
 		return null;
 	}
@@ -225,7 +288,8 @@
 			name: name.trim(),
 			price_new: Number(text(priceNew)),
 			price_old: text(priceOld) ? Number(text(priceOld)) : 0,
-			stock_count: Number(text(stock)),
+			// An interest check has nothing in stock until the maker launches it.
+			stock_count: interestOn ? 0 : Number(text(stock)),
 			type,
 			tags: parseTags(tagsText),
 			images,
@@ -234,11 +298,24 @@
 			docs,
 			costing,
 			shipping,
-			submit_for_review: submitForReview
+			submit_for_review: submitForReview,
+			...(showInterestSection
+				? {
+						interest: interestOn
+							? {
+									enabled: true,
+									target_count: Number(text(interestTarget)),
+									ships_within_days: Number(text(interestDays)),
+									note: interestNote.trim() || null
+								}
+							: { enabled: false }
+					}
+				: {})
 		});
 		busy = false;
 		if (!result.ok) {
-			formError = result.error.message;
+			formError =
+				result.error.code === 'interest_locked' ? INTEREST_LOCKED_MESSAGE : result.error.message;
 			return;
 		}
 		// The API returns the stored row, whose field is `listingState`.
@@ -368,6 +445,142 @@
 	function liveHref(listing: Listing): string {
 		return productPath({ id: listing.id, name: listing.name ?? '' });
 	}
+
+	// --- Interest check dialogs (view, launch, close) ---
+
+	type InterestDialog = {
+		kind: 'view' | 'launch' | 'close';
+		id: string;
+		name: string;
+		count: number;
+		target: number;
+	};
+
+	let interestDialog = $state<InterestDialog | null>(null);
+	let interestDialogOpen = $state(false);
+	let dialogReturnFocus: HTMLElement | null = null;
+	let summary = $state<MakerInterestSummary | null>(null);
+	let summaryLoading = $state(false);
+	let dialogBusy = $state(false);
+	let dialogError = $state('');
+	let dialogNotice = $state('');
+	let launchStock = $state('');
+	let interestMessage = $state('');
+	let summaryRequest = 0;
+
+	function launchBlockedReason(listing: Listing): string {
+		const state = listing.listing_state ?? '';
+		if (state === 'live') return '';
+		if (state === 'pending_review') return 'This listing is still in review.';
+		if (state === 'paused') return 'Resume this listing to launch it.';
+		return 'Submit this listing for review first.';
+	}
+
+	function openInterestDialog(kind: InterestDialog['kind'], listing: Listing, event: MouseEvent) {
+		const interest = listing.interest;
+		if (!interest) return;
+		dialogReturnFocus = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+		interestDialog = {
+			kind,
+			id: listing.id,
+			name: listing.name ?? 'this listing',
+			count: interest.interested_count,
+			target: interest.target_count
+		};
+		dialogBusy = false;
+		dialogError = '';
+		dialogNotice = '';
+		launchStock = '';
+		interestMessage = '';
+		summary = null;
+		interestDialogOpen = true;
+		if (kind === 'view') void loadSummary(listing.id);
+	}
+
+	function restoreFocus(event: Event) {
+		// The row button may be gone after a launch; fall back to the default behaviour then.
+		if (dialogReturnFocus?.isConnected) {
+			event.preventDefault();
+			dialogReturnFocus.focus();
+		}
+	}
+
+	async function loadSummary(productId: string) {
+		const request = ++summaryRequest;
+		summaryLoading = true;
+		const result = await getMyListingInterest(fetch, productId);
+		if (request !== summaryRequest) return;
+		summaryLoading = false;
+		if (!result.ok) {
+			dialogError = result.error.message;
+			return;
+		}
+		summary = result.data;
+	}
+
+	function notifyResultText(kind: 'launch' | 'close', data: InterestNotifyResponse): string {
+		if (data.pending > 0) {
+			return kind === 'launch'
+				? `${data.notified} emailed, ${data.pending} still to send. Press Launch again to retry.`
+				: `${data.notified} emailed, ${data.pending} still to send. Press Close again to retry.`;
+		}
+		return kind === 'launch'
+			? `Launched. ${data.notified} people emailed.`
+			: `Closed. ${data.notified} people emailed.`;
+	}
+
+	async function submitLaunch(e: SubmitEvent) {
+		e.preventDefault();
+		const target = interestDialog;
+		if (!target || dialogBusy) return;
+		const units = Number(text(launchStock));
+		if (!text(launchStock) || !Number.isInteger(units) || units < 1) {
+			dialogError = 'Units in stock must be a whole number, 1 or more.';
+			return;
+		}
+		const message = interestMessage.trim();
+		await runNotify('launch', target, () =>
+			launchMyListingInterest(fetch, target.id, {
+				stock_count: units,
+				...(message ? { message } : {})
+			})
+		);
+	}
+
+	async function submitClose(e: SubmitEvent) {
+		e.preventDefault();
+		const target = interestDialog;
+		if (!target || dialogBusy) return;
+		const message = interestMessage.trim();
+		await runNotify('close', target, () =>
+			closeMyListingInterest(fetch, target.id, message ? { message } : {})
+		);
+	}
+
+	async function runNotify(
+		kind: 'launch' | 'close',
+		target: InterestDialog,
+		call: () => ReturnType<typeof launchMyListingInterest>
+	) {
+		dialogBusy = true;
+		dialogError = '';
+		dialogNotice = '';
+		const result = await call();
+		dialogBusy = false;
+		if (!result.ok) {
+			dialogError = result.error.message;
+			return;
+		}
+		const message = notifyResultText(kind, result.data);
+		setRowFeedback(target.id, message);
+		if (result.data.pending > 0) {
+			// Keep the dialog open so the maker can press the button again to retry.
+			dialogNotice = message;
+		} else {
+			interestDialogOpen = false;
+		}
+		await invalidateAll();
+	}
 </script>
 
 <SeoHead meta={{ title: 'Listings · Maker portal', noindex: true }} />
@@ -419,7 +632,8 @@
 
 			<div class="grid gap-4 sm:grid-cols-3">
 				<div class="space-y-1.5">
-					<label for="listing-price" class="block text-sm font-medium">Price (₹)</label>
+					<label for="listing-price" class="block text-sm font-medium"
+						>{interestOn ? 'Expected price (₹)' : 'Price (₹)'}</label>
 					<ScInput
 						id="listing-price"
 						bind:value={priceNew}
@@ -446,18 +660,106 @@
 						Shown struck through next to the price. Leave empty for none.
 					</p>
 				</div>
-				<div class="space-y-1.5">
-					<label for="listing-stock" class="block text-sm font-medium">Stock</label>
-					<ScInput
-						id="listing-stock"
-						bind:value={stock}
-						type="number"
-						min="0"
-						step="1"
-						inputmode="numeric"
-						required />
-				</div>
+				{#if !interestOn}
+					<div class="space-y-1.5">
+						<label for="listing-stock" class="block text-sm font-medium">Stock</label>
+						<ScInput
+							id="listing-stock"
+							bind:value={stock}
+							type="number"
+							min="0"
+							step="1"
+							inputmode="numeric"
+							required />
+					</div>
+				{/if}
 			</div>
+
+			{#if showInterestSection}
+				<fieldset class="space-y-4 rounded-md border border-border p-3">
+					<legend class="px-1 text-sm font-medium">Check interest before you make it</legend>
+					<div class="space-y-1">
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								bind:checked={interestEnabled}
+								disabled={interestLocked}
+								aria-describedby="listing-interest-help"
+								class="size-4" />
+							List this as an interest check
+						</label>
+						<p id="listing-interest-help" class="text-xs text-muted-foreground">
+							Buyers see a Show interest button in place of Add to cart. Nobody pays until you
+							launch.
+						</p>
+					</div>
+
+					{#if interestOn}
+						{#if interestLocked}
+							<p class="text-sm text-muted-foreground" id="listing-interest-locked">
+								{INTEREST_LOCKED_MESSAGE}
+							</p>
+						{/if}
+						<div class="grid gap-4 sm:grid-cols-2">
+							<div class="space-y-1.5">
+								<label for="listing-interest-target" class="block text-sm font-medium"
+									>People you need</label>
+								<ScInput
+									id="listing-interest-target"
+									bind:value={interestTarget}
+									type="number"
+									min={INTEREST_TARGET_MIN}
+									max={INTEREST_TARGET_MAX}
+									step="1"
+									inputmode="numeric"
+									required
+									readonly={interestLocked}
+									aria-describedby={interestLocked
+										? 'listing-interest-target-help listing-interest-locked'
+										: 'listing-interest-target-help'} />
+								<p id="listing-interest-target-help" class="text-xs text-muted-foreground">
+									You commit to producing it once this many people show interest.
+								</p>
+							</div>
+							<div class="space-y-1.5">
+								<label for="listing-interest-days" class="block text-sm font-medium"
+									>Ships within (days)</label>
+								<ScInput
+									id="listing-interest-days"
+									bind:value={interestDays}
+									type="number"
+									min={INTEREST_SHIP_DAYS_MIN}
+									max={INTEREST_SHIP_DAYS_MAX}
+									step="1"
+									inputmode="numeric"
+									required
+									readonly={interestLocked}
+									aria-describedby={interestLocked
+										? 'listing-interest-days-help listing-interest-locked'
+										: 'listing-interest-days-help'} />
+								<p id="listing-interest-days-help" class="text-xs text-muted-foreground">
+									Counted from the day you reach that number.
+								</p>
+							</div>
+						</div>
+						<div class="space-y-1.5">
+							<label for="listing-interest-note" class="block text-sm font-medium"
+								>Note for buyers (optional)</label>
+							<textarea
+								id="listing-interest-note"
+								bind:value={interestNote}
+								rows={2}
+								maxlength={INTEREST_NOTE_MAX}
+								aria-describedby="listing-interest-note-help"
+								class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+							></textarea>
+							<p id="listing-interest-note-help" class="text-xs text-muted-foreground">
+								One or two lines on what happens next. Plain text.
+							</p>
+						</div>
+					{/if}
+				</fieldset>
+			{/if}
 
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="space-y-1.5">
@@ -657,6 +959,9 @@
 				{@const rowBusy = stateBusyId === listing.id}
 				{@const price = listing.price}
 				{@const feedback = rowFeedback[listing.id]}
+				{@const interest = listing.interest ?? null}
+				{@const interestOpen = interest?.status === 'open'}
+				{@const launchBlocked = interestOpen ? launchBlockedReason(listing) : ''}
 				<div class="space-y-3 rounded-md border border-border p-3">
 					<div class="flex flex-wrap items-start justify-between gap-3">
 						<div class="min-w-0 flex-1">
@@ -671,6 +976,19 @@
 										{TYPE_OPTIONS.find((option) => option.value === (listing.type ?? 'product'))
 											?.label ?? listing.type}
 									</p>
+									{#if interest?.status === 'open'}
+										<p class="text-sm">
+											Interest check: {interest.interested_count} of {interest.target_count}
+										</p>
+									{:else if interest?.status === 'launched' && interest.launched_at}
+										<p class="text-sm text-muted-foreground">
+											Launched {formatDate(interest.launched_at)}
+										</p>
+									{:else if interest?.status === 'closed'}
+										<p class="text-sm text-muted-foreground">
+											Closed {formatDate(interest.closed_at)}
+										</p>
+									{/if}
 								</div>
 							</div>
 							{#if state === 'rejected'}
@@ -707,7 +1025,7 @@
 							{/if}
 						</div>
 						<div class="flex flex-wrap items-center gap-2">
-							{#if state !== 'archived'}
+							{#if state !== 'archived' && !interestOpen}
 								<label class="flex items-center gap-2 text-sm">
 									<span class="text-muted-foreground">Stock</span>
 									<input
@@ -718,6 +1036,8 @@
 										value={stockCount}
 										onchange={(e) => saveStock(listing, e.currentTarget as HTMLInputElement)} />
 								</label>
+							{/if}
+							{#if state !== 'archived'}
 								<ScButton variant="secondary" onclick={() => startEdit(listing)}>Edit</ScButton>
 							{/if}
 							{#if state === 'live'}
@@ -750,6 +1070,27 @@
 							{/if}
 						</div>
 					</div>
+					{#if interestOpen}
+						<div class="flex flex-wrap items-center gap-2">
+							<ScButton
+								variant="secondary"
+								onclick={(e: MouseEvent) => openInterestDialog('view', listing, e)}
+								>View interest</ScButton>
+							<ScButton
+								disabled={launchBlocked !== ''}
+								onclick={(e: MouseEvent) => openInterestDialog('launch', listing, e)}
+								>Launch</ScButton>
+							<ScButton
+								variant="ghost"
+								onclick={(e: MouseEvent) => openInterestDialog('close', listing, e)}
+								>Close</ScButton>
+							{#if launchBlocked}
+								<p class="text-xs text-muted-foreground">
+									{launchBlocked}
+								</p>
+							{/if}
+						</div>
+					{/if}
 					{#if feedback}
 						<p
 							class="text-sm {feedback.error ? 'text-destructive' : 'text-muted-foreground'}"
@@ -763,4 +1104,146 @@
 			{/each}
 		</div>
 	</section>
+
+	<Dialog.Root bind:open={interestDialogOpen}>
+		<Dialog.Content
+			class="max-h-[90vh] max-w-lg overflow-y-auto border-border bg-card text-card-foreground"
+			onCloseAutoFocus={restoreFocus}>
+			{#if interestDialog?.kind === 'view'}
+				<Dialog.Header class="pr-6 text-left">
+					<Dialog.Title class="text-lg font-semibold"
+						>Interest in {interestDialog.name}</Dialog.Title>
+					<Dialog.Description class="text-sm text-muted-foreground">
+						{summary?.interestedCount ?? interestDialog.count} of {summary?.targetCount ??
+							interestDialog.target} people
+					</Dialog.Description>
+				</Dialog.Header>
+				{#if summaryLoading}
+					<p class="text-sm text-muted-foreground" role="status">Loading…</p>
+				{:else if dialogError}
+					<p class="text-sm text-destructive" role="alert">{dialogError}</p>
+				{:else if summary}
+					{#if summary.byCity.length}
+						<div class="space-y-2">
+							<h3 class="text-sm font-medium" id="interest-where">Where they are</h3>
+							<div class="overflow-x-auto rounded-md border border-border">
+								<table class="w-full text-left text-sm" aria-labelledby="interest-where">
+									<thead class="border-b border-border text-muted-foreground">
+										<tr>
+											<th scope="col" class="px-3 py-2 font-medium">City</th>
+											<th scope="col" class="px-3 py-2 font-medium">State</th>
+											<th scope="col" class="px-3 py-2 text-right font-medium">People</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each summary.byCity as row (`${row.city}|${row.state}`)}
+											<tr class="border-b border-border last:border-b-0">
+												<td class="px-3 py-2">{row.city}</td>
+												<td class="px-3 py-2">{row.state}</td>
+												<td class="px-3 py-2 text-right tabular-nums">{row.count}</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					{:else}
+						<p class="text-sm text-muted-foreground">Nobody has shown interest yet.</p>
+					{/if}
+				{/if}
+				<p class="text-xs text-muted-foreground">
+					You see counts only. Selfcrafted holds the names, addresses and phone numbers, and sends
+					the emails.
+				</p>
+			{:else if interestDialog?.kind === 'launch'}
+				<form class="space-y-4" onsubmit={submitLaunch}>
+					<Dialog.Header class="pr-6 text-left">
+						<Dialog.Title class="text-lg font-semibold">Launch {interestDialog.name}</Dialog.Title>
+						<Dialog.Description class="text-sm text-muted-foreground">
+							This turns the listing into a normal one that people can buy, and emails everyone on
+							the list a link.
+						</Dialog.Description>
+					</Dialog.Header>
+					<div class="space-y-1.5">
+						<label for="interest-launch-stock" class="block text-sm font-medium"
+							>Units in stock</label>
+						<ScInput
+							id="interest-launch-stock"
+							bind:value={launchStock}
+							type="number"
+							min="1"
+							step="1"
+							inputmode="numeric"
+							required />
+					</div>
+					<div class="space-y-1.5">
+						<label for="interest-launch-message" class="block text-sm font-medium"
+							>Message to include (optional)</label>
+						<textarea
+							id="interest-launch-message"
+							bind:value={interestMessage}
+							rows={3}
+							maxlength={INTEREST_LAUNCH_MESSAGE_MAX}
+							class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+						></textarea>
+					</div>
+					{#if dialogError}
+						<p class="text-sm text-destructive" role="alert">{dialogError}</p>
+					{/if}
+					{#if dialogNotice}
+						<p class="text-sm" role="status">{dialogNotice}</p>
+					{/if}
+					<Dialog.Footer class="gap-2">
+						<ScButton variant="secondary" onclick={() => (interestDialogOpen = false)}
+							>Not yet</ScButton>
+						<ScButton type="submit" disabled={dialogBusy}>
+							{dialogBusy
+								? 'Launching…'
+								: interestDialog.count > 0 && !dialogNotice
+									? `Launch and email ${interestDialog.count} people`
+									: 'Launch'}
+						</ScButton>
+					</Dialog.Footer>
+				</form>
+			{:else if interestDialog?.kind === 'close'}
+				<form class="space-y-4" onsubmit={submitClose}>
+					<Dialog.Header class="pr-6 text-left">
+						<Dialog.Title class="text-lg font-semibold">Close this interest check</Dialog.Title>
+						<Dialog.Description class="text-sm text-muted-foreground">
+							Use this if you've decided not to make it. Everyone on the list gets an email saying
+							so. This can't be undone.
+						</Dialog.Description>
+					</Dialog.Header>
+					<div class="space-y-1.5">
+						<label for="interest-close-message" class="block text-sm font-medium"
+							>Message to include (optional)</label>
+						<textarea
+							id="interest-close-message"
+							bind:value={interestMessage}
+							rows={3}
+							maxlength={INTEREST_LAUNCH_MESSAGE_MAX}
+							class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+						></textarea>
+					</div>
+					{#if dialogError}
+						<p class="text-sm text-destructive" role="alert">{dialogError}</p>
+					{/if}
+					{#if dialogNotice}
+						<p class="text-sm" role="status">{dialogNotice}</p>
+					{/if}
+					<Dialog.Footer class="gap-2">
+						<ScButton variant="secondary" onclick={() => (interestDialogOpen = false)}
+							>Keep it open</ScButton>
+						<ScButton type="submit" disabled={dialogBusy}>
+							{dialogBusy
+								? 'Closing…'
+								: interestDialog.count > 0 && !dialogNotice
+									? `Close and email ${interestDialog.count} people`
+									: 'Close'}
+						</ScButton>
+					</Dialog.Footer>
+				</form>
+			{/if}
+		</Dialog.Content>
+	</Dialog.Root>
 {/if}

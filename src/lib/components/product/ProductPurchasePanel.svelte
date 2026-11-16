@@ -10,6 +10,7 @@
 	import { getPurchasableLimit, isOnDemand, isOutOfStock } from '$lib/utils/stock';
 	import { stripMarkup } from '$lib/seo/product';
 	import type { Product } from '$lib/types/product';
+	import InterestPanel, { type InterestState } from './InterestPanel.svelte';
 
 	interface VariantOption {
 		id: string;
@@ -35,6 +36,8 @@
 		onDecrement?: () => void;
 		onAddToCart?: () => void;
 		onVariantNavigate?: (href: string) => void;
+		/** Set for an interest-check listing; shared with the page's sticky bar. */
+		interestState?: InterestState | null;
 		class?: string;
 	}
 
@@ -54,12 +57,18 @@
 		onDecrement,
 		onAddToCart,
 		onVariantNavigate,
+		interestState = null,
 		class: className
 	}: Props = $props();
 
 	const SUPPORT_EMAIL = 'support@selfcrafted.in';
 	const SHORT_DESCRIPTION_MAX = 220;
 
+	const interestStatus = $derived(product.interest?.status ?? null);
+	// Open: collecting interest, nothing to buy yet. Closed: never produced.
+	const interestOpen = $derived(interestStatus === 'open' && interestState !== null);
+	const interestClosed = $derived(interestStatus === 'closed');
+	const interestLaunched = $derived(interestStatus === 'launched');
 	const unavailable = $derived(isOutOfStock(product.stock));
 	const onDemand = $derived(isOnDemand(product.stock));
 	const isLowStock = $derived(!unavailable && !onDemand && product.stock.count <= 5);
@@ -168,7 +177,9 @@
 					</MetaChip>
 				{/if}
 
-				{#if unavailable}
+				{#if interestOpen}
+					<MetaChip>Interest check</MetaChip>
+				{:else if unavailable}
 					<MetaChip tone="destructive">Out of stock</MetaChip>
 				{:else if onDemand}
 					<MetaChip class="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
@@ -213,82 +224,104 @@
 			</div>
 		{/if}
 
-		<div class="space-y-1">
-			{#if hasOldPrice}
-				<p class="text-sm text-muted-foreground line-through">
-					<span class="sr-only">Was </span>{formatInr(product.price.old)}
+		{#if interestOpen && interestState}
+			<InterestPanel
+				{interestState}
+				price={product.price.new}
+				oldPrice={hasOldPrice ? product.price.old : null} />
+		{:else}
+			<div class="space-y-1">
+				{#if hasOldPrice}
+					<p class="text-sm text-muted-foreground line-through">
+						<span class="sr-only">Was </span>{formatInr(product.price.old)}
+					</p>
+				{/if}
+				<p class="text-3xl font-semibold tracking-tight text-foreground">
+					{formatInr(product.price.new)}
 				</p>
-			{/if}
-			<p class="text-3xl font-semibold tracking-tight text-foreground">
-				{formatInr(product.price.new)}
-			</p>
-		</div>
-
-		<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-			<div
-				class="flex w-fit items-center rounded-md border border-border bg-card"
-				role="group"
-				aria-label="Quantity">
-				<button
-					type="button"
-					class="flex h-11 w-11 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
-					disabled={unavailable || cartQty <= 1}
-					onclick={onDecrement}
-					aria-label="Decrease quantity">
-					<Icon icon={F.subtract} class="h-4 w-4" />
-				</button>
-				<span
-					class="min-w-10 border-x border-border px-3 text-center text-sm tabular-nums"
-					aria-live="polite">
-					{cartQty}
-				</span>
-				<button
-					type="button"
-					class="flex h-11 w-11 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
-					disabled={unavailable || cartQty >= purchasableLimit}
-					onclick={onIncrement}
-					aria-label="Increase quantity">
-					<Icon icon={F.add} class="h-4 w-4" />
-				</button>
 			</div>
 
-			<ScButton
-				class="min-h-11 min-w-0 flex-1 whitespace-normal text-sm disabled:pointer-events-none disabled:opacity-50"
-				disabled={unavailable || isAdding}
-				onclick={onAddToCart}
-				arrow={!unavailable}>
-				{unavailable ? 'Out of stock' : isAdding ? 'Adding…' : 'Add to cart'}
-			</ScButton>
-		</div>
+			{#if interestLaunched && product.interest}
+				<p class="text-sm text-muted-foreground">
+					Launched after {product.interest.interestedCount} people showed interest.
+				</p>
+			{/if}
 
-		<div role="status" aria-live="polite">
-			{#if addToCartSuccess === true}
-				<div
-					class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
-					<span>Added {addedQty} to your cart.</span>
-					<a
-						href={resolve('/cart')}
-						class="font-medium underline underline-offset-2 hover:decoration-2">
-						View cart
-					</a>
+			{#if interestClosed}
+				<p class="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+					The maker has decided not to produce this. Nobody was charged.
+				</p>
+			{:else}
+				<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+					<div
+						class="flex w-fit items-center rounded-md border border-border bg-card"
+						role="group"
+						aria-label="Quantity">
+						<button
+							type="button"
+							class="flex h-11 w-11 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+							disabled={unavailable || cartQty <= 1}
+							onclick={onDecrement}
+							aria-label="Decrease quantity">
+							<Icon icon={F.subtract} class="h-4 w-4" />
+						</button>
+						<span
+							class="min-w-10 border-x border-border px-3 text-center text-sm tabular-nums"
+							aria-live="polite">
+							{cartQty}
+						</span>
+						<button
+							type="button"
+							class="flex h-11 w-11 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+							disabled={unavailable || cartQty >= purchasableLimit}
+							onclick={onIncrement}
+							aria-label="Increase quantity">
+							<Icon icon={F.add} class="h-4 w-4" />
+						</button>
+					</div>
+
+					<ScButton
+						class="min-h-11 min-w-0 flex-1 whitespace-normal text-sm disabled:pointer-events-none disabled:opacity-50"
+						disabled={unavailable || isAdding}
+						onclick={onAddToCart}
+						arrow={!unavailable}>
+						{unavailable ? 'Out of stock' : isAdding ? 'Adding…' : 'Add to cart'}
+					</ScButton>
 				</div>
-			{:else if addToCartSuccess === false}
-				<div
-					class="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-					{addToCartMsg}
+
+				<div role="status" aria-live="polite">
+					{#if addToCartSuccess === true}
+						<div
+							class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+							<span>Added {addedQty} to your cart.</span>
+							<a
+								href={resolve('/cart')}
+								class="font-medium underline underline-offset-2 hover:decoration-2">
+								View cart
+							</a>
+						</div>
+					{:else if addToCartSuccess === false}
+						<div
+							class="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+							{addToCartMsg}
+						</div>
+					{/if}
 				</div>
 			{/if}
-		</div>
+		{/if}
 
 		<ul class="space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
-			<li class="flex items-start gap-2">
-				<Icon icon={F.truck} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-				<span>Flat ₹99 delivery anywhere in India</span>
-			</li>
-			<li class="flex items-start gap-2">
-				<Icon icon={F.box} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-				<span>Packed and shipped by Selfcrafted in 3 to 14 days</span>
-			</li>
+			{#if !interestOpen && !interestClosed}
+				<!-- Delivery lines only where the listing can be bought today. -->
+				<li class="flex items-start gap-2">
+					<Icon icon={F.truck} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+					<span>Flat ₹99 delivery anywhere in India</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<Icon icon={F.box} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+					<span>Packed and shipped by Selfcrafted in 3 to 14 days</span>
+				</li>
+			{/if}
 			<li class="flex items-start gap-2">
 				<Icon icon={F.mail} class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
 				<span>

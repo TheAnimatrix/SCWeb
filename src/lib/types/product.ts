@@ -1,3 +1,5 @@
+import type { ProductInterest } from '@scweb/api/contracts';
+
 export interface ProductUser {
 	username?: string | null;
 	city?: string | null;
@@ -34,6 +36,8 @@ export interface Product {
 	type: string;
 	guarantee: string;
 	rel: string;
+	/** Set when the listing is (or was) an interest check; null for an ordinary listing. */
+	interest?: ProductInterest | null;
 }
 
 export interface Address {

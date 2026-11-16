@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import { applyInterestMigration } from '../test/interest-tables.js';
 import { createMakersStore } from './makers-store.js';
 
 const APPLICANT = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
@@ -101,6 +102,7 @@ describe('makers store review feedback', () => {
 	beforeEach(async () => {
 		client = new PGlite();
 		await client.exec(STUB_SQL);
+		await applyInterestMigration(client);
 		db = drizzle(client, { schema }) as unknown as Database;
 		await db.insert(schema.users).values([
 			{ id: APPLICANT, username: 'applicant', createdAt: new Date().toISOString() },

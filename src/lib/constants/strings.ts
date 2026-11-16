@@ -52,7 +52,17 @@ We made it, or it was built under our supervision. We look after it even after i
 
 An independent maker built it and we approved the listing. These are often early or small-batch products, so they may not be finished to factory standard.
 
-We ship these ourselves, so we guarantee that what you ordered reaches you. If it arrives and doesn't work as described, write to support@selfcrafted.in. We handle replacements and send faulty units back to the maker, who is responsible for a product that doesn't do what the listing says. We decide these case by case.`;
+We ship these ourselves, so we guarantee that what you ordered reaches you. If it arrives and doesn't work as described, write to support@selfcrafted.in. We handle replacements and send faulty units back to the maker, who is responsible for a product that doesn't do what the listing says. We decide these case by case.
+
+**Interest checks**
+
+Some listings are for products that haven't been made yet. They show a Show interest button where Add to cart would be.
+
+Showing interest is free and isn't an order. You pay nothing, and you can take yourself off the list at any time.
+
+The listing says how many people the maker needs and how soon they'll ship once that number is reached. When the maker launches, we email everyone on the list a link to buy. Being on the list doesn't reserve a unit, and you only pay if you choose to buy then.
+
+If the maker decides not to go ahead, we email you to say so.`;
 
 const privacy: string = `
 This is what Selfcrafted stores about you and why. If it changes, we'll update this page.
@@ -64,11 +74,13 @@ This is what Selfcrafted stores about you and why. If it changes, we'll update t
 * The delivery addresses and phone number you enter at checkout or save to your account.
 * Your orders, reviews and messages with makers.
 * Any 3D models you upload to request a print.
+* The delivery address and phone number you give when you show interest in a product that hasn't been made yet.
 
 **What we use it for**
 
 * Running your account and delivering your orders. We pack and ship product orders ourselves. For a 3D printing order, the maker who prints your part ships it, and sees your delivery details once you have paid.
 * Emailing you about your account, your orders and your print requests. We don't send marketing email unless you ask for it.
+* Planning a batch of a product you showed interest in, and emailing you when it launches or is called off. The maker sees how many people are interested and which cities they are in. They don't see your name, address, phone number or email.
 * Keeping our own records.
 
 **Payments**

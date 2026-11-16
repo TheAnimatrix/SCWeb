@@ -6,3 +6,11 @@ export {
 	renderPrintQuoteRequestedEmail,
 	type PrintQuoteRequestedTemplateInput
 } from './print-quote-requested.js';
+export {
+	renderInterestClosedEmail,
+	renderInterestJoinedEmail,
+	renderInterestLaunchedEmail,
+	type InterestClosedEmailInput,
+	type InterestJoinedEmailInput,
+	type InterestLaunchedEmailInput
+} from './interest.js';

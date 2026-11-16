@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CART_ORDER_STATUS } from '../contracts/cart.js';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import { applyInterestMigration } from '../test/interest-tables.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { products } from '../db/schema/products.js';
@@ -97,6 +98,7 @@ async function createTestDb(): Promise<TestDb> {
 		await client.exec(statement);
 	}
 
+	await applyInterestMigration(client);
 	const db = drizzle(client, { schema }) as unknown as Database;
 	return { client, db };
 }
@@ -458,5 +460,46 @@ describe('CartStore (PGlite)', () => {
 				body: { error: 'product_not_found' }
 			});
 		});
+	});
+});
+
+describe('CartStore interest checks (PGlite)', () => {
+	let testDb: TestDb;
+
+	beforeEach(async () => {
+		testDb = await createTestDb();
+	});
+
+	afterEach(async () => {
+		await testDb.client.close();
+	});
+
+	it('refuses an open or closed interest check and allows it once launched', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5);
+		await testDb.db
+			.insert(schema.interestCampaigns)
+			.values({ productId: PRODUCT_1, targetCount: 10, shipsWithinDays: 30 });
+		const store = createCartStore(testDb.db);
+		const actor = { userId: USER_ID, clientId: CLIENT_A };
+
+		await expect(store.upsertCartItem(actor, PRODUCT_1, { qty: 1, mode: 'set' })).resolves.toEqual({
+			ok: false,
+			status: 409,
+			body: { error: 'listing_not_available' }
+		});
+
+		await testDb.db
+			.update(schema.interestCampaigns)
+			.set({ status: 'closed' })
+			.where(eq(schema.interestCampaigns.productId, PRODUCT_1));
+		const closed = await store.upsertCartItem(actor, PRODUCT_1, { qty: 1, mode: 'set' });
+		expect(closed.ok).toBe(false);
+
+		await testDb.db
+			.update(schema.interestCampaigns)
+			.set({ status: 'launched' })
+			.where(eq(schema.interestCampaigns.productId, PRODUCT_1));
+		const launched = await store.upsertCartItem(actor, PRODUCT_1, { qty: 1, mode: 'set' });
+		expect(launched.ok).toBe(true);
 	});
 });

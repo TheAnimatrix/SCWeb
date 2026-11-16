@@ -31,6 +31,7 @@ import {
 	findPaymentPendingCartRow,
 	reactivatePaymentPendingCart
 } from './abandoned-checkout.js';
+import { findUnbuyableInterestProductIds } from './interest-store.js';
 
 export type UpsertCartItemResult =
 	| { ok: true; response: GetCartResponse }
@@ -342,7 +343,11 @@ export function createCartStore(db: Database): CartStore {
 					};
 				}
 
-				if (product.listingState !== 'live') {
+				// Not live, or an interest check that is still open (or closed without launching).
+				if (
+					product.listingState !== 'live' ||
+					(await findUnbuyableInterestProductIds(tx, [productId])).has(productId)
+				) {
 					return {
 						ok: false as const,
 						status: 409 as const,

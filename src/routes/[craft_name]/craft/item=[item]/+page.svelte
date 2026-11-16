@@ -12,8 +12,9 @@
 		ProductDetailTabs,
 		RelatedProducts
 	} from '$lib/components/product';
+	import { InterestState } from '$lib/components/product/InterestPanel.svelte';
 	import type { Product } from '$lib/types/product';
-	import { productUserRef } from '$lib/types/product';
+	import { asAddressList, productUserRef } from '$lib/types/product';
 	import { getPurchasableLimit, isOutOfStock } from '$lib/utils/stock';
 	import { makerStorefrontPath } from '$lib/utils/reservedUsernames';
 	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
@@ -124,6 +125,42 @@
 	);
 	const shopLabel = $derived(storefrontLive ? 'View shop' : 'See listings');
 	const unavailable = $derived(productItem ? isOutOfStock(productItem.stock) : true);
+
+	const viewerId = $derived(data.user?.id ?? null);
+	const viewerEmail = $derived(data.user?.email ?? null);
+
+	/** Saved addresses for the "Show interest" dialog; only asked for when it opens. */
+	async function loadSavedAddresses() {
+		const userId = viewerId;
+		const supabase = data.supabase;
+		if (!userId || !supabase) return undefined;
+		const { data: rows, error } = await supabase
+			.from('addresses')
+			.select('*')
+			.eq('uid', userId)
+			.order('created_at', { ascending: false });
+		return error ? undefined : asAddressList(rows);
+	}
+
+	// One state per product and viewer, shared by the purchase panel and the sticky bar.
+	const interestState = $derived.by(() => {
+		const product = productItem;
+		if (!product?.interest || product.interest.status !== 'open') return null;
+		return new InterestState({
+			productId: product.id,
+			productName: product.name,
+			makerName,
+			interest: product.interest,
+			viewer: {
+				userId: viewerId,
+				email: viewerEmail,
+				isOwner: viewerId !== null && viewerId === product.uid,
+				signInHref: `/user/sign?postLogin=${encodeURIComponent(page.url.pathname)}`
+			},
+			loadAddresses: loadSavedAddresses
+		});
+	});
+	const interestClosed = $derived(productItem?.interest?.status === 'closed');
 
 	// Mobile: a bottom bar with price and "Add to cart" once the purchase panel scrolls away.
 	let panelEl = $state<HTMLElement | null>(null);
@@ -246,6 +283,7 @@
 					{variants}
 					{isRefreshing}
 					onVariantNavigate={handleVariantNavigate}
+					{interestState}
 					onIncrement={incCart}
 					onDecrement={decCart}
 					onAddToCart={cartSubmit} />
@@ -294,11 +332,28 @@
 			<p class="truncate text-sm text-muted-foreground">{productItem.name}</p>
 			<p class="text-base font-semibold text-foreground">{formatInr(productItem.price.new)}</p>
 		</div>
-		<ScButton
-			class="min-h-11 shrink-0 text-sm disabled:opacity-50"
-			disabled={unavailable || isAdding}
-			onclick={cartSubmit}>
-			{unavailable ? 'Out of stock' : isAdding ? 'Adding…' : 'Add to cart'}
-		</ScButton>
+		{#if interestState}
+			{#if interestState.viewer.isOwner || interestState.onList}
+				<!-- Nothing to do from here: the panel above shows their state. -->
+			{:else if !interestState.signedIn}
+				<ScButton class="min-h-11 shrink-0 text-sm" href={interestState.viewer.signInHref}>
+					Show interest
+				</ScButton>
+			{:else}
+				<ScButton
+					class="min-h-11 shrink-0 text-sm disabled:opacity-50"
+					disabled={interestState.onList === null}
+					onclick={() => interestState.startJoin()}>
+					Show interest
+				</ScButton>
+			{/if}
+		{:else if !interestClosed}
+			<ScButton
+				class="min-h-11 shrink-0 text-sm disabled:opacity-50"
+				disabled={unavailable || isAdding}
+				onclick={cartSubmit}>
+				{unavailable ? 'Out of stock' : isAdding ? 'Adding…' : 'Add to cart'}
+			</ScButton>
+		{/if}
 	</div>
 {/if}

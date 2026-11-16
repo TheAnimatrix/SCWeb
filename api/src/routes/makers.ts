@@ -15,6 +15,7 @@ import {
 import { validationHook } from '../lib/validation.js';
 import { requireAuth } from '../middleware/require-auth.js';
 import { requireCapability, requireMaker, requireStaff } from '../middleware/require-maker.js';
+import { InterestRuleError } from '../services/interest-store.js';
 import type { MakersStore } from '../services/makers-store.js';
 import type { AppVariables } from '../types/context.js';
 
@@ -226,13 +227,17 @@ export function createMakersRoutes(
 					shipping: body.shipping,
 					documentation: body.documentation,
 					faq: body.faq,
-					submitForReview: body.submit_for_review
+					submitForReview: body.submit_for_review,
+					interest: body.interest
 				});
 				return c.json({ listing }, body.product_id ? 200 : 201);
 			} catch (error) {
 				const status = (error as { status?: number }).status ?? 500;
 				const message = error instanceof Error ? error.message : 'Listing save failed';
-				return c.json({ error: 'listing_failed', message }, status as 400);
+				// Interest-check rule violations carry their own code (e.g. `interest_locked`).
+				const code =
+					error instanceof InterestRuleError ? error.code : 'listing_failed';
+				return c.json({ error: code, message }, status as 400);
 			}
 		}
 	);

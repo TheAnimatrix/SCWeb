@@ -48,7 +48,8 @@ export function productHref(name: string, id: string): string {
 export function mapProductRow(
 	product: ProductRow,
 	user?: UserRow | null,
-	reviewStats?: ReviewStatsRow | null
+	reviewStats?: ReviewStatsRow | null,
+	interest?: ProductView['interest']
 ): ProductView {
 	return {
 		id: product.id,
@@ -72,7 +73,8 @@ export function mapProductRow(
 					username: user.username,
 					tier: user.tier != null ? String(user.tier) : null
 				}
-			: null
+			: null,
+		interest: interest ?? null
 	};
 }
 

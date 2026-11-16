@@ -59,6 +59,7 @@ import {
 	type PaymentAttentionReason
 } from './payment-attention.js';
 import { auditLog } from '../db/schema/auditLog.js';
+import { findUnbuyableInterestProductIds } from './interest-store.js';
 
 export type CheckoutStoreOptions = {
 	mail?: MailService;
@@ -1079,7 +1080,11 @@ export function createCheckoutStore(
 					.for('update');
 
 				const productById = new Map(lockedProducts.map((product) => [product.id, product]));
-				const unavailable = lockedProducts.find((product) => product.listingState !== 'live');
+				// Not live, or an interest check that is still open (or closed without launching).
+				const unbuyableInterest = await findUnbuyableInterestProductIds(tx, productIds);
+				const unavailable = lockedProducts.find(
+					(product) => product.listingState !== 'live' || unbuyableInterest.has(product.id)
+				);
 				if (unavailable || lockedProducts.length !== productIds.length) {
 					const missingId =
 						unavailable?.id ?? productIds.find((id) => !productById.has(id)) ?? productIds[0];

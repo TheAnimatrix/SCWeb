@@ -110,7 +110,7 @@
 		<header class="mt-4">
 			<h1 class="text-2xl font-semibold tracking-tight">Policies</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
-				Shipping, refunds, privacy, terms and how to reach us. Last updated 15 November 2026.
+				Shipping, refunds, privacy, terms and how to reach us. Last updated 16 November 2026.
 			</p>
 		</header>
 

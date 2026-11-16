@@ -10,6 +10,7 @@ import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import { normalizeCheckoutOrderAddresses } from '../services/checkout.js';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import { applyInterestMigration } from '../test/interest-tables.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
 import { orderItems } from '../db/schema/orderItems.js';
@@ -132,6 +133,7 @@ async function createTestDb(): Promise<TestDb> {
 	await execMigrationStatements(client, paymentAttemptsMigrationSql);
 	await execMigrationStatements(client, paiseMigrationSql);
 
+	await applyInterestMigration(client);
 	const db = drizzle(client, { schema }) as unknown as Database;
 	return { client, db };
 }
@@ -1924,3 +1926,43 @@ function fakeMail() {
 	};
 	return { mail, sent, flush: () => Promise.all(pending) };
 }
+
+describe('CheckoutStore interest checks (PGlite)', () => {
+	let testDb: TestDb;
+
+	beforeEach(async () => {
+		testDb = await createTestDb();
+	});
+
+	afterEach(async () => {
+		await testDb.client.close();
+	});
+
+	it('refuses to create an order for an open interest check, and allows it after launch', async () => {
+		await seedProduct(testDb.db, PRODUCT_1, 5, 'Widget A');
+		await seedGuestCartLine(testDb.db, CLIENT_A, PRODUCT_1, 1);
+		await testDb.db
+			.insert(schema.interestCampaigns)
+			.values({ productId: PRODUCT_1, targetCount: 10, shipsWithinDays: 30 });
+
+		const razorpay = fakeRazorpay();
+		const store = createCheckoutStore(testDb.db, razorpay);
+		const actor = { userId: null, clientId: CLIENT_A };
+
+		const refused = await store.createOrder(actor, orderAddresses());
+		expect(refused).toEqual({
+			ok: false,
+			status: 409,
+			body: { error: 'listing_not_available', productId: PRODUCT_1 }
+		});
+		expect(razorpay.createOrder).not.toHaveBeenCalled();
+		expect(await testDb.db.select().from(orders)).toHaveLength(0);
+
+		await testDb.db
+			.update(schema.interestCampaigns)
+			.set({ status: 'launched' })
+			.where(eq(schema.interestCampaigns.productId, PRODUCT_1));
+		const created = await store.createOrder(actor, orderAddresses());
+		expect(created.ok).toBe(true);
+	});
+});

@@ -3,7 +3,7 @@ import { auditLog } from '../db/schema/auditLog.js';
 
 // Audit rows are written in the same transaction as the business transition; a
 // failure here rolls back the entire transition by design.
-export type AuditEntityType = 'order' | 'print_request' | 'cart';
+export type AuditEntityType = 'order' | 'print_request' | 'cart' | 'product';
 
 export interface AuditEntry {
 	actorUserId?: string | null;

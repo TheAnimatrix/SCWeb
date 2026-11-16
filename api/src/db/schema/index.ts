@@ -43,3 +43,8 @@ export {
 export { printingCrafters } from './printingCrafters.js';
 export { userFilament } from './userFilament.js';
 export { users } from './users.js';
+export {
+	interestCampaigns,
+	productInterests,
+	INTEREST_CAMPAIGN_STATUS_VALUES
+} from './interest.js';

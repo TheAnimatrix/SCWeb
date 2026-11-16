@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Database } from './db/index.js';
-import { getCorsOrigins, type Env } from './env.js';
+import { getCorsOrigins, getSiteUrl, type Env } from './env.js';
 import { csrfMiddleware } from './middleware/csrf.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { identityMiddleware } from './middleware/identity.js';
@@ -43,6 +43,8 @@ import { createOrdersStore, type OrdersStore } from './services/orders-store.js'
 import { createOrdersRoutes } from './routes/orders.js';
 import { createMakersStore, type MakersStore } from './services/makers-store.js';
 import { makersRoutes } from './routes/makers.js';
+import { createInterestStore, type InterestStore } from './services/interest-store.js';
+import { interestRoutes } from './routes/interest.js';
 import {
 	createRazorpayWebhookService,
 	type RazorpayWebhookService
@@ -66,6 +68,7 @@ type CreateAppOptions = {
 	authStore?: AuthStore;
 	ordersStore?: OrdersStore;
 	makersStore?: MakersStore;
+	interestStore?: InterestStore;
 	razorpayWebhookService?: RazorpayWebhookService;
 };
 
@@ -85,6 +88,7 @@ export function createApp({
 	authStore,
 	ordersStore,
 	makersStore,
+	interestStore,
 	razorpayWebhookService
 }: CreateAppOptions) {
 	const app = new Hono<{ Variables: AppVariables }>();
@@ -146,6 +150,19 @@ export function createApp({
 	const resolvedAuthStore = authStore ?? createAuthStore(db, env, resolvedMailService);
 	const resolvedOrdersStore = ordersStore ?? createOrdersStore(db);
 	const resolvedMakersStore = makersStore ?? createMakersStore(db);
+	const resolvedInterestStore =
+		interestStore ??
+		createInterestStore(db, {
+			siteUrl: getSiteUrl(env),
+			async deliver(to, email) {
+				// Without SMTP nothing is sent, so leave the person pending instead of marking
+				// them notified.
+				if (!resolvedEmailService.isConfigured) {
+					throw new Error('smtp_not_configured');
+				}
+				await resolvedEmailService.send({ to, ...email });
+			}
+		});
 	const resolvedRazorpayWebhookService =
 		razorpayWebhookService ??
 		createRazorpayWebhookService(db, {
@@ -167,6 +184,7 @@ export function createApp({
 		c.set('authStore', resolvedAuthStore);
 		c.set('ordersStore', resolvedOrdersStore);
 		c.set('makersStore', resolvedMakersStore);
+		c.set('interestStore', resolvedInterestStore);
 		c.set('razorpayWebhookService', resolvedRazorpayWebhookService);
 		await next();
 	});
@@ -191,6 +209,7 @@ export function createApp({
 	app.route('/', authRoutes);
 	app.route('/', catalogRoutes);
 	app.route('/', makersRoutes);
+	app.route('/', interestRoutes);
 	app.route('/', cartRoutes);
 	app.route('/', checkoutRoutes);
 	app.route('/', razorpayWebhookRoutes);

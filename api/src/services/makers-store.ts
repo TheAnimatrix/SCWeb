@@ -18,6 +18,14 @@ import { products } from '../db/schema/products.js';
 import { userFilament } from '../db/schema/userFilament.js';
 import { users } from '../db/schema/users.js';
 import { normalizeUsername, parseHandleParam } from '../lib/reserved-usernames.js';
+import type { ListingInterestInput, ProductInterest } from '../contracts/interest.js';
+import {
+	applyListingInterestUpdate,
+	createListingCampaign,
+	loadMakerListingInterests,
+	loadProductInterests,
+	validateNewListingInterest
+} from './interest-store.js';
 
 export type MakersStore = ReturnType<typeof createMakersStore>;
 
@@ -134,6 +142,8 @@ export type PublicStorefront = {
 		images: { url: string }[] | null;
 		type: string | null;
 		author: string | null;
+		/** Interest check details; null for an ordinary listing. */
+		interest: ProductInterest | null;
 	}>;
 	printing: {
 		max_printer_size: string | null;
@@ -666,6 +676,11 @@ export function createMakersStore(db: Database) {
 				}
 			}
 
+			const interests = await loadMakerListingInterests(
+				db,
+				rows.map((row) => row.id)
+			);
+
 			return rows.map((row) => {
 				const docFields = listingDocFields(row.documentation);
 				return {
@@ -683,7 +698,8 @@ export function createMakersStore(db: Database) {
 					...docFields,
 					faq: row.faq,
 					listing_state: row.listingState,
-					created_at: row.createdAt
+					created_at: row.createdAt,
+					interest: interests.get(row.id) ?? null
 				};
 			});
 		},
@@ -708,6 +724,8 @@ export function createMakersStore(db: Database) {
 			documentation?: { data: string; isMDUrl: boolean }[];
 			faq?: { question: string; answer: string }[];
 			submitForReview?: boolean;
+			/** Interest check settings; omitted means "leave as is" on an update. */
+			interest?: ListingInterestInput;
 		}) {
 			const stock = {
 				count: input.stockCount,
@@ -740,6 +758,15 @@ export function createMakersStore(db: Database) {
 						type: nextType,
 						images: nextImages
 					});
+					// Interest settings are a public commitment, so a change sends a live listing
+					// back to review like a price change does.
+					const interestChange = await applyListingInterestUpdate(
+						tx,
+						existing.id,
+						existing.listingState,
+						input.interest
+					);
+					const needsReview = materialChanged || interestChange.changed;
 
 					let nextState = existing.listingState;
 					let queuedReview = false;
@@ -751,9 +778,9 @@ export function createMakersStore(db: Database) {
 						nextState = 'draft';
 					} else if (
 						['live', 'paused'].includes(existing.listingState) &&
-						materialChanged
+						needsReview
 					) {
-						// Rare cases: name / price / images / type need staff re-approval.
+						// Rare cases: name / price / images / type / interest settings need staff re-approval.
 						nextState = 'pending_review';
 						queuedReview = true;
 					}
@@ -793,14 +820,19 @@ export function createMakersStore(db: Database) {
 								name: input.name,
 								price,
 								stock,
-								material_changed: materialChanged
+								material_changed: materialChanged,
+								interest_changed: interestChange.changed
 							}
 						});
 					}
 
-					return updated;
+					const interest =
+						(await loadMakerListingInterests(tx, [updated.id])).get(updated.id) ?? null;
+					return { ...updated, interest };
 				});
 			}
+
+			const newInterest = validateNewListingInterest(input.interest);
 
 			return db.transaction(async (tx) => {
 				const listingState = input.submitForReview ? 'pending_review' : 'draft';
@@ -840,7 +872,12 @@ export function createMakersStore(db: Database) {
 					});
 				}
 
-				return created;
+				if (newInterest) {
+					await createListingCampaign(tx, created.id, newInterest);
+				}
+				const interest =
+					(await loadMakerListingInterests(tx, [created.id])).get(created.id) ?? null;
+				return { ...created, interest };
 			});
 		},
 
@@ -1084,6 +1121,10 @@ export function createMakersStore(db: Database) {
 					)
 				)
 				.orderBy(desc(products.createdAt));
+			const listingInterests = await loadProductInterests(
+				db,
+				listingRows.map((p) => p.id)
+			);
 
 			let printing: PublicStorefront['printing'] = null;
 			if (capabilities.includes('printing_3d')) {
@@ -1126,7 +1167,8 @@ export function createMakersStore(db: Database) {
 					stock: p.stock,
 					images: p.images,
 					type: p.type,
-					author: p.author
+					author: p.author,
+					interest: listingInterests.get(p.id) ?? null
 				})),
 				printing
 			};

@@ -77,9 +77,15 @@ export const interestErrorSchema = z.enum([
 
 /**
  * Maker portal: sent as `interest` inside the existing listing create/update body.
- * `enabled: false` (or omitting `interest`) makes it an ordinary listing.
+ * `enabled: false` makes it an ordinary listing. Omitting `interest` creates an ordinary
+ * listing, and on an update leaves the current interest settings as they are.
  * Once at least one person has shown interest, `target_count` and `ships_within_days` are a
- * commitment and can no longer be changed by the maker (409 `interest_locked`).
+ * commitment and can no longer be changed by the maker, nor can the check be turned off
+ * (409 `interest_locked`). The note can still change.
+ * Other errors: 400 `invalid_payload` (enabled without target or days), 409
+ * `interest_not_allowed` (only a listing that has not gone live yet can become one).
+ * Changing interest settings on a live listing sends it back to review, like a price change.
+ * Once launched or closed, `interest` in the body is ignored.
  */
 export const listingInterestInputSchema = z.object({
 	enabled: z.boolean(),
@@ -150,7 +156,8 @@ export const interestNotifyResponseSchema = z.object({
 /**
  * Maker error bodies: 404 `listing_not_found`, 409 `not_an_interest_listing`,
  * 409 `interest_locked` (changing the target after people joined),
- * 409 `interest_not_open` (launching or closing twice is fine; this is for the wrong state).
+ * 409 `interest_not_open` (launching or closing twice is fine; this is for the wrong state),
+ * 409 `listing_not_live` (launch needs the listing approved and live).
  */
 
 /** GET /admin/interest/:productId (staff only): the full list, for planning a batch. */

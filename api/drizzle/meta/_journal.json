@@ -78,6 +78,13 @@
       "when": 1784369201374,
       "tag": "0011_maker_experience_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784455601374,
+      "tag": "0012_interest_checks",
+      "breakpoints": true
     }
   ]
 }

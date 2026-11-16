@@ -33,6 +33,7 @@ import {
 	productHref,
 	type ProductView
 } from './catalog-mappers.js';
+import { interestStatsSubquery, productInterestFromStats } from './interest-store.js';
 
 const PAGE_SIZE = 12;
 const RELATED_LIMIT = 4;
@@ -143,7 +144,10 @@ export function createCatalogStore(db: Database): CatalogStore {
 			.as('review_stats');
 	}
 
-	function selectProductColumns(reviewStats: ReturnType<typeof reviewStatsSubquery>) {
+	function selectProductColumns(
+		reviewStats: ReturnType<typeof reviewStatsSubquery>,
+		interestStats: ReturnType<typeof interestStatsSubquery>
+	) {
 		return {
 			product: products,
 			user: {
@@ -153,8 +157,33 @@ export function createCatalogStore(db: Database): CatalogStore {
 			reviewStats: {
 				average: reviewStats.average,
 				count: reviewStats.count
+			},
+			// Interest check (null for an ordinary listing): campaign settings plus the live
+			// count of people who have not withdrawn.
+			interestStats: {
+				status: interestStats.status,
+				targetCount: interestStats.targetCount,
+				shipsWithinDays: interestStats.shipsWithinDays,
+				note: interestStats.note,
+				interestedCount: interestStats.interestedCount
 			}
 		};
+	}
+
+	type ProductQueryRow = {
+		product: typeof products.$inferSelect;
+		user: { username: string | null; tier: string | null } | null;
+		reviewStats: { average: string | null; count: number } | null;
+		interestStats: Parameters<typeof productInterestFromStats>[0];
+	};
+
+	function mapQueryRow(row: ProductQueryRow): ProductView {
+		return mapProductRow(
+			row.product,
+			row.user,
+			row.reviewStats,
+			productInterestFromStats(row.interestStats)
+		);
 	}
 
 	async function selectProductsWithUsers(
@@ -165,12 +194,14 @@ export function createCatalogStore(db: Database): CatalogStore {
 		const live = eq(products.listingState, 'live');
 		const combined = where ? and(live, where) : live;
 		const reviewStats = reviewStatsSubquery();
+		const interestStats = interestStatsSubquery(db);
 
 		let query = db
-			.select(selectProductColumns(reviewStats))
+			.select(selectProductColumns(reviewStats, interestStats))
 			.from(products)
 			.leftJoin(users, eq(products.uid, users.id))
 			.leftJoin(reviewStats, eq(reviewStats.productId, products.id))
+			.leftJoin(interestStats, eq(interestStats.productId, products.id))
 			.where(combined)
 			.orderBy(orderBy);
 
@@ -179,7 +210,7 @@ export function createCatalogStore(db: Database): CatalogStore {
 		}
 
 		const rows = await query;
-		return rows.map(({ product, user, reviewStats: stats }) => mapProductRow(product, user, stats));
+		return rows.map(mapQueryRow);
 	}
 
 	async function getMakerInfo(makerId: string): Promise<ProductMakerInfo | null> {
@@ -382,20 +413,20 @@ export function createCatalogStore(db: Database): CatalogStore {
 			const offset = (currentPage - 1) * PAGE_SIZE;
 
 			const reviewStats = reviewStatsSubquery();
+			const interestStats = interestStatsSubquery(db);
 			const rows = await db
-				.select(selectProductColumns(reviewStats))
+				.select(selectProductColumns(reviewStats, interestStats))
 				.from(products)
 				.leftJoin(users, eq(products.uid, users.id))
 				.leftJoin(reviewStats, eq(reviewStats.productId, products.id))
+				.leftJoin(interestStats, eq(interestStats.productId, products.id))
 				.where(where)
 				.orderBy(browseOrderBy(activeFilters.sort))
 				.limit(PAGE_SIZE)
 				.offset(offset);
 
 			return {
-				products: rows.map(({ product, user, reviewStats: stats }) =>
-					mapProductRow(product, user, stats)
-				),
+				products: rows.map(mapQueryRow),
 				totalCount,
 				currentPage,
 				totalPages,

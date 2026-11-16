@@ -63,7 +63,12 @@ export function productOgImageUrl(product: Pick<Product, 'id'>, origin?: string)
 	return absoluteUrl(productOgImagePath(product.id), origin);
 }
 
-export function productAvailability(product: Product): 'InStock' | 'OutOfStock' {
+export function productAvailability(
+	product: Product
+): 'InStock' | 'OutOfStock' | 'PreOrder' | 'Discontinued' {
+	// An open interest check can't be bought yet; a closed one never will be.
+	if (product.interest?.status === 'open') return 'PreOrder';
+	if (product.interest?.status === 'closed') return 'Discontinued';
 	const count = product.stock?.count ?? 0;
 	const status = product.stock?.status?.toLowerCase() ?? '';
 	if (count > 0 || status === 'in_stock' || status === 'available') return 'InStock';

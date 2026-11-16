@@ -8,7 +8,7 @@
 	import { cn } from '$lib/utils';
 	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
 	import { formatInr } from '$lib/utils/format';
-	import { isOnDemand, isOutOfStock } from '$lib/utils/stock';
+	import { isOnDemand, isOpenInterest, isOutOfStock } from '$lib/utils/stock';
 	import PlaceholderImage from './PlaceholderImage.svelte';
 
 	interface Props {
@@ -65,6 +65,9 @@
 	}
 
 	function stockLabel(product: Product): string | null {
+		if (isOpenInterest(product) && product.interest) {
+			return `${product.interest.interestedCount} of ${product.interest.targetCount} interested`;
+		}
 		if (isOnDemand(product.stock)) return 'Made to order';
 		if (isOutOfStock(product.stock)) return 'Out of stock';
 		return `${product.stock.count} in stock`;

@@ -1,5 +1,38 @@
-import type { ListAvailableMakersResponse } from '@scweb/api/contracts';
-import { mapApiError, type CartApiResult } from '$lib/client/cartApi';
+import type {
+	CloseInterestBody,
+	InterestNotifyResponse,
+	LaunchInterestBody,
+	ListAvailableMakersResponse,
+	MakerInterestSummary
+} from '@scweb/api/contracts';
+import { mapApiError, type CartApiError } from '$lib/client/cartApi';
+
+/** Same errors as the cart client, plus the API's `error` code so pages can branch on it. */
+export type MakersApiError = CartApiError & { code?: string };
+export type MakersApiResult<T> = { ok: true; data: T } | { ok: false; error: MakersApiError };
+
+/** Shown when the target or shipping time is changed after people joined (409 `interest_locked`). */
+export const INTEREST_LOCKED_MESSAGE =
+	'People have already shown interest, so the target and shipping time are fixed. Write to support@selfcrafted.in to change them.';
+
+const INTEREST_NOT_OPEN_MESSAGE = 'This interest check is no longer open.';
+
+function errorCode(body: unknown): string | undefined {
+	if (typeof body !== 'object' || body === null) return undefined;
+	const code = (body as Record<string, unknown>).error;
+	return typeof code === 'string' ? code : undefined;
+}
+
+export function mapMakersApiError(status: number, body: unknown): MakersApiError {
+	const code = errorCode(body);
+	if (code === 'interest_locked') {
+		return { kind: 'unknown', code, message: INTEREST_LOCKED_MESSAGE };
+	}
+	if (code === 'interest_not_open') {
+		return { kind: 'unknown', code, message: INTEREST_NOT_OPEN_MESSAGE };
+	}
+	return { ...mapApiError(status, body), ...(code ? { code } : {}) };
+}
 
 async function readJson(response: Response): Promise<unknown> {
 	const text = await response.text();
@@ -15,7 +48,7 @@ async function apiRequest<T>(
 	fetchFn: typeof fetch,
 	path: string,
 	init?: RequestInit
-): Promise<CartApiResult<T>> {
+): Promise<MakersApiResult<T>> {
 	let response: Response;
 	try {
 		response = await fetchFn(`/api${path}`, init);
@@ -25,7 +58,7 @@ async function apiRequest<T>(
 
 	const body = await readJson(response);
 	if (!response.ok) {
-		return { ok: false, error: mapApiError(response.status, body) };
+		return { ok: false, error: mapMakersApiError(response.status, body) };
 	}
 
 	return { ok: true, data: body as T };
@@ -33,7 +66,7 @@ async function apiRequest<T>(
 
 export async function listAvailableMakers(
 	fetchFn: typeof fetch
-): Promise<CartApiResult<ListAvailableMakersResponse>> {
+): Promise<MakersApiResult<ListAvailableMakersResponse>> {
 	return apiRequest<ListAvailableMakersResponse>(fetchFn, '/makers/available');
 }
 
@@ -203,4 +236,39 @@ export async function reviewListing(
 			body: JSON.stringify({ decision, notes })
 		}
 	);
+}
+
+function listingInterestPath(productId: string, suffix = ''): string {
+	return `/makers/me/listings/${encodeURIComponent(productId)}/interest${suffix}`;
+}
+
+/** Counts only: makers never see who is on the list. */
+export async function getMyListingInterest(fetchFn: typeof fetch, productId: string) {
+	return apiRequest<MakerInterestSummary>(fetchFn, listingInterestPath(productId));
+}
+
+/** Turns the interest check into an ordinary listing and e-mails everyone on the list. */
+export async function launchMyListingInterest(
+	fetchFn: typeof fetch,
+	productId: string,
+	body: LaunchInterestBody
+) {
+	return apiRequest<InterestNotifyResponse>(fetchFn, listingInterestPath(productId, '/launch'), {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+}
+
+/** The maker is not going ahead; everyone on the list is e-mailed. */
+export async function closeMyListingInterest(
+	fetchFn: typeof fetch,
+	productId: string,
+	body: CloseInterestBody
+) {
+	return apiRequest<InterestNotifyResponse>(fetchFn, listingInterestPath(productId, '/close'), {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
 }

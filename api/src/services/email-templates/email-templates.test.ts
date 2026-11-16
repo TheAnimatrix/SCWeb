@@ -3,6 +3,9 @@ import {
 	renderAccountWelcomeEmail,
 	renderOrderReceivedEmail,
 	renderPasswordResetEmail,
+	renderInterestClosedEmail,
+	renderInterestJoinedEmail,
+	renderInterestLaunchedEmail,
 	renderPrintQuoteRequestedEmail
 } from './index.js';
 
@@ -85,5 +88,49 @@ describe('email templates', () => {
 		expect(result.html).toContain('background:#ff0000');
 		expect(result.html).toContain('#ff0000');
 		expect(result.attachments).toHaveLength(1);
+	});
+
+	it('renders the three interest-check e-mails with the agreed wording', () => {
+		const listing = 'https://selfcrafted.in/Moon_Lamp/craft/item=abc';
+		const joined = renderInterestJoinedEmail({
+			siteUrl: 'https://selfcrafted.in',
+			productName: 'Moon Lamp',
+			makerName: 'Clay Studio',
+			targetCount: 20,
+			interestedCount: 4,
+			shipsWithinDays: 30,
+			listingUrl: listing
+		});
+		expect(joined.subject).toBe("You're on the list for Moon Lamp");
+		expect(joined.text).toContain("This isn't an order and you haven't paid anything.");
+		expect(joined.text).toContain(
+			'Clay Studio will produce it once 20 people show interest (4 so far), and plans to ship within 30 days of reaching that number.'
+		);
+		expect(joined.text).toContain(`View the listing: ${listing}`);
+
+		const launched = renderInterestLaunchedEmail({
+			siteUrl: 'https://selfcrafted.in',
+			productName: 'Moon Lamp',
+			makerName: 'Clay Studio',
+			priceInr: 1499,
+			deliveryFeeInr: 99,
+			message: '<b>Hi</b>',
+			buyUrl: listing
+		});
+		expect(launched.subject).toBe('Moon Lamp is ready to order');
+		expect(launched.text).toContain('Price: ₹1,499, plus ₹99 delivery.');
+		expect(launched.text).toContain('A note from Clay Studio:');
+		expect(launched.html).toContain('&lt;b&gt;Hi&lt;/b&gt;');
+		expect(launched.html).not.toContain('<b>Hi</b>');
+		expect(launched.text).toContain(`Buy Moon Lamp: ${listing}`);
+
+		const closed = renderInterestClosedEmail({
+			siteUrl: 'https://selfcrafted.in',
+			productName: 'Moon Lamp',
+			makerName: 'Clay Studio'
+		});
+		expect(closed.subject).toBe("Moon Lamp won't be produced");
+		expect(closed.text).toContain("You weren't charged, and there is nothing you need to do.");
+		expect(closed.text).not.toContain('A note from');
 	});
 });

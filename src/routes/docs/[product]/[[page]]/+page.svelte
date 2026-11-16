@@ -13,7 +13,9 @@
 	const docParams = (slug: string) => ({ product: product.slug, page: slug || undefined });
 	const docPath = (slug: string) => resolve('/docs/[product]/[[page]]', docParams(slug));
 	const canonical = $derived(absoluteUrl(docPath(doc.slug), siteUrl));
-	const editUrl = $derived(`${product.repoUrl}/blob/main/docs/${doc.slug || 'index'}.md`);
+	const editUrl = $derived(
+		product.repoUrl ? `${product.repoUrl}/blob/main/docs/${doc.slug || 'index'}.md` : null
+	);
 	const title = $derived(`${doc.title} · ${product.title} docs`);
 	const description = $derived(doc.description || `${product.title} documentation.`);
 	const syncedDate = $derived(
@@ -82,15 +84,19 @@
 		<p class="mt-2 text-lg font-semibold tracking-tight">{product.title}</p>
 		<p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">{product.tagline}</p>
 		<div class="mt-4 flex flex-col gap-2">
-			<ScButton href={product.productPath} class="w-full">Buy {product.title}</ScButton>
-			<ScButton
-				href={product.repoUrl}
-				target="_blank"
-				rel="noopener noreferrer"
-				variant="secondary"
-				class="w-full">
-				View on GitHub<span class="sr-only"> (opens in a new tab)</span>
+			<ScButton href={product.productPath} class="w-full">
+				{product.cta ?? `Buy ${product.title}`}
 			</ScButton>
+			{#if product.repoUrl}
+				<ScButton
+					href={product.repoUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+					variant="secondary"
+					class="w-full">
+					View on GitHub<span class="sr-only"> (opens in a new tab)</span>
+				</ScButton>
+			{/if}
 		</div>
 	</div>
 {/snippet}
@@ -175,15 +181,17 @@
 
 					<div
 						class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-						<!-- eslint-disable svelte/no-navigation-without-resolve -- external GitHub link -->
-						<a
-							href={editUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="border-b border-border pb-0.5 transition-colors hover:border-foreground hover:text-foreground">
-							Edit this page on GitHub<span class="sr-only"> (opens in a new tab)</span>
-						</a>
-						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{#if editUrl}
+							<!-- eslint-disable svelte/no-navigation-without-resolve -- external GitHub link -->
+							<a
+								href={editUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="border-b border-border pb-0.5 transition-colors hover:border-foreground hover:text-foreground">
+								Edit this page on GitHub<span class="sr-only"> (opens in a new tab)</span>
+							</a>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{/if}
 						{#if syncedDate}
 							<span class="font-mono text-xs">Synced {syncedDate}</span>
 						{/if}

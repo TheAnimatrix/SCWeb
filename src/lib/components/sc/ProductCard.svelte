@@ -9,7 +9,7 @@
 	import { formatUsernameDisplay } from '$lib/utils/formatUsername';
 	import { formatInr } from '$lib/utils/format';
 	import { buildProductTags, tagDisplayLabel } from '$lib/utils/productTypeTag';
-	import { isOnDemand, isOutOfStock } from '$lib/utils/stock';
+	import { isOnDemand, isOpenInterest, isOutOfStock } from '$lib/utils/stock';
 	import PlaceholderImage from './PlaceholderImage.svelte';
 	import MetaChip from './MetaChip.svelte';
 	import TagBadge from './TagBadge.svelte';
@@ -33,8 +33,10 @@
 		class: className
 	}: Props = $props();
 
-	const unavailable = $derived(isOutOfStock(product.stock));
-	const onDemand = $derived(isOnDemand(product.stock));
+	// An open interest check has no stock yet; it is not "out of stock".
+	const interestCheck = $derived(isOpenInterest(product) ? product.interest! : null);
+	const unavailable = $derived(!interestCheck && isOutOfStock(product.stock));
+	const onDemand = $derived(!interestCheck && isOnDemand(product.stock));
 
 	const productUser = $derived(productUserRef(product.users));
 	const makerName = $derived(product.author ?? productUser?.username ?? 'unknown');
@@ -72,7 +74,14 @@
 			src={imageUrl}
 			alt={product.name}
 			class="transition-transform duration-500 group-hover:scale-105" />
-		{#if onDemand}
+		{#if interestCheck}
+			<div class="absolute bottom-2 right-2 z-10">
+				<MetaChip
+					class="border-border bg-background/80 text-xs font-medium text-foreground backdrop-blur-sm">
+					Interest check
+				</MetaChip>
+			</div>
+		{:else if onDemand}
 			<div class="absolute bottom-2 right-2 z-10">
 				<MetaChip
 					class="border-amber-500/40 bg-amber-500/80 text-xs font-medium text-amber-950 backdrop-blur-sm">
@@ -137,7 +146,12 @@
 		{/if}
 
 		<div class="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
-			{#if showStock}
+			{#if interestCheck}
+				<p class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+					<Icon icon={F.people} class="size-3.5 shrink-0" aria-hidden="true" />
+					{interestCheck.interestedCount} of {interestCheck.targetCount} interested
+				</p>
+			{:else if showStock}
 				<p class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
 					<Icon icon={F.box} class="size-3.5 shrink-0" aria-hidden="true" />
 					{product.stock.count} in stock

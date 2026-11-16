@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import { applyInterestMigration } from '../test/interest-tables.js';
 import { productHref, productSlug, ratingFromReviewStats } from './catalog-mappers.js';
 import { createCatalogStore, type CatalogStore } from './catalog-store.js';
 
@@ -114,6 +115,7 @@ describe('catalog store', () => {
 	beforeAll(async () => {
 		const client = new PGlite();
 		await client.exec(STUB_SQL);
+		await applyInterestMigration(client);
 		const db = drizzle(client, { schema }) as unknown as Database;
 
 		await db.insert(schema.users).values([

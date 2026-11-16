@@ -10,6 +10,7 @@ import type { CheckoutOrderAddresses } from '../contracts/checkout.js';
 import { normalizeCheckoutOrderAddresses } from '../services/checkout.js';
 import type { Database } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import { applyInterestMigration } from '../test/interest-tables.js';
 import { auditLog } from '../db/schema/auditLog.js';
 import { cartItems } from '../db/schema/cartItems.js';
 import { carts } from '../db/schema/carts.js';
@@ -109,6 +110,7 @@ async function createTestDb(): Promise<TestDb> {
 	await execMigrationStatements(client, auditMigrationSql);
 	await execMigrationStatements(client, paymentAttemptsMigrationSql);
 	await execMigrationStatements(client, paiseMigrationSql);
+	await applyInterestMigration(client);
 
 	const db = drizzle(client, { schema }) as unknown as Database;
 	return { client, db };

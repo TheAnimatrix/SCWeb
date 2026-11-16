@@ -13,6 +13,7 @@ import type { MailService } from '../services/mail.js';
 import type { AuthStore } from '../services/auth-store.js';
 import type { OrdersStore } from '../services/orders-store.js';
 import type { MakersStore, ResolvedMaker } from '../services/makers-store.js';
+import type { InterestStore } from '../services/interest-store.js';
 import type { RazorpayWebhookService } from '../services/razorpay-webhooks.js';
 
 export type Actor = {
@@ -37,6 +38,7 @@ export type AppVariables = {
 	authStore: AuthStore;
 	ordersStore: OrdersStore;
 	makersStore: MakersStore;
+	interestStore: InterestStore;
 	razorpayWebhookService: RazorpayWebhookService;
 	requestId: string;
 	actor: Actor;
