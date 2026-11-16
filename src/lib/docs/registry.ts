@@ -21,10 +21,10 @@ export const docsProducts: DocsProduct[] = [
 	},
 	{
 		slug: 'keepalive',
-		title: 'KeepAlive',
+		title: 'Power Bank KeepAlive',
 		tagline: 'Stops a power bank switching off under a small load',
 		productId: 'b320bdaf-1e9f-4f13-b7a8-c24b4b2823be',
-		productPath: '/KeepAlive/craft/item=b320bdaf-1e9f-4f13-b7a8-c24b4b2823be',
+		productPath: '/Power_Bank_KeepAlive/craft/item=b320bdaf-1e9f-4f13-b7a8-c24b4b2823be',
 		// Not made yet: the listing is an interest check, so there is nothing to buy.
 		cta: 'See the listing'
 	}

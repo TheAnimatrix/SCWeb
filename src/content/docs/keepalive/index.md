@@ -1,10 +1,10 @@
 ---
 title: Overview
-description: KeepAlive is a small USB-C module that stops a power bank from switching itself off when your project draws too little current.
+description: Power Bank KeepAlive is a small USB-C module that stops a power bank from switching itself off when your project draws too little current.
 order: 1
 ---
 
-# KeepAlive
+# Power Bank KeepAlive
 
 Most power banks switch their output off after a few seconds if the load is small. A small load is exactly what an Arduino, a sensor board or a few LEDs looks like, so the bank goes to sleep and your project dies with it.
 
@@ -12,7 +12,7 @@ KeepAlive sits between the power bank and your circuit. It measures what your ci
 
 > **This board hasn't been built yet.** The design passes KiCad's electrical and board rule checks and the firmware compiles. No board has been made, the firmware has never run on a chip, and no power bank has been tried. The numbers on these pages are calculated from datasheets, not measured. The pictures are renders of the design.
 
-It is listed as an interest check on the [product page](/KeepAlive/craft/item=b320bdaf-1e9f-4f13-b7a8-c24b4b2823be): if enough people want one, a batch gets made.
+It is listed as an interest check on the [product page](/Power_Bank_KeepAlive/craft/item=b320bdaf-1e9f-4f13-b7a8-c24b4b2823be): if enough people want one, a batch gets made.
 
 ## What it does
 

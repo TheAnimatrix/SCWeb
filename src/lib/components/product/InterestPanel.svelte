@@ -220,18 +220,9 @@
 			</p>
 		{/if}
 		<p class="text-3xl font-semibold tracking-tight text-foreground">{formatInr(price)}</p>
-		<p class="text-sm text-muted-foreground">You pay nothing now.</p>
 	</div>
 
 	<div class="space-y-3 rounded-md border border-border bg-muted/30 p-4">
-		<p class="text-sm leading-relaxed text-foreground">
-			{#if interest.targetReached}
-				{target} people are interested. {interest.makerName} can launch this now.
-			{:else}
-				This hasn't been made yet. {interest.makerName} will produce it once {target} people show interest.
-			{/if}
-		</p>
-
 		<div class="space-y-1.5">
 			<div
 				class="h-2 w-full overflow-hidden rounded-full bg-muted"
@@ -245,12 +236,18 @@
 					style:width="{interest.progress * 100}%">
 				</div>
 			</div>
-			<p class="text-sm tabular-nums text-muted-foreground" aria-hidden="true">
+			<p class="text-sm font-medium tabular-nums text-foreground" aria-hidden="true">
 				{count} of {target} interested
 			</p>
 		</div>
 
-		<p class="text-sm text-foreground">Ships within {days} days of reaching {target}.</p>
+		<p class="text-sm text-muted-foreground">
+			{#if interest.targetReached}
+				The list is full. Ships within {days} days.
+			{:else}
+				Gets made when the list is full. Ships within {days} days of that.
+			{/if}
+		</p>
 		{#if note}
 			<p class="whitespace-pre-line break-words text-sm text-muted-foreground">{note}</p>
 		{/if}

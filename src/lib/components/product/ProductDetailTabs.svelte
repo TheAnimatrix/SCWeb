@@ -144,7 +144,13 @@
 									{:else if activeTab === 'shipping'}
 										<ul class="not-prose mb-4 space-y-1 text-sm text-foreground">
 											<li>Flat ₹99 delivery anywhere in India</li>
-											<li>Ships in 3 to 14 days</li>
+											{#if product.interest?.status === 'open'}
+												<li>
+													Ships within {product.interest.shipsWithinDays} days of the list filling up
+												</li>
+											{:else}
+												<li>Ships in 3 to 14 days</li>
+											{/if}
 										</ul>
 										{@render makerContent(
 											shipping,

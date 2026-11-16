@@ -93,7 +93,14 @@
 		const doc = docEntry?.data?.trim() ?? '';
 		if (docEntry?.isMDUrl || /^https?:\/\//i.test(doc)) return null;
 
-		const plain = stripMarkup(doc);
+		// Lead with the first paragraph only. Running on into the next heading or list turns the
+		// panel into a wall of text and repeats what the Description tab already shows.
+		const firstBlock =
+			doc
+				.split(/<\/p>|<\/h[1-6]>|<br\s*\/?>\s*<br\s*\/?>|\n\s*\n/i)
+				.map((block) => stripMarkup(block))
+				.find((block) => block.length > 0) ?? '';
+		const plain = firstBlock || stripMarkup(doc);
 		if (!plain) return '';
 		return plain.length > SHORT_DESCRIPTION_MAX
 			? `${plain.slice(0, SHORT_DESCRIPTION_MAX - 1).trimEnd()}…`
